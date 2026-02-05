@@ -40,7 +40,9 @@ class ImportResult:
     employees_created: int = 0
     employees_updated: int = 0
     employees_skipped: int = 0
+    employees_not_found: int = 0  # For update-only mode
     setups_created: Dict[str, int] = field(default_factory=dict)
+    fields_updated: Dict[str, int] = field(default_factory=dict)  # Track which fields were updated
     errors: List[Dict[str, Any]] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
@@ -1189,8 +1191,14 @@ class UnifiedImportProcessor:
 
             # Create or update employee
             if existing:
+                # Track which fields are actually changed
                 for key, value in employee_data.items():
-                    setattr(existing, key, value)
+                    if value is not None:  # Only update non-None values
+                        old_value = getattr(existing, key, None)
+                        if old_value != value:
+                            setattr(existing, key, value)
+                            # Track field updates
+                            self.result.fields_updated[key] = self.result.fields_updated.get(key, 0) + 1
                 existing.updated_by = self.user
                 existing.save()
                 self._employees[emp_number] = existing
@@ -1382,6 +1390,338 @@ class UnifiedImportProcessor:
             })
 
         return self.result
+
+    def process_update_only(
+        self,
+        files: List[Tuple[str, bytes]],
+        mapping: ColumnMapping = None,
+        join_column: str = None,
+        skip_empty_fields: bool = True,
+    ) -> ImportResult:
+        """
+        Process file(s) for updating existing employees only.
+
+        This mode:
+        - Only updates employees that already exist (matched by employee_number)
+        - Skips rows where employee is not found (no new employees created)
+        - Only updates fields that have values in the file (if skip_empty_fields=True)
+        - Tracks which fields were updated
+
+        Args:
+            files: List of (filename, file_content) tuples
+            mapping: Column mapping (auto-detected if None)
+            join_column: Column to join files on (auto-detected if None)
+            skip_empty_fields: If True, don't overwrite existing data with empty values
+
+        Returns:
+            ImportResult with statistics
+        """
+        logger.info(f"Starting UPDATE-ONLY import of {len(files)} files")
+
+        try:
+            # Read all files
+            dataframes = []
+            for filename, content in files:
+                df = self.read_file(content, filename)
+                dataframes.append((filename, df))
+                logger.info(f"Loaded {filename}: {len(df)} rows, {len(df.columns)} columns")
+
+            # Join dataframes
+            merged_df = self.join_dataframes(dataframes, join_column)
+            self.result.total_rows = len(merged_df)
+            logger.info(f"Merged dataset: {self.result.total_rows} rows")
+
+            # Auto-detect mapping if not provided
+            if mapping is None:
+                mapping = self.auto_detect_mapping(merged_df.columns.tolist())
+                logger.info(f"Auto-detected mapping: emp_id={mapping.employee_id}, name={mapping.full_name or mapping.first_name}")
+
+            # Load existing records into cache
+            self._load_existing_records()
+
+            # Process each row
+            for idx, row in merged_df.iterrows():
+                row_num = idx + 2
+
+                try:
+                    with transaction.atomic():
+                        # Get employee identifier
+                        emp_id = (
+                            self._get_value(row, mapping.employee_id) or
+                            self._get_value(row, mapping.employee_number)
+                        )
+
+                        if not emp_id:
+                            self.result.errors.append({
+                                'row': row_num,
+                                'error': 'No employee ID/number found',
+                            })
+                            continue
+
+                        emp_number = str(emp_id).strip()
+
+                        # Find existing employee
+                        existing = self._employees.get(emp_number)
+                        if not existing:
+                            # Try to find by employee number in database
+                            existing = Employee.objects.filter(
+                                employee_number=emp_number,
+                                is_deleted=False
+                            ).first()
+
+                        if not existing:
+                            self.result.employees_not_found += 1
+                            self.result.warnings.append(
+                                f"Row {row_num}: Employee {emp_number} not found, skipped"
+                            )
+                            continue
+
+                        # Update employee fields selectively
+                        updated = self._update_employee_selective(
+                            existing, row, mapping, row_num, skip_empty_fields
+                        )
+
+                        if updated:
+                            self.result.employees_updated += 1
+                        else:
+                            self.result.employees_skipped += 1
+
+                        # Update bank account if data present
+                        self._process_bank_account(row, mapping, existing, row_num)
+
+                except IntegrityError as e:
+                    error_msg = str(e)
+                    self.result.errors.append({
+                        'row': row_num,
+                        'error': f'Database error: {error_msg}',
+                    })
+                    continue
+                except Exception as e:
+                    self.result.errors.append({
+                        'row': row_num,
+                        'error': str(e),
+                    })
+                    continue
+
+            self.result.success = True
+            logger.info(
+                f"Update complete: {self.result.employees_updated} updated, "
+                f"{self.result.employees_skipped} unchanged, "
+                f"{self.result.employees_not_found} not found, "
+                f"{len(self.result.errors)} errors"
+            )
+
+        except Exception as e:
+            logger.error(f"Update import failed: {e}")
+            self.result.success = False
+            self.result.errors.append({
+                'row': 0,
+                'error': f"Update failed: {str(e)}",
+            })
+
+        return self.result
+
+    def _update_employee_selective(
+        self,
+        employee: Employee,
+        row: pd.Series,
+        mapping: ColumnMapping,
+        row_num: int,
+        skip_empty: bool = True
+    ) -> bool:
+        """
+        Selectively update employee fields from row data.
+        Only updates fields that have values in the file.
+
+        Returns True if any field was updated.
+        """
+        updated = False
+
+        # Define updatable fields with their mapping and processing
+        field_mappings = [
+            # Personal info
+            ('first_name', mapping.first_name, lambda v: str(v).strip()[:100] if v else None),
+            ('middle_name', mapping.middle_name, lambda v: str(v).strip()[:100] if v else None),
+            ('last_name', mapping.last_name, lambda v: str(v).strip()[:100] if v else None),
+            ('title', mapping.title, lambda v: str(v).strip()[:20] if v else None),
+            ('nationality', mapping.nationality, lambda v: str(v).strip()[:50] if v else None),
+
+            # Contact
+            ('mobile_phone', mapping.mobile_phone or mapping.phone, lambda v: str(v).strip()[:20] if v else None),
+            ('personal_email', mapping.personal_email or mapping.email, lambda v: str(v).strip()[:254] if v else None),
+            ('work_email', mapping.work_email, lambda v: str(v).strip()[:254] if v else None),
+
+            # Address
+            ('residential_address', mapping.address, lambda v: str(v).strip()[:500] if v else None),
+            ('residential_city', mapping.city, lambda v: str(v).strip()[:100] if v else None),
+            ('digital_address', mapping.digital_address, lambda v: str(v).strip()[:20] if v else None),
+
+            # IDs
+            ('ghana_card_number', mapping.ghana_card, lambda v: str(v).strip()[:20] if v else None),
+            ('ssnit_number', mapping.ssnit, lambda v: str(v).strip()[:20] if v else None),
+            ('tin_number', mapping.tin, lambda v: str(v).strip()[:20] if v else None),
+            ('voter_id', mapping.voter_id, lambda v: str(v).strip()[:20] if v else None),
+            ('passport_number', mapping.passport, lambda v: str(v).strip()[:20] if v else None),
+
+            # Legacy IDs
+            ('legacy_employee_id', mapping.legacy_id, lambda v: str(v).strip()[:50] if v else None),
+            ('old_staff_number', mapping.old_staff_number, lambda v: str(v).strip()[:50] if v else None),
+        ]
+
+        for field_name, column, processor in field_mappings:
+            if column is None:
+                continue
+
+            raw_value = self._get_value(row, column)
+            if raw_value is None or (skip_empty and str(raw_value).strip() == ''):
+                continue
+
+            new_value = processor(raw_value)
+            if new_value is None:
+                continue
+
+            old_value = getattr(employee, field_name, None)
+            if old_value != new_value:
+                # Check unique constraints for unique fields
+                if field_name in ['ghana_card_number', 'ssnit_number', 'tin_number']:
+                    existing_with_value = Employee.objects.filter(
+                        **{field_name: new_value},
+                        is_deleted=False
+                    ).exclude(id=employee.id).first()
+
+                    if existing_with_value:
+                        self.result.warnings.append(
+                            f"Row {row_num}: {field_name} '{new_value}' already used by {existing_with_value.employee_number}"
+                        )
+                        continue
+
+                setattr(employee, field_name, new_value)
+                self.result.fields_updated[field_name] = self.result.fields_updated.get(field_name, 0) + 1
+                updated = True
+
+        # Handle date fields
+        date_fields = [
+            ('date_of_birth', mapping.date_of_birth),
+            ('date_of_joining', mapping.date_of_joining),
+        ]
+
+        for field_name, column in date_fields:
+            if column is None:
+                continue
+            raw_value = self._get_value(row, column)
+            if raw_value is None:
+                continue
+            new_value = self._parse_date(raw_value)
+            if new_value and new_value != getattr(employee, field_name, None):
+                setattr(employee, field_name, new_value)
+                self.result.fields_updated[field_name] = self.result.fields_updated.get(field_name, 0) + 1
+                updated = True
+
+        # Handle enum/choice fields
+        gender_raw = self._get_value(row, mapping.gender)
+        if gender_raw and not (skip_empty and str(gender_raw).strip() == ''):
+            new_gender = self.GENDER_MAP.get(str(gender_raw).lower().strip())
+            if new_gender and new_gender != employee.gender:
+                employee.gender = new_gender
+                self.result.fields_updated['gender'] = self.result.fields_updated.get('gender', 0) + 1
+                updated = True
+
+        marital_raw = self._get_value(row, mapping.marital_status)
+        if marital_raw and not (skip_empty and str(marital_raw).strip() == ''):
+            new_marital = self.MARITAL_MAP.get(str(marital_raw).lower().strip())
+            if new_marital and new_marital != employee.marital_status:
+                employee.marital_status = new_marital
+                self.result.fields_updated['marital_status'] = self.result.fields_updated.get('marital_status', 0) + 1
+                updated = True
+
+        status_raw = self._get_value(row, mapping.employment_status)
+        if status_raw and not (skip_empty and str(status_raw).strip() == ''):
+            new_status = self.STATUS_MAP.get(str(status_raw).lower().strip())
+            if new_status and new_status != employee.status:
+                employee.status = new_status
+                self.result.fields_updated['status'] = self.result.fields_updated.get('status', 0) + 1
+                updated = True
+
+        type_raw = self._get_value(row, mapping.employment_type)
+        if type_raw and not (skip_empty and str(type_raw).strip() == ''):
+            new_type = self.TYPE_MAP.get(str(type_raw).lower().strip())
+            if new_type and new_type != employee.employment_type:
+                employee.employment_type = new_type
+                self.result.fields_updated['employment_type'] = self.result.fields_updated.get('employment_type', 0) + 1
+                updated = True
+
+        # Handle FK fields (organization)
+        division_name = self._get_value(row, mapping.division)
+        if division_name and not (skip_empty and str(division_name).strip() == ''):
+            division = self._get_or_create_division(division_name)
+            if division and division != employee.division:
+                employee.division = division
+                self.result.fields_updated['division'] = self.result.fields_updated.get('division', 0) + 1
+                updated = True
+
+        directorate_name = self._get_value(row, mapping.directorate)
+        if directorate_name and not (skip_empty and str(directorate_name).strip() == ''):
+            directorate = self._get_or_create_directorate(directorate_name, employee.division)
+            if directorate and directorate != employee.directorate:
+                employee.directorate = directorate
+                self.result.fields_updated['directorate'] = self.result.fields_updated.get('directorate', 0) + 1
+                updated = True
+
+        department_name = self._get_value(row, mapping.department)
+        if department_name and not (skip_empty and str(department_name).strip() == ''):
+            department = self._get_or_create_department(department_name, employee.directorate)
+            if department and department != employee.department:
+                employee.department = department
+                self.result.fields_updated['department'] = self.result.fields_updated.get('department', 0) + 1
+                updated = True
+
+        grade_name = self._get_value(row, mapping.grade)
+        if grade_name and not (skip_empty and str(grade_name).strip() == ''):
+            grade = self._get_or_create_grade(grade_name)
+            if grade and grade != employee.grade:
+                employee.grade = grade
+                self.result.fields_updated['grade'] = self.result.fields_updated.get('grade', 0) + 1
+                updated = True
+
+        position_name = self._get_value(row, mapping.position)
+        if position_name and not (skip_empty and str(position_name).strip() == ''):
+            position = self._get_or_create_position(position_name, employee.grade, employee.department)
+            if position and position != employee.position:
+                employee.position = position
+                self.result.fields_updated['position'] = self.result.fields_updated.get('position', 0) + 1
+                updated = True
+
+        staff_cat_name = self._get_value(row, mapping.staff_category)
+        if staff_cat_name and not (skip_empty and str(staff_cat_name).strip() == ''):
+            staff_category = self._get_or_create_staff_category(staff_cat_name)
+            if staff_category and staff_category != employee.staff_category:
+                employee.staff_category = staff_category
+                self.result.fields_updated['staff_category'] = self.result.fields_updated.get('staff_category', 0) + 1
+                updated = True
+
+        # Handle salary structure
+        band_name = self._get_value(row, mapping.salary_band)
+        level_name = self._get_value(row, mapping.salary_level)
+        notch_name = self._get_value(row, mapping.salary_notch)
+
+        if band_name and level_name and notch_name:
+            band = self._get_or_create_salary_band(band_name)
+            if band:
+                level = self._get_or_create_salary_level(level_name, band)
+                if level:
+                    basic_salary = self._parse_decimal(self._get_value(row, mapping.basic_salary))
+                    notch = self._get_or_create_salary_notch(notch_name, level, basic_salary)
+                    if notch and notch != employee.salary_notch:
+                        employee.salary_notch = notch
+                        self.result.fields_updated['salary_notch'] = self.result.fields_updated.get('salary_notch', 0) + 1
+                        updated = True
+
+        # Save if updated
+        if updated:
+            employee.updated_by = self.user
+            employee.save()
+
+        return updated
 
 
 def run_import(

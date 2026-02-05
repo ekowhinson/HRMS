@@ -1550,6 +1550,114 @@ class UnifiedImportStatusView(APIView):
         })
 
 
+class EmployeeUpdateImportView(APIView):
+    """
+    Update existing employee records from uploaded files.
+
+    This endpoint only updates employees that already exist in the database.
+    It will not create new employees - only update existing ones.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        """
+        Update existing employees from uploaded file(s).
+
+        POST /imports/employee-update/
+
+        Form data:
+        - files: One or more files to import (required)
+        - skip_empty_fields: Don't overwrite existing data with empty values (default: true)
+        - join_column: Column to join files on (auto-detected if not provided)
+        """
+        from .unified_import import UnifiedImportProcessor
+
+        files = request.FILES.getlist('files')
+        if not files:
+            return Response(
+                {'error': 'No files provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        skip_empty_fields = request.data.get('skip_empty_fields', 'true').lower() == 'true'
+        join_column = request.data.get('join_column')
+
+        # Read file contents
+        file_data = []
+        for file_obj in files:
+            content = file_obj.read()
+            filename = file_obj.name
+            file_data.append((filename, content))
+
+        # Run the update import
+        processor = UnifiedImportProcessor(user=request.user)
+        result = processor.process_update_only(
+            files=file_data,
+            mapping=None,  # Auto-detect
+            join_column=join_column,
+            skip_empty_fields=skip_empty_fields,
+        )
+
+        return Response({
+            'success': result.success,
+            'total_rows': result.total_rows,
+            'employees_updated': result.employees_updated,
+            'employees_unchanged': result.employees_skipped,
+            'employees_not_found': result.employees_not_found,
+            'fields_updated': result.fields_updated,
+            'setups_created': result.setups_created,
+            'errors': result.errors[:100] if result.errors else [],
+            'warnings': result.warnings[:100] if result.warnings else [],
+            'error_count': len(result.errors),
+        }, status=status.HTTP_200_OK if result.success else status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        """
+        Get information about the employee update endpoint.
+        GET /imports/employee-update/
+        """
+        return Response({
+            'description': 'Update existing employee records from uploaded files',
+            'method': 'POST',
+            'content_type': 'multipart/form-data',
+            'parameters': {
+                'files': {
+                    'type': 'file[]',
+                    'required': True,
+                    'description': 'One or more CSV/Excel files with employee data'
+                },
+                'skip_empty_fields': {
+                    'type': 'boolean',
+                    'required': False,
+                    'default': True,
+                    'description': 'If true, empty values in file will not overwrite existing data'
+                },
+                'join_column': {
+                    'type': 'string',
+                    'required': False,
+                    'description': 'Column to join multiple files on (auto-detected if not provided)'
+                },
+            },
+            'behavior': {
+                'update_only': 'Only updates existing employees - does NOT create new ones',
+                'match_by': 'Employees are matched by employee_number/employee_id',
+                'not_found': 'Rows where employee is not found are skipped with warning',
+                'selective_update': 'Only fields with values in file are updated',
+            },
+            'updatable_fields': [
+                'Personal: first_name, middle_name, last_name, title, date_of_birth, gender, marital_status, nationality',
+                'Contact: mobile_phone, personal_email, work_email',
+                'Address: residential_address, residential_city, digital_address',
+                'IDs: ghana_card_number, ssnit_number, tin_number, voter_id, passport_number',
+                'Employment: status, employment_type, date_of_joining',
+                'Organization: division, directorate, department, position, grade, staff_category',
+                'Salary: salary_band, salary_level, salary_notch',
+                'Bank: bank_name, branch_name, account_number, account_name',
+            ],
+        })
+
+
 class SalaryStructureImportView(APIView):
     """
     Import salary structure (bands, levels, notches) from Excel file.

@@ -21,4 +21,5 @@ urlpatterns = [
     path('unified/', views.UnifiedImportView.as_view(), name='unified-import'),
     path('unified/status/<str:task_id>/', views.UnifiedImportStatusView.as_view(), name='unified-import-status'),
     path('salary-structure/', views.SalaryStructureImportView.as_view(), name='salary-structure-import'),
+    path('employee-update/', views.EmployeeUpdateImportView.as_view(), name='employee-update-import'),
 ]
