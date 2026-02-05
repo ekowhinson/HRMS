@@ -50,10 +50,38 @@ class EmployeeSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
     age = serializers.ReadOnlyField()
     years_of_service = serializers.ReadOnlyField()
-    department_name = serializers.CharField(source='department.name', read_only=True)
-    position_title = serializers.CharField(source='position.title', read_only=True)
-    grade_name = serializers.CharField(source='grade.name', read_only=True)
-    supervisor_name = serializers.CharField(source='supervisor.full_name', read_only=True)
+
+    # Organization hierarchy
+    division_name = serializers.CharField(source='division.name', read_only=True, allow_null=True)
+    directorate_name = serializers.CharField(source='directorate.name', read_only=True, allow_null=True)
+    department_name = serializers.CharField(source='department.name', read_only=True, allow_null=True)
+    position_title = serializers.CharField(source='position.title', read_only=True, allow_null=True)
+    grade_name = serializers.CharField(source='grade.name', read_only=True, allow_null=True)
+    grade_level = serializers.IntegerField(source='grade.level', read_only=True, allow_null=True)
+    work_location_name = serializers.CharField(source='work_location.name', read_only=True, allow_null=True)
+    cost_center_name = serializers.CharField(source='cost_center.name', read_only=True, allow_null=True)
+    staff_category_name = serializers.CharField(source='staff_category.name', read_only=True, allow_null=True)
+
+    # Supervisor
+    supervisor_name = serializers.CharField(source='supervisor.full_name', read_only=True, allow_null=True)
+    supervisor_employee_number = serializers.CharField(source='supervisor.employee_number', read_only=True, allow_null=True)
+
+    # Salary structure
+    salary_band_name = serializers.SerializerMethodField()
+    salary_level_name = serializers.SerializerMethodField()
+    salary_notch_name = serializers.SerializerMethodField()
+    salary_notch_amount = serializers.SerializerMethodField()
+
+    # Region and district
+    region_name = serializers.CharField(source='residential_region.name', read_only=True, allow_null=True)
+    district_name = serializers.CharField(source='residential_district.name', read_only=True, allow_null=True)
+
+    # Bank account (primary)
+    bank_name = serializers.SerializerMethodField()
+    bank_branch = serializers.SerializerMethodField()
+    bank_account_number = serializers.SerializerMethodField()
+    bank_accounts_list = serializers.SerializerMethodField()
+
     photo = serializers.SerializerMethodField()
     leave_balances = serializers.SerializerMethodField()
 
@@ -61,6 +89,48 @@ class EmployeeSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
         model = Employee
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at', 'photo_data', 'photo_name', 'photo_mime']
+
+    def get_salary_band_name(self, obj):
+        if obj.salary_notch and obj.salary_notch.level and obj.salary_notch.level.band:
+            return obj.salary_notch.level.band.name
+        return None
+
+    def get_salary_level_name(self, obj):
+        if obj.salary_notch and obj.salary_notch.level:
+            return obj.salary_notch.level.name
+        return None
+
+    def get_salary_notch_name(self, obj):
+        if obj.salary_notch:
+            return obj.salary_notch.name
+        return None
+
+    def get_salary_notch_amount(self, obj):
+        if obj.salary_notch:
+            return str(obj.salary_notch.amount)
+        return None
+
+    def get_bank_name(self, obj):
+        primary_account = obj.bank_accounts.filter(is_deleted=False, is_primary=True).first()
+        if not primary_account:
+            primary_account = obj.bank_accounts.filter(is_deleted=False).first()
+        return primary_account.bank_name if primary_account else None
+
+    def get_bank_branch(self, obj):
+        primary_account = obj.bank_accounts.filter(is_deleted=False, is_primary=True).first()
+        if not primary_account:
+            primary_account = obj.bank_accounts.filter(is_deleted=False).first()
+        return primary_account.branch_name if primary_account else None
+
+    def get_bank_account_number(self, obj):
+        primary_account = obj.bank_accounts.filter(is_deleted=False, is_primary=True).first()
+        if not primary_account:
+            primary_account = obj.bank_accounts.filter(is_deleted=False).first()
+        return primary_account.account_number if primary_account else None
+
+    def get_bank_accounts_list(self, obj):
+        accounts = obj.bank_accounts.filter(is_deleted=False)
+        return BankAccountSerializer(accounts, many=True).data
 
     def get_leave_balances(self, obj):
         from leave.models import LeaveBalance

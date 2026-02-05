@@ -8,6 +8,7 @@ export interface User {
   role?: string
   is_active: boolean
   is_staff: boolean
+  is_superuser?: boolean
   employee?: Employee
   roles: Role[]
 }
@@ -33,65 +34,124 @@ export interface Employee {
   id: string
   employee_id?: string
   employee_number: string
+  legacy_employee_id?: string
+  old_staff_number?: string
+
+  // Personal info
+  title?: string
   first_name: string
   middle_name?: string
   last_name: string
+  maiden_name?: string
+  preferred_name?: string
   full_name?: string
+  date_of_birth?: string
+  age?: number
+  gender?: string
+  marital_status?: string
+  nationality?: string
+
+  // National IDs
+  ghana_card_number?: string
+  ssnit_number?: string
+  tin_number?: string
+  voter_id?: string
+  passport_number?: string
+  passport_expiry?: string
+
+  // Contact
   email?: string
   personal_email?: string
   work_email?: string
-  // Phone fields - backend uses mobile_phone
   phone_number?: string
   mobile_phone?: string
   home_phone?: string
   work_phone?: string
-  date_of_birth?: string
-  gender?: string
-  marital_status?: string
-  nationality?: string
-  ghana_card_number?: string
-  ssnit_number?: string
-  tin_number?: string
+
+  // Address
   residential_address?: string
   residential_city?: string
-  // Status fields - backend uses 'status'
+  residential_region?: string
+  residential_district?: string
+  region_name?: string
+  district_name?: string
+  postal_address?: string
+  digital_address?: string
+
+  // Employment status
   employment_status?: string
   status?: string
   employment_type?: string
-  // Date fields - backend uses date_of_joining
+  assignment_status?: string
+
+  // Employment dates
   date_of_hire?: string
   date_of_joining?: string
   date_of_confirmation?: string
   confirmation_date?: string
   probation_end_date?: string
+  contract_start_date?: string
+  contract_end_date?: string
+  retirement_date?: string
   date_of_exit?: string
-  // Organization fields
+  exit_reason?: string
+
+  // Organization hierarchy
+  division?: string
+  division_name?: string
+  directorate?: string
+  directorate_name?: string
   department?: string
   department_name?: string
-  grade?: string
-  grade_name?: string
   position?: string
   position_name?: string
   position_title?: string
-  supervisor?: string
-  supervisor_name?: string
-  reports_to_name?: string
+  grade?: string
+  grade_name?: string
+  grade_level?: number
   work_location?: string
   work_location_name?: string
   cost_center?: string
-  photo?: string
-  photo_url?: string
-  // Bank details (separate model in backend)
+  cost_center_name?: string
+  staff_category?: string
+  staff_category_name?: string
+
+  // Supervisor
+  supervisor?: string
+  supervisor_name?: string
+  supervisor_employee_number?: string
+  reports_to_name?: string
+
+  // Salary structure
+  salary_notch?: string
+  salary_band_name?: string
+  salary_level_name?: string
+  salary_notch_name?: string
+  salary_notch_amount?: string
+
+  // Bank details
   bank_name?: string
   bank_branch?: string
   bank_account_number?: string
+  bank_accounts_list?: BankAccount[]
+
+  // Medical
+  blood_group?: string
+  medical_conditions?: string
+  disability?: string
+
+  // Other
+  notes?: string
+  photo?: string
+  photo_url?: string
+
   // Related data
   education?: EmployeeEducation[]
   documents?: EmployeeDocument[]
   salary?: EmployeeSalary
   leave_balances?: LeaveBalance[]
+
   // Computed fields
-  age?: number
   years_of_service?: number
   created_at?: string
   updated_at?: string

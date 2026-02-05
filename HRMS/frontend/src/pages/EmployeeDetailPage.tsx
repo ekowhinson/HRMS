@@ -284,161 +284,292 @@ export default function EmployeeDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'personal' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {/* Basic Information */}
           <Card>
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="space-y-4">
+              <dl className="space-y-3">
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Full Name</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.first_name} {employee.middle_name} {employee.last_name}
-                  </dd>
+                  <dt className="text-sm text-gray-500">Title</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).title || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">First Name</dt>
+                  <dd className="text-sm font-medium text-gray-900">{employee.first_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Middle Name</dt>
+                  <dd className="text-sm font-medium text-gray-900">{employee.middle_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Last Name</dt>
+                  <dd className="text-sm font-medium text-gray-900">{employee.last_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Maiden Name</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).maiden_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Preferred Name</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).preferred_name || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Date of Birth</dt>
                   <dd className="text-sm font-medium text-gray-900">
-                    {employee.date_of_birth
-                      ? new Date(employee.date_of_birth).toLocaleDateString()
-                      : '-'}
+                    {employee.date_of_birth ? new Date(employee.date_of_birth).toLocaleDateString() : '-'}
                   </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Age</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).age || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Gender</dt>
                   <dd className="text-sm font-medium text-gray-900 capitalize">
-                    {employee.gender || '-'}
+                    {employee.gender === 'M' ? 'Male' : employee.gender === 'F' ? 'Female' : employee.gender || '-'}
                   </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Marital Status</dt>
                   <dd className="text-sm font-medium text-gray-900 capitalize">
-                    {employee.marital_status || '-'}
+                    {employee.marital_status?.replace(/_/g, ' ') || '-'}
                   </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Nationality</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.nationality || '-'}
-                  </dd>
+                  <dd className="text-sm font-medium text-gray-900">{employee.nationality || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Blood Group</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).blood_group || '-'}</dd>
                 </div>
               </dl>
             </CardContent>
           </Card>
 
+          {/* Contact Information */}
           <Card>
             <CardHeader>
               <CardTitle>Contact Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="space-y-4">
+              <dl className="space-y-3">
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Personal Email</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.personal_email || '-'}
-                  </dd>
+                  <dd className="text-sm font-medium text-gray-900 break-all">{employee.personal_email || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Work Email</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.work_email || '-'}
-                  </dd>
+                  <dd className="text-sm font-medium text-gray-900 break-all">{employee.work_email || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Phone</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {(employee as any).mobile_phone || employee.phone_number || '-'}
-                  </dd>
+                  <dt className="text-sm text-gray-500">Mobile Phone</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).mobile_phone || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Address</dt>
-                  <dd className="text-sm font-medium text-gray-900 text-right">
-                    {employee.residential_address || '-'}
-                  </dd>
+                  <dt className="text-sm text-gray-500">Home Phone</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).home_phone || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Work Phone</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).work_phone || '-'}</dd>
                 </div>
               </dl>
             </CardContent>
           </Card>
 
+          {/* Address Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Address Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-3">
+                <div>
+                  <dt className="text-sm text-gray-500">Residential Address</dt>
+                  <dd className="text-sm font-medium text-gray-900 mt-1">{employee.residential_address || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">City</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).residential_city || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Region</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).region_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">District</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).district_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Digital Address</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).digital_address || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500">Postal Address</dt>
+                  <dd className="text-sm font-medium text-gray-900 mt-1">{(employee as any).postal_address || '-'}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* National IDs */}
           <Card>
             <CardHeader>
               <CardTitle>National IDs</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="space-y-4">
+              <dl className="space-y-3">
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Ghana Card</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.ghana_card_number || '-'}
-                  </dd>
+                  <dd className="text-sm font-medium text-gray-900">{employee.ghana_card_number || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">SSNIT Number</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.ssnit_number || '-'}
-                  </dd>
+                  <dd className="text-sm font-medium text-gray-900">{employee.ssnit_number || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">TIN</dt>
+                  <dd className="text-sm font-medium text-gray-900">{employee.tin_number || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Voter ID</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).voter_id || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Passport Number</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).passport_number || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Passport Expiry</dt>
                   <dd className="text-sm font-medium text-gray-900">
-                    {employee.tin_number || '-'}
+                    {(employee as any).passport_expiry ? new Date((employee as any).passport_expiry).toLocaleDateString() : '-'}
                   </dd>
                 </div>
               </dl>
             </CardContent>
           </Card>
 
+          {/* Legacy IDs */}
           <Card>
             <CardHeader>
-              <CardTitle>Bank Details</CardTitle>
+              <CardTitle>System IDs</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="space-y-4">
+              <dl className="space-y-3">
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Bank Name</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.bank_name || '-'}
-                  </dd>
+                  <dt className="text-sm text-gray-500">Employee Number</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).employee_number || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Branch</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.bank_branch || '-'}
-                  </dd>
+                  <dt className="text-sm text-gray-500">Legacy Employee ID</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).legacy_employee_id || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Account Number</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.bank_account_number || '-'}
-                  </dd>
+                  <dt className="text-sm text-gray-500">Old Staff Number</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).old_staff_number || '-'}</dd>
                 </div>
               </dl>
             </CardContent>
           </Card>
+
+          {/* Bank Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Bank Details (Primary)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-3">
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Bank Name</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).bank_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Branch</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).bank_branch || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Account Number</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).bank_account_number || '-'}</dd>
+                </div>
+              </dl>
+              {/* Show all bank accounts if more than one */}
+              {(employee as any).bank_accounts_list?.length > 1 && (
+                <div className="mt-4 pt-4 border-t">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">All Bank Accounts</h4>
+                  <div className="space-y-2">
+                    {(employee as any).bank_accounts_list.map((acc: any, idx: number) => (
+                      <div key={idx} className="text-xs bg-gray-50 p-2 rounded">
+                        <p className="font-medium">{acc.bank_name}</p>
+                        <p className="text-gray-500">{acc.branch_name} - {acc.account_number}</p>
+                        {acc.is_primary && <Badge variant="info" className="mt-1">Primary</Badge>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Medical Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Medical Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-3">
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Blood Group</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).blood_group || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500">Medical Conditions</dt>
+                  <dd className="text-sm font-medium text-gray-900 mt-1">{(employee as any).medical_conditions || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500">Disability</dt>
+                  <dd className="text-sm font-medium text-gray-900 mt-1">{(employee as any).disability || '-'}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Notes */}
+          {(employee as any).notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{(employee as any).notes}</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
       {activeTab === 'employment' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {/* Employment Details */}
           <Card>
             <CardHeader>
               <CardTitle>Employment Details</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="space-y-4">
+              <dl className="space-y-3">
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Employee ID</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {(employee as any).employee_number || employee.employee_id}
-                  </dd>
+                  <dt className="text-sm text-gray-500">Employee Number</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).employee_number || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Date of Hire</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {((employee as any).date_of_joining || employee.date_of_hire)
-                      ? new Date((employee as any).date_of_joining || employee.date_of_hire).toLocaleDateString()
-                      : '-'}
+                  <dt className="text-sm text-gray-500">Status</dt>
+                  <dd>
+                    <Badge variant={statusColors[(employee as any).status] || 'default'}>
+                      {((employee as any).status || 'UNKNOWN').replace(/_/g, ' ')}
+                    </Badge>
                   </dd>
                 </div>
                 <div className="flex justify-between">
@@ -448,64 +579,196 @@ export default function EmployeeDetailPage() {
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Status</dt>
-                  <dd>
-                    <Badge variant={statusColors[(employee as any).status || employee.employment_status] || 'default'}>
-                      {((employee as any).status || employee.employment_status || 'UNKNOWN').replace(/_/g, ' ')}
-                    </Badge>
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Confirmation Date</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {((employee as any).date_of_confirmation || employee.confirmation_date)
-                      ? new Date((employee as any).date_of_confirmation || employee.confirmation_date).toLocaleDateString()
-                      : '-'}
+                  <dt className="text-sm text-gray-500">Assignment Status</dt>
+                  <dd className="text-sm font-medium text-gray-900 capitalize">
+                    {(employee as any).assignment_status?.replace(/_/g, ' ') || '-'}
                   </dd>
                 </div>
               </dl>
             </CardContent>
           </Card>
 
+          {/* Key Dates */}
           <Card>
             <CardHeader>
-              <CardTitle>Position & Organization</CardTitle>
+              <CardTitle>Key Dates</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="space-y-4">
+              <dl className="space-y-3">
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Position</dt>
+                  <dt className="text-sm text-gray-500">Date of Joining</dt>
                   <dd className="text-sm font-medium text-gray-900">
-                    {(employee as any).position_title || employee.position_name || '-'}
+                    {(employee as any).date_of_joining ? new Date((employee as any).date_of_joining).toLocaleDateString() : '-'}
                   </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Confirmation Date</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {(employee as any).date_of_confirmation ? new Date((employee as any).date_of_confirmation).toLocaleDateString() : '-'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Probation End Date</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {(employee as any).probation_end_date ? new Date((employee as any).probation_end_date).toLocaleDateString() : '-'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Contract Start</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {(employee as any).contract_start_date ? new Date((employee as any).contract_start_date).toLocaleDateString() : '-'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Contract End</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {(employee as any).contract_end_date ? new Date((employee as any).contract_end_date).toLocaleDateString() : '-'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Retirement Date</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {(employee as any).retirement_date ? new Date((employee as any).retirement_date).toLocaleDateString() : '-'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Years of Service</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).years_of_service || '-'}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Organization Hierarchy */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Organization</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-3">
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Division</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).division_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Directorate</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).directorate_name || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Department</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.department_name || '-'}
-                  </dd>
+                  <dd className="text-sm font-medium text-gray-900">{employee.department_name || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Grade</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {employee.grade_name || '-'}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-sm text-gray-500">Reports To</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {(employee as any).supervisor_name || employee.reports_to_name || '-'}
-                  </dd>
+                  <dt className="text-sm text-gray-500">Cost Center</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).cost_center_name || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-sm text-gray-500">Work Location</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).work_location_name || '-'}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Position & Grade */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Position & Grade</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-3">
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Position</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).position_title || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Grade</dt>
+                  <dd className="text-sm font-medium text-gray-900">{employee.grade_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Grade Level</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).grade_level || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Staff Category</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).staff_category_name || '-'}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Supervisor */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Supervisor</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-3">
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Supervisor Name</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).supervisor_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Supervisor ID</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).supervisor_employee_number || '-'}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Salary Structure */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Salary Structure</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-3">
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Salary Band</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).salary_band_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Salary Level</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).salary_level_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Salary Notch</dt>
+                  <dd className="text-sm font-medium text-gray-900">{(employee as any).salary_notch_name || '-'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Notch Amount</dt>
                   <dd className="text-sm font-medium text-gray-900">
-                    {(employee as any).work_location_name || employee.work_location || '-'}
+                    {(employee as any).salary_notch_amount ? formatCurrency(parseFloat((employee as any).salary_notch_amount)) : '-'}
                   </dd>
                 </div>
               </dl>
             </CardContent>
           </Card>
+
+          {/* Exit Information (if applicable) */}
+          {((employee as any).date_of_exit || (employee as any).exit_reason) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Exit Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-3">
+                  <div className="flex justify-between">
+                    <dt className="text-sm text-gray-500">Date of Exit</dt>
+                    <dd className="text-sm font-medium text-gray-900">
+                      {(employee as any).date_of_exit ? new Date((employee as any).date_of_exit).toLocaleDateString() : '-'}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-sm text-gray-500">Exit Reason</dt>
+                    <dd className="text-sm font-medium text-gray-900 capitalize">
+                      {(employee as any).exit_reason?.replace(/_/g, ' ') || '-'}
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
