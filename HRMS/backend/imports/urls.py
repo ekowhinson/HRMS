@@ -12,6 +12,8 @@ app_name = 'imports'
 router = DefaultRouter()
 router.register(r'jobs', views.ImportJobViewSet, basename='import-job')
 router.register(r'templates', views.ImportTemplateViewSet, basename='import-template')
+router.register(r'batches', views.MultiFileImportBatchViewSet, basename='import-batch')
+router.register(r'datasets', views.DatasetViewSet, basename='dataset')
 
 urlpatterns = [
     path('', include(router.urls)),

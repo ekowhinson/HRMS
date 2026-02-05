@@ -242,18 +242,48 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 # Redis Cache Configuration
 # Cache Configuration - Use Redis in production, local memory in development
 if os.getenv('USE_REDIS', 'false').lower() == 'true':
+    REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL', 'redis://localhost:6379/1')
+
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
-        }
+            'LOCATION': REDIS_CACHE_URL,
+            'KEY_PREFIX': 'hrms',
+            'TIMEOUT': 300,  # 5 minutes default
+        },
+        # Long-term cache for static/rarely changing data
+        'persistent': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_CACHE_URL,
+            'KEY_PREFIX': 'hrms_persist',
+            'TIMEOUT': 86400,  # 24 hours
+        },
+        # Short-term cache for frequently changing data
+        'volatile': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_CACHE_URL,
+            'KEY_PREFIX': 'hrms_volatile',
+            'TIMEOUT': 60,  # 1 minute
+        },
     }
+
+    # Use Redis for session storage
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+    SESSION_CACHE_ALIAS = 'default'
 else:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
             'LOCATION': 'unique-snowflake',
-        }
+        },
+        'persistent': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'persistent-cache',
+        },
+        'volatile': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'volatile-cache',
+        },
     }
 
 # Email Configuration
