@@ -939,21 +939,23 @@ class PayrollService:
                 ])
                 total_amount += item.net_salary
 
-            file_content = output.getvalue()
+            file_content = output.getvalue().encode('utf-8')
             safe_bank_name = bank_name.replace(' ', '_').replace('/', '_')
             file_name = f'{self.payroll_run.run_number}_{safe_bank_name}_{date.today().strftime("%Y%m%d")}.csv'
 
-            bank_file = BankFile(
+            bank_file = BankFile.objects.create(
                 payroll_run=self.payroll_run,
                 bank_name=bank_name,
+                file_data=file_content,
                 file_name=file_name,
+                file_size=len(file_content),
+                mime_type='text/csv',
                 file_format='CSV',
                 total_amount=total_amount,
                 transaction_count=len(bank_items),
                 generated_by=user,
+                generated_at=timezone.now(),
             )
-            bank_file.file.save(file_name, ContentFile(file_content.encode('utf-8')))
-            bank_file.save()
             bank_files.append(bank_file)
 
         return bank_files
@@ -980,14 +982,18 @@ class PayrollService:
             payslip_number = f'PS-{self.payroll_run.run_number}-{item.employee.employee_number}'
 
             payslip_content = self._generate_payslip_content(item)
+            file_content = payslip_content.encode('utf-8')
+            file_name = f'{payslip_number}.txt'
 
-            payslip = Payslip(
+            payslip = Payslip.objects.create(
                 payroll_item=item,
                 payslip_number=payslip_number,
+                file_data=file_content,
+                file_name=file_name,
+                file_size=len(file_content),
+                mime_type='text/plain',
+                generated_at=timezone.now(),
             )
-            file_name = f'{payslip_number}.txt'
-            payslip.file.save(file_name, ContentFile(payslip_content.encode('utf-8')))
-            payslip.save()
             payslips.append(payslip)
 
         return payslips
