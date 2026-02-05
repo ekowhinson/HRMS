@@ -11,7 +11,7 @@ from .models import (
     PayrollPeriod, PayrollRun, PayrollItem, PayrollItemDetail,
     AdHocPayment, TaxBracket, TaxRelief, SSNITRate, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
-    SalaryBand, SalaryLevel, SalaryNotch
+    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar
 )
 
 
@@ -126,8 +126,23 @@ class EmployeeSalarySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class PayrollCalendarSerializer(serializers.ModelSerializer):
+    """Serializer for PayrollCalendar model."""
+    month_name = serializers.ReadOnlyField()
+
+    class Meta:
+        model = PayrollCalendar
+        fields = [
+            'id', 'year', 'month', 'name', 'month_name',
+            'start_date', 'end_date', 'is_active',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
 class PayrollPeriodSerializer(serializers.ModelSerializer):
     """Serializer for PayrollPeriod model."""
+    calendar_name = serializers.CharField(source='calendar.name', read_only=True)
 
     class Meta:
         model = PayrollPeriod
@@ -217,6 +232,9 @@ class EmployeeTransactionSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True)
     payroll_period_name = serializers.CharField(source='payroll_period.name', read_only=True)
+    calendar_name = serializers.CharField(source='calendar.name', read_only=True)
+    calendar_year = serializers.IntegerField(source='calendar.year', read_only=True)
+    calendar_month = serializers.IntegerField(source='calendar.month', read_only=True)
     calculated_amount = serializers.SerializerMethodField()
     supporting_document = serializers.SerializerMethodField()
 
@@ -229,6 +247,7 @@ class EmployeeTransactionSerializer(serializers.ModelSerializer):
             'override_type', 'override_type_display',
             'override_amount', 'override_percentage', 'override_formula',
             'is_recurring', 'effective_from', 'effective_to',
+            'calendar', 'calendar_name', 'calendar_year', 'calendar_month',
             'payroll_period', 'payroll_period_name',
             'status', 'status_display',
             'approved_by', 'approved_by_name', 'approved_at', 'approval_notes',

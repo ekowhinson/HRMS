@@ -12,6 +12,7 @@ app_name = 'payroll'
 router = DefaultRouter()
 router.register(r'components', views.PayComponentViewSet, basename='pay-component')
 router.register(r'structures', views.SalaryStructureViewSet, basename='salary-structure')
+router.register(r'calendar', views.PayrollCalendarViewSet, basename='payroll-calendar')
 router.register(r'periods', views.PayrollPeriodViewSet, basename='payroll-period')
 router.register(r'runs', views.PayrollRunViewSet, basename='payroll-run')
 router.register(r'adhoc-payments', views.AdHocPaymentViewSet, basename='adhoc-payment')

@@ -8,7 +8,7 @@ from .models import (
     SalaryBand, SalaryLevel, SalaryNotch,
     PayComponent, SalaryStructure, SalaryStructureComponent,
     EmployeeSalary, TaxBracket, TaxRelief, SSNITRate,
-    OvertimeBonusTaxConfig, PayrollPeriod, PayrollRun,
+    OvertimeBonusTaxConfig, PayrollCalendar, PayrollPeriod, PayrollRun,
     PayrollItem, AdHocPayment, EmployeeTransaction
 )
 
@@ -142,13 +142,45 @@ class OvertimeBonusTaxConfigAdmin(admin.ModelAdmin):
     list_filter = ['is_active']
 
 
+# Payroll Calendar
+@admin.register(PayrollCalendar)
+class PayrollCalendarAdmin(admin.ModelAdmin):
+    list_display = ['name', 'year', 'month', 'start_date', 'end_date', 'is_active']
+    list_filter = ['year', 'is_active']
+    search_fields = ['name']
+    ordering = ['-year', '-month']
+    actions = ['create_year_calendar']
+
+    @admin.action(description='Create full year calendar')
+    def create_year_calendar(self, request, queryset):
+        """Admin action to create a full year calendar."""
+        from django.contrib import messages
+        # Get the year from the first selected item
+        if queryset.exists():
+            year = queryset.first().year
+            created = PayrollCalendar.create_year_calendar(year, request.user)
+            messages.success(request, f'Created {len(created)} calendar months for {year}')
+        else:
+            messages.warning(request, 'No items selected')
+
+
 # Payroll Processing
 @admin.register(PayrollPeriod)
 class PayrollPeriodAdmin(admin.ModelAdmin):
-    list_display = ['name', 'year', 'month', 'start_date', 'end_date', 'status']
-    list_filter = ['status', 'year']
+    list_display = ['name', 'year', 'month', 'start_date', 'end_date', 'status', 'calendar']
+    list_filter = ['status', 'year', 'calendar']
     search_fields = ['name']
     date_hierarchy = 'start_date'
+    actions = ['create_year_periods']
+
+    @admin.action(description='Create full year periods')
+    def create_year_periods(self, request, queryset):
+        """Admin action to create a full year of payroll periods."""
+        from django.contrib import messages
+        if queryset.exists():
+            year = queryset.first().year
+            created = PayrollPeriod.create_year_periods(year, request.user)
+            messages.success(request, f'Created {len(created)} payroll periods for {year}')
 
 
 @admin.register(PayrollRun)

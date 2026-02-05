@@ -18,7 +18,7 @@ from .models import (
     PayrollItem, EmployeeSalary, AdHocPayment,
     TaxBracket, TaxRelief, SSNITRate, BankFile, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
-    SalaryBand, SalaryLevel, SalaryNotch
+    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar
 )
 from .serializers import (
     PayComponentSerializer, SalaryStructureSerializer,
@@ -31,7 +31,7 @@ from .serializers import (
     TransactionRejectSerializer, BulkTransactionCreateSerializer,
     OvertimeBonusTaxConfigSerializer, BankSerializer, BankBranchSerializer,
     StaffCategorySerializer, SalaryBandSerializer, SalaryLevelSerializer,
-    SalaryNotchSerializer
+    SalaryNotchSerializer, PayrollCalendarSerializer
 )
 from .services import PayrollService
 
@@ -107,12 +107,110 @@ class SalaryStructureViewSet(viewsets.ModelViewSet):
     ordering = ['grade__level', 'name']
 
 
+class PayrollCalendarViewSet(viewsets.ModelViewSet):
+    """ViewSet for Payroll Calendar with year creation."""
+    queryset = PayrollCalendar.objects.all()
+    serializer_class = PayrollCalendarSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['year', 'month', 'is_active']
+    search_fields = ['name']
+    ordering = ['-year', '-month']
+
+    @action(detail=False, methods=['post'])
+    def create_year(self, request):
+        """
+        Create all 12 calendar months for a specified year.
+        POST /payroll/calendar/create_year/
+        Body: {"year": 2025}
+        """
+        year = request.data.get('year')
+        if not year:
+            return Response({
+                'error': 'year is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            year = int(year)
+        except (ValueError, TypeError):
+            return Response({
+                'error': 'year must be a valid integer'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if year < 1900 or year > 2100:
+            return Response({
+                'error': 'year must be between 1900 and 2100'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        created = PayrollCalendar.create_year_calendar(year, request.user)
+
+        return Response({
+            'year': year,
+            'created_count': len(created),
+            'message': f'Created {len(created)} calendar months for {year}' if created else f'Calendar for {year} already exists',
+            'calendar': PayrollCalendarSerializer(
+                PayrollCalendar.objects.filter(year=year).order_by('month'),
+                many=True
+            ).data
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'])
+    def years(self, request):
+        """Get list of years with calendar entries."""
+        years = PayrollCalendar.objects.values_list('year', flat=True).distinct().order_by('-year')
+        return Response({'years': list(years)})
+
+
 class PayrollPeriodViewSet(viewsets.ModelViewSet):
     """ViewSet for Payroll Periods with reopen functionality."""
-    queryset = PayrollPeriod.objects.all()
+    queryset = PayrollPeriod.objects.select_related('calendar').all()
     serializer_class = PayrollPeriodSerializer
-    filterset_fields = ['year', 'month', 'status']
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['year', 'month', 'status', 'calendar']
+    search_fields = ['name']
     ordering = ['-year', '-month']
+
+    @action(detail=False, methods=['post'])
+    def create_year(self, request):
+        """
+        Create all 12 payroll periods for a specified year.
+        POST /payroll/periods/create_year/
+        Body: {"year": 2025}
+        """
+        year = request.data.get('year')
+        if not year:
+            return Response({
+                'error': 'year is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            year = int(year)
+        except (ValueError, TypeError):
+            return Response({
+                'error': 'year must be a valid integer'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if year < 1900 or year > 2100:
+            return Response({
+                'error': 'year must be between 1900 and 2100'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        created = PayrollPeriod.create_year_periods(year, request.user)
+
+        return Response({
+            'year': year,
+            'created_count': len(created),
+            'message': f'Created {len(created)} payroll periods for {year}' if created else f'Periods for {year} already exist',
+            'periods': PayrollPeriodSerializer(
+                PayrollPeriod.objects.filter(year=year, is_supplementary=False).order_by('month'),
+                many=True
+            ).data
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'])
+    def years(self, request):
+        """Get list of years with payroll periods."""
+        years = PayrollPeriod.objects.values_list('year', flat=True).distinct().order_by('-year')
+        return Response({'years': list(years)})
 
     @action(detail=True, methods=['post'])
     def reopen(self, request, pk=None):

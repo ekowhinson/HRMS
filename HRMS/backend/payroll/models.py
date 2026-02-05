@@ -602,6 +602,105 @@ class OvertimeBonusTaxConfig(BaseModel):
         ).order_by('-effective_from').first()
 
 
+class PayrollCalendar(BaseModel):
+    """
+    Payroll calendar for tracking months and years.
+    Used to link transactions to specific calendar periods.
+    """
+    MONTH_CHOICES = [
+        (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
+        (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
+        (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December'),
+    ]
+
+    MONTH_NAMES = {
+        1: 'January', 2: 'February', 3: 'March', 4: 'April',
+        5: 'May', 6: 'June', 7: 'July', 8: 'August',
+        9: 'September', 10: 'October', 11: 'November', 12: 'December',
+    }
+
+    year = models.PositiveSmallIntegerField(db_index=True)
+    month = models.PositiveSmallIntegerField(choices=MONTH_CHOICES, db_index=True)
+    name = models.CharField(
+        max_length=50,
+        help_text='e.g., "January 2025"'
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'payroll_calendar'
+        ordering = ['-year', '-month']
+        unique_together = ['year', 'month']
+        verbose_name = 'Payroll Calendar'
+        verbose_name_plural = 'Payroll Calendar'
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def month_name(self):
+        return self.MONTH_NAMES.get(self.month, '')
+
+    @classmethod
+    def create_year_calendar(cls, year: int, user=None) -> list:
+        """
+        Create all 12 calendar months for a given year.
+
+        Args:
+            year: The year to create calendar entries for
+            user: Optional user for created_by field
+
+        Returns:
+            List of created PayrollCalendar objects
+        """
+        import calendar
+        from datetime import date
+
+        created = []
+        for month in range(1, 13):
+            # Check if already exists
+            if cls.objects.filter(year=year, month=month).exists():
+                continue
+
+            # Get last day of month
+            _, last_day = calendar.monthrange(year, month)
+            month_name = cls.MONTH_NAMES[month]
+
+            cal = cls.objects.create(
+                year=year,
+                month=month,
+                name=f"{month_name} {year}",
+                start_date=date(year, month, 1),
+                end_date=date(year, month, last_day),
+                is_active=True,
+                created_by=user
+            )
+            created.append(cal)
+
+        return created
+
+    @classmethod
+    def get_or_create_month(cls, year: int, month: int, user=None):
+        """Get or create a specific calendar month."""
+        import calendar
+        from datetime import date
+
+        cal, created = cls.objects.get_or_create(
+            year=year,
+            month=month,
+            defaults={
+                'name': f"{cls.MONTH_NAMES[month]} {year}",
+                'start_date': date(year, month, 1),
+                'end_date': date(year, month, calendar.monthrange(year, month)[1]),
+                'is_active': True,
+                'created_by': user
+            }
+        )
+        return cal, created
+
+
 class PayrollPeriod(BaseModel):
     """
     Payroll periods (usually monthly).
@@ -613,6 +712,16 @@ class PayrollPeriod(BaseModel):
         APPROVED = 'APPROVED', 'Approved'
         PAID = 'PAID', 'Paid'
         CLOSED = 'CLOSED', 'Closed'
+
+    # Link to calendar
+    calendar = models.ForeignKey(
+        PayrollCalendar,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='payroll_periods',
+        help_text='Calendar month/year this period belongs to'
+    )
 
     name = models.CharField(max_length=50)
     year = models.PositiveSmallIntegerField(db_index=True)
@@ -650,6 +759,59 @@ class PayrollPeriod(BaseModel):
 
     def __str__(self):
         return f"{self.name} ({self.year}-{self.month:02d})"
+
+    def save(self, *args, **kwargs):
+        # Auto-link to calendar if not set
+        if not self.calendar_id and self.year and self.month:
+            cal, _ = PayrollCalendar.get_or_create_month(self.year, self.month)
+            self.calendar = cal
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def create_year_periods(cls, year: int, user=None) -> list:
+        """
+        Create all 12 payroll periods for a given year.
+
+        Args:
+            year: The year to create periods for
+            user: Optional user for created_by field
+
+        Returns:
+            List of created PayrollPeriod objects
+        """
+        import calendar
+        from datetime import date
+
+        # First create calendar entries
+        PayrollCalendar.create_year_calendar(year, user)
+
+        created = []
+        for month in range(1, 13):
+            # Check if already exists
+            if cls.objects.filter(year=year, month=month, is_supplementary=False).exists():
+                continue
+
+            # Get calendar entry
+            cal = PayrollCalendar.objects.get(year=year, month=month)
+
+            # Get last day of month
+            _, last_day = calendar.monthrange(year, month)
+            month_name = PayrollCalendar.MONTH_NAMES[month]
+
+            period = cls.objects.create(
+                calendar=cal,
+                name=f"{month_name} {year}",
+                year=year,
+                month=month,
+                start_date=date(year, month, 1),
+                end_date=date(year, month, last_day),
+                status=cls.Status.OPEN,
+                is_supplementary=False,
+                created_by=user
+            )
+            created.append(period)
+
+        return created
 
 
 class PayrollRun(BaseModel):
@@ -1162,6 +1324,16 @@ class EmployeeTransaction(BaseModel):
     is_recurring = models.BooleanField(default=True)
     effective_from = models.DateField(db_index=True)
     effective_to = models.DateField(null=True, blank=True)
+
+    # Calendar month/year link
+    calendar = models.ForeignKey(
+        PayrollCalendar,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employee_transactions',
+        help_text='Calendar month/year this transaction applies to'
+    )
 
     # For one-time transactions
     payroll_period = models.ForeignKey(
