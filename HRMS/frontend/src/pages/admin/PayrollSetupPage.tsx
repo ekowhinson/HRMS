@@ -1,0 +1,1192 @@
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import {
+  BuildingLibraryIcon,
+  BuildingOffice2Icon,
+  UserGroupIcon,
+  CurrencyDollarIcon,
+  Squares2X2Icon,
+  QueueListIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline'
+import {
+  payrollSetupService,
+  Bank,
+  BankBranch,
+  StaffCategory,
+  SalaryBand,
+  SalaryLevel,
+  SalaryNotch,
+} from '@/services/payrollSetup'
+import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
+import Modal from '@/components/ui/Modal'
+import Table from '@/components/ui/Table'
+import Badge from '@/components/ui/Badge'
+import { formatCurrency } from '@/lib/utils'
+
+type TabType = 'banks' | 'branches' | 'categories' | 'bands' | 'levels' | 'notches'
+
+const validTabs: TabType[] = ['banks', 'branches', 'categories', 'bands', 'levels', 'notches']
+
+export default function PayrollSetupPage() {
+  const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Get initial tab from URL or default to 'banks'
+  const tabFromUrl = searchParams.get('tab') as TabType | null
+  const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'banks'
+
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab)
+
+  // Sync tab changes to URL
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab)
+    setSearchParams({ tab })
+  }
+
+  // Sync URL changes to tab (for browser back/forward)
+  useEffect(() => {
+    const urlTab = searchParams.get('tab') as TabType | null
+    if (urlTab && validTabs.includes(urlTab) && urlTab !== activeTab) {
+      setActiveTab(urlTab)
+    }
+  }, [searchParams])
+  const [showModal, setShowModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState<any>(null)
+  const [editingItem, setEditingItem] = useState<any>(null)
+  const [formData, setFormData] = useState<Record<string, any>>({})
+
+  // Filter states
+  const [selectedBank, setSelectedBank] = useState<string>('')
+  const [selectedBand, setSelectedBand] = useState<string>('')
+  const [selectedLevel, setSelectedLevel] = useState<string>('')
+
+  // Queries
+  const { data: banks = [], isLoading: loadingBanks } = useQuery({
+    queryKey: ['banks'],
+    queryFn: payrollSetupService.getBanks,
+  })
+
+  const { data: branches = [], isLoading: loadingBranches } = useQuery({
+    queryKey: ['bank-branches', selectedBank],
+    queryFn: () => payrollSetupService.getBankBranches(selectedBank || undefined),
+  })
+
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['staff-categories'],
+    queryFn: payrollSetupService.getStaffCategories,
+  })
+
+  const { data: bands = [], isLoading: loadingBands } = useQuery({
+    queryKey: ['salary-bands'],
+    queryFn: payrollSetupService.getSalaryBands,
+  })
+
+  const { data: levels = [], isLoading: loadingLevels } = useQuery({
+    queryKey: ['salary-levels', selectedBand],
+    queryFn: () => payrollSetupService.getSalaryLevels(selectedBand || undefined),
+  })
+
+  const { data: notches = [], isLoading: loadingNotches } = useQuery({
+    queryKey: ['salary-notches', selectedLevel],
+    queryFn: () => payrollSetupService.getSalaryNotches(selectedLevel || undefined),
+  })
+
+  // Mutations
+  const createBankMutation = useMutation({
+    mutationFn: payrollSetupService.createBank,
+    onSuccess: () => {
+      toast.success('Bank created')
+      queryClient.invalidateQueries({ queryKey: ['banks'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to create bank'),
+  })
+
+  const updateBankMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Bank> }) =>
+      payrollSetupService.updateBank(id, data),
+    onSuccess: () => {
+      toast.success('Bank updated')
+      queryClient.invalidateQueries({ queryKey: ['banks'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to update bank'),
+  })
+
+  const deleteBankMutation = useMutation({
+    mutationFn: payrollSetupService.deleteBank,
+    onSuccess: () => {
+      toast.success('Bank deleted')
+      queryClient.invalidateQueries({ queryKey: ['banks'] })
+      setShowDeleteModal(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to delete bank'),
+  })
+
+  const createBranchMutation = useMutation({
+    mutationFn: payrollSetupService.createBankBranch,
+    onSuccess: () => {
+      toast.success('Branch created')
+      queryClient.invalidateQueries({ queryKey: ['bank-branches'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to create branch'),
+  })
+
+  const updateBranchMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<BankBranch> }) =>
+      payrollSetupService.updateBankBranch(id, data),
+    onSuccess: () => {
+      toast.success('Branch updated')
+      queryClient.invalidateQueries({ queryKey: ['bank-branches'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to update branch'),
+  })
+
+  const deleteBranchMutation = useMutation({
+    mutationFn: payrollSetupService.deleteBankBranch,
+    onSuccess: () => {
+      toast.success('Branch deleted')
+      queryClient.invalidateQueries({ queryKey: ['bank-branches'] })
+      setShowDeleteModal(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to delete branch'),
+  })
+
+  const createCategoryMutation = useMutation({
+    mutationFn: payrollSetupService.createStaffCategory,
+    onSuccess: () => {
+      toast.success('Staff category created')
+      queryClient.invalidateQueries({ queryKey: ['staff-categories'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to create category'),
+  })
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<StaffCategory> }) =>
+      payrollSetupService.updateStaffCategory(id, data),
+    onSuccess: () => {
+      toast.success('Staff category updated')
+      queryClient.invalidateQueries({ queryKey: ['staff-categories'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to update category'),
+  })
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: payrollSetupService.deleteStaffCategory,
+    onSuccess: () => {
+      toast.success('Staff category deleted')
+      queryClient.invalidateQueries({ queryKey: ['staff-categories'] })
+      setShowDeleteModal(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to delete category'),
+  })
+
+  const createBandMutation = useMutation({
+    mutationFn: payrollSetupService.createSalaryBand,
+    onSuccess: () => {
+      toast.success('Salary band created')
+      queryClient.invalidateQueries({ queryKey: ['salary-bands'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to create band'),
+  })
+
+  const updateBandMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<SalaryBand> }) =>
+      payrollSetupService.updateSalaryBand(id, data),
+    onSuccess: () => {
+      toast.success('Salary band updated')
+      queryClient.invalidateQueries({ queryKey: ['salary-bands'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to update band'),
+  })
+
+  const deleteBandMutation = useMutation({
+    mutationFn: payrollSetupService.deleteSalaryBand,
+    onSuccess: () => {
+      toast.success('Salary band deleted')
+      queryClient.invalidateQueries({ queryKey: ['salary-bands'] })
+      setShowDeleteModal(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to delete band'),
+  })
+
+  const createLevelMutation = useMutation({
+    mutationFn: payrollSetupService.createSalaryLevel,
+    onSuccess: () => {
+      toast.success('Salary level created')
+      queryClient.invalidateQueries({ queryKey: ['salary-levels'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to create level'),
+  })
+
+  const updateLevelMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<SalaryLevel> }) =>
+      payrollSetupService.updateSalaryLevel(id, data),
+    onSuccess: () => {
+      toast.success('Salary level updated')
+      queryClient.invalidateQueries({ queryKey: ['salary-levels'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to update level'),
+  })
+
+  const deleteLevelMutation = useMutation({
+    mutationFn: payrollSetupService.deleteSalaryLevel,
+    onSuccess: () => {
+      toast.success('Salary level deleted')
+      queryClient.invalidateQueries({ queryKey: ['salary-levels'] })
+      setShowDeleteModal(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to delete level'),
+  })
+
+  const createNotchMutation = useMutation({
+    mutationFn: payrollSetupService.createSalaryNotch,
+    onSuccess: () => {
+      toast.success('Salary notch created')
+      queryClient.invalidateQueries({ queryKey: ['salary-notches'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to create notch'),
+  })
+
+  const updateNotchMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<SalaryNotch> }) =>
+      payrollSetupService.updateSalaryNotch(id, data),
+    onSuccess: () => {
+      toast.success('Salary notch updated')
+      queryClient.invalidateQueries({ queryKey: ['salary-notches'] })
+      closeModal()
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to update notch'),
+  })
+
+  const deleteNotchMutation = useMutation({
+    mutationFn: payrollSetupService.deleteSalaryNotch,
+    onSuccess: () => {
+      toast.success('Salary notch deleted')
+      queryClient.invalidateQueries({ queryKey: ['salary-notches'] })
+      setShowDeleteModal(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to delete notch'),
+  })
+
+  const openModal = (item?: any) => {
+    if (item) {
+      setEditingItem(item)
+      setFormData({ ...item })
+    } else {
+      setEditingItem(null)
+      setFormData({})
+    }
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingItem(null)
+    setFormData({})
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    switch (activeTab) {
+      case 'banks':
+        if (editingItem) {
+          updateBankMutation.mutate({ id: editingItem.id, data: formData })
+        } else {
+          createBankMutation.mutate(formData)
+        }
+        break
+      case 'branches':
+        if (editingItem) {
+          updateBranchMutation.mutate({ id: editingItem.id, data: formData })
+        } else {
+          createBranchMutation.mutate(formData)
+        }
+        break
+      case 'categories':
+        if (editingItem) {
+          updateCategoryMutation.mutate({ id: editingItem.id, data: formData })
+        } else {
+          createCategoryMutation.mutate(formData)
+        }
+        break
+      case 'bands':
+        if (editingItem) {
+          updateBandMutation.mutate({ id: editingItem.id, data: formData })
+        } else {
+          createBandMutation.mutate(formData)
+        }
+        break
+      case 'levels':
+        if (editingItem) {
+          updateLevelMutation.mutate({ id: editingItem.id, data: formData })
+        } else {
+          createLevelMutation.mutate(formData)
+        }
+        break
+      case 'notches':
+        if (editingItem) {
+          updateNotchMutation.mutate({ id: editingItem.id, data: formData })
+        } else {
+          createNotchMutation.mutate(formData)
+        }
+        break
+    }
+  }
+
+  const handleDelete = () => {
+    if (!showDeleteModal) return
+
+    switch (activeTab) {
+      case 'banks':
+        deleteBankMutation.mutate(showDeleteModal.id)
+        break
+      case 'branches':
+        deleteBranchMutation.mutate(showDeleteModal.id)
+        break
+      case 'categories':
+        deleteCategoryMutation.mutate(showDeleteModal.id)
+        break
+      case 'bands':
+        deleteBandMutation.mutate(showDeleteModal.id)
+        break
+      case 'levels':
+        deleteLevelMutation.mutate(showDeleteModal.id)
+        break
+      case 'notches':
+        deleteNotchMutation.mutate(showDeleteModal.id)
+        break
+    }
+  }
+
+  const tabs = [
+    { id: 'banks', label: 'Banks', icon: BuildingLibraryIcon, count: banks.length },
+    { id: 'branches', label: 'Branches', icon: BuildingOffice2Icon, count: branches.length },
+    { id: 'categories', label: 'Staff Categories', icon: UserGroupIcon, count: categories.length },
+    { id: 'bands', label: 'Salary Bands', icon: CurrencyDollarIcon, count: bands.length },
+    { id: 'levels', label: 'Salary Levels', icon: Squares2X2Icon, count: levels.length },
+    { id: 'notches', label: 'Salary Notches', icon: QueueListIcon, count: notches.length },
+  ]
+
+  const getModalTitle = () => {
+    const action = editingItem ? 'Edit' : 'Add'
+    switch (activeTab) {
+      case 'banks': return `${action} Bank`
+      case 'branches': return `${action} Bank Branch`
+      case 'categories': return `${action} Staff Category`
+      case 'bands': return `${action} Salary Band`
+      case 'levels': return `${action} Salary Level`
+      case 'notches': return `${action} Salary Notch`
+    }
+  }
+
+  const getAddButtonLabel = () => {
+    switch (activeTab) {
+      case 'banks': return 'Add Bank'
+      case 'branches': return 'Add Branch'
+      case 'categories': return 'Add Category'
+      case 'bands': return 'Add Band'
+      case 'levels': return 'Add Level'
+      case 'notches': return 'Add Notch'
+    }
+  }
+
+  // Column definitions
+  const bankColumns = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (item: Bank) => <span className="font-mono text-sm">{item.code}</span>,
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (item: Bank) => <span className="font-medium">{item.name}</span>,
+    },
+    {
+      key: 'swift_code',
+      header: 'SWIFT Code',
+      render: (item: Bank) => <span className="text-sm text-gray-600">{item.swift_code || '-'}</span>,
+    },
+    {
+      key: 'branches',
+      header: 'Branches',
+      render: (item: Bank) => <span className="text-sm">{item.branch_count || 0}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: Bank) => (
+        <Badge variant={item.is_active ? 'success' : 'danger'}>
+          {item.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (item: Bank) => (
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => openModal(item)}>
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(item)}>
+            <TrashIcon className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  const branchColumns = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (item: BankBranch) => <span className="font-mono text-sm">{item.code}</span>,
+    },
+    {
+      key: 'name',
+      header: 'Branch Name',
+      render: (item: BankBranch) => <span className="font-medium">{item.name}</span>,
+    },
+    {
+      key: 'bank',
+      header: 'Bank',
+      render: (item: BankBranch) => <span className="text-sm">{item.bank_name}</span>,
+    },
+    {
+      key: 'city',
+      header: 'City',
+      render: (item: BankBranch) => <span className="text-sm text-gray-600">{item.city || '-'}</span>,
+    },
+    {
+      key: 'sort_code',
+      header: 'Sort Code',
+      render: (item: BankBranch) => <span className="font-mono text-sm">{item.sort_code || '-'}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: BankBranch) => (
+        <Badge variant={item.is_active ? 'success' : 'danger'}>
+          {item.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (item: BankBranch) => (
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => openModal(item)}>
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(item)}>
+            <TrashIcon className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  const categoryColumns = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (item: StaffCategory) => <span className="font-mono text-sm">{item.code}</span>,
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (item: StaffCategory) => <span className="font-medium">{item.name}</span>,
+    },
+    {
+      key: 'payroll_group',
+      header: 'Payroll Group',
+      render: (item: StaffCategory) => <span className="text-sm">{item.payroll_group || '-'}</span>,
+    },
+    {
+      key: 'employees',
+      header: 'Employees',
+      render: (item: StaffCategory) => <span className="text-sm">{item.employee_count || 0}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: StaffCategory) => (
+        <Badge variant={item.is_active ? 'success' : 'danger'}>
+          {item.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (item: StaffCategory) => (
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => openModal(item)}>
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(item)}>
+            <TrashIcon className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  const bandColumns = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (item: SalaryBand) => <span className="font-mono text-sm">{item.code}</span>,
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (item: SalaryBand) => <span className="font-medium">{item.name}</span>,
+    },
+    {
+      key: 'salary_range',
+      header: 'Salary Range',
+      render: (item: SalaryBand) => (
+        <span className="text-sm">
+          {item.min_salary && item.max_salary
+            ? `${formatCurrency(item.min_salary)} - ${formatCurrency(item.max_salary)}`
+            : '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'levels',
+      header: 'Levels',
+      render: (item: SalaryBand) => <span className="text-sm">{item.level_count || 0}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: SalaryBand) => (
+        <Badge variant={item.is_active ? 'success' : 'danger'}>
+          {item.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (item: SalaryBand) => (
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => openModal(item)}>
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(item)}>
+            <TrashIcon className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  const levelColumns = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (item: SalaryLevel) => <span className="font-mono text-sm">{item.code}</span>,
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (item: SalaryLevel) => <span className="font-medium">{item.name}</span>,
+    },
+    {
+      key: 'band',
+      header: 'Band',
+      render: (item: SalaryLevel) => (
+        <span className="text-sm">{item.band_name || item.band_code}</span>
+      ),
+    },
+    {
+      key: 'salary_range',
+      header: 'Salary Range',
+      render: (item: SalaryLevel) => (
+        <span className="text-sm">
+          {item.min_salary && item.max_salary
+            ? `${formatCurrency(item.min_salary)} - ${formatCurrency(item.max_salary)}`
+            : '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'notches',
+      header: 'Notches',
+      render: (item: SalaryLevel) => <span className="text-sm">{item.notch_count || 0}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: SalaryLevel) => (
+        <Badge variant={item.is_active ? 'success' : 'danger'}>
+          {item.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (item: SalaryLevel) => (
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => openModal(item)}>
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(item)}>
+            <TrashIcon className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  const notchColumns = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (item: SalaryNotch) => (
+        <span className="font-mono text-sm">{item.full_code || item.code}</span>
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (item: SalaryNotch) => <span className="font-medium">{item.name}</span>,
+    },
+    {
+      key: 'level',
+      header: 'Level',
+      render: (item: SalaryNotch) => (
+        <span className="text-sm">{item.level_name || item.level_code}</span>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      render: (item: SalaryNotch) => (
+        <span className="font-medium text-green-700">{formatCurrency(item.amount)}</span>
+      ),
+    },
+    {
+      key: 'employees',
+      header: 'Employees',
+      render: (item: SalaryNotch) => <span className="text-sm">{item.employee_count || 0}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: SalaryNotch) => (
+        <Badge variant={item.is_active ? 'success' : 'danger'}>
+          {item.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (item: SalaryNotch) => (
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => openModal(item)}>
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(item)}>
+            <TrashIcon className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  const isLoading =
+    (activeTab === 'banks' && loadingBanks) ||
+    (activeTab === 'branches' && loadingBranches) ||
+    (activeTab === 'categories' && loadingCategories) ||
+    (activeTab === 'bands' && loadingBands) ||
+    (activeTab === 'levels' && loadingLevels) ||
+    (activeTab === 'notches' && loadingNotches)
+
+  const isMutating =
+    createBankMutation.isPending || updateBankMutation.isPending ||
+    createBranchMutation.isPending || updateBranchMutation.isPending ||
+    createCategoryMutation.isPending || updateCategoryMutation.isPending ||
+    createBandMutation.isPending || updateBandMutation.isPending ||
+    createLevelMutation.isPending || updateLevelMutation.isPending ||
+    createNotchMutation.isPending || updateNotchMutation.isPending
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Payroll Setup</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage banks, staff categories, and salary structure
+          </p>
+        </div>
+        <Button onClick={() => openModal()}>
+          <PlusIcon className="h-4 w-4 mr-2" />
+          {getAddButtonLabel()}
+        </Button>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b overflow-x-auto">
+        <nav className="flex gap-1 min-w-max">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id as TabType)}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <tab.icon className="h-5 w-5" />
+              {tab.label}
+              <span className="ml-1 px-2 py-0.5 text-xs bg-gray-100 rounded-full">
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Filters */}
+      {activeTab === 'branches' && (
+        <div className="flex gap-4">
+          <Select
+            value={selectedBank}
+            onChange={(e) => setSelectedBank(e.target.value)}
+            options={[
+              { value: '', label: 'All Banks' },
+              ...banks.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+            className="w-64"
+          />
+        </div>
+      )}
+
+      {activeTab === 'levels' && (
+        <div className="flex gap-4">
+          <Select
+            value={selectedBand}
+            onChange={(e) => setSelectedBand(e.target.value)}
+            options={[
+              { value: '', label: 'All Bands' },
+              ...bands.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` })),
+            ]}
+            className="w-64"
+          />
+        </div>
+      )}
+
+      {activeTab === 'notches' && (
+        <div className="flex gap-4">
+          <Select
+            value={selectedLevel}
+            onChange={(e) => setSelectedLevel(e.target.value)}
+            options={[
+              { value: '', label: 'All Levels' },
+              ...levels.map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` })),
+            ]}
+            className="w-64"
+          />
+        </div>
+      )}
+
+      {/* Content */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            {tabs.find((t) => t.id === activeTab)?.icon &&
+              (() => {
+                const IconComponent = tabs.find((t) => t.id === activeTab)!.icon
+                return <IconComponent className="h-5 w-5 mr-2 text-gray-500" />
+              })()}
+            {tabs.find((t) => t.id === activeTab)?.label}
+          </CardTitle>
+        </CardHeader>
+        <Table
+          data={
+            activeTab === 'banks'
+              ? banks
+              : activeTab === 'branches'
+              ? branches
+              : activeTab === 'categories'
+              ? categories
+              : activeTab === 'bands'
+              ? bands
+              : activeTab === 'levels'
+              ? levels
+              : notches
+          }
+          columns={
+            activeTab === 'banks'
+              ? bankColumns
+              : activeTab === 'branches'
+              ? branchColumns
+              : activeTab === 'categories'
+              ? categoryColumns
+              : activeTab === 'bands'
+              ? bandColumns
+              : activeTab === 'levels'
+              ? levelColumns
+              : notchColumns
+          }
+          isLoading={isLoading}
+          emptyMessage={`No ${activeTab} found`}
+        />
+      </Card>
+
+      {/* Add/Edit Modal */}
+      <Modal isOpen={showModal} onClose={closeModal} title={getModalTitle()}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {activeTab === 'banks' && (
+            <>
+              <Input
+                label="Code"
+                value={formData.code || ''}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                required
+                disabled={!!editingItem}
+              />
+              <Input
+                label="Name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+              <Input
+                label="Short Name"
+                value={formData.short_name || ''}
+                onChange={(e) => setFormData({ ...formData, short_name: e.target.value })}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="SWIFT Code"
+                  value={formData.swift_code || ''}
+                  onChange={(e) => setFormData({ ...formData, swift_code: e.target.value })}
+                />
+                <Input
+                  label="Sort Code"
+                  value={formData.sort_code || ''}
+                  onChange={(e) => setFormData({ ...formData, sort_code: e.target.value })}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active ?? true}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-600"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+            </>
+          )}
+
+          {activeTab === 'branches' && (
+            <>
+              <Select
+                label="Bank"
+                value={formData.bank || ''}
+                onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
+                options={[
+                  { value: '', label: 'Select Bank' },
+                  ...banks.map((b) => ({ value: b.id, label: b.name })),
+                ]}
+                required
+              />
+              <Input
+                label="Code"
+                value={formData.code || ''}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                required
+                disabled={!!editingItem}
+              />
+              <Input
+                label="Branch Name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="City"
+                  value={formData.city || ''}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                />
+                <Input
+                  label="Sort Code"
+                  value={formData.sort_code || ''}
+                  onChange={(e) => setFormData({ ...formData, sort_code: e.target.value })}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active ?? true}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-600"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+            </>
+          )}
+
+          {activeTab === 'categories' && (
+            <>
+              <Input
+                label="Code"
+                value={formData.code || ''}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                required
+                disabled={!!editingItem}
+              />
+              <Input
+                label="Name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+              <Input
+                label="Payroll Group"
+                value={formData.payroll_group || ''}
+                onChange={(e) => setFormData({ ...formData, payroll_group: e.target.value })}
+              />
+              <Input
+                label="Sort Order"
+                type="number"
+                value={formData.sort_order || 0}
+                onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) })}
+              />
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active ?? true}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-600"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+            </>
+          )}
+
+          {activeTab === 'bands' && (
+            <>
+              <Input
+                label="Code"
+                value={formData.code || ''}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                required
+                disabled={!!editingItem}
+              />
+              <Input
+                label="Name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Min Salary"
+                  type="number"
+                  step="0.01"
+                  value={formData.min_salary || ''}
+                  onChange={(e) => setFormData({ ...formData, min_salary: parseFloat(e.target.value) })}
+                />
+                <Input
+                  label="Max Salary"
+                  type="number"
+                  step="0.01"
+                  value={formData.max_salary || ''}
+                  onChange={(e) => setFormData({ ...formData, max_salary: parseFloat(e.target.value) })}
+                />
+              </div>
+              <Input
+                label="Sort Order"
+                type="number"
+                value={formData.sort_order || 0}
+                onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) })}
+              />
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active ?? true}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-600"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+            </>
+          )}
+
+          {activeTab === 'levels' && (
+            <>
+              <Select
+                label="Salary Band"
+                value={formData.band || ''}
+                onChange={(e) => setFormData({ ...formData, band: e.target.value })}
+                options={[
+                  { value: '', label: 'Select Band' },
+                  ...bands.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` })),
+                ]}
+                required
+              />
+              <Input
+                label="Code"
+                value={formData.code || ''}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                required
+                disabled={!!editingItem}
+              />
+              <Input
+                label="Name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Min Salary"
+                  type="number"
+                  step="0.01"
+                  value={formData.min_salary || ''}
+                  onChange={(e) => setFormData({ ...formData, min_salary: parseFloat(e.target.value) })}
+                />
+                <Input
+                  label="Max Salary"
+                  type="number"
+                  step="0.01"
+                  value={formData.max_salary || ''}
+                  onChange={(e) => setFormData({ ...formData, max_salary: parseFloat(e.target.value) })}
+                />
+              </div>
+              <Input
+                label="Sort Order"
+                type="number"
+                value={formData.sort_order || 0}
+                onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) })}
+              />
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active ?? true}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-600"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+            </>
+          )}
+
+          {activeTab === 'notches' && (
+            <>
+              <Select
+                label="Salary Level"
+                value={formData.level || ''}
+                onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+                options={[
+                  { value: '', label: 'Select Level' },
+                  ...levels.map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` })),
+                ]}
+                required
+              />
+              <Input
+                label="Code"
+                value={formData.code || ''}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                required
+                disabled={!!editingItem}
+              />
+              <Input
+                label="Name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+              <Input
+                label="Amount (GHS)"
+                type="number"
+                step="0.01"
+                value={formData.amount || ''}
+                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                required
+              />
+              <Input
+                label="Sort Order"
+                type="number"
+                value={formData.sort_order || 0}
+                onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) })}
+              />
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active ?? true}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-600"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+            </>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={closeModal}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={isMutating}>
+              {editingItem ? 'Update' : 'Create'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!showDeleteModal}
+        onClose={() => setShowDeleteModal(null)}
+        title="Confirm Delete"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Are you sure you want to delete <strong>{showDeleteModal?.name}</strong>?
+            This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowDeleteModal(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} isLoading={isMutating}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  )
+}

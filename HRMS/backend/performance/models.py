@@ -1,0 +1,638 @@
+"""
+Performance and Appraisal models.
+"""
+
+import base64
+import hashlib
+import mimetypes
+from django.db import models
+from django.conf import settings
+
+from core.models import BaseModel
+
+
+class AppraisalCycle(BaseModel):
+    """Appraisal cycle/period configuration."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        ACTIVE = 'ACTIVE', 'Active'
+        GOAL_SETTING = 'GOAL_SETTING', 'Goal Setting Phase'
+        MID_YEAR = 'MID_YEAR', 'Mid-Year Review'
+        YEAR_END = 'YEAR_END', 'Year-End Appraisal'
+        CALIBRATION = 'CALIBRATION', 'Calibration'
+        COMPLETED = 'COMPLETED', 'Completed'
+        CLOSED = 'CLOSED', 'Closed'
+
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    year = models.IntegerField()
+
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    goal_setting_start = models.DateField(null=True, blank=True)
+    goal_setting_end = models.DateField(null=True, blank=True)
+    mid_year_start = models.DateField(null=True, blank=True)
+    mid_year_end = models.DateField(null=True, blank=True)
+    year_end_start = models.DateField(null=True, blank=True)
+    year_end_end = models.DateField(null=True, blank=True)
+
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    is_active = models.BooleanField(default=False)
+
+    # Configuration
+    allow_self_assessment = models.BooleanField(default=True)
+    allow_peer_feedback = models.BooleanField(default=False)
+    require_manager_approval = models.BooleanField(default=True)
+    min_goals = models.PositiveIntegerField(default=3)
+    max_goals = models.PositiveIntegerField(default=7)
+
+    class Meta:
+        ordering = ['-year']
+
+    def __str__(self):
+        return f"{self.name} ({self.year})"
+
+
+class RatingScale(BaseModel):
+    """Rating scale definition."""
+
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
+
+
+class RatingScaleLevel(BaseModel):
+    """Individual levels within a rating scale."""
+
+    rating_scale = models.ForeignKey(
+        RatingScale, on_delete=models.CASCADE, related_name='levels'
+    )
+    level = models.PositiveIntegerField()
+    name = models.CharField(max_length=50)
+    description = models.TextField(blank=True)
+    min_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    max_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    class Meta:
+        unique_together = ['rating_scale', 'level']
+        ordering = ['level']
+
+    def __str__(self):
+        return f"{self.rating_scale.name} - {self.level}: {self.name}"
+
+
+class Competency(BaseModel):
+    """Competency framework."""
+
+    class Category(models.TextChoices):
+        CORE = 'CORE', 'Core Competency'
+        FUNCTIONAL = 'FUNCTIONAL', 'Functional Competency'
+        LEADERSHIP = 'LEADERSHIP', 'Leadership Competency'
+        TECHNICAL = 'TECHNICAL', 'Technical Competency'
+
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, unique=True)
+    description = models.TextField()
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.CORE
+    )
+    is_active = models.BooleanField(default=True)
+    applicable_grades = models.ManyToManyField(
+        'organization.JobGrade', blank=True, related_name='competencies'
+    )
+
+    class Meta:
+        verbose_name_plural = 'Competencies'
+        ordering = ['category', 'name']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class CompetencyLevel(BaseModel):
+    """Proficiency levels for competencies."""
+
+    competency = models.ForeignKey(
+        Competency, on_delete=models.CASCADE, related_name='proficiency_levels'
+    )
+    level = models.PositiveIntegerField()
+    name = models.CharField(max_length=50)
+    description = models.TextField()
+    behavioral_indicators = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ['competency', 'level']
+        ordering = ['level']
+
+
+class GoalCategory(BaseModel):
+    """Goal categories."""
+
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    weight = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = 'Goal Categories'
+
+    def __str__(self):
+        return self.name
+
+
+class Appraisal(BaseModel):
+    """Individual employee appraisal."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        GOAL_SETTING = 'GOAL_SETTING', 'Goal Setting'
+        GOALS_SUBMITTED = 'GOALS_SUBMITTED', 'Goals Submitted'
+        GOALS_APPROVED = 'GOALS_APPROVED', 'Goals Approved'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        SELF_ASSESSMENT = 'SELF_ASSESSMENT', 'Self Assessment'
+        MANAGER_REVIEW = 'MANAGER_REVIEW', 'Manager Review'
+        REVIEW_MEETING = 'REVIEW_MEETING', 'Review Meeting'
+        CALIBRATION = 'CALIBRATION', 'Calibration'
+        COMPLETED = 'COMPLETED', 'Completed'
+        ACKNOWLEDGED = 'ACKNOWLEDGED', 'Acknowledged by Employee'
+
+    employee = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE, related_name='appraisals'
+    )
+    appraisal_cycle = models.ForeignKey(
+        AppraisalCycle, on_delete=models.CASCADE, related_name='appraisals'
+    )
+    manager = models.ForeignKey(
+        'employees.Employee', on_delete=models.SET_NULL,
+        null=True, related_name='managed_appraisals'
+    )
+
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+
+    # Goal Ratings
+    goals_self_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    goals_manager_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    goals_final_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    # Competency Ratings
+    competency_self_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    competency_manager_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    competency_final_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    # Overall Ratings
+    overall_self_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    overall_manager_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    overall_final_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    final_rating_level = models.ForeignKey(
+        RatingScaleLevel, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    # Comments
+    employee_comments = models.TextField(blank=True)
+    manager_comments = models.TextField(blank=True)
+    hr_comments = models.TextField(blank=True)
+
+    # Dates
+    self_assessment_date = models.DateTimeField(null=True, blank=True)
+    manager_review_date = models.DateTimeField(null=True, blank=True)
+    review_meeting_date = models.DateTimeField(null=True, blank=True)
+    completion_date = models.DateTimeField(null=True, blank=True)
+    acknowledgement_date = models.DateTimeField(null=True, blank=True)
+
+    # Recommendations
+    promotion_recommended = models.BooleanField(default=False)
+    increment_recommended = models.BooleanField(default=False)
+    training_recommended = models.BooleanField(default=False)
+    pip_recommended = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ['employee', 'appraisal_cycle']
+        ordering = ['-appraisal_cycle__year']
+
+    def __str__(self):
+        return f"{self.employee} - {self.appraisal_cycle}"
+
+
+class Goal(BaseModel):
+    """Individual performance goals."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        PENDING_APPROVAL = 'PENDING_APPROVAL', 'Pending Approval'
+        APPROVED = 'APPROVED', 'Approved'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        COMPLETED = 'COMPLETED', 'Completed'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.CASCADE, related_name='goals'
+    )
+    category = models.ForeignKey(
+        GoalCategory, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    success_criteria = models.TextField(blank=True)
+    weight = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    target_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+
+    # Progress
+    progress_percentage = models.IntegerField(default=0)
+    progress_notes = models.TextField(blank=True)
+
+    # Ratings
+    self_rating = models.IntegerField(null=True, blank=True)
+    self_comments = models.TextField(blank=True)
+    manager_rating = models.IntegerField(null=True, blank=True)
+    manager_comments = models.TextField(blank=True)
+    final_rating = models.IntegerField(null=True, blank=True)
+
+    # Approval
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    # Cascaded from
+    parent_goal = models.ForeignKey(
+        'self', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='cascaded_goals'
+    )
+
+    class Meta:
+        ordering = ['category', '-weight']
+
+    def __str__(self):
+        return f"{self.appraisal.employee} - {self.title}"
+
+
+class GoalUpdate(BaseModel):
+    """Progress updates on goals."""
+
+    goal = models.ForeignKey(Goal, on_delete=models.CASCADE, related_name='updates')
+    update_date = models.DateField()
+    progress_percentage = models.IntegerField()
+    notes = models.TextField()
+    # Binary file storage for attachments
+    file_data = models.BinaryField(null=True, blank=True)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
+    mime_type = models.CharField(max_length=100, null=True, blank=True)
+    file_checksum = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-update_date']
+
+    def set_attachment(self, file_obj, filename=None):
+        """Store attachment as binary data."""
+        if file_obj is None:
+            self.file_data = None
+            self.file_name = None
+            self.file_size = None
+            self.mime_type = None
+            self.file_checksum = None
+            return
+
+        content = file_obj.read() if hasattr(file_obj, 'read') else file_obj
+
+        if filename:
+            self.file_name = filename
+        elif hasattr(file_obj, 'name'):
+            self.file_name = file_obj.name
+        else:
+            self.file_name = 'attachment'
+
+        self.file_data = content
+        self.file_size = len(content)
+
+        if hasattr(file_obj, 'content_type'):
+            self.mime_type = file_obj.content_type
+        else:
+            mime, _ = mimetypes.guess_type(self.file_name)
+            self.mime_type = mime or 'application/octet-stream'
+
+        self.file_checksum = hashlib.sha256(content).hexdigest()
+
+    def get_file_base64(self):
+        """Return file data as base64 encoded string."""
+        if self.file_data:
+            return base64.b64encode(self.file_data).decode('utf-8')
+        return None
+
+    def get_file_data_uri(self):
+        """Return file as a data URI."""
+        if self.file_data and self.mime_type:
+            b64_data = base64.b64encode(self.file_data).decode('utf-8')
+            return f"data:{self.mime_type};base64,{b64_data}"
+        return None
+
+    @property
+    def has_attachment(self):
+        """Check if attachment exists."""
+        return self.file_data is not None
+
+
+class CompetencyAssessment(BaseModel):
+    """Competency assessment within an appraisal."""
+
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.CASCADE, related_name='competency_assessments'
+    )
+    competency = models.ForeignKey(Competency, on_delete=models.CASCADE)
+
+    self_rating = models.IntegerField(null=True, blank=True)
+    self_comments = models.TextField(blank=True)
+    manager_rating = models.IntegerField(null=True, blank=True)
+    manager_comments = models.TextField(blank=True)
+    final_rating = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['appraisal', 'competency']
+
+
+class PeerFeedback(BaseModel):
+    """360-degree peer feedback."""
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+        DECLINED = 'DECLINED', 'Declined'
+
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.CASCADE, related_name='peer_feedback'
+    )
+    reviewer = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE, related_name='given_feedback'
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+
+    strengths = models.TextField(blank=True)
+    areas_for_improvement = models.TextField(blank=True)
+    overall_comments = models.TextField(blank=True)
+    overall_rating = models.IntegerField(null=True, blank=True)
+
+    requested_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    is_anonymous = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ['appraisal', 'reviewer']
+
+
+class PerformanceImprovementPlan(BaseModel):
+    """Performance Improvement Plan (PIP)."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        ACTIVE = 'ACTIVE', 'Active'
+        COMPLETED = 'COMPLETED', 'Completed - Successful'
+        FAILED = 'FAILED', 'Completed - Unsuccessful'
+        EXTENDED = 'EXTENDED', 'Extended'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    employee = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE, related_name='pips'
+    )
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    pip_number = models.CharField(max_length=20, unique=True)
+    reason = models.TextField()
+    performance_issues = models.TextField()
+
+    start_date = models.DateField()
+    end_date = models.DateField()
+    review_frequency = models.CharField(max_length=20, default='WEEKLY')
+
+    objectives = models.TextField()
+    success_criteria = models.TextField()
+    support_provided = models.TextField(blank=True)
+    consequences = models.TextField(blank=True)
+
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+
+    manager = models.ForeignKey(
+        'employees.Employee', on_delete=models.SET_NULL,
+        null=True, related_name='managed_pips'
+    )
+    hr_representative = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='hr_pips'
+    )
+
+    outcome = models.TextField(blank=True)
+    outcome_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Performance Improvement Plan'
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.pip_number} - {self.employee}"
+
+
+class PIPReview(BaseModel):
+    """Reviews/check-ins during PIP."""
+
+    pip = models.ForeignKey(
+        PerformanceImprovementPlan, on_delete=models.CASCADE, related_name='reviews'
+    )
+    review_date = models.DateField()
+    progress_summary = models.TextField()
+    areas_improved = models.TextField(blank=True)
+    areas_needing_work = models.TextField(blank=True)
+    action_items = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        'employees.Employee', on_delete=models.SET_NULL, null=True
+    )
+    employee_acknowledgement = models.BooleanField(default=False)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-review_date']
+
+
+class DevelopmentPlan(BaseModel):
+    """Individual Development Plan (IDP)."""
+
+    employee = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE, related_name='development_plans'
+    )
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    career_aspiration = models.TextField(blank=True)
+    strengths = models.TextField(blank=True)
+    development_areas = models.TextField(blank=True)
+
+    start_date = models.DateField()
+    target_completion = models.DateField()
+    is_active = models.BooleanField(default=True)
+
+    manager_approved = models.BooleanField(default=False)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.employee} - {self.title}"
+
+
+class DevelopmentActivity(BaseModel):
+    """Activities within a development plan."""
+
+    class Type(models.TextChoices):
+        TRAINING = 'TRAINING', 'Training Course'
+        CERTIFICATION = 'CERTIFICATION', 'Certification'
+        MENTORING = 'MENTORING', 'Mentoring'
+        COACHING = 'COACHING', 'Coaching'
+        JOB_ROTATION = 'JOB_ROTATION', 'Job Rotation'
+        PROJECT = 'PROJECT', 'Project Assignment'
+        SELF_STUDY = 'SELF_STUDY', 'Self Study'
+        SHADOWING = 'SHADOWING', 'Job Shadowing'
+        OTHER = 'OTHER', 'Other'
+
+    class Status(models.TextChoices):
+        PLANNED = 'PLANNED', 'Planned'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        COMPLETED = 'COMPLETED', 'Completed'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    development_plan = models.ForeignKey(
+        DevelopmentPlan, on_delete=models.CASCADE, related_name='activities'
+    )
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    activity_type = models.CharField(
+        max_length=20, choices=Type.choices, default=Type.TRAINING
+    )
+    competency = models.ForeignKey(
+        Competency, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    target_date = models.DateField()
+    completion_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PLANNED
+    )
+
+    resources_needed = models.TextField(blank=True)
+    estimated_cost = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    actual_cost = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+
+    outcome = models.TextField(blank=True)
+    # Binary file storage for evidence
+    evidence_data = models.BinaryField(null=True, blank=True)
+    evidence_name = models.CharField(max_length=255, null=True, blank=True)
+    evidence_size = models.PositiveIntegerField(null=True, blank=True)
+    evidence_mime = models.CharField(max_length=100, null=True, blank=True)
+    evidence_checksum = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = 'Development Activities'
+        ordering = ['target_date']
+
+    def set_evidence(self, file_obj, filename=None):
+        """Store evidence file as binary data."""
+        if file_obj is None:
+            self.evidence_data = None
+            self.evidence_name = None
+            self.evidence_size = None
+            self.evidence_mime = None
+            self.evidence_checksum = None
+            return
+
+        content = file_obj.read() if hasattr(file_obj, 'read') else file_obj
+
+        if filename:
+            self.evidence_name = filename
+        elif hasattr(file_obj, 'name'):
+            self.evidence_name = file_obj.name
+        else:
+            self.evidence_name = 'evidence'
+
+        self.evidence_data = content
+        self.evidence_size = len(content)
+
+        if hasattr(file_obj, 'content_type'):
+            self.evidence_mime = file_obj.content_type
+        else:
+            mime, _ = mimetypes.guess_type(self.evidence_name)
+            self.evidence_mime = mime or 'application/octet-stream'
+
+        self.evidence_checksum = hashlib.sha256(content).hexdigest()
+
+    def get_evidence_base64(self):
+        """Return evidence data as base64 encoded string."""
+        if self.evidence_data:
+            return base64.b64encode(self.evidence_data).decode('utf-8')
+        return None
+
+    def get_evidence_data_uri(self):
+        """Return evidence as a data URI."""
+        if self.evidence_data and self.evidence_mime:
+            b64_data = base64.b64encode(self.evidence_data).decode('utf-8')
+            return f"data:{self.evidence_mime};base64,{b64_data}"
+        return None
+
+    @property
+    def has_evidence(self):
+        """Check if evidence exists."""
+        return self.evidence_data is not None

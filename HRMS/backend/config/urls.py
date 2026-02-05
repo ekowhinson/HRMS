@@ -1,0 +1,49 @@
+"""
+URL configuration for NHIA HRMS project.
+"""
+
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
+
+urlpatterns = [
+    # Admin
+    path('admin/', admin.site.urls),
+
+    # API v1
+    path('api/v1/', include([
+        path('auth/', include('accounts.urls')),
+        path('employees/', include('employees.urls')),
+        path('organization/', include('organization.urls')),
+        path('leave/', include('leave.urls')),
+        path('benefits/', include('benefits.urls')),
+        path('payroll/', include('payroll.urls')),
+        path('performance/', include('performance.urls')),
+        path('reports/', include('reports.urls')),
+        path('imports/', include('imports.urls')),
+    ])),
+
+    # API Documentation
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
+    # Health check
+    path('health/', include('core.urls')),
+]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+# Customize admin site
+admin.site.site_header = 'NHIA HRMS Administration'
+admin.site.site_title = 'NHIA HRMS'
+admin.site.index_title = 'Human Resource Management System'

@@ -1,0 +1,58 @@
+"""
+Payroll management URL configuration.
+"""
+
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
+from . import views
+
+app_name = 'payroll'
+
+router = DefaultRouter()
+router.register(r'components', views.PayComponentViewSet, basename='pay-component')
+router.register(r'structures', views.SalaryStructureViewSet, basename='salary-structure')
+router.register(r'periods', views.PayrollPeriodViewSet, basename='payroll-period')
+router.register(r'runs', views.PayrollRunViewSet, basename='payroll-run')
+router.register(r'adhoc-payments', views.AdHocPaymentViewSet, basename='adhoc-payment')
+router.register(r'transactions', views.EmployeeTransactionViewSet, basename='employee-transaction')
+router.register(r'tax-config', views.OvertimeBonusTaxConfigViewSet, basename='overtime-bonus-tax-config')
+router.register(r'paye-brackets', views.TaxBracketViewSet, basename='paye-bracket')
+# Payroll Setup
+router.register(r'banks', views.BankViewSet, basename='bank')
+router.register(r'bank-branches', views.BankBranchViewSet, basename='bank-branch')
+router.register(r'staff-categories', views.StaffCategoryViewSet, basename='staff-category')
+router.register(r'salary-bands', views.SalaryBandViewSet, basename='salary-band')
+router.register(r'salary-levels', views.SalaryLevelViewSet, basename='salary-level')
+router.register(r'salary-notches', views.SalaryNotchViewSet, basename='salary-notch')
+
+urlpatterns = [
+    path('', include(router.urls)),
+
+    # Employee salary
+    path('employee/<uuid:employee_id>/salary/', views.EmployeeSalaryView.as_view(), name='employee-salary'),
+    path('employee/<uuid:employee_id>/salary/history/', views.EmployeeSalaryHistoryView.as_view(), name='salary-history'),
+    path('employee/<uuid:employee_id>/payslips/', views.EmployeePayslipsView.as_view(), name='employee-payslips'),
+
+    # Payroll processing
+    path('runs/<uuid:pk>/compute/', views.ComputePayrollView.as_view(), name='compute-payroll'),
+    path('runs/<uuid:pk>/approve/', views.ApprovePayrollView.as_view(), name='approve-payroll'),
+    path('runs/<uuid:pk>/process-payment/', views.ProcessPaymentView.as_view(), name='process-payment'),
+    path('runs/<uuid:pk>/generate-bank-file/', views.GenerateBankFileView.as_view(), name='generate-bank-file'),
+    path('runs/<uuid:pk>/generate-payslips/', views.GeneratePayslipsView.as_view(), name='generate-payslips'),
+
+    # Payroll items
+    path('runs/<uuid:run_id>/items/', views.PayrollItemListView.as_view(), name='payroll-items'),
+    path('items/<uuid:pk>/', views.PayrollItemDetailView.as_view(), name='payroll-item-detail'),
+
+    # Tax configuration
+    path('tax-brackets/', views.TaxBracketListView.as_view(), name='tax-brackets'),
+    path('ssnit-rates/', views.SSNITRateListView.as_view(), name='ssnit-rates'),
+    path('tax-reliefs/', views.TaxReliefListView.as_view(), name='tax-reliefs'),
+
+    # Reports
+    path('reports/payroll-summary/', views.PayrollSummaryReportView.as_view(), name='payroll-summary'),
+    path('reports/paye/', views.PAYEReportView.as_view(), name='paye-report'),
+    path('reports/ssnit/', views.SSNITReportView.as_view(), name='ssnit-report'),
+    path('reports/bank-advice/', views.BankAdviceReportView.as_view(), name='bank-advice-report'),
+]

@@ -1,0 +1,242 @@
+import api from '@/lib/api'
+
+// Types
+export interface Bank {
+  id: string
+  code: string
+  name: string
+  short_name?: string
+  swift_code?: string
+  sort_code?: string
+  is_active: boolean
+  branch_count?: number
+}
+
+export interface BankBranch {
+  id: string
+  bank: string
+  bank_name?: string
+  code: string
+  name: string
+  sort_code?: string
+  city?: string
+  region?: string
+  region_name?: string
+  is_active: boolean
+}
+
+export interface StaffCategory {
+  id: string
+  code: string
+  name: string
+  description?: string
+  payroll_group?: string
+  sort_order: number
+  is_active: boolean
+  employee_count?: number
+}
+
+export interface SalaryBand {
+  id: string
+  code: string
+  name: string
+  description?: string
+  min_salary?: number
+  max_salary?: number
+  sort_order: number
+  is_active: boolean
+  level_count?: number
+}
+
+export interface SalaryLevel {
+  id: string
+  band: string
+  band_name?: string
+  band_code?: string
+  code: string
+  name: string
+  description?: string
+  min_salary?: number
+  max_salary?: number
+  sort_order: number
+  is_active: boolean
+  notch_count?: number
+}
+
+export interface SalaryNotch {
+  id: string
+  level: string
+  level_name?: string
+  level_code?: string
+  band_code?: string
+  code: string
+  name: string
+  full_code?: string
+  amount: number
+  description?: string
+  sort_order: number
+  is_active: boolean
+  employee_count?: number
+}
+
+interface PaginatedResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  results: T[]
+}
+
+export const payrollSetupService = {
+  // Banks
+  async getBanks(): Promise<Bank[]> {
+    const response = await api.get<PaginatedResponse<Bank> | Bank[]>('/payroll/banks/')
+    return Array.isArray(response.data) ? response.data : response.data.results
+  },
+
+  async getBank(id: string): Promise<Bank> {
+    const response = await api.get<Bank>(`/payroll/banks/${id}/`)
+    return response.data
+  },
+
+  async createBank(data: Partial<Bank>): Promise<Bank> {
+    const response = await api.post<Bank>('/payroll/banks/', data)
+    return response.data
+  },
+
+  async updateBank(id: string, data: Partial<Bank>): Promise<Bank> {
+    const response = await api.patch<Bank>(`/payroll/banks/${id}/`, data)
+    return response.data
+  },
+
+  async deleteBank(id: string): Promise<void> {
+    await api.delete(`/payroll/banks/${id}/`)
+  },
+
+  // Bank Branches
+  async getBankBranches(bankId?: string): Promise<BankBranch[]> {
+    const params = bankId ? { bank: bankId } : {}
+    const response = await api.get<PaginatedResponse<BankBranch> | BankBranch[]>('/payroll/bank-branches/', { params })
+    return Array.isArray(response.data) ? response.data : response.data.results
+  },
+
+  async getBankBranch(id: string): Promise<BankBranch> {
+    const response = await api.get<BankBranch>(`/payroll/bank-branches/${id}/`)
+    return response.data
+  },
+
+  async createBankBranch(data: Partial<BankBranch>): Promise<BankBranch> {
+    const response = await api.post<BankBranch>('/payroll/bank-branches/', data)
+    return response.data
+  },
+
+  async updateBankBranch(id: string, data: Partial<BankBranch>): Promise<BankBranch> {
+    const response = await api.patch<BankBranch>(`/payroll/bank-branches/${id}/`, data)
+    return response.data
+  },
+
+  async deleteBankBranch(id: string): Promise<void> {
+    await api.delete(`/payroll/bank-branches/${id}/`)
+  },
+
+  // Staff Categories
+  async getStaffCategories(): Promise<StaffCategory[]> {
+    const response = await api.get<PaginatedResponse<StaffCategory> | StaffCategory[]>('/payroll/staff-categories/')
+    return Array.isArray(response.data) ? response.data : response.data.results
+  },
+
+  async getStaffCategory(id: string): Promise<StaffCategory> {
+    const response = await api.get<StaffCategory>(`/payroll/staff-categories/${id}/`)
+    return response.data
+  },
+
+  async createStaffCategory(data: Partial<StaffCategory>): Promise<StaffCategory> {
+    const response = await api.post<StaffCategory>('/payroll/staff-categories/', data)
+    return response.data
+  },
+
+  async updateStaffCategory(id: string, data: Partial<StaffCategory>): Promise<StaffCategory> {
+    const response = await api.patch<StaffCategory>(`/payroll/staff-categories/${id}/`, data)
+    return response.data
+  },
+
+  async deleteStaffCategory(id: string): Promise<void> {
+    await api.delete(`/payroll/staff-categories/${id}/`)
+  },
+
+  // Salary Bands
+  async getSalaryBands(): Promise<SalaryBand[]> {
+    const response = await api.get<PaginatedResponse<SalaryBand> | SalaryBand[]>('/payroll/salary-bands/')
+    return Array.isArray(response.data) ? response.data : response.data.results
+  },
+
+  async getSalaryBand(id: string): Promise<SalaryBand> {
+    const response = await api.get<SalaryBand>(`/payroll/salary-bands/${id}/`)
+    return response.data
+  },
+
+  async createSalaryBand(data: Partial<SalaryBand>): Promise<SalaryBand> {
+    const response = await api.post<SalaryBand>('/payroll/salary-bands/', data)
+    return response.data
+  },
+
+  async updateSalaryBand(id: string, data: Partial<SalaryBand>): Promise<SalaryBand> {
+    const response = await api.patch<SalaryBand>(`/payroll/salary-bands/${id}/`, data)
+    return response.data
+  },
+
+  async deleteSalaryBand(id: string): Promise<void> {
+    await api.delete(`/payroll/salary-bands/${id}/`)
+  },
+
+  // Salary Levels
+  async getSalaryLevels(bandId?: string): Promise<SalaryLevel[]> {
+    const params = bandId ? { band: bandId } : {}
+    const response = await api.get<PaginatedResponse<SalaryLevel> | SalaryLevel[]>('/payroll/salary-levels/', { params })
+    return Array.isArray(response.data) ? response.data : response.data.results
+  },
+
+  async getSalaryLevel(id: string): Promise<SalaryLevel> {
+    const response = await api.get<SalaryLevel>(`/payroll/salary-levels/${id}/`)
+    return response.data
+  },
+
+  async createSalaryLevel(data: Partial<SalaryLevel>): Promise<SalaryLevel> {
+    const response = await api.post<SalaryLevel>('/payroll/salary-levels/', data)
+    return response.data
+  },
+
+  async updateSalaryLevel(id: string, data: Partial<SalaryLevel>): Promise<SalaryLevel> {
+    const response = await api.patch<SalaryLevel>(`/payroll/salary-levels/${id}/`, data)
+    return response.data
+  },
+
+  async deleteSalaryLevel(id: string): Promise<void> {
+    await api.delete(`/payroll/salary-levels/${id}/`)
+  },
+
+  // Salary Notches
+  async getSalaryNotches(levelId?: string): Promise<SalaryNotch[]> {
+    const params = levelId ? { level: levelId } : {}
+    const response = await api.get<PaginatedResponse<SalaryNotch> | SalaryNotch[]>('/payroll/salary-notches/', { params })
+    return Array.isArray(response.data) ? response.data : response.data.results
+  },
+
+  async getSalaryNotch(id: string): Promise<SalaryNotch> {
+    const response = await api.get<SalaryNotch>(`/payroll/salary-notches/${id}/`)
+    return response.data
+  },
+
+  async createSalaryNotch(data: Partial<SalaryNotch>): Promise<SalaryNotch> {
+    const response = await api.post<SalaryNotch>('/payroll/salary-notches/', data)
+    return response.data
+  },
+
+  async updateSalaryNotch(id: string, data: Partial<SalaryNotch>): Promise<SalaryNotch> {
+    const response = await api.patch<SalaryNotch>(`/payroll/salary-notches/${id}/`, data)
+    return response.data
+  },
+
+  async deleteSalaryNotch(id: string): Promise<void> {
+    await api.delete(`/payroll/salary-notches/${id}/`)
+  },
+}
