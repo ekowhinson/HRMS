@@ -106,6 +106,7 @@ class ColumnMapping:
     salary_band: str = None
     salary_level: str = None
     salary_notch: str = None
+    salary_notch_combined: str = None  # Combined format: "Band 4/Level 4B/Notch 2"
     basic_salary: str = None
 
     # Bank
@@ -171,16 +172,17 @@ class UnifiedImportProcessor:
         'grade': [r'grade', r'level', r'rank'],
         'work_location': [r'location', r'work.*location', r'office', r'station'],
         'staff_category': [r'staff.*cat', r'category', r'payroll.*group'],
-        'salary_band': [r'band', r'salary.*band', r'pay.*band'],
+        'salary_band': [r'^band$', r'salary.*band', r'pay.*band'],
         'salary_level': [r'salary.*level', r'pay.*level'],
-        'salary_notch': [r'notch', r'step', r'increment'],
+        'salary_notch': [r'^notch$', r'step', r'increment'],
+        'salary_notch_combined': [r'notch.*new', r'new.*notch', r'current.*notch', r'salary.*notch'],  # Combined format: "Band 4/Level 4B/Notch 2"
         'basic_salary': [r'basic', r'salary', r'gross', r'pay'],
         'bank_name': [r'bank.*name', r'^bank$'],
         'bank_code': [r'bank.*code', r'bank.*id'],
-        'branch_name': [r'branch.*name', r'^branch$'],
+        'branch_name': [r'branch.*name', r'bank.*branch', r'^branch$'],
         'branch_code': [r'branch.*code', r'sort.*code'],
         'account_name': [r'account.*name', r'acct.*name', r'a/c.*name'],
-        'account_number': [r'account.*no', r'acct.*no', r'a/c.*no', r'account.*number'],
+        'account_number': [r'account.*no', r'acct.*no', r'a/c.*no', r'account.*number', r'^account$'],
         'account_type': [r'account.*type', r'acct.*type'],
         'supervisor_id': [r'supervisor.*id', r'manager.*id', r'reports.*to.*id'],
         'supervisor_name': [r'supervisor', r'manager', r'reports.*to'],
@@ -999,6 +1001,64 @@ class UnifiedImportProcessor:
         else:
             return parts[0], ' '.join(parts[1:-1]), parts[-1]
 
+    def _parse_combined_notch(self, value: Any) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Parse a combined salary notch string into band, level, notch components.
+
+        Supports formats like:
+        - "Band 4/Level 4B/Notch 2"
+        - "Band 4 / Level 4B / Notch 2"
+        - "Band4/Level4B/Notch2"
+
+        Returns:
+            Tuple of (band_name, level_name, notch_name)
+        """
+        if not value or pd.isna(value):
+            return None, None, None
+
+        value_str = str(value).strip()
+        if not value_str:
+            return None, None, None
+
+        # Split by forward slash
+        parts = [p.strip() for p in value_str.split('/')]
+
+        band_name = None
+        level_name = None
+        notch_name = None
+
+        for part in parts:
+            part_lower = part.lower()
+
+            # Check for band
+            if 'band' in part_lower:
+                # Extract "Band X" or just the number
+                match = re.search(r'band\s*(\d+)', part_lower, re.IGNORECASE)
+                if match:
+                    band_name = f"Band {match.group(1)}"
+                else:
+                    band_name = part
+
+            # Check for level
+            elif 'level' in part_lower:
+                # Extract "Level XY" or just the code
+                match = re.search(r'level\s*(\d+[A-Za-z]?)', part_lower, re.IGNORECASE)
+                if match:
+                    level_name = f"Level {match.group(1).upper()}"
+                else:
+                    level_name = part
+
+            # Check for notch
+            elif 'notch' in part_lower:
+                # Extract "Notch X" or just the number
+                match = re.search(r'notch\s*(\d+)', part_lower, re.IGNORECASE)
+                if match:
+                    notch_name = f"Notch {match.group(1)}"
+                else:
+                    notch_name = part
+
+        return band_name, level_name, notch_name
+
     def _process_employee_row(
         self,
         row: pd.Series,
@@ -1101,6 +1161,17 @@ class UnifiedImportProcessor:
             level_name = self._get_value(row, mapping.salary_level)
             notch_name = self._get_value(row, mapping.salary_notch)
             basic_salary = self._parse_decimal(self._get_value(row, mapping.basic_salary))
+
+            # Try combined notch format if individual fields not found
+            combined_notch = self._get_value(row, mapping.salary_notch_combined)
+            if combined_notch and not (band_name and level_name and notch_name):
+                parsed_band, parsed_level, parsed_notch = self._parse_combined_notch(combined_notch)
+                if parsed_band:
+                    band_name = band_name or parsed_band
+                if parsed_level:
+                    level_name = level_name or parsed_level
+                if parsed_notch:
+                    notch_name = notch_name or parsed_notch
 
             if band_name:
                 band = self._get_or_create_salary_band(band_name)
@@ -1703,6 +1774,17 @@ class UnifiedImportProcessor:
         band_name = self._get_value(row, mapping.salary_band)
         level_name = self._get_value(row, mapping.salary_level)
         notch_name = self._get_value(row, mapping.salary_notch)
+
+        # Try combined notch format if individual fields not found
+        combined_notch = self._get_value(row, mapping.salary_notch_combined)
+        if combined_notch and not (band_name and level_name and notch_name):
+            parsed_band, parsed_level, parsed_notch = self._parse_combined_notch(combined_notch)
+            if parsed_band:
+                band_name = band_name or parsed_band
+            if parsed_level:
+                level_name = level_name or parsed_level
+            if parsed_notch:
+                notch_name = notch_name or parsed_notch
 
         if band_name and level_name and notch_name:
             band = self._get_or_create_salary_band(band_name)
