@@ -9,7 +9,7 @@ from .models import (
     PayComponent, SalaryStructure, SalaryStructureComponent,
     EmployeeSalary, TaxBracket, TaxRelief, SSNITRate,
     OvertimeBonusTaxConfig, PayrollCalendar, PayrollPeriod, PayrollRun,
-    PayrollItem, AdHocPayment, EmployeeTransaction
+    PayrollItem, AdHocPayment, EmployeeTransaction, PayrollSettings
 )
 
 
@@ -210,8 +210,53 @@ class AdHocPaymentAdmin(admin.ModelAdmin):
 
 @admin.register(EmployeeTransaction)
 class EmployeeTransactionAdmin(admin.ModelAdmin):
-    list_display = ['reference_number', 'employee', 'pay_component', 'override_type', 'status', 'effective_from']
-    list_filter = ['status', 'override_type', 'is_recurring']
+    list_display = ['reference_number', 'employee', 'pay_component', 'override_type', 'status', 'effective_from', 'calendar']
+    list_filter = ['status', 'override_type', 'is_recurring', 'calendar']
     search_fields = ['reference_number', 'employee__employee_number']
-    raw_id_fields = ['employee', 'pay_component', 'payroll_period', 'approved_by']
+    raw_id_fields = ['employee', 'pay_component', 'payroll_period', 'calendar', 'approved_by']
     date_hierarchy = 'effective_from'
+
+
+# Payroll Settings (Singleton)
+@admin.register(PayrollSettings)
+class PayrollSettingsAdmin(admin.ModelAdmin):
+    """
+    Admin for global payroll settings (singleton pattern).
+    Only one record should exist with pk=1.
+    """
+    list_display = ['get_active_calendar_display', 'get_active_period_display', 'auto_advance_period', 'updated_at']
+    readonly_fields = ['updated_at', 'updated_by']
+    raw_id_fields = ['active_calendar', 'active_period']
+    fieldsets = (
+        ('Active Period', {
+            'fields': ('active_calendar', 'active_period'),
+            'description': 'The currently active payroll calendar and period. All new transactions will automatically be linked to this calendar.'
+        }),
+        ('Settings', {
+            'fields': ('auto_advance_period', 'default_transaction_status'),
+        }),
+        ('Audit', {
+            'fields': ('updated_at', 'updated_by'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    def get_active_calendar_display(self, obj):
+        return obj.active_calendar.name if obj.active_calendar else 'Not Set'
+    get_active_calendar_display.short_description = 'Active Calendar'
+
+    def get_active_period_display(self, obj):
+        return obj.active_period.name if obj.active_period else 'Not Set'
+    get_active_period_display.short_description = 'Active Period'
+
+    def has_add_permission(self, request):
+        # Only allow adding if no settings exist
+        return not PayrollSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        # Never allow deleting the settings
+        return False
+
+    def save_model(self, request, obj, form, change):
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)

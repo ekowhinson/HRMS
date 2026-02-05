@@ -11,7 +11,7 @@ from .models import (
     PayrollPeriod, PayrollRun, PayrollItem, PayrollItemDetail,
     AdHocPayment, TaxBracket, TaxRelief, SSNITRate, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
-    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar
+    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings
 )
 
 
@@ -138,6 +138,42 @@ class PayrollCalendarSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+
+class PayrollSettingsSerializer(serializers.ModelSerializer):
+    """Serializer for PayrollSettings (global payroll configuration)."""
+    active_calendar_name = serializers.CharField(source='active_calendar.name', read_only=True)
+    active_calendar_year = serializers.IntegerField(source='active_calendar.year', read_only=True)
+    active_calendar_month = serializers.IntegerField(source='active_calendar.month', read_only=True)
+    active_period_name = serializers.CharField(source='active_period.name', read_only=True)
+    active_period_status = serializers.CharField(source='active_period.status', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = PayrollSettings
+        fields = [
+            'id',
+            'active_calendar', 'active_calendar_name', 'active_calendar_year', 'active_calendar_month',
+            'active_period', 'active_period_name', 'active_period_status',
+            'auto_advance_period', 'default_transaction_status',
+            'updated_at', 'updated_by', 'updated_by_name'
+        ]
+        read_only_fields = ['updated_at', 'updated_by', 'updated_by_name']
+
+
+class SetActivePeriodSerializer(serializers.Serializer):
+    """Serializer for setting active period."""
+    calendar_id = serializers.UUIDField(required=False, help_text='Calendar ID to set as active')
+    period_id = serializers.UUIDField(required=False, help_text='Period ID to set as active')
+    year = serializers.IntegerField(required=False, help_text='Year (used with month)')
+    month = serializers.IntegerField(required=False, min_value=1, max_value=12, help_text='Month (1-12)')
+
+    def validate(self, data):
+        if not any([data.get('calendar_id'), data.get('period_id'), (data.get('year') and data.get('month'))]):
+            raise serializers.ValidationError(
+                'Provide either calendar_id, period_id, or year+month combination'
+            )
+        return data
 
 
 class PayrollPeriodSerializer(serializers.ModelSerializer):

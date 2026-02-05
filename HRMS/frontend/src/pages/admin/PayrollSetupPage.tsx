@@ -12,6 +12,10 @@ import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
+  Cog6ToothIcon,
+  CalendarDaysIcon,
+  ChevronRightIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline'
 import {
   payrollSetupService,
@@ -27,29 +31,28 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Modal from '@/components/ui/Modal'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import { formatCurrency } from '@/lib/utils'
 
-type TabType = 'banks' | 'branches' | 'categories' | 'bands' | 'levels' | 'notches'
+type TabType = 'settings' | 'banks' | 'branches' | 'categories' | 'bands' | 'levels' | 'notches'
 
-const validTabs: TabType[] = ['banks', 'branches', 'categories', 'bands', 'levels', 'notches']
+const validTabs: TabType[] = ['settings', 'banks', 'branches', 'categories', 'bands', 'levels', 'notches']
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+]
 
 export default function PayrollSetupPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Get initial tab from URL or default to 'banks'
+  // Get initial tab from URL or default to 'settings'
   const tabFromUrl = searchParams.get('tab') as TabType | null
-  const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'banks'
+  const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'settings'
 
   const [activeTab, setActiveTab] = useState<TabType>(initialTab)
-
-  // Sync tab changes to URL
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab)
-    setSearchParams({ tab })
-  }
 
   // Sync URL changes to tab (for browser back/forward)
   useEffect(() => {
@@ -58,6 +61,7 @@ export default function PayrollSetupPage() {
       setActiveTab(urlTab)
     }
   }, [searchParams])
+
   const [showModal, setShowModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState<any>(null)
   const [editingItem, setEditingItem] = useState<any>(null)
@@ -67,6 +71,17 @@ export default function PayrollSetupPage() {
   const [selectedBank, setSelectedBank] = useState<string>('')
   const [selectedBand, setSelectedBand] = useState<string>('')
   const [selectedLevel, setSelectedLevel] = useState<string>('')
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+
+  // Reset pagination when tab changes
+  const handleTabChangeWithReset = (tab: TabType) => {
+    setCurrentPage(1)
+    setSearchParams({ tab })
+    setActiveTab(tab)
+  }
 
   // Queries
   const { data: banks = [], isLoading: loadingBanks } = useQuery({
@@ -97,6 +112,12 @@ export default function PayrollSetupPage() {
   const { data: notches = [], isLoading: loadingNotches } = useQuery({
     queryKey: ['salary-notches', selectedLevel],
     queryFn: () => payrollSetupService.getSalaryNotches(selectedLevel || undefined),
+  })
+
+  // Payroll Settings Query
+  const { data: settingsData, isLoading: loadingSettings } = useQuery({
+    queryKey: ['payroll-settings'],
+    queryFn: payrollSetupService.getPayrollSettings,
   })
 
   // Mutations
@@ -286,6 +307,34 @@ export default function PayrollSetupPage() {
     onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to delete notch'),
   })
 
+  // Payroll Settings Mutations
+  const setActivePeriodMutation = useMutation({
+    mutationFn: payrollSetupService.setActivePeriod,
+    onSuccess: () => {
+      toast.success('Active period updated')
+      queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to set active period'),
+  })
+
+  const advancePeriodMutation = useMutation({
+    mutationFn: payrollSetupService.advancePeriod,
+    onSuccess: () => {
+      toast.success('Advanced to next period')
+      queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to advance period'),
+  })
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: payrollSetupService.updatePayrollSettings,
+    onSuccess: () => {
+      toast.success('Settings updated')
+      queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to update settings'),
+  })
+
   const openModal = (item?: any) => {
     if (item) {
       setEditingItem(item)
@@ -378,6 +427,7 @@ export default function PayrollSetupPage() {
   }
 
   const tabs = [
+    { id: 'settings', label: 'Active Period', icon: Cog6ToothIcon, count: null },
     { id: 'banks', label: 'Banks', icon: BuildingLibraryIcon, count: banks.length },
     { id: 'branches', label: 'Branches', icon: BuildingOffice2Icon, count: branches.length },
     { id: 'categories', label: 'Staff Categories', icon: UserGroupIcon, count: categories.length },
@@ -389,6 +439,7 @@ export default function PayrollSetupPage() {
   const getModalTitle = () => {
     const action = editingItem ? 'Edit' : 'Add'
     switch (activeTab) {
+      case 'settings': return 'Payroll Settings'
       case 'banks': return `${action} Bank`
       case 'branches': return `${action} Bank Branch`
       case 'categories': return `${action} Staff Category`
@@ -400,6 +451,7 @@ export default function PayrollSetupPage() {
 
   const getAddButtonLabel = () => {
     switch (activeTab) {
+      case 'settings': return ''
       case 'banks': return 'Add Bank'
       case 'branches': return 'Add Branch'
       case 'categories': return 'Add Category'
@@ -722,6 +774,7 @@ export default function PayrollSetupPage() {
   ]
 
   const isLoading =
+    (activeTab === 'settings' && loadingSettings) ||
     (activeTab === 'banks' && loadingBanks) ||
     (activeTab === 'branches' && loadingBranches) ||
     (activeTab === 'categories' && loadingCategories) ||
@@ -746,10 +799,12 @@ export default function PayrollSetupPage() {
             Manage banks, staff categories, and salary structure
           </p>
         </div>
-        <Button onClick={() => openModal()}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          {getAddButtonLabel()}
-        </Button>
+        {activeTab !== 'settings' && (
+          <Button onClick={() => openModal()}>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            {getAddButtonLabel()}
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -758,7 +813,7 @@ export default function PayrollSetupPage() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => handleTabChange(tab.id as TabType)}
+              onClick={() => handleTabChangeWithReset(tab.id as TabType)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-primary-600 text-primary-600'
@@ -767,9 +822,11 @@ export default function PayrollSetupPage() {
             >
               <tab.icon className="h-5 w-5" />
               {tab.label}
-              <span className="ml-1 px-2 py-0.5 text-xs bg-gray-100 rounded-full">
-                {tab.count}
-              </span>
+              {tab.count !== null && (
+                <span className="ml-1 px-2 py-0.5 text-xs bg-gray-100 rounded-full">
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -818,49 +875,253 @@ export default function PayrollSetupPage() {
         </div>
       )}
 
-      {/* Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            {tabs.find((t) => t.id === activeTab)?.icon &&
-              (() => {
-                const IconComponent = tabs.find((t) => t.id === activeTab)!.icon
-                return <IconComponent className="h-5 w-5 mr-2 text-gray-500" />
-              })()}
-            {tabs.find((t) => t.id === activeTab)?.label}
-          </CardTitle>
-        </CardHeader>
-        <Table
-          data={
-            activeTab === 'banks'
-              ? banks
-              : activeTab === 'branches'
-              ? branches
-              : activeTab === 'categories'
-              ? categories
-              : activeTab === 'bands'
-              ? bands
-              : activeTab === 'levels'
-              ? levels
-              : notches
-          }
-          columns={
-            activeTab === 'banks'
-              ? bankColumns
-              : activeTab === 'branches'
-              ? branchColumns
-              : activeTab === 'categories'
-              ? categoryColumns
-              : activeTab === 'bands'
-              ? bandColumns
-              : activeTab === 'levels'
-              ? levelColumns
-              : notchColumns
-          }
-          isLoading={isLoading}
-          emptyMessage={`No ${activeTab} found`}
-        />
-      </Card>
+      {/* Settings Content */}
+      {activeTab === 'settings' && (
+        <div className="space-y-6">
+          {/* Active Period Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <CalendarDaysIcon className="h-5 w-5 mr-2 text-primary-600" />
+                Active Payroll Period
+              </CardTitle>
+            </CardHeader>
+            <div className="p-6">
+              {loadingSettings ? (
+                <div className="animate-pulse space-y-4">
+                  <div className="h-20 bg-gray-200 rounded"></div>
+                </div>
+              ) : settingsData?.settings ? (
+                <div className="space-y-6">
+                  {/* Current Active Period Display */}
+                  <div className="bg-gradient-to-r from-primary-50 to-primary-100 border border-primary-200 rounded-lg p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-primary-600 mb-1">Currently Active Period</p>
+                        <p className="text-3xl font-bold text-primary-900">
+                          {settingsData.settings.active_calendar_name || 'Not Set'}
+                        </p>
+                        {settingsData.settings.active_period_name && (
+                          <p className="text-sm text-primary-700 mt-1">
+                            Period: {settingsData.settings.active_period_name}
+                            {settingsData.settings.active_period_status && (
+                              <Badge
+                                variant={settingsData.settings.active_period_status === 'OPEN' ? 'success' : 'warning'}
+                                className="ml-2"
+                              >
+                                {settingsData.settings.active_period_status}
+                              </Badge>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          onClick={() => advancePeriodMutation.mutate()}
+                          isLoading={advancePeriodMutation.isPending}
+                          disabled={!settingsData.settings.active_calendar}
+                        >
+                          <ChevronRightIcon className="h-4 w-4 mr-2" />
+                          Advance to Next Month
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Period Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Select by Calendar */}
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Set Active Period by Calendar
+                      </label>
+                      <Select
+                        value={settingsData.settings.active_calendar || ''}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setActivePeriodMutation.mutate({ calendar_id: e.target.value })
+                          }
+                        }}
+                        options={[
+                          { value: '', label: 'Select Calendar Month...' },
+                          ...(settingsData.available_calendars || []).map((cal) => ({
+                            value: cal.id,
+                            label: cal.name,
+                          })),
+                        ]}
+                      />
+                      <p className="text-xs text-gray-500">
+                        Select a calendar month to set as the active payroll period.
+                        All new transactions will be linked to this period.
+                      </p>
+                    </div>
+
+                    {/* Quick Select by Year/Month */}
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Quick Select by Year & Month
+                      </label>
+                      <div className="flex gap-2">
+                        <Select
+                          value=""
+                          onChange={(e) => {
+                            const [year, month] = e.target.value.split('-')
+                            if (year && month) {
+                              setActivePeriodMutation.mutate({
+                                year: parseInt(year),
+                                month: parseInt(month),
+                              })
+                            }
+                          }}
+                          options={[
+                            { value: '', label: 'Select Year-Month...' },
+                            ...Array.from({ length: 24 }, (_, i) => {
+                              const date = new Date()
+                              date.setMonth(date.getMonth() - 12 + i)
+                              const year = date.getFullYear()
+                              const month = date.getMonth() + 1
+                              return {
+                                value: `${year}-${month}`,
+                                label: `${MONTHS[month - 1]} ${year}`,
+                              }
+                            }),
+                          ]}
+                          className="flex-1"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Quickly jump to a specific month and year.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Settings */}
+                  <div className="border-t pt-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">Additional Settings</h3>
+                    <div className="space-y-4">
+                      <label className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={settingsData.settings.auto_advance_period}
+                          onChange={(e) => updateSettingsMutation.mutate({ auto_advance_period: e.target.checked })}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-gray-900">Auto-advance Period</span>
+                          <p className="text-xs text-gray-500">
+                            Automatically advance to the next period when the current one is closed
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Last Updated */}
+                  {settingsData.settings.updated_at && (
+                    <div className="text-xs text-gray-500 border-t pt-4">
+                      Last updated: {new Date(settingsData.settings.updated_at).toLocaleString()}
+                      {settingsData.settings.updated_by_name && ` by ${settingsData.settings.updated_by_name}`}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Cog6ToothIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No payroll settings configured</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Available Periods Summary */}
+          {settingsData?.available_calendars && settingsData.available_calendars.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center text-base">
+                  <CalendarDaysIcon className="h-5 w-5 mr-2 text-gray-500" />
+                  Available Calendar Months
+                </CardTitle>
+              </CardHeader>
+              <div className="p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {settingsData.available_calendars.slice(0, 12).map((cal) => (
+                    <button
+                      key={cal.id}
+                      onClick={() => setActivePeriodMutation.mutate({ calendar_id: cal.id })}
+                      className={`p-3 rounded-lg border text-center transition-colors ${
+                        settingsData.settings?.active_calendar === cal.id
+                          ? 'bg-primary-100 border-primary-500 text-primary-700'
+                          : 'bg-white border-gray-200 hover:border-primary-300 hover:bg-primary-50'
+                      }`}
+                    >
+                      <p className="text-xs text-gray-500">{cal.year}</p>
+                      <p className="font-medium">{MONTHS[cal.month - 1]}</p>
+                      {settingsData.settings?.active_calendar === cal.id && (
+                        <CheckCircleIcon className="h-4 w-4 mx-auto mt-1 text-primary-600" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Table Content for other tabs */}
+      {activeTab !== 'settings' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              {tabs.find((t) => t.id === activeTab)?.icon &&
+                (() => {
+                  const IconComponent = tabs.find((t) => t.id === activeTab)!.icon
+                  return <IconComponent className="h-5 w-5 mr-2 text-gray-500" />
+                })()}
+              {tabs.find((t) => t.id === activeTab)?.label}
+            </CardTitle>
+          </CardHeader>
+          {(() => {
+            const dataMap: Record<string, any[]> = {
+              banks,
+              branches,
+              categories,
+              bands,
+              levels,
+              notches,
+            }
+            const columnsMap: Record<string, any[]> = {
+              banks: bankColumns,
+              branches: branchColumns,
+              categories: categoryColumns,
+              bands: bandColumns,
+              levels: levelColumns,
+              notches: notchColumns,
+            }
+            const data = dataMap[activeTab] || []
+            const columns = columnsMap[activeTab]
+            return (
+              <>
+                <Table
+                  data={data.slice((currentPage - 1) * pageSize, currentPage * pageSize)}
+                  columns={columns}
+                  isLoading={isLoading}
+                  emptyMessage={`No ${activeTab} found`}
+                />
+                {data.length > pageSize && (
+                  <TablePagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(data.length / pageSize)}
+                    totalItems={data.length}
+                    pageSize={pageSize}
+                    onPageChange={setCurrentPage}
+                  />
+                )}
+              </>
+            )
+          })()}
+        </Card>
+      )}
 
       {/* Add/Edit Modal */}
       <Modal isOpen={showModal} onClose={closeModal} title={getModalTitle()}>

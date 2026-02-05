@@ -701,6 +701,195 @@ class PayrollCalendar(BaseModel):
         return cal, created
 
 
+class PayrollSettings(models.Model):
+    """
+    Global payroll settings (singleton pattern).
+    Stores system-wide payroll configuration including the active period.
+    """
+    # Active period selection
+    active_calendar = models.ForeignKey(
+        PayrollCalendar,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='settings_as_active',
+        help_text='Currently active payroll calendar month'
+    )
+    active_period = models.ForeignKey(
+        'PayrollPeriod',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='settings_as_active',
+        help_text='Currently active payroll period for processing'
+    )
+
+    # Auto-advance settings
+    auto_advance_period = models.BooleanField(
+        default=False,
+        help_text='Automatically advance to next period when current period is closed'
+    )
+
+    # Default settings for new transactions
+    default_transaction_status = models.CharField(
+        max_length=20,
+        default='ACTIVE',
+        help_text='Default status for new employee transactions'
+    )
+
+    # Timestamps
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payroll_settings_updates'
+    )
+
+    class Meta:
+        db_table = 'payroll_settings'
+        verbose_name = 'Payroll Settings'
+        verbose_name_plural = 'Payroll Settings'
+
+    def __str__(self):
+        if self.active_calendar:
+            return f"Active Period: {self.active_calendar.name}"
+        return "Payroll Settings (No active period)"
+
+    def save(self, *args, **kwargs):
+        # Enforce singleton pattern - only one settings record allowed
+        if not self.pk and PayrollSettings.objects.exists():
+            # Update existing record instead of creating new one
+            existing = PayrollSettings.objects.first()
+            self.pk = existing.pk
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_settings(cls):
+        """
+        Get the global payroll settings (creates default if not exists).
+        """
+        settings_obj, created = cls.objects.get_or_create(pk=1)
+        return settings_obj
+
+    @classmethod
+    def get_active_calendar(cls):
+        """
+        Get the currently active payroll calendar.
+        Returns None if no active calendar is set.
+        """
+        settings_obj = cls.get_settings()
+        return settings_obj.active_calendar
+
+    @classmethod
+    def get_active_period(cls):
+        """
+        Get the currently active payroll period.
+        Returns None if no active period is set.
+        """
+        settings_obj = cls.get_settings()
+        return settings_obj.active_period
+
+    @classmethod
+    def set_active_calendar(cls, calendar, user=None):
+        """
+        Set the active payroll calendar.
+
+        Args:
+            calendar: PayrollCalendar instance or ID
+            user: User making the change (optional)
+        """
+        settings_obj = cls.get_settings()
+
+        if isinstance(calendar, (str, int)):
+            calendar = PayrollCalendar.objects.get(pk=calendar)
+
+        settings_obj.active_calendar = calendar
+        settings_obj.updated_by = user
+        settings_obj.save()
+
+        # Also update active_period if there's a matching period
+        if calendar:
+            period = PayrollPeriod.objects.filter(
+                calendar=calendar,
+                is_supplementary=False
+            ).first()
+            if period:
+                settings_obj.active_period = period
+                settings_obj.save()
+
+        return settings_obj
+
+    @classmethod
+    def set_active_period(cls, period, user=None):
+        """
+        Set the active payroll period (also updates active calendar).
+
+        Args:
+            period: PayrollPeriod instance or ID
+            user: User making the change (optional)
+        """
+        settings_obj = cls.get_settings()
+
+        if isinstance(period, (str, int)):
+            period = PayrollPeriod.objects.get(pk=period)
+
+        settings_obj.active_period = period
+        settings_obj.updated_by = user
+
+        # Also update active_calendar to match
+        if period and period.calendar:
+            settings_obj.active_calendar = period.calendar
+
+        settings_obj.save()
+        return settings_obj
+
+    @classmethod
+    def advance_to_next_period(cls, user=None):
+        """
+        Advance to the next payroll period.
+        """
+        settings_obj = cls.get_settings()
+        current = settings_obj.active_calendar
+
+        if not current:
+            return None
+
+        # Find next month
+        next_year = current.year
+        next_month = current.month + 1
+        if next_month > 12:
+            next_month = 1
+            next_year += 1
+
+        # Get or create next calendar
+        next_calendar, _ = PayrollCalendar.get_or_create_month(next_year, next_month, user)
+
+        # Get or create next period
+        next_period = PayrollPeriod.objects.filter(
+            year=next_year,
+            month=next_month,
+            is_supplementary=False
+        ).first()
+
+        if not next_period:
+            # Create the period
+            periods = PayrollPeriod.create_year_periods(next_year, user)
+            next_period = PayrollPeriod.objects.filter(
+                year=next_year,
+                month=next_month,
+                is_supplementary=False
+            ).first()
+
+        settings_obj.active_calendar = next_calendar
+        settings_obj.active_period = next_period
+        settings_obj.updated_by = user
+        settings_obj.save()
+
+        return settings_obj
+
+
 class PayrollPeriod(BaseModel):
     """
     Payroll periods (usually monthly).
@@ -1532,4 +1721,11 @@ class EmployeeTransaction(BaseModel):
     def save(self, *args, **kwargs):
         if not self.reference_number:
             self.reference_number = self.generate_reference_number()
+
+        # Auto-link to active calendar if not set
+        if not self.calendar_id:
+            active_calendar = PayrollSettings.get_active_calendar()
+            if active_calendar:
+                self.calendar = active_calendar
+
         super().save(*args, **kwargs)

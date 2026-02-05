@@ -18,7 +18,7 @@ from .models import (
     PayrollItem, EmployeeSalary, AdHocPayment,
     TaxBracket, TaxRelief, SSNITRate, BankFile, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
-    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar
+    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings
 )
 from .serializers import (
     PayComponentSerializer, SalaryStructureSerializer,
@@ -31,7 +31,8 @@ from .serializers import (
     TransactionRejectSerializer, BulkTransactionCreateSerializer,
     OvertimeBonusTaxConfigSerializer, BankSerializer, BankBranchSerializer,
     StaffCategorySerializer, SalaryBandSerializer, SalaryLevelSerializer,
-    SalaryNotchSerializer, PayrollCalendarSerializer
+    SalaryNotchSerializer, PayrollCalendarSerializer,
+    PayrollSettingsSerializer, SetActivePeriodSerializer
 )
 from .services import PayrollService
 
@@ -158,6 +159,130 @@ class PayrollCalendarViewSet(viewsets.ModelViewSet):
         """Get list of years with calendar entries."""
         years = PayrollCalendar.objects.values_list('year', flat=True).distinct().order_by('-year')
         return Response({'years': list(years)})
+
+
+class PayrollSettingsView(APIView):
+    """
+    API view for global payroll settings.
+
+    GET  /payroll/settings/ - Get current settings including active period
+    PUT  /payroll/settings/ - Update settings
+    POST /payroll/settings/set-active-period/ - Set active period by calendar/period/year+month
+    POST /payroll/settings/advance-period/ - Advance to next period
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Get current payroll settings."""
+        settings_obj = PayrollSettings.get_settings()
+        serializer = PayrollSettingsSerializer(settings_obj)
+
+        # Add available calendars and periods for selection
+        calendars = PayrollCalendar.objects.filter(is_active=True).order_by('-year', '-month')
+        periods = PayrollPeriod.objects.filter(is_supplementary=False).order_by('-year', '-month')
+
+        return Response({
+            'settings': serializer.data,
+            'available_calendars': PayrollCalendarSerializer(calendars[:24], many=True).data,
+            'available_periods': PayrollPeriodSerializer(periods[:24], many=True).data,
+        })
+
+    def put(self, request):
+        """Update payroll settings."""
+        settings_obj = PayrollSettings.get_settings()
+        serializer = PayrollSettingsSerializer(settings_obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        # Update with user tracking
+        settings_obj.updated_by = request.user
+        serializer.save()
+
+        return Response({
+            'message': 'Settings updated successfully',
+            'settings': PayrollSettingsSerializer(settings_obj).data
+        })
+
+
+class SetActivePeriodView(APIView):
+    """Set the active payroll period."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Set active period by calendar_id, period_id, or year+month.
+
+        POST /payroll/settings/set-active-period/
+        Body options:
+        - {"calendar_id": "uuid"} - Set by calendar ID
+        - {"period_id": "uuid"} - Set by period ID
+        - {"year": 2025, "month": 3} - Set by year and month
+        """
+        serializer = SetActivePeriodSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        calendar_id = serializer.validated_data.get('calendar_id')
+        period_id = serializer.validated_data.get('period_id')
+        year = serializer.validated_data.get('year')
+        month = serializer.validated_data.get('month')
+
+        try:
+            if period_id:
+                period = PayrollPeriod.objects.get(pk=period_id)
+                settings_obj = PayrollSettings.set_active_period(period, request.user)
+            elif calendar_id:
+                calendar = PayrollCalendar.objects.get(pk=calendar_id)
+                settings_obj = PayrollSettings.set_active_calendar(calendar, request.user)
+            elif year and month:
+                # Get or create calendar for year/month
+                calendar, created = PayrollCalendar.get_or_create_month(year, month, request.user)
+                settings_obj = PayrollSettings.set_active_calendar(calendar, request.user)
+
+                # Also ensure period exists
+                period = PayrollPeriod.objects.filter(year=year, month=month, is_supplementary=False).first()
+                if not period:
+                    PayrollPeriod.create_year_periods(year, request.user)
+                    period = PayrollPeriod.objects.filter(year=year, month=month, is_supplementary=False).first()
+                if period:
+                    settings_obj.active_period = period
+                    settings_obj.save()
+
+            return Response({
+                'message': 'Active period updated successfully',
+                'settings': PayrollSettingsSerializer(settings_obj).data
+            })
+
+        except PayrollCalendar.DoesNotExist:
+            return Response({'error': 'Calendar not found'}, status=status.HTTP_404_NOT_FOUND)
+        except PayrollPeriod.DoesNotExist:
+            return Response({'error': 'Period not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class AdvancePeriodView(APIView):
+    """Advance to the next payroll period."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Advance to the next payroll period.
+
+        POST /payroll/settings/advance-period/
+        """
+        settings_obj = PayrollSettings.get_settings()
+
+        if not settings_obj.active_calendar:
+            return Response({
+                'error': 'No active calendar set. Please set an active period first.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        current_name = settings_obj.active_calendar.name
+
+        # Advance to next period
+        settings_obj = PayrollSettings.advance_to_next_period(request.user)
+
+        return Response({
+            'message': f'Advanced from {current_name} to {settings_obj.active_calendar.name}',
+            'settings': PayrollSettingsSerializer(settings_obj).data
+        })
 
 
 class PayrollPeriodViewSet(viewsets.ModelViewSet):

@@ -79,6 +79,51 @@ export interface SalaryNotch {
   employee_count?: number
 }
 
+export interface PayrollCalendar {
+  id: string
+  name: string
+  year: number
+  month: number
+  start_date: string
+  end_date: string
+  working_days?: number
+  is_active: boolean
+}
+
+export interface PayrollPeriod {
+  id: string
+  name: string
+  year: number
+  month: number
+  start_date: string
+  end_date: string
+  status: 'DRAFT' | 'OPEN' | 'PROCESSING' | 'APPROVED' | 'CLOSED'
+  is_supplementary: boolean
+  calendar?: string
+  calendar_name?: string
+}
+
+export interface PayrollSettings {
+  id: number
+  active_calendar?: string
+  active_calendar_name?: string
+  active_calendar_year?: number
+  active_calendar_month?: number
+  active_period?: string
+  active_period_name?: string
+  active_period_status?: string
+  auto_advance_period: boolean
+  default_transaction_status: string
+  updated_at: string
+  updated_by_name?: string
+}
+
+export interface PayrollSettingsResponse {
+  settings: PayrollSettings
+  available_calendars: PayrollCalendar[]
+  available_periods: PayrollPeriod[]
+}
+
 interface PaginatedResponse<T> {
   count: number
   next: string | null
@@ -238,5 +283,53 @@ export const payrollSetupService = {
 
   async deleteSalaryNotch(id: string): Promise<void> {
     await api.delete(`/payroll/salary-notches/${id}/`)
+  },
+
+  // Payroll Settings
+  async getPayrollSettings(): Promise<PayrollSettingsResponse> {
+    const response = await api.get<PayrollSettingsResponse>('/payroll/settings/')
+    return response.data
+  },
+
+  async updatePayrollSettings(data: Partial<PayrollSettings>): Promise<PayrollSettings> {
+    const response = await api.put<PayrollSettings>('/payroll/settings/', data)
+    return response.data
+  },
+
+  async setActivePeriod(data: {
+    calendar_id?: string
+    period_id?: string
+    year?: number
+    month?: number
+  }): Promise<PayrollSettings> {
+    const response = await api.post<PayrollSettings>('/payroll/settings/set-active-period/', data)
+    return response.data
+  },
+
+  async advancePeriod(): Promise<PayrollSettings> {
+    const response = await api.post<PayrollSettings>('/payroll/settings/advance-period/')
+    return response.data
+  },
+
+  // Payroll Calendars
+  async getPayrollCalendars(): Promise<PayrollCalendar[]> {
+    const response = await api.get<PaginatedResponse<PayrollCalendar> | PayrollCalendar[]>('/payroll/calendar/')
+    return Array.isArray(response.data) ? response.data : response.data.results
+  },
+
+  async createYearCalendars(year: number): Promise<{ message: string; created: number }> {
+    const response = await api.post<{ message: string; created: number }>('/payroll/calendar/create-year/', { year })
+    return response.data
+  },
+
+  // Payroll Periods
+  async getPayrollPeriods(): Promise<PayrollPeriod[]> {
+    const response = await api.get<PaginatedResponse<PayrollPeriod> | PayrollPeriod[]>('/payroll/periods/')
+    return Array.isArray(response.data) ? response.data : response.data.results
+  },
+
+  async createYearPeriods(year: number): Promise<{ message: string; created: number }> {
+    const response = await api.post<{ message: string; created: number }>('/payroll/periods/create-year/', { year })
+    return response.data
   },
 }

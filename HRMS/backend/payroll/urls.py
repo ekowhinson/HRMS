@@ -30,6 +30,11 @@ router.register(r'salary-notches', views.SalaryNotchViewSet, basename='salary-no
 urlpatterns = [
     path('', include(router.urls)),
 
+    # Global payroll settings
+    path('settings/', views.PayrollSettingsView.as_view(), name='payroll-settings'),
+    path('settings/set-active-period/', views.SetActivePeriodView.as_view(), name='set-active-period'),
+    path('settings/advance-period/', views.AdvancePeriodView.as_view(), name='advance-period'),
+
     # Employee salary
     path('employee/<uuid:employee_id>/salary/', views.EmployeeSalaryView.as_view(), name='employee-salary'),
     path('employee/<uuid:employee_id>/salary/history/', views.EmployeeSalaryHistoryView.as_view(), name='salary-history'),
