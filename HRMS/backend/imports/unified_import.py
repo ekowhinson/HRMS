@@ -1404,3 +1404,343 @@ def run_import(
     """
     processor = UnifiedImportProcessor(user=user)
     return processor.process_import(files, mapping, update_existing)
+
+
+@dataclass
+class SalaryStructureResult:
+    """Result of a salary structure import."""
+    success: bool
+    bands_created: int = 0
+    bands_updated: int = 0
+    levels_created: int = 0
+    levels_updated: int = 0
+    notches_created: int = 0
+    notches_updated: int = 0
+    errors: List[str] = field(default_factory=list)
+
+
+class SalaryStructureImporter:
+    """
+    Import salary structure from Excel file.
+
+    Expected format:
+    - Grade category | Band | Grade Title | Level | Notch 1 | Notch 2 | ... | Notch 10
+
+    The importer will:
+    1. Create SalaryBand records (Band 1-8)
+    2. Create SalaryLevel records for each band
+    3. Create SalaryNotch records with salary amounts
+    """
+
+    def __init__(self, user=None):
+        self.user = user
+        self.result = SalaryStructureResult(success=True)
+        self._bands: Dict[str, SalaryBand] = {}
+        self._levels: Dict[str, SalaryLevel] = {}
+
+    def _load_existing(self):
+        """Load existing salary structure into cache."""
+        for band in SalaryBand.objects.filter(is_deleted=False):
+            self._bands[band.code] = band
+
+        for level in SalaryLevel.objects.filter(is_deleted=False):
+            key = f"{level.band.code}_{level.code}"
+            self._levels[key] = level
+
+    def _normalize_band_code(self, band_name: str) -> str:
+        """Normalize band name to code (e.g., 'Band 8' -> 'BAND_8')."""
+        if not band_name:
+            return None
+        band_name = str(band_name).strip()
+        # Extract band number
+        match = re.search(r'band\s*(\d+)', band_name, re.IGNORECASE)
+        if match:
+            return f"BAND_{match.group(1)}"
+        return re.sub(r'[^A-Z0-9]+', '_', band_name.upper()).strip('_')[:20]
+
+    def _normalize_level_code(self, level_name: str) -> str:
+        """Normalize level name to code (e.g., 'Level 4B' -> '4B')."""
+        if not level_name:
+            return None
+        level_name = str(level_name).strip()
+        # Extract level code
+        match = re.search(r'level\s*(\d+[A-Za-z]?)', level_name, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+        return re.sub(r'[^A-Z0-9]+', '_', level_name.upper()).strip('_')[:20]
+
+    def _parse_amount(self, value: Any) -> Optional[Decimal]:
+        """Parse a salary amount."""
+        if pd.isna(value) or value is None:
+            return None
+        try:
+            return Decimal(str(value).strip())
+        except (InvalidOperation, ValueError):
+            return None
+
+    def _get_or_create_band(self, band_name: str) -> Optional[SalaryBand]:
+        """Get or create a salary band."""
+        if not band_name or pd.isna(band_name):
+            return None
+
+        code = self._normalize_band_code(band_name)
+        if not code:
+            return None
+
+        # Check cache
+        if code in self._bands:
+            return self._bands[code]
+
+        # Extract sort order from band number
+        match = re.search(r'(\d+)', band_name)
+        sort_order = int(match.group(1)) if match else 0
+
+        # Create or update
+        band, created = SalaryBand.objects.update_or_create(
+            code=code,
+            defaults={
+                'name': str(band_name).strip(),
+                'sort_order': sort_order,
+                'is_active': True,
+                'created_by': self.user,
+            }
+        )
+
+        self._bands[code] = band
+
+        if created:
+            self.result.bands_created += 1
+            logger.info(f"Created SalaryBand: {code} - {band_name}")
+        else:
+            self.result.bands_updated += 1
+
+        return band
+
+    def _get_or_create_level(
+        self,
+        level_name: str,
+        band: SalaryBand,
+        grade_title: str = None
+    ) -> Optional[SalaryLevel]:
+        """Get or create a salary level."""
+        if not level_name or pd.isna(level_name) or not band:
+            return None
+
+        code = self._normalize_level_code(level_name)
+        if not code:
+            return None
+
+        key = f"{band.code}_{code}"
+
+        # Check cache
+        if key in self._levels:
+            return self._levels[key]
+
+        # Extract sort order
+        match = re.search(r'(\d+)', level_name)
+        sort_order = int(match.group(1)) if match else 0
+
+        # Use grade title as name if available
+        name = grade_title if grade_title and not pd.isna(grade_title) else level_name
+
+        # Create or update
+        level, created = SalaryLevel.objects.update_or_create(
+            band=band,
+            code=code,
+            defaults={
+                'name': str(name).strip()[:100],
+                'sort_order': sort_order,
+                'is_active': True,
+                'created_by': self.user,
+            }
+        )
+
+        self._levels[key] = level
+
+        if created:
+            self.result.levels_created += 1
+            logger.info(f"Created SalaryLevel: {band.code}/{code} - {name}")
+        else:
+            self.result.levels_updated += 1
+
+        return level
+
+    def _create_or_update_notch(
+        self,
+        level: SalaryLevel,
+        notch_number: int,
+        amount: Decimal
+    ) -> Optional[SalaryNotch]:
+        """Create or update a salary notch."""
+        if not level or amount is None:
+            return None
+
+        code = f"NOTCH_{notch_number}"
+        name = f"Notch {notch_number}"
+
+        # Create or update
+        notch, created = SalaryNotch.objects.update_or_create(
+            level=level,
+            code=code,
+            defaults={
+                'name': name,
+                'amount': amount,
+                'sort_order': notch_number,
+                'is_active': True,
+                'created_by': self.user,
+            }
+        )
+
+        if created:
+            self.result.notches_created += 1
+        else:
+            self.result.notches_updated += 1
+
+        return notch
+
+    def import_from_file(self, file_content: bytes, filename: str) -> SalaryStructureResult:
+        """
+        Import salary structure from an Excel file.
+
+        Args:
+            file_content: File content as bytes
+            filename: Original filename
+
+        Returns:
+            SalaryStructureResult with statistics
+        """
+        logger.info(f"Starting salary structure import from {filename}")
+
+        try:
+            # Load existing data
+            self._load_existing()
+
+            # Read the Excel file without header first to find the actual header row
+            file_buffer = BytesIO(file_content)
+            df_raw = pd.read_excel(file_buffer, header=None)
+
+            # Find the header row (look for 'Band' and 'Level' in the same row)
+            header_row = None
+            for idx, row in df_raw.iterrows():
+                row_values = [str(v).lower() if not pd.isna(v) else '' for v in row.values]
+                if any('band' in v for v in row_values) and any('level' in v for v in row_values):
+                    header_row = idx
+                    break
+
+            if header_row is None:
+                self.result.errors.append("Could not find header row with 'Band' and 'Level' columns")
+                self.result.success = False
+                return self.result
+
+            logger.info(f"Found header row at index {header_row}")
+
+            # Re-read with correct header
+            file_buffer.seek(0)
+            df = pd.read_excel(file_buffer, header=header_row)
+
+            # Normalize column names
+            df.columns = [str(col).strip().lower() for col in df.columns]
+            logger.info(f"Columns found: {list(df.columns)}")
+
+            # Find key columns
+            band_col = None
+            level_col = None
+            grade_col = None
+            notch_cols = []
+
+            for col in df.columns:
+                col_lower = col.lower()
+                if 'band' in col_lower and band_col is None:
+                    band_col = col
+                elif 'level' in col_lower and level_col is None:
+                    level_col = col
+                elif 'grade' in col_lower and 'title' in col_lower:
+                    grade_col = col
+                elif 'notch' in col_lower:
+                    # Extract notch number
+                    match = re.search(r'notch\s*(\d+)', col_lower)
+                    if match:
+                        notch_cols.append((int(match.group(1)), col))
+
+            # Sort notch columns by number
+            notch_cols.sort(key=lambda x: x[0])
+
+            if not band_col:
+                self.result.errors.append("Could not find 'Band' column")
+                self.result.success = False
+                return self.result
+
+            if not level_col:
+                self.result.errors.append("Could not find 'Level' column")
+                self.result.success = False
+                return self.result
+
+            logger.info(f"Found columns - Band: {band_col}, Level: {level_col}, Grade: {grade_col}")
+            logger.info(f"Found {len(notch_cols)} notch columns")
+
+            # Process each row
+            current_band = None
+
+            with transaction.atomic():
+                for idx, row in df.iterrows():
+                    try:
+                        # Get band (may be empty if continuing previous band)
+                        band_value = row.get(band_col)
+                        if band_value and not pd.isna(band_value):
+                            current_band = self._get_or_create_band(band_value)
+
+                        if not current_band:
+                            continue
+
+                        # Get level
+                        level_value = row.get(level_col)
+                        if not level_value or pd.isna(level_value):
+                            continue
+
+                        # Get grade title
+                        grade_title = row.get(grade_col) if grade_col else None
+
+                        # Create level
+                        level = self._get_or_create_level(level_value, current_band, grade_title)
+                        if not level:
+                            continue
+
+                        # Create notches
+                        for notch_num, notch_col in notch_cols:
+                            amount = self._parse_amount(row.get(notch_col))
+                            if amount is not None and amount > 0:
+                                self._create_or_update_notch(level, notch_num, amount)
+
+                    except Exception as e:
+                        logger.error(f"Error processing row {idx}: {e}")
+                        self.result.errors.append(f"Row {idx}: {str(e)}")
+
+            logger.info(
+                f"Salary structure import complete: "
+                f"{self.result.bands_created} bands created, "
+                f"{self.result.levels_created} levels created, "
+                f"{self.result.notches_created} notches created"
+            )
+
+        except Exception as e:
+            logger.error(f"Salary structure import failed: {e}")
+            self.result.success = False
+            self.result.errors.append(str(e))
+
+        return self.result
+
+
+def import_salary_structure(file_content: bytes, filename: str, user=None) -> SalaryStructureResult:
+    """
+    Convenience function to import salary structure.
+
+    Args:
+        file_content: File content as bytes
+        filename: Original filename
+        user: User performing the import
+
+    Returns:
+        SalaryStructureResult with statistics
+    """
+    importer = SalaryStructureImporter(user=user)
+    return importer.import_from_file(file_content, filename)

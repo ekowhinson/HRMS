@@ -1548,3 +1548,102 @@ class UnifiedImportStatusView(APIView):
             **status_data,
             'progress': progress,
         })
+
+
+class SalaryStructureImportView(APIView):
+    """
+    Import salary structure (bands, levels, notches) from Excel file.
+
+    Expected file format:
+    - Grade category | Band | Grade Title | Level | Notch 1 | Notch 2 | ... | Notch 10
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        """
+        Import salary structure from Excel file.
+
+        POST /imports/salary-structure/
+
+        Form data:
+        - file: Excel file with salary structure
+        """
+        from .unified_import import import_salary_structure
+
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {'error': 'No file provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check file type
+        filename = file_obj.name.lower()
+        if not filename.endswith(('.xlsx', '.xls')):
+            return Response(
+                {'error': 'File must be an Excel file (.xlsx or .xls)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Read file content
+        content = file_obj.read()
+
+        # Run the import
+        result = import_salary_structure(content, file_obj.name, user=request.user)
+
+        return Response({
+            'success': result.success,
+            'bands_created': result.bands_created,
+            'bands_updated': result.bands_updated,
+            'levels_created': result.levels_created,
+            'levels_updated': result.levels_updated,
+            'notches_created': result.notches_created,
+            'notches_updated': result.notches_updated,
+            'errors': result.errors,
+            'summary': {
+                'total_bands': result.bands_created + result.bands_updated,
+                'total_levels': result.levels_created + result.levels_updated,
+                'total_notches': result.notches_created + result.notches_updated,
+            }
+        }, status=status.HTTP_200_OK if result.success else status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        """
+        Get information about the salary structure import endpoint.
+        GET /imports/salary-structure/
+        """
+        return Response({
+            'description': 'Import salary structure (bands, levels, notches) from Excel file',
+            'method': 'POST',
+            'content_type': 'multipart/form-data',
+            'parameters': {
+                'file': {
+                    'type': 'file',
+                    'required': True,
+                    'description': 'Excel file (.xlsx or .xls) with salary structure'
+                },
+            },
+            'expected_format': {
+                'columns': [
+                    'Grade category (optional)',
+                    'Band (e.g., Band 1, Band 2, ...)',
+                    'Grade Title (optional, used as level name)',
+                    'Level (e.g., Level 1A, Level 1B, ...)',
+                    'Notch 1, Notch 2, ... Notch 10 (salary amounts)',
+                ],
+                'example_row': {
+                    'Band': 'Band 4',
+                    'Grade Title': 'Principal Administrative Officers',
+                    'Level': 'Level 4B',
+                    'Notch 1': 7369.23,
+                    'Notch 2': 7590.29,
+                    '...': '...',
+                }
+            },
+            'creates': [
+                'SalaryBand records (e.g., BAND_1 through BAND_8)',
+                'SalaryLevel records (e.g., 1A, 1B, 4A, 4B)',
+                'SalaryNotch records with salary amounts',
+            ],
+        })
