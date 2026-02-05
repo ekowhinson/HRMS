@@ -61,4 +61,13 @@ urlpatterns = [
     path('reports/paye/', views.PAYEReportView.as_view(), name='paye-report'),
     path('reports/ssnit/', views.SSNITReportView.as_view(), name='ssnit-report'),
     path('reports/bank-advice/', views.BankAdviceReportView.as_view(), name='bank-advice-report'),
+
+    # Payslip downloads
+    path('payslips/<uuid:pk>/download/', views.PayslipDownloadView.as_view(), name='payslip-download'),
+    path('runs/<uuid:run_id>/payslips/', views.PayrollRunPayslipsListView.as_view(), name='payroll-run-payslips'),
+    path('runs/<uuid:run_id>/payslips/download/', views.PayrollRunPayslipsDownloadView.as_view(), name='payroll-run-payslips-download'),
+
+    # Bank file downloads
+    path('bank-files/<uuid:pk>/download/', views.BankFileDownloadView.as_view(), name='bank-file-download'),
+    path('runs/<uuid:run_id>/bank-files/', views.PayrollRunBankFilesListView.as_view(), name='payroll-run-bank-files'),
 ]

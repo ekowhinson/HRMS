@@ -12,10 +12,13 @@ import {
   TableCellsIcon,
   DocumentTextIcon,
   ClipboardDocumentListIcon,
+  DocumentDuplicateIcon,
+  BuildingLibraryIcon,
 } from '@heroicons/react/24/outline'
-import { dashboardService } from '@/services/dashboard'
 import { reportsService, ExportFormat } from '@/services/reports'
 import { payrollService } from '@/services/payroll'
+import { employeeService } from '@/services/employees'
+import { payrollSetupService } from '@/services/payrollSetup'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
@@ -29,6 +32,11 @@ interface ReportConfig {
   category: 'hr' | 'payroll' | 'leave' | 'loans'
   filters?: string[]
   exportFn: (filters: Record<string, string>, format: ExportFormat) => Promise<void>
+  // Optional: specific formats available (if not set, all formats are shown)
+  availableFormats?: ExportFormat[]
+  // Optional: single download button instead of format selection
+  singleDownload?: boolean
+  downloadLabel?: string
 }
 
 const reportConfigs: ReportConfig[] = [
@@ -38,7 +46,7 @@ const reportConfigs: ReportConfig[] = [
     description: 'Complete list of all employees with their details',
     icon: UsersIcon,
     category: 'hr',
-    filters: ['department', 'status', 'grade'],
+    filters: ['employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category', 'status'],
     exportFn: (filters, format) => reportsService.exportEmployeeMaster(filters, format),
   },
   {
@@ -47,8 +55,8 @@ const reportConfigs: ReportConfig[] = [
     description: 'Employee count by department, region, and grade',
     icon: UsersIcon,
     category: 'hr',
-    filters: [],
-    exportFn: (_, format) => reportsService.exportHeadcount(format),
+    filters: ['division', 'directorate', 'department', 'grade', 'staff_category'],
+    exportFn: (filters, format) => reportsService.exportHeadcount(format, filters),
   },
   {
     id: 'payroll-summary',
@@ -56,8 +64,8 @@ const reportConfigs: ReportConfig[] = [
     description: 'Summary of payroll by period with all employee details',
     icon: BanknotesIcon,
     category: 'payroll',
-    filters: ['period'],
-    exportFn: (filters, format) => reportsService.exportPayrollSummary(filters.period, format),
+    filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category'],
+    exportFn: (filters, format) => reportsService.exportPayrollSummary(filters.period, format, filters),
   },
   {
     id: 'payroll-master',
@@ -65,8 +73,8 @@ const reportConfigs: ReportConfig[] = [
     description: 'Detailed breakdown of earnings, deductions, and employer contributions per employee',
     icon: ClipboardDocumentListIcon,
     category: 'payroll',
-    filters: ['period', 'department'],
-    exportFn: (filters, format) => reportsService.exportPayrollMaster({ payroll_run: filters.period, department: filters.department }, format),
+    filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category'],
+    exportFn: (filters, format) => reportsService.exportPayrollMaster({ payroll_run: filters.period, ...filters }, format),
   },
   {
     id: 'paye',
@@ -74,8 +82,8 @@ const reportConfigs: ReportConfig[] = [
     description: 'Monthly income tax (PAYE) report for GRA submission',
     icon: BanknotesIcon,
     category: 'payroll',
-    filters: ['period'],
-    exportFn: (filters, format) => reportsService.exportPAYEReport(filters.period, format),
+    filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
+    exportFn: (filters, format) => reportsService.exportPAYEReport(filters.period, format, filters),
   },
   {
     id: 'ssnit',
@@ -83,8 +91,8 @@ const reportConfigs: ReportConfig[] = [
     description: 'Monthly SSNIT contributions for statutory submission',
     icon: BanknotesIcon,
     category: 'payroll',
-    filters: ['period'],
-    exportFn: (filters, format) => reportsService.exportSSNITReport(filters.period, format),
+    filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
+    exportFn: (filters, format) => reportsService.exportSSNITReport(filters.period, format, filters),
   },
   {
     id: 'bank-advice',
@@ -92,8 +100,45 @@ const reportConfigs: ReportConfig[] = [
     description: 'Bank transfer details for salary payments',
     icon: BanknotesIcon,
     category: 'payroll',
+    filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'bank'],
+    exportFn: (filters, format) => reportsService.exportBankAdvice(filters.period, format, filters),
+  },
+  {
+    id: 'payslips',
+    name: 'Employee Payslips',
+    description: 'Download all generated payslips for a payroll run as a ZIP file',
+    icon: DocumentDuplicateIcon,
+    category: 'payroll',
     filters: ['period'],
-    exportFn: (filters, format) => reportsService.exportBankAdvice(filters.period, format),
+    singleDownload: true,
+    downloadLabel: 'Download Payslips (ZIP)',
+    exportFn: (filters) => {
+      if (!filters.period) {
+        return Promise.reject(new Error('Please select a payroll period'))
+      }
+      return reportsService.downloadAllPayslips(filters.period)
+    },
+  },
+  {
+    id: 'bank-file',
+    name: 'Bank Payment File',
+    description: 'Download the generated bank payment file for salary transfers',
+    icon: BuildingLibraryIcon,
+    category: 'payroll',
+    filters: ['period'],
+    singleDownload: true,
+    downloadLabel: 'Download Bank File',
+    exportFn: async (filters) => {
+      if (!filters.period) {
+        return Promise.reject(new Error('Please select a payroll period'))
+      }
+      // Get the bank files for this run and download the first one
+      const data = await reportsService.getBankFilesForRun(filters.period)
+      if (data.bank_files && data.bank_files.length > 0) {
+        return reportsService.downloadBankFile(data.bank_files[0].id)
+      }
+      return Promise.reject(new Error('No bank file generated for this payroll run'))
+    },
   },
   {
     id: 'leave-balance',
@@ -101,7 +146,7 @@ const reportConfigs: ReportConfig[] = [
     description: 'Current leave balances for all employees',
     icon: CalendarIcon,
     category: 'leave',
-    filters: ['department'],
+    filters: ['employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
     exportFn: (filters, format) => reportsService.exportLeaveBalance(filters, format),
   },
   {
@@ -110,7 +155,7 @@ const reportConfigs: ReportConfig[] = [
     description: 'All active loans with balances',
     icon: CreditCardIcon,
     category: 'loans',
-    filters: ['department'],
+    filters: ['employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
     exportFn: (filters, format) => reportsService.exportLoanOutstanding(filters, format),
   },
 ]
@@ -128,9 +173,52 @@ export default function ReportsPage() {
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [isGenerating, setIsGenerating] = useState<ExportFormat | null>(null)
 
+  // Organization hierarchy queries
+  const { data: divisions } = useQuery({
+    queryKey: ['divisions'],
+    queryFn: employeeService.getDivisions,
+  })
+
+  const { data: directorates } = useQuery({
+    queryKey: ['directorates', filters.division],
+    queryFn: () => employeeService.getDirectorates(filters.division || undefined),
+  })
+
   const { data: departments } = useQuery({
-    queryKey: ['departments'],
-    queryFn: dashboardService.getDepartments,
+    queryKey: ['departments', filters.directorate],
+    queryFn: () => employeeService.getDepartments(filters.directorate || undefined),
+  })
+
+  // Position and grade queries
+  const { data: positions } = useQuery({
+    queryKey: ['positions'],
+    queryFn: employeeService.getPositions,
+  })
+
+  const { data: grades } = useQuery({
+    queryKey: ['grades'],
+    queryFn: employeeService.getGrades,
+  })
+
+  // Payroll setup queries
+  const { data: staffCategories } = useQuery({
+    queryKey: ['staff-categories'],
+    queryFn: payrollSetupService.getStaffCategories,
+  })
+
+  const { data: salaryBands } = useQuery({
+    queryKey: ['salary-bands'],
+    queryFn: payrollSetupService.getSalaryBands,
+  })
+
+  const { data: salaryLevels } = useQuery({
+    queryKey: ['salary-levels', filters.salary_band],
+    queryFn: () => payrollSetupService.getSalaryLevels(filters.salary_band || undefined),
+  })
+
+  const { data: banks } = useQuery({
+    queryKey: ['banks'],
+    queryFn: payrollSetupService.getBanks,
   })
 
   const { data: payrollRuns } = useQuery({
@@ -152,26 +240,181 @@ export default function ReportsPage() {
       toast.success(`Report downloaded successfully as ${format.toUpperCase()}!`)
     } catch (error: any) {
       console.error('Failed to generate report:', error)
-      toast.error(error.response?.data?.error || 'Failed to generate report')
+      toast.error(error.message || error.response?.data?.error || 'Failed to generate report')
     } finally {
       setIsGenerating(null)
     }
   }
 
+  // Clear dependent filters when parent changes
+  const handleFilterChange = (filterName: string, value: string) => {
+    const newFilters = { ...filters, [filterName]: value }
+
+    // Clear dependent filters
+    if (filterName === 'division') {
+      newFilters.directorate = ''
+      newFilters.department = ''
+    } else if (filterName === 'directorate') {
+      newFilters.department = ''
+    } else if (filterName === 'salary_band') {
+      newFilters.salary_level = ''
+    }
+
+    setFilters(newFilters)
+  }
+
   const renderFilterInput = (filterName: string) => {
     switch (filterName) {
+      case 'employee_code':
+        return (
+          <Input
+            key={filterName}
+            label="Employee Code"
+            placeholder="Enter employee code..."
+            value={filters.employee_code || ''}
+            onChange={(e) => handleFilterChange('employee_code', e.target.value)}
+          />
+        )
+      case 'division':
+        return (
+          <Select
+            key={filterName}
+            label="Division"
+            value={filters.division || ''}
+            onChange={(e) => handleFilterChange('division', e.target.value)}
+            options={[
+              { value: '', label: 'All Divisions' },
+              ...(divisions?.map((d: any) => ({
+                value: d.id,
+                label: d.name,
+              })) || []),
+            ]}
+          />
+        )
+      case 'directorate':
+        return (
+          <Select
+            key={filterName}
+            label="Directorate"
+            value={filters.directorate || ''}
+            onChange={(e) => handleFilterChange('directorate', e.target.value)}
+            options={[
+              { value: '', label: 'All Directorates' },
+              ...(directorates?.map((d: any) => ({
+                value: d.id,
+                label: d.name,
+              })) || []),
+            ]}
+          />
+        )
       case 'department':
         return (
           <Select
             key={filterName}
             label="Department"
             value={filters.department || ''}
-            onChange={(e) => setFilters({ ...filters, department: e.target.value })}
+            onChange={(e) => handleFilterChange('department', e.target.value)}
             options={[
               { value: '', label: 'All Departments' },
               ...(departments?.map((d: any) => ({
                 value: d.id,
                 label: d.name,
+              })) || []),
+            ]}
+          />
+        )
+      case 'position':
+        return (
+          <Select
+            key={filterName}
+            label="Job Title / Position"
+            value={filters.position || ''}
+            onChange={(e) => handleFilterChange('position', e.target.value)}
+            options={[
+              { value: '', label: 'All Positions' },
+              ...(positions?.map((p: any) => ({
+                value: p.id,
+                label: p.title || p.name,
+              })) || []),
+            ]}
+          />
+        )
+      case 'grade':
+        return (
+          <Select
+            key={filterName}
+            label="Grade"
+            value={filters.grade || ''}
+            onChange={(e) => handleFilterChange('grade', e.target.value)}
+            options={[
+              { value: '', label: 'All Grades' },
+              ...(grades?.map((g: any) => ({
+                value: g.id,
+                label: g.name || g.code,
+              })) || []),
+            ]}
+          />
+        )
+      case 'staff_category':
+        return (
+          <Select
+            key={filterName}
+            label="Staff Category"
+            value={filters.staff_category || ''}
+            onChange={(e) => handleFilterChange('staff_category', e.target.value)}
+            options={[
+              { value: '', label: 'All Staff Categories' },
+              ...(staffCategories?.map((c: any) => ({
+                value: c.id,
+                label: c.name,
+              })) || []),
+            ]}
+          />
+        )
+      case 'salary_band':
+        return (
+          <Select
+            key={filterName}
+            label="Salary Band"
+            value={filters.salary_band || ''}
+            onChange={(e) => handleFilterChange('salary_band', e.target.value)}
+            options={[
+              { value: '', label: 'All Salary Bands' },
+              ...(salaryBands?.map((b: any) => ({
+                value: b.id,
+                label: `${b.code} - ${b.name}`,
+              })) || []),
+            ]}
+          />
+        )
+      case 'salary_level':
+        return (
+          <Select
+            key={filterName}
+            label="Salary Level"
+            value={filters.salary_level || ''}
+            onChange={(e) => handleFilterChange('salary_level', e.target.value)}
+            options={[
+              { value: '', label: 'All Salary Levels' },
+              ...(salaryLevels?.map((l: any) => ({
+                value: l.id,
+                label: `${l.code} - ${l.name}`,
+              })) || []),
+            ]}
+          />
+        )
+      case 'bank':
+        return (
+          <Select
+            key={filterName}
+            label="Bank"
+            value={filters.bank || ''}
+            onChange={(e) => handleFilterChange('bank', e.target.value)}
+            options={[
+              { value: '', label: 'All Banks' },
+              ...(banks?.map((b: any) => ({
+                value: b.id,
+                label: b.name,
               })) || []),
             ]}
           />
@@ -182,7 +425,7 @@ export default function ReportsPage() {
             key={filterName}
             label="Employment Status"
             value={filters.status || ''}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
             options={[
               { value: '', label: 'All Statuses' },
               { value: 'ACTIVE', label: 'Active' },
@@ -194,29 +437,13 @@ export default function ReportsPage() {
             ]}
           />
         )
-      case 'grade':
-        return (
-          <Select
-            key={filterName}
-            label="Grade"
-            value={filters.grade || ''}
-            onChange={(e) => setFilters({ ...filters, grade: e.target.value })}
-            options={[
-              { value: '', label: 'All Grades' },
-              ...Array.from({ length: 15 }, (_, i) => ({
-                value: `grade-${i + 1}`,
-                label: `Grade ${i + 1}`,
-              })),
-            ]}
-          />
-        )
       case 'period':
         return (
           <Select
             key={filterName}
             label="Payroll Period"
             value={filters.period || ''}
-            onChange={(e) => setFilters({ ...filters, period: e.target.value })}
+            onChange={(e) => handleFilterChange('period', e.target.value)}
             options={[
               { value: '', label: 'Latest Period' },
               ...(payrollRuns?.map((r: any) => ({
@@ -232,7 +459,7 @@ export default function ReportsPage() {
             key={filterName}
             label="Month"
             value={filters.month || ''}
-            onChange={(e) => setFilters({ ...filters, month: e.target.value })}
+            onChange={(e) => handleFilterChange('month', e.target.value)}
             options={[
               { value: '', label: 'Select Month' },
               { value: '1', label: 'January' },
@@ -256,7 +483,7 @@ export default function ReportsPage() {
             key={filterName}
             label="Year"
             value={filters.year || ''}
-            onChange={(e) => setFilters({ ...filters, year: e.target.value })}
+            onChange={(e) => handleFilterChange('year', e.target.value)}
             options={[
               { value: '', label: 'Current Year' },
               ...Array.from({ length: 5 }, (_, i) => {
@@ -274,7 +501,7 @@ export default function ReportsPage() {
             label={filterName === 'date' ? 'As of Date' : 'From Date'}
             type="date"
             value={filters[filterName] || ''}
-            onChange={(e) => setFilters({ ...filters, [filterName]: e.target.value })}
+            onChange={(e) => handleFilterChange(filterName, e.target.value)}
           />
         )
       case 'date_to':
@@ -284,7 +511,7 @@ export default function ReportsPage() {
             label="To Date"
             type="date"
             value={filters.date_to || ''}
-            onChange={(e) => setFilters({ ...filters, date_to: e.target.value })}
+            onChange={(e) => handleFilterChange('date_to', e.target.value)}
           />
         )
       default:
@@ -396,51 +623,70 @@ export default function ReportsPage() {
                   </div>
 
                   {selectedReport.filters && selectedReport.filters.length > 0 && (
-                    <div className="space-y-4">
-                      <h5 className="text-sm font-medium text-gray-700">Filters</h5>
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                      <h5 className="text-sm font-medium text-gray-700 sticky top-0 bg-white py-1">Filters</h5>
                       {selectedReport.filters.map((filter) => renderFilterInput(filter))}
                     </div>
                   )}
 
-                  <div className="pt-4 space-y-3">
-                    <h5 className="text-sm font-medium text-gray-700">Download Format</h5>
+                  <div className="pt-4 space-y-3 border-t">
+                    {selectedReport.singleDownload ? (
+                      <>
+                        <Button
+                          className="w-full"
+                          variant="primary"
+                          onClick={() => handleGenerateReport('csv')}
+                          isLoading={isGenerating === 'csv'}
+                          disabled={isGenerating !== null}
+                        >
+                          <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
+                          {selectedReport.downloadLabel || 'Download'}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <h5 className="text-sm font-medium text-gray-700">Download Format</h5>
 
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => handleGenerateReport('csv')}
-                      isLoading={isGenerating === 'csv'}
-                      disabled={isGenerating !== null}
-                    >
-                      <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
-                      Download CSV
-                    </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => handleGenerateReport('csv')}
+                          isLoading={isGenerating === 'csv'}
+                          disabled={isGenerating !== null}
+                        >
+                          <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
+                          Download CSV
+                        </Button>
 
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => handleGenerateReport('excel')}
-                      isLoading={isGenerating === 'excel'}
-                      disabled={isGenerating !== null}
-                    >
-                      <TableCellsIcon className="h-4 w-4 mr-2" />
-                      Download Excel
-                    </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => handleGenerateReport('excel')}
+                          isLoading={isGenerating === 'excel'}
+                          disabled={isGenerating !== null}
+                        >
+                          <TableCellsIcon className="h-4 w-4 mr-2" />
+                          Download Excel
+                        </Button>
 
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => handleGenerateReport('pdf')}
-                      isLoading={isGenerating === 'pdf'}
-                      disabled={isGenerating !== null}
-                    >
-                      <DocumentTextIcon className="h-4 w-4 mr-2" />
-                      Download PDF
-                    </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => handleGenerateReport('pdf')}
+                          isLoading={isGenerating === 'pdf'}
+                          disabled={isGenerating !== null}
+                        >
+                          <DocumentTextIcon className="h-4 w-4 mr-2" />
+                          Download PDF
+                        </Button>
+                      </>
+                    )}
                   </div>
 
                   <p className="text-xs text-gray-400 text-center">
-                    Choose your preferred format: CSV for data processing, Excel for spreadsheets, or PDF for printing
+                    {selectedReport.singleDownload
+                      ? 'Click the button above to download the file'
+                      : 'Choose your preferred format: CSV for data processing, Excel for spreadsheets, or PDF for printing'}
                   </p>
                 </div>
               ) : (

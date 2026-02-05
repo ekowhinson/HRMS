@@ -2,6 +2,28 @@ import api from '@/lib/api'
 
 export type ExportFormat = 'csv' | 'excel' | 'pdf'
 
+// Common filter type for all reports
+export interface ReportFilters {
+  employee_code?: string
+  division?: string
+  directorate?: string
+  department?: string
+  position?: string
+  grade?: string
+  salary_band?: string
+  salary_level?: string
+  staff_category?: string
+  status?: string
+  period?: string
+  payroll_run?: string
+  bank?: string
+  year?: string
+  month?: string
+  date_from?: string
+  date_to?: string
+  [key: string]: string | undefined
+}
+
 const getFileExtension = (format: ExportFormat): string => {
   switch (format) {
     case 'excel':
@@ -24,21 +46,29 @@ const downloadFile = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url)
 }
 
+// Helper to build query params from filters
+const buildParams = (filters: ReportFilters | undefined, format: ExportFormat): URLSearchParams => {
+  const params = new URLSearchParams()
+
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value.trim() !== '') {
+        params.append(key, value)
+      }
+    })
+  }
+
+  params.append('file_format', format)
+  return params
+}
+
 export const reportsService = {
   // Employee reports
   async exportEmployeeMaster(
-    filters?: {
-      department?: string
-      grade?: string
-      status?: string
-    },
+    filters?: ReportFilters,
     format: ExportFormat = 'csv'
   ): Promise<void> {
-    const params = new URLSearchParams()
-    if (filters?.department) params.append('department', filters.department)
-    if (filters?.grade) params.append('grade', filters.grade)
-    if (filters?.status) params.append('status', filters.status)
-    params.append('file_format', format)
+    const params = buildParams(filters, format)
 
     const response = await api.get(`/reports/export/employees/?${params.toString()}`, {
       responseType: 'blob',
@@ -46,18 +76,26 @@ export const reportsService = {
     downloadFile(response.data, `employee_master_${Date.now()}.${getFileExtension(format)}`)
   },
 
-  async exportHeadcount(format: ExportFormat = 'csv'): Promise<void> {
-    const response = await api.get(`/reports/export/headcount/?file_format=${format}`, {
+  async exportHeadcount(
+    format: ExportFormat = 'csv',
+    filters?: ReportFilters
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+
+    const response = await api.get(`/reports/export/headcount/?${params.toString()}`, {
       responseType: 'blob',
     })
     downloadFile(response.data, `headcount_${Date.now()}.${getFileExtension(format)}`)
   },
 
   // Payroll reports
-  async exportPayrollSummary(payrollRunId?: string, format: ExportFormat = 'csv'): Promise<void> {
-    const params = new URLSearchParams()
-    if (payrollRunId) params.append('payroll_run', payrollRunId)
-    params.append('file_format', format)
+  async exportPayrollSummary(
+    payrollRunId?: string,
+    format: ExportFormat = 'csv',
+    filters?: ReportFilters
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+    if (payrollRunId) params.set('payroll_run', payrollRunId)
 
     const response = await api.get(`/reports/export/payroll/?${params.toString()}`, {
       responseType: 'blob',
@@ -65,10 +103,13 @@ export const reportsService = {
     downloadFile(response.data, `payroll_summary_${Date.now()}.${getFileExtension(format)}`)
   },
 
-  async exportPAYEReport(payrollRunId?: string, format: ExportFormat = 'csv'): Promise<void> {
-    const params = new URLSearchParams()
-    if (payrollRunId) params.append('payroll_run', payrollRunId)
-    params.append('file_format', format)
+  async exportPAYEReport(
+    payrollRunId?: string,
+    format: ExportFormat = 'csv',
+    filters?: ReportFilters
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+    if (payrollRunId) params.set('payroll_run', payrollRunId)
 
     const response = await api.get(`/reports/export/paye/?${params.toString()}`, {
       responseType: 'blob',
@@ -76,10 +117,13 @@ export const reportsService = {
     downloadFile(response.data, `paye_report_${Date.now()}.${getFileExtension(format)}`)
   },
 
-  async exportSSNITReport(payrollRunId?: string, format: ExportFormat = 'csv'): Promise<void> {
-    const params = new URLSearchParams()
-    if (payrollRunId) params.append('payroll_run', payrollRunId)
-    params.append('file_format', format)
+  async exportSSNITReport(
+    payrollRunId?: string,
+    format: ExportFormat = 'csv',
+    filters?: ReportFilters
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+    if (payrollRunId) params.set('payroll_run', payrollRunId)
 
     const response = await api.get(`/reports/export/ssnit/?${params.toString()}`, {
       responseType: 'blob',
@@ -87,10 +131,13 @@ export const reportsService = {
     downloadFile(response.data, `ssnit_report_${Date.now()}.${getFileExtension(format)}`)
   },
 
-  async exportBankAdvice(payrollRunId?: string, format: ExportFormat = 'csv'): Promise<void> {
-    const params = new URLSearchParams()
-    if (payrollRunId) params.append('payroll_run', payrollRunId)
-    params.append('file_format', format)
+  async exportBankAdvice(
+    payrollRunId?: string,
+    format: ExportFormat = 'csv',
+    filters?: ReportFilters
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+    if (payrollRunId) params.set('payroll_run', payrollRunId)
 
     const response = await api.get(`/reports/export/bank-advice/?${params.toString()}`, {
       responseType: 'blob',
@@ -99,16 +146,10 @@ export const reportsService = {
   },
 
   async exportPayrollMaster(
-    filters?: {
-      payroll_run?: string
-      department?: string
-    },
+    filters?: ReportFilters,
     format: ExportFormat = 'csv'
   ): Promise<void> {
-    const params = new URLSearchParams()
-    if (filters?.payroll_run) params.append('payroll_run', filters.payroll_run)
-    if (filters?.department) params.append('department', filters.department)
-    params.append('file_format', format)
+    const params = buildParams(filters, format)
 
     const response = await api.get(`/reports/export/payroll-master/?${params.toString()}`, {
       responseType: 'blob',
@@ -118,16 +159,10 @@ export const reportsService = {
 
   // Leave reports
   async exportLeaveBalance(
-    filters?: {
-      year?: string
-      department?: string
-    },
+    filters?: ReportFilters,
     format: ExportFormat = 'csv'
   ): Promise<void> {
-    const params = new URLSearchParams()
-    if (filters?.year) params.append('year', filters.year)
-    if (filters?.department) params.append('department', filters.department)
-    params.append('file_format', format)
+    const params = buildParams(filters, format)
 
     const response = await api.get(`/reports/export/leave-balance/?${params.toString()}`, {
       responseType: 'blob',
@@ -137,14 +172,10 @@ export const reportsService = {
 
   // Loan reports
   async exportLoanOutstanding(
-    filters?: {
-      department?: string
-    },
+    filters?: ReportFilters,
     format: ExportFormat = 'csv'
   ): Promise<void> {
-    const params = new URLSearchParams()
-    if (filters?.department) params.append('department', filters.department)
-    params.append('file_format', format)
+    const params = buildParams(filters, format)
 
     const response = await api.get(`/reports/export/loans/?${params.toString()}`, {
       responseType: 'blob',
@@ -153,57 +184,157 @@ export const reportsService = {
   },
 
   // Generic report data fetchers (for viewing in browser)
-  async getEmployeeMaster(filters?: Record<string, string>) {
-    const params = new URLSearchParams(filters)
+  async getEmployeeMaster(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
     const response = await api.get(`/reports/employees/master/?${params.toString()}`)
     return response.data
   },
 
-  async getHeadcount() {
-    const response = await api.get('/reports/employees/headcount/')
-    return response.data
-  },
-
-  async getPayrollSummary(payrollRunId?: string) {
-    const params = payrollRunId ? `?payroll_run=${payrollRunId}` : ''
-    const response = await api.get(`/reports/payroll/summary/${params}`)
-    return response.data
-  },
-
-  async getPayrollMaster(filters?: {
-    payroll_run?: string
-    department?: string
-    employee?: string
-  }) {
+  async getHeadcount(filters?: ReportFilters) {
     const params = new URLSearchParams()
-    if (filters?.payroll_run) params.append('payroll_run', filters.payroll_run)
-    if (filters?.department) params.append('department', filters.department)
-    if (filters?.employee) params.append('employee', filters.employee)
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/employees/headcount/?${params.toString()}`)
+    return response.data
+  },
+
+  async getPayrollSummary(payrollRunId?: string, filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (payrollRunId) params.append('payroll_run', payrollRunId)
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/payroll/summary/?${params.toString()}`)
+    return response.data
+  },
+
+  async getPayrollMaster(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
     const response = await api.get(`/reports/payroll/master/?${params.toString()}`)
     return response.data
   },
 
-  async getPAYEReport(payrollRunId?: string) {
-    const params = payrollRunId ? `?payroll_run=${payrollRunId}` : ''
-    const response = await api.get(`/reports/statutory/paye/${params}`)
+  async getPAYEReport(payrollRunId?: string, filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (payrollRunId) params.append('payroll_run', payrollRunId)
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/statutory/paye/?${params.toString()}`)
     return response.data
   },
 
-  async getSSNITReport(payrollRunId?: string) {
-    const params = payrollRunId ? `?payroll_run=${payrollRunId}` : ''
-    const response = await api.get(`/reports/statutory/ssnit/${params}`)
+  async getSSNITReport(payrollRunId?: string, filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (payrollRunId) params.append('payroll_run', payrollRunId)
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/statutory/ssnit/?${params.toString()}`)
     return response.data
   },
 
-  async getLeaveBalance(filters?: Record<string, string>) {
-    const params = new URLSearchParams(filters)
+  async getLeaveBalance(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
     const response = await api.get(`/reports/leave/balance/?${params.toString()}`)
     return response.data
   },
 
-  async getLoanOutstanding(filters?: Record<string, string>) {
-    const params = new URLSearchParams(filters)
+  async getLoanOutstanding(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
     const response = await api.get(`/reports/loans/outstanding/?${params.toString()}`)
     return response.data
+  },
+
+  // Payslip downloads
+  async getPayslipsForRun(payrollRunId: string) {
+    const response = await api.get(`/payroll/runs/${payrollRunId}/payslips/`)
+    return response.data
+  },
+
+  async downloadPayslip(payslipId: string): Promise<void> {
+    const response = await api.get(`/payroll/payslips/${payslipId}/download/`, {
+      responseType: 'blob',
+    })
+    // Get filename from content-disposition header or use default
+    const contentDisposition = response.headers['content-disposition']
+    let filename = `payslip_${payslipId}.pdf`
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^"]+)"?/)
+      if (match) filename = match[1]
+    }
+    downloadFile(response.data, filename)
+  },
+
+  async downloadAllPayslips(payrollRunId: string): Promise<void> {
+    const response = await api.get(`/payroll/runs/${payrollRunId}/payslips/download/`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `payslips_${Date.now()}.zip`)
+  },
+
+  // Bank file downloads
+  async getBankFilesForRun(payrollRunId: string) {
+    const response = await api.get(`/payroll/runs/${payrollRunId}/bank-files/`)
+    return response.data
+  },
+
+  async downloadBankFile(bankFileId: string): Promise<void> {
+    const response = await api.get(`/payroll/bank-files/${bankFileId}/download/`, {
+      responseType: 'blob',
+    })
+    // Get filename from content-disposition header or use default
+    const contentDisposition = response.headers['content-disposition']
+    let filename = `bank_file_${bankFileId}.csv`
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^"]+)"?/)
+      if (match) filename = match[1]
+    }
+    downloadFile(response.data, filename)
   },
 }

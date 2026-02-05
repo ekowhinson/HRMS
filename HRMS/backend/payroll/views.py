@@ -13,10 +13,11 @@ from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 
+from django.http import HttpResponse
 from .models import (
     PayComponent, SalaryStructure, PayrollPeriod, PayrollRun,
     PayrollItem, EmployeeSalary, AdHocPayment,
-    TaxBracket, TaxRelief, SSNITRate, BankFile, EmployeeTransaction,
+    TaxBracket, TaxRelief, SSNITRate, BankFile, Payslip, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
     SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings
 )
@@ -784,12 +785,11 @@ class GenerateBankFileView(APIView):
                 'data': {
                     'files': [
                         {
-                            'id': bf.id,
+                            'id': str(bf.id),
                             'bank_name': bf.bank_name,
                             'file_name': bf.file_name,
                             'total_amount': str(bf.total_amount),
                             'transaction_count': bf.transaction_count,
-                            'file_url': bf.file.url if bf.file else None,
                         }
                         for bf in bank_files
                     ]
@@ -826,11 +826,10 @@ class GeneratePayslipsView(APIView):
                     'payslips_count': len(payslips),
                     'payslips': [
                         {
-                            'id': ps.id,
+                            'id': str(ps.id),
                             'payslip_number': ps.payslip_number,
                             'employee_number': ps.payroll_item.employee.employee_number,
                             'employee_name': ps.payroll_item.employee.full_name,
-                            'file_url': ps.file.url if ps.file else None,
                         }
                         for ps in payslips[:50]
                     ]
@@ -1213,3 +1212,191 @@ class SalaryNotchViewSet(viewsets.ModelViewSet):
     search_fields = ['code', 'name', 'level__code', 'level__band__code']
     ordering_fields = ['sort_order', 'code', 'name', 'amount', 'created_at']
     ordering = ['level__band__sort_order', 'level__sort_order', 'sort_order', 'code']
+
+
+# ============================================
+# Payslip and Bank File Download Views
+# ============================================
+
+class PayslipDownloadView(APIView):
+    """Download a single payslip by ID."""
+
+    def get(self, request, pk):
+        try:
+            payslip = Payslip.objects.select_related(
+                'payroll_item__employee',
+                'payroll_item__payroll_run'
+            ).get(pk=pk)
+        except Payslip.DoesNotExist:
+            return Response(
+                {'error': 'Payslip not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not payslip.file_data:
+            return Response(
+                {'error': 'Payslip file not generated yet'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Update downloaded_at timestamp
+        payslip.downloaded_at = timezone.now()
+        payslip.save(update_fields=['downloaded_at'])
+
+        response = HttpResponse(
+            payslip.file_data,
+            content_type=payslip.mime_type or 'application/pdf'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{payslip.file_name or payslip.payslip_number + ".pdf"}"'
+        response['Content-Length'] = payslip.file_size or len(payslip.file_data)
+        return response
+
+
+class PayrollRunPayslipsListView(APIView):
+    """List all payslips for a payroll run."""
+
+    def get(self, request, run_id):
+        try:
+            payroll_run = PayrollRun.objects.get(pk=run_id)
+        except PayrollRun.DoesNotExist:
+            return Response(
+                {'error': 'Payroll run not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        payslips = Payslip.objects.filter(
+            payroll_item__payroll_run=payroll_run
+        ).select_related(
+            'payroll_item__employee'
+        ).values(
+            'id',
+            'payslip_number',
+            'file_name',
+            'file_size',
+            'generated_at',
+            'downloaded_at',
+            'payroll_item__employee__employee_number',
+            'payroll_item__employee__first_name',
+            'payroll_item__employee__last_name',
+        )
+
+        return Response({
+            'payroll_run': {
+                'id': str(payroll_run.id),
+                'run_number': payroll_run.run_number,
+                'period_name': payroll_run.payroll_period.name if payroll_run.payroll_period else None,
+            },
+            'total_count': payslips.count(),
+            'payslips': list(payslips)
+        })
+
+
+class PayrollRunPayslipsDownloadView(APIView):
+    """Download all payslips for a payroll run as a ZIP file."""
+
+    def get(self, request, run_id):
+        import zipfile
+        import io
+
+        try:
+            payroll_run = PayrollRun.objects.get(pk=run_id)
+        except PayrollRun.DoesNotExist:
+            return Response(
+                {'error': 'Payroll run not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        payslips = Payslip.objects.filter(
+            payroll_item__payroll_run=payroll_run,
+            file_data__isnull=False
+        ).select_related('payroll_item__employee')
+
+        if not payslips.exists():
+            return Response(
+                {'error': 'No payslips generated for this payroll run'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Create ZIP file in memory
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for payslip in payslips:
+                emp = payslip.payroll_item.employee
+                filename = payslip.file_name or f"{emp.employee_number}_{payslip.payslip_number}.pdf"
+                zf.writestr(filename, bytes(payslip.file_data))
+
+                # Update downloaded_at timestamp
+                payslip.downloaded_at = timezone.now()
+                payslip.save(update_fields=['downloaded_at'])
+
+        buffer.seek(0)
+
+        zip_filename = f"payslips_{payroll_run.run_number}.zip"
+        response = HttpResponse(buffer.read(), content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+        return response
+
+
+class BankFileDownloadView(APIView):
+    """Download a single bank file by ID."""
+
+    def get(self, request, pk):
+        try:
+            bank_file = BankFile.objects.select_related('payroll_run').get(pk=pk)
+        except BankFile.DoesNotExist:
+            return Response(
+                {'error': 'Bank file not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not bank_file.file_data:
+            return Response(
+                {'error': 'Bank file data not available'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        response = HttpResponse(
+            bank_file.file_data,
+            content_type=bank_file.mime_type or 'application/octet-stream'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{bank_file.file_name}"'
+        response['Content-Length'] = bank_file.file_size or len(bank_file.file_data)
+        return response
+
+
+class PayrollRunBankFilesListView(APIView):
+    """List all bank files for a payroll run."""
+
+    def get(self, request, run_id):
+        try:
+            payroll_run = PayrollRun.objects.get(pk=run_id)
+        except PayrollRun.DoesNotExist:
+            return Response(
+                {'error': 'Payroll run not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        bank_files = BankFile.objects.filter(
+            payroll_run=payroll_run
+        ).values(
+            'id',
+            'bank_name',
+            'file_name',
+            'file_format',
+            'file_size',
+            'total_amount',
+            'transaction_count',
+            'generated_at',
+            'is_submitted',
+            'submitted_at',
+        )
+
+        return Response({
+            'payroll_run': {
+                'id': str(payroll_run.id),
+                'run_number': payroll_run.run_number,
+                'period_name': payroll_run.payroll_period.name if payroll_run.payroll_period else None,
+            },
+            'total_count': bank_files.count(),
+            'bank_files': list(bank_files)
+        })
