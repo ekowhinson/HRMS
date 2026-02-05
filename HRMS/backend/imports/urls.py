@@ -18,4 +18,6 @@ router.register(r'datasets', views.DatasetViewSet, basename='dataset')
 urlpatterns = [
     path('', include(router.urls)),
     path('fields/<str:target_model>/', views.FieldDefinitionsView.as_view(), name='field-definitions'),
+    path('unified/', views.UnifiedImportView.as_view(), name='unified-import'),
+    path('unified/status/<str:task_id>/', views.UnifiedImportStatusView.as_view(), name='unified-import-status'),
 ]

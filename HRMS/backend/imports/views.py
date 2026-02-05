@@ -1376,3 +1376,175 @@ class DatasetViewSet(viewsets.ModelViewSet):
             'import_job': ImportJobSerializer(import_job).data,
             'dataset': DatasetSerializer(dataset).data,
         }, status=status.HTTP_201_CREATED)
+
+
+class UnifiedImportView(APIView):
+    """
+    Unified multi-file import API.
+
+    Handles:
+    - Multiple file upload
+    - Automatic joining on employee ID
+    - Setup model creation (divisions, departments, grades, positions, banks, etc.)
+    - Employee creation with proper FK references
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    # Threshold for async processing
+    ASYNC_THRESHOLD = 10000  # rows
+
+    def post(self, request):
+        """
+        Process multi-file employee import.
+
+        POST /imports/unified/
+
+        Form data:
+        - files: Multiple files to import (required)
+        - update_existing: Whether to update existing employees (default: true)
+        - join_column: Column to join files on (auto-detected if not provided)
+        - async: Force async processing (default: auto based on file size)
+        """
+        import base64
+        from .unified_import import UnifiedImportProcessor
+
+        files = request.FILES.getlist('files')
+        if not files:
+            return Response(
+                {'error': 'No files provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        update_existing = request.data.get('update_existing', 'true').lower() == 'true'
+        join_column = request.data.get('join_column')
+        run_async = request.data.get('async', '').lower() == 'true'
+
+        # Read file contents and estimate row count
+        file_data = []
+        total_size = 0
+        for file_obj in files:
+            content = file_obj.read()
+            filename = file_obj.name
+            file_data.append((filename, content))
+            total_size += len(content)
+
+        # Estimate rows (rough: ~100 bytes per row for CSV)
+        estimated_rows = total_size // 100
+
+        # Use async for large files
+        if run_async or estimated_rows > self.ASYNC_THRESHOLD:
+            # Encode files for Celery task
+            encoded_files = [
+                (filename, base64.b64encode(content).decode('utf-8'))
+                for filename, content in file_data
+            ]
+
+            from .tasks import unified_import_task
+            task = unified_import_task.delay(
+                file_data=encoded_files,
+                user_id=str(request.user.id) if request.user else None,
+                update_existing=update_existing,
+                join_column=join_column,
+            )
+
+            return Response({
+                'async': True,
+                'task_id': task.id,
+                'message': 'Import started in background',
+                'status_url': f'/api/v1/imports/unified/status/{task.id}/',
+                'estimated_rows': estimated_rows,
+            }, status=status.HTTP_202_ACCEPTED)
+
+        # Synchronous processing for smaller files
+        processor = UnifiedImportProcessor(user=request.user)
+        result = processor.process_import(
+            files=file_data,
+            mapping=None,  # Auto-detect
+            update_existing=update_existing,
+            join_column=join_column,
+        )
+
+        return Response({
+            'async': False,
+            'success': result.success,
+            'total_rows': result.total_rows,
+            'employees_created': result.employees_created,
+            'employees_updated': result.employees_updated,
+            'employees_skipped': result.employees_skipped,
+            'setups_created': result.setups_created,
+            'errors': result.errors[:100] if result.errors else [],  # Limit error output
+            'warnings': result.warnings,
+            'error_count': len(result.errors),
+        }, status=status.HTTP_200_OK if result.success else status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        """
+        Get information about the unified import endpoint.
+        GET /imports/unified/
+        """
+        return Response({
+            'description': 'Unified multi-file employee import',
+            'method': 'POST',
+            'content_type': 'multipart/form-data',
+            'parameters': {
+                'files': {
+                    'type': 'file[]',
+                    'required': True,
+                    'description': 'One or more CSV/Excel files to import'
+                },
+                'update_existing': {
+                    'type': 'boolean',
+                    'required': False,
+                    'default': True,
+                    'description': 'Whether to update existing employees'
+                },
+                'join_column': {
+                    'type': 'string',
+                    'required': False,
+                    'description': 'Column to join files on (auto-detected if not provided)'
+                },
+            },
+            'supported_file_types': ['csv', 'xlsx', 'xls'],
+            'features': [
+                'Auto-joins multiple files on employee ID',
+                'Auto-creates setup records (divisions, departments, grades, positions, banks)',
+                'Auto-detects column mappings',
+                'Creates employees with proper FK references',
+                'Supports CSV and Excel files',
+            ],
+            'auto_detected_columns': [
+                'employee_id/number', 'first_name', 'last_name', 'full_name',
+                'date_of_birth', 'gender', 'marital_status',
+                'department', 'position', 'grade', 'division', 'directorate',
+                'bank_name', 'account_number', 'branch_name',
+                'email', 'phone', 'address', 'city', 'region',
+                'date_of_joining', 'employment_status', 'employment_type',
+                'salary_band', 'salary_level', 'salary_notch', 'basic_salary',
+                'ghana_card', 'ssnit', 'tin', 'staff_category',
+            ],
+        })
+
+
+class UnifiedImportStatusView(APIView):
+    """Get status of an async unified import task."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, task_id):
+        """
+        Get status of an async import task.
+
+        GET /imports/unified/status/{task_id}/
+        """
+        from .tasks import get_task_status
+
+        # Get task status
+        status_data = get_task_status(task_id)
+
+        # Get progress from cache
+        progress = cache.get(f'unified_import_progress_{task_id}', {})
+
+        return Response({
+            **status_data,
+            'progress': progress,
+        })

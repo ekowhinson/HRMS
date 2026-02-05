@@ -247,3 +247,96 @@ def revoke_task(task_id: str, terminate: bool = False):
         'revoked': True,
         'terminated': terminate
     }
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def unified_import_task(self, file_data: list, user_id: str = None, update_existing: bool = True, join_column: str = None):
+    """
+    Process unified multi-file import asynchronously.
+
+    Args:
+        file_data: List of (filename, file_content_base64) tuples
+        user_id: UUID of the user performing the import
+        update_existing: Whether to update existing employees
+        join_column: Column to join files on (auto-detected if None)
+
+    Returns:
+        Import result dictionary
+    """
+    import base64
+    from .unified_import import UnifiedImportProcessor
+
+    # Get user if provided
+    user = None
+    if user_id:
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+        except Exception:
+            pass
+
+    # Store progress in cache
+    cache_key = f'unified_import_progress_{self.request.id}'
+
+    try:
+        # Decode file data
+        files = []
+        for filename, content_b64 in file_data:
+            content = base64.b64decode(content_b64)
+            files.append((filename, content))
+
+        # Update progress
+        cache.set(cache_key, {
+            'status': 'processing',
+            'stage': 'reading_files',
+            'files_count': len(files),
+        }, timeout=3600)
+
+        # Run the import
+        processor = UnifiedImportProcessor(user=user)
+        result = processor.process_import(
+            files=files,
+            mapping=None,
+            update_existing=update_existing,
+            join_column=join_column,
+        )
+
+        # Store final progress
+        cache.set(cache_key, {
+            'status': 'completed' if result.success else 'failed',
+            'total_rows': result.total_rows,
+            'employees_created': result.employees_created,
+            'employees_updated': result.employees_updated,
+            'employees_skipped': result.employees_skipped,
+            'setups_created': result.setups_created,
+            'error_count': len(result.errors),
+        }, timeout=3600)
+
+        return {
+            'success': result.success,
+            'total_rows': result.total_rows,
+            'employees_created': result.employees_created,
+            'employees_updated': result.employees_updated,
+            'employees_skipped': result.employees_skipped,
+            'setups_created': result.setups_created,
+            'errors': result.errors[:50],  # Limit errors returned
+            'warnings': result.warnings,
+            'error_count': len(result.errors),
+        }
+
+    except Exception as e:
+        logger.exception(f"Unified import task failed: {str(e)}")
+
+        cache.set(cache_key, {
+            'status': 'failed',
+            'error': str(e),
+        }, timeout=3600)
+
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+
+        return {
+            'success': False,
+            'error': str(e),
+        }
