@@ -58,16 +58,7 @@ interface NavSection {
   items: NavItem[];
 }
 
-const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Employees', href: '/employees', icon: UsersIcon },
-  { name: 'Leave', href: '/leave', icon: CalendarIcon },
-  { name: 'Payroll', href: '/payroll', icon: BanknotesIcon },
-  { name: 'Benefits', href: '/benefits', icon: GiftIcon },
-  { name: 'Reports', href: '/reports', icon: ChartBarIcon },
-  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
-];
-
+// Self-Service Navigation - Available to all users
 const selfServiceNavigation: NavItem[] = [
   { name: 'My Profile', href: '/my-profile', icon: UserCircleIcon },
   { name: 'My Leave', href: '/my-leave', icon: ClockIcon },
@@ -77,44 +68,34 @@ const selfServiceNavigation: NavItem[] = [
   { name: 'My Appraisal', href: '/my-appraisal', icon: ChartBarIcon },
 ];
 
-const adminNavigation: NavItem[] = [
-  { name: 'Appraisals', href: '/admin/appraisals', icon: FlagIcon },
+// HR Section - Top level items
+const hrNavigation: NavItem[] = [
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Employees', href: '/employees', icon: UsersIcon },
+  { name: 'Leave Management', href: '/leave', icon: CalendarIcon },
   { name: 'Leave Approvals', href: '/admin/leave-approvals', icon: ClipboardDocumentCheckIcon },
   { name: 'Recruitment', href: '/admin/recruitment', icon: BriefcaseIcon },
-  { name: 'Announcements', href: '/admin/announcements', icon: MegaphoneIcon },
-  { name: 'Loan Management', href: '/admin/loans', icon: CreditCardIcon },
-  { name: 'Process Payroll', href: '/admin/payroll', icon: CalculatorIcon },
-  { name: 'Employee Transactions', href: '/admin/employee-transactions', icon: DocumentPlusIcon },
   { name: 'Exit Management', href: '/admin/exits', icon: ArrowRightStartOnRectangleIcon },
-  { name: 'Company Policies', href: '/admin/policies', icon: DocumentTextIcon },
-  { name: 'Data Import', href: '/admin/data-import', icon: DocumentArrowUpIcon },
-  { name: 'Data Analyzer', href: '/admin/data-analyzer', icon: SparklesIcon },
+  { name: 'Appraisals', href: '/admin/appraisals', icon: FlagIcon },
 ];
 
-const setupSections: NavSection[] = [
+// HR Section - Collapsible sub-sections
+const hrSections: NavSection[] = [
   {
-    name: 'Payroll Setup',
-    icon: BanknotesIcon,
-    items: [
-      { name: 'Banks', href: '/admin/payroll-setup?tab=banks', icon: BuildingOfficeIcon },
-      { name: 'Bank Branches', href: '/admin/payroll-setup?tab=branches', icon: BuildingOfficeIcon },
-      { name: 'Staff Categories', href: '/admin/payroll-setup?tab=categories', icon: UserGroupIcon },
-      { name: 'Salary Bands', href: '/admin/payroll-setup?tab=bands', icon: BanknotesIcon },
-      { name: 'Salary Levels', href: '/admin/payroll-setup?tab=levels', icon: BanknotesIcon },
-      { name: 'Salary Notches', href: '/admin/payroll-setup?tab=notches', icon: BanknotesIcon },
-      { name: 'Transaction Types', href: '/admin/transaction-types', icon: CurrencyDollarIcon },
-      { name: 'Tax Configuration', href: '/admin/tax-configuration', icon: AdjustmentsHorizontalIcon },
-    ],
-  },
-  {
-    name: 'HR Setup',
-    icon: UserGroupIcon,
+    name: 'Organization',
+    icon: BuildingOfficeIcon,
     items: [
       { name: 'Divisions', href: '/admin/organization?tab=divisions', icon: BuildingOfficeIcon },
       { name: 'Directorates', href: '/admin/organization?tab=directorates', icon: BuildingOfficeIcon },
       { name: 'Departments', href: '/admin/organization?tab=departments', icon: BuildingOfficeIcon },
       { name: 'Job Positions', href: '/admin/organization?tab=positions', icon: UserGroupIcon },
       { name: 'Job Grades', href: '/admin/organization?tab=grades', icon: UserGroupIcon },
+    ],
+  },
+  {
+    name: 'Leave Setup',
+    icon: CalendarDaysIcon,
+    items: [
       { name: 'Leave Types', href: '/admin/leave-types', icon: CalendarDaysIcon },
       { name: 'Leave Plan Calendar', href: '/admin/leave-calendar', icon: CalendarIcon },
     ],
@@ -131,6 +112,47 @@ const setupSections: NavSection[] = [
       { name: 'Performance Appeals', href: '/admin/performance-appeals', icon: ScaleIcon },
     ],
   },
+];
+
+// Payroll Section - Top level items
+const payrollNavigation: NavItem[] = [
+  { name: 'Payroll Overview', href: '/payroll', icon: BanknotesIcon },
+  { name: 'Process Payroll', href: '/admin/payroll', icon: CalculatorIcon },
+  { name: 'Employee Transactions', href: '/admin/employee-transactions', icon: DocumentPlusIcon },
+  { name: 'Benefits', href: '/benefits', icon: GiftIcon },
+  { name: 'Loan Management', href: '/admin/loans', icon: CreditCardIcon },
+  { name: 'Reports', href: '/reports', icon: ChartBarIcon },
+];
+
+// Payroll Section - Collapsible sub-sections
+const payrollSections: NavSection[] = [
+  {
+    name: 'Payroll Setup',
+    icon: WrenchScrewdriverIcon,
+    items: [
+      { name: 'Banks', href: '/admin/payroll-setup?tab=banks', icon: BuildingOfficeIcon },
+      { name: 'Bank Branches', href: '/admin/payroll-setup?tab=branches', icon: BuildingOfficeIcon },
+      { name: 'Staff Categories', href: '/admin/payroll-setup?tab=categories', icon: UserGroupIcon },
+      { name: 'Salary Bands', href: '/admin/payroll-setup?tab=bands', icon: BanknotesIcon },
+      { name: 'Salary Levels', href: '/admin/payroll-setup?tab=levels', icon: BanknotesIcon },
+      { name: 'Salary Notches', href: '/admin/payroll-setup?tab=notches', icon: BanknotesIcon },
+      { name: 'Transaction Types', href: '/admin/transaction-types', icon: CurrencyDollarIcon },
+      { name: 'Tax Configuration', href: '/admin/tax-configuration', icon: AdjustmentsHorizontalIcon },
+    ],
+  },
+];
+
+// Administration Section - Top level items
+const adminNavigation: NavItem[] = [
+  { name: 'Company Policies', href: '/admin/policies', icon: DocumentTextIcon },
+  { name: 'Announcements', href: '/admin/announcements', icon: MegaphoneIcon },
+  { name: 'Data Import', href: '/admin/data-import', icon: DocumentArrowUpIcon },
+  { name: 'Data Analyzer', href: '/admin/data-analyzer', icon: SparklesIcon },
+  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+];
+
+// Administration Section - Collapsible sub-sections
+const adminSections: NavSection[] = [
   {
     name: 'Security',
     icon: LockClosedIcon,
@@ -312,9 +334,10 @@ const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER'];
 export default function MainLayout({ children }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    'Payroll Setup': false,
-    'HR Setup': false,
+    'Organization': false,
+    'Leave Setup': false,
     'Performance': false,
+    'Payroll Setup': false,
     'Security': false,
   });
   const location = useLocation();
@@ -355,27 +378,66 @@ export default function MainLayout({ children }: MainLayoutProps) {
           ))}
         </div>
 
-        {/* HR Management - Only for HR/Admin users */}
+        {/* HR Section - Only for HR/Admin users */}
         {isHROrAdmin && (
           <>
-            <SectionDivider label="HR Management" />
+            <SectionDivider label="HR" icon={<UsersIcon className="h-3.5 w-3.5" />} />
             <div className="px-2 space-y-0.5">
-              {navigation.map((item) => (
+              {hrNavigation.map((item) => (
                 <NavLink
                   key={item.name}
                   item={item}
-                  isActive={location.pathname.startsWith(item.href)}
+                  isActive={location.pathname === item.href ||
+                    (item.href !== '/dashboard' && location.pathname.startsWith(item.href))}
                   onClick={onLinkClick}
+                />
+              ))}
+              {hrSections.map((section) => (
+                <CollapsibleSection
+                  key={section.name}
+                  section={section}
+                  isOpen={openSections[section.name] ?? false}
+                  onToggle={() => toggleSection(section.name)}
+                  location={location}
+                  onLinkClick={onLinkClick}
                 />
               ))}
             </div>
           </>
         )}
 
-        {/* Admin Section - Only for HR/Admin users */}
+        {/* Payroll Section - Only for HR/Admin users */}
         {isHROrAdmin && (
           <>
-            <SectionDivider label="Administration" />
+            <SectionDivider label="Payroll" icon={<BanknotesIcon className="h-3.5 w-3.5" />} />
+            <div className="px-2 space-y-0.5">
+              {payrollNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  item={item}
+                  isActive={location.pathname === item.href ||
+                    (item.href !== '/payroll' && location.pathname.startsWith(item.href))}
+                  onClick={onLinkClick}
+                />
+              ))}
+              {payrollSections.map((section) => (
+                <CollapsibleSection
+                  key={section.name}
+                  section={section}
+                  isOpen={openSections[section.name] ?? false}
+                  onToggle={() => toggleSection(section.name)}
+                  location={location}
+                  onLinkClick={onLinkClick}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Administration Section - Only for HR/Admin users */}
+        {isHROrAdmin && (
+          <>
+            <SectionDivider label="Administration" icon={<Cog6ToothIcon className="h-3.5 w-3.5" />} />
             <div className="px-2 space-y-0.5">
               {adminNavigation.map((item) => (
                 <NavLink
@@ -385,19 +447,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   onClick={onLinkClick}
                 />
               ))}
-            </div>
-          </>
-        )}
-
-        {/* Setup Section - Only for HR/Admin users */}
-        {isHROrAdmin && (
-          <>
-            <SectionDivider
-              label="Setup"
-              icon={<WrenchScrewdriverIcon className="h-3.5 w-3.5" />}
-            />
-            <div className="px-2 space-y-0.5">
-              {setupSections.map((section) => (
+              {adminSections.map((section) => (
                 <CollapsibleSection
                   key={section.name}
                   section={section}
