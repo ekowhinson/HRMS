@@ -3,22 +3,24 @@ Employee management URL configuration.
 """
 
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import DefaultRouter, SimpleRouter
 
 from . import views
 
 app_name = 'employees'
 
+# Main employee router - uses DefaultRouter for root API view
 router = DefaultRouter()
 router.register(r'', views.EmployeeViewSet, basename='employee')
 
-# Data Update router (separate to avoid collision with employee ID routes)
-data_update_router = DefaultRouter()
+# Use SimpleRouter for secondary routers to avoid root view conflicts
+# Data Update router
+data_update_router = SimpleRouter()
 data_update_router.register(r'data-updates', views.DataUpdateRequestViewSet, basename='data-update')
 data_update_router.register(r'data-update-documents', views.DataUpdateDocumentViewSet, basename='data-update-document')
 
 # Service Request router
-service_request_router = DefaultRouter()
+service_request_router = SimpleRouter()
 service_request_router.register(r'service-request-types', views.ServiceRequestTypeViewSet, basename='service-request-type')
 service_request_router.register(r'service-requests', views.ServiceRequestViewSet, basename='service-request')
 service_request_router.register(r'service-request-comments', views.ServiceRequestCommentViewSet, basename='service-request-comment')
@@ -39,14 +41,14 @@ urlpatterns = [
     path('me/data-updates/', views.MyDataUpdateRequestsView.as_view(), name='my-data-updates'),
     path('me/service-requests/', views.MyServiceRequestsView.as_view(), name='my-service-requests'),
 
+    # Employee endpoints (must come before other routers to handle root list view)
+    path('', include(router.urls)),
+
     # Data Update requests (admin/HR endpoints)
     path('', include(data_update_router.urls)),
 
     # Service Request endpoints (admin/HR)
     path('', include(service_request_router.urls)),
-
-    # Employee endpoints
-    path('', include(router.urls)),
 
     # Bulk operations
     path('bulk/import/', views.BulkImportView.as_view(), name='bulk-import'),
