@@ -55,50 +55,93 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
+class UserRoleDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for UserRole with role info."""
+    role_name = serializers.CharField(source='role.name', read_only=True)
+    role_code = serializers.CharField(source='role.code', read_only=True)
+    is_effective = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = UserRole
+        fields = [
+            'id', 'role', 'role_name', 'role_code', 'scope_type', 'scope_id',
+            'is_primary', 'effective_from', 'effective_to', 'is_active', 'is_effective'
+        ]
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model."""
     full_name = serializers.ReadOnlyField()
     roles = serializers.SerializerMethodField()
-    profile_photo = serializers.SerializerMethodField()
+    profile_photo_url = serializers.SerializerMethodField()
+    employee = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'email', 'username', 'first_name', 'middle_name', 'last_name',
-            'full_name', 'phone_number', 'profile_photo', 'is_active', 'is_verified',
-            'is_staff', 'is_superuser', 'two_factor_enabled', 'created_at', 'last_login_at', 'roles'
+            'full_name', 'phone_number', 'profile_photo_url', 'is_active', 'is_verified',
+            'is_staff', 'is_superuser', 'two_factor_enabled', 'must_change_password',
+            'last_login_at', 'last_login_ip', 'created_at', 'updated_at', 'roles', 'employee'
         ]
-        read_only_fields = ['id', 'created_at', 'last_login_at', 'is_verified', 'is_staff', 'is_superuser']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'last_login_at', 'last_login_ip']
 
     def get_roles(self, obj):
-        return list(obj.user_roles.filter(is_active=True).values_list('role__code', flat=True))
+        user_roles = obj.user_roles.filter(is_active=True).select_related('role')
+        return UserRoleDetailSerializer(user_roles, many=True).data
 
-    def get_profile_photo(self, obj):
+    def get_profile_photo_url(self, obj):
         """Return profile photo as data URI."""
         if obj.has_profile_photo:
             return obj.get_profile_photo_data_uri()
         return None
 
+    def get_employee(self, obj):
+        """Return linked employee info if exists."""
+        try:
+            employee = obj.employee
+            if employee:
+                return {
+                    'id': str(employee.id),
+                    'employee_number': employee.employee_number,
+                    'department_name': employee.department.name if employee.department else None,
+                    'position_title': employee.position.title if employee.position else None,
+                }
+        except Exception:
+            pass
+        return None
+
 
 class UserCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating users."""
+    """Serializer for creating users (admin)."""
     password = serializers.CharField(write_only=True, validators=[validate_password])
-    confirm_password = serializers.CharField(write_only=True)
+    password_confirm = serializers.CharField(write_only=True)
+    roles = serializers.ListField(child=serializers.UUIDField(), required=False, write_only=True)
 
     class Meta:
         model = User
         fields = [
             'email', 'username', 'first_name', 'middle_name', 'last_name',
-            'phone_number', 'password', 'confirm_password'
+            'phone_number', 'password', 'password_confirm', 'is_active', 'is_staff', 'roles'
         ]
 
     def validate(self, attrs):
-        if attrs['password'] != attrs.pop('confirm_password'):
-            raise serializers.ValidationError({'confirm_password': 'Passwords do not match'})
+        if attrs['password'] != attrs.pop('password_confirm'):
+            raise serializers.ValidationError({'password_confirm': 'Passwords do not match'})
         return attrs
 
     def create(self, validated_data):
+        roles = validated_data.pop('roles', [])
         user = User.objects.create_user(**validated_data)
+
+        # Assign roles if provided
+        for role_id in roles:
+            try:
+                role = Role.objects.get(id=role_id, is_active=True)
+                UserRole.objects.create(user=user, role=role)
+            except Role.DoesNotExist:
+                pass
+
         return user
 
 
@@ -162,14 +205,30 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class RoleSerializer(serializers.ModelSerializer):
     """Serializer for Role model."""
     permissions = serializers.SerializerMethodField()
+    permissions_count = serializers.SerializerMethodField()
+    users_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Role
-        fields = ['id', 'name', 'code', 'description', 'is_system_role', 'is_active', 'level', 'permissions']
-        read_only_fields = ['id', 'is_system_role']
+        fields = [
+            'id', 'name', 'code', 'description', 'is_system_role', 'is_active',
+            'level', 'permissions', 'permissions_count', 'users_count', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'is_system_role', 'created_at', 'updated_at']
 
     def get_permissions(self, obj):
-        return list(obj.role_permissions.values_list('permission__code', flat=True))
+        """Return full permission objects."""
+        permissions = Permission.objects.filter(
+            role_permissions__role=obj,
+            is_active=True
+        )
+        return PermissionSerializer(permissions, many=True).data
+
+    def get_permissions_count(self, obj):
+        return obj.role_permissions.count()
+
+    def get_users_count(self, obj):
+        return obj.user_roles.filter(is_active=True).count()
 
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -330,3 +389,73 @@ class EmployeeInfoSerializer(serializers.Serializer):
         if obj.has_photo:
             return obj.get_photo_data_uri()
         return None
+
+
+class AuthenticationLogSerializer(serializers.ModelSerializer):
+    """Serializer for AuthenticationLog model."""
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
+
+    class Meta:
+        from .models import AuthenticationLog
+        model = AuthenticationLog
+        fields = [
+            'id', 'user', 'email', 'event_type', 'event_type_display',
+            'ip_address', 'user_agent', 'location', 'extra_data', 'timestamp'
+        ]
+
+
+class UserRoleAssignSerializer(serializers.Serializer):
+    """Serializer for assigning a role to a user."""
+    role = serializers.UUIDField()
+    scope_type = serializers.ChoiceField(
+        choices=['global', 'region', 'department', 'team'],
+        default='global'
+    )
+    scope_id = serializers.UUIDField(required=False, allow_null=True)
+    effective_from = serializers.DateField(required=False)
+    effective_to = serializers.DateField(required=False, allow_null=True)
+    is_primary = serializers.BooleanField(default=False)
+
+    def validate_role(self, value):
+        try:
+            Role.objects.get(id=value, is_active=True)
+        except Role.DoesNotExist:
+            raise serializers.ValidationError('Role not found or inactive')
+        return value
+
+
+class RoleUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating a role with permissions."""
+    permissions = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        write_only=True
+    )
+
+    class Meta:
+        model = Role
+        fields = ['name', 'description', 'level', 'is_active', 'permissions']
+
+    def update(self, instance, validated_data):
+        from .models import RolePermission
+
+        permissions = validated_data.pop('permissions', None)
+
+        # Update role fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update permissions if provided
+        if permissions is not None:
+            # Clear existing permissions
+            instance.role_permissions.all().delete()
+            # Add new permissions
+            for perm_id in permissions:
+                try:
+                    permission = Permission.objects.get(id=perm_id)
+                    RolePermission.objects.create(role=instance, permission=permission)
+                except Permission.DoesNotExist:
+                    pass
+
+        return instance

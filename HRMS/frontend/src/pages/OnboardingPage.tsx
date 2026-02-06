@@ -128,7 +128,7 @@ export default function OnboardingPage() {
   }
 
   const handleFinish = () => {
-    toast.success('Welcome to NHIA HRMS!')
+    toast.success('Welcome to HRMS!')
     navigate('/dashboard', { replace: true })
   }
 
@@ -153,7 +153,7 @@ export default function OnboardingPage() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome to NHIA HRMS</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Welcome to HRMS</h1>
           <p className="mt-2 text-gray-600">
             Let's set up your profile to get started
           </p>

@@ -18,6 +18,9 @@ import MyProfilePage from './pages/portal/MyProfilePage'
 import MyLeaveDashboard from './pages/portal/MyLeaveDashboard'
 import MyLeaveCalendarPage from './pages/portal/MyLeaveCalendarPage'
 import MyLeaveHistoryPage from './pages/portal/MyLeaveHistoryPage'
+import LeavePlanningPage from './pages/portal/LeavePlanningPage'
+import DataUpdateRequestsPage from './pages/portal/DataUpdateRequestsPage'
+import ServiceRequestsPage from './pages/portal/ServiceRequestsPage'
 // Admin pages
 import PayrollProcessingPage from './pages/admin/PayrollProcessingPage'
 import LeaveApprovalsPage from './pages/admin/LeaveApprovalsPage'
@@ -44,6 +47,21 @@ import MyAppraisalPage from './pages/portal/MyAppraisalPage'
 // Report pages
 import PayrollMasterReportPage from './pages/reports/PayrollMasterReportPage'
 import PayrollReconciliationPage from './pages/admin/PayrollReconciliationPage'
+// Policy pages
+import PoliciesPage from './pages/admin/PoliciesPage'
+import PolicyDetailPage from './pages/admin/PolicyDetailPage'
+import PolicyFormPage from './pages/admin/PolicyFormPage'
+// Exit/Offboarding pages
+import ExitsPage from './pages/admin/ExitsPage'
+import ExitDetailPage from './pages/admin/ExitDetailPage'
+// Recruitment pages
+import RecruitmentPage from './pages/admin/RecruitmentPage'
+import VacancyDetailPage from './pages/admin/VacancyDetailPage'
+// Announcements pages
+import AnnouncementsPage from './pages/admin/AnnouncementsPage'
+// User & Role Management pages
+import UserManagementPage from './pages/admin/UserManagementPage'
+import RoleManagementPage from './pages/admin/RoleManagementPage'
 
 // Roles that grant access to HR/Admin features
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
@@ -123,6 +141,9 @@ function App() {
                 <Route path="/my-leave" element={<MyLeaveDashboard />} />
                 <Route path="/my-leave/calendar" element={<MyLeaveCalendarPage />} />
                 <Route path="/my-leave/history" element={<MyLeaveHistoryPage />} />
+                <Route path="/my-leave/planning" element={<LeavePlanningPage />} />
+                <Route path="/my-data-updates" element={<DataUpdateRequestsPage />} />
+                <Route path="/my-service-requests" element={<ServiceRequestsPage />} />
                 <Route path="/my-appraisal" element={<MyAppraisalPage />} />
 
                 {/* Leave Management - Admin only */}
@@ -163,6 +184,27 @@ function App() {
                 <Route path="/admin/probation-assessments" element={<AdminRoute><ProbationAssessmentsPage /></AdminRoute>} />
                 <Route path="/admin/training-needs" element={<AdminRoute><TrainingNeedsPage /></AdminRoute>} />
                 <Route path="/admin/performance-appeals" element={<AdminRoute><PerformanceAppealsPage /></AdminRoute>} />
+
+                {/* Company Policies Routes */}
+                <Route path="/admin/policies" element={<AdminRoute><PoliciesPage /></AdminRoute>} />
+                <Route path="/admin/policies/new" element={<AdminRoute><PolicyFormPage /></AdminRoute>} />
+                <Route path="/admin/policies/:id" element={<AdminRoute><PolicyDetailPage /></AdminRoute>} />
+                <Route path="/admin/policies/:id/edit" element={<AdminRoute><PolicyFormPage /></AdminRoute>} />
+
+                {/* Exit/Offboarding Routes */}
+                <Route path="/admin/exits" element={<AdminRoute><ExitsPage /></AdminRoute>} />
+                <Route path="/admin/exits/:id" element={<AdminRoute><ExitDetailPage /></AdminRoute>} />
+
+                {/* Recruitment Routes */}
+                <Route path="/admin/recruitment" element={<AdminRoute><RecruitmentPage /></AdminRoute>} />
+                <Route path="/admin/recruitment/vacancies/:id" element={<AdminRoute><VacancyDetailPage /></AdminRoute>} />
+
+                {/* Announcements Routes */}
+                <Route path="/admin/announcements" element={<AdminRoute><AnnouncementsPage /></AdminRoute>} />
+
+                {/* User & Role Management Routes */}
+                <Route path="/admin/users" element={<AdminRoute><UserManagementPage /></AdminRoute>} />
+                <Route path="/admin/roles" element={<AdminRoute><RoleManagementPage /></AdminRoute>} />
 
                 {/* Catch-all redirect */}
                 <Route path="*" element={<DefaultRedirect />} />

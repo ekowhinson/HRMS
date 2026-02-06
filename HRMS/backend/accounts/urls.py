@@ -31,10 +31,22 @@ urlpatterns = [
     # User management (admin)
     path('users/', views.UserListView.as_view(), name='user-list'),
     path('users/<uuid:pk>/', views.UserDetailView.as_view(), name='user-detail'),
+    path('users/<uuid:pk>/roles/', views.UserRoleListView.as_view(), name='user-role-list'),
+    path('users/<uuid:pk>/roles/<uuid:role_pk>/', views.UserRoleDetailView.as_view(), name='user-role-detail'),
+    path('users/<uuid:pk>/reset-password/', views.UserResetPasswordView.as_view(), name='user-reset-password'),
+    path('users/<uuid:pk>/unlock/', views.UserUnlockView.as_view(), name='user-unlock'),
+    path('users/<uuid:pk>/sessions/', views.UserSessionsView.as_view(), name='user-sessions'),
 
     # Role management
     path('roles/', views.RoleListView.as_view(), name='role-list'),
     path('roles/<uuid:pk>/', views.RoleDetailView.as_view(), name='role-detail'),
+    path('roles/<uuid:pk>/users/', views.RoleUsersView.as_view(), name='role-users'),
+
+    # Permission management
+    path('permissions/', views.PermissionListView.as_view(), name='permission-list'),
+
+    # Authentication logs
+    path('auth-logs/', views.AuthenticationLogListView.as_view(), name='auth-log-list'),
 
     # Session management
     path('sessions/', views.UserSessionListView.as_view(), name='session-list'),

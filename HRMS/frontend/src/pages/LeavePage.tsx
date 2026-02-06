@@ -12,9 +12,9 @@ import { leaveService } from '@/services/leave'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
+import LinkedSelect from '@/components/ui/LinkedSelect'
 import Badge from '@/components/ui/Badge'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import Modal from '@/components/ui/Modal'
 import { useAuthStore } from '@/features/auth/store'
 import type { LeaveRequest } from '@/types'
@@ -39,6 +39,11 @@ export default function LeavePage() {
     end_date: '',
     reason: '',
   })
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [approvalsPage, setApprovalsPage] = useState(1)
+  const pageSize = 10
 
   const { data: leaveRequests, isLoading } = useQuery({
     queryKey: ['leave-requests'],
@@ -233,11 +238,20 @@ export default function LeavePage() {
             </CardTitle>
           </CardHeader>
           <Table
-            data={pendingApprovals}
+            data={pendingApprovals.slice((approvalsPage - 1) * pageSize, approvalsPage * pageSize)}
             columns={approvalColumns}
             isLoading={false}
             emptyMessage="No pending approvals"
           />
+          {pendingApprovals.length > pageSize && (
+            <TablePagination
+              currentPage={approvalsPage}
+              totalPages={Math.ceil(pendingApprovals.length / pageSize)}
+              totalItems={pendingApprovals.length}
+              pageSize={pageSize}
+              onPageChange={setApprovalsPage}
+            />
+          )}
         </Card>
       )}
 
@@ -250,11 +264,20 @@ export default function LeavePage() {
           </CardTitle>
         </CardHeader>
         <Table
-          data={leaveRequests || []}
+          data={(leaveRequests || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
           columns={columns}
           isLoading={isLoading}
           emptyMessage="No leave requests found"
         />
+        {leaveRequests && leaveRequests.length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(leaveRequests.length / pageSize)}
+            totalItems={leaveRequests.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       {/* Apply Leave Modal */}
@@ -267,17 +290,18 @@ export default function LeavePage() {
         title="Apply for Leave"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Select
+          <LinkedSelect
+            fieldKey="leave_type"
             label="Leave Type"
             value={formData.leave_type}
             onChange={(e) => setFormData({ ...formData, leave_type: e.target.value })}
+            placeholder="Select leave type"
             options={
               leaveTypes?.map((lt: any) => ({
                 value: lt.id,
                 label: lt.name,
               })) || []
             }
-            placeholder="Select leave type"
           />
 
           <div className="grid grid-cols-2 gap-4">

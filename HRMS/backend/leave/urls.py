@@ -14,6 +14,19 @@ router.register(r'types', views.LeaveTypeViewSet, basename='leave-type')
 router.register(r'policies', views.LeavePolicyViewSet, basename='leave-policy')
 router.register(r'requests', views.LeaveRequestViewSet, basename='leave-request')
 
+# Leave Planning routes
+router.register(r'plans', views.LeavePlanViewSet, basename='leave-plan')
+router.register(r'plan-entries', views.LeavePlanEntryViewSet, basename='leave-plan-entry')
+router.register(r'carry-forward', views.LeaveCarryForwardRequestViewSet, basename='carry-forward')
+router.register(r'reminders', views.LeaveReminderViewSet, basename='leave-reminder')
+
+# Location-Based Approval Workflow routes
+router.register(r'workflow-templates', views.LeaveApprovalWorkflowTemplateViewSet, basename='workflow-template')
+router.register(r'workflow-levels', views.LeaveApprovalWorkflowLevelViewSet, basename='workflow-level')
+router.register(r'location-mappings', views.LocationWorkflowMappingViewSet, basename='location-mapping')
+router.register(r'workflow-status', views.LeaveRequestWorkflowStatusViewSet, basename='workflow-status')
+router.register(r'reliever-validations', views.LeaveRelieverValidationViewSet, basename='reliever-validation')
+
 urlpatterns = [
     path('', include(router.urls)),
 
@@ -23,6 +36,7 @@ urlpatterns = [
 
     # Calendar
     path('calendar/', views.LeaveCalendarView.as_view(), name='leave-calendar'),
+    path('calendar/plans/', views.LeavePlanCalendarView.as_view(), name='plan-calendar'),
 
     # Team leave view (for managers)
     path('team/', views.TeamLeaveView.as_view(), name='team-leave'),

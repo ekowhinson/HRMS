@@ -234,12 +234,386 @@ class ImportProcessor:
             self._fk_cache['districts'][d.code.lower()] = d
             self._fk_cache['districts'][d.name.lower()] = d
 
-    def _resolve_fk(self, cache_key: str, value: str) -> Any:
-        """Resolve a foreign key value from cache."""
+    def _resolve_fk(self, cache_key: str, value: str, auto_create: bool = True, context: Dict[str, Any] = None) -> Any:
+        """
+        Resolve a foreign key value from cache.
+        If auto_create is True and the record doesn't exist, create it automatically.
+
+        Args:
+            cache_key: The cache key (e.g., 'divisions', 'departments')
+            value: The value to look up
+            auto_create: Whether to auto-create if not found
+            context: Optional context dict with related FKs for auto-creation
+                     (e.g., {'division': division_obj} when creating directorates)
+        """
         if not value:
             return None
+
+        value_str = str(value).lower().strip()
         cache_dict = self._fk_cache.get(cache_key, {})
-        return cache_dict.get(str(value).lower().strip())
+        result = cache_dict.get(value_str)
+
+        if result is None and auto_create:
+            # Auto-create the missing record with context
+            result = self._auto_create_fk(cache_key, str(value).strip(), context=context)
+            if result:
+                # Add to cache
+                cache_dict[value_str] = result
+                self._fk_cache[cache_key] = cache_dict
+
+        return result
+
+    def _auto_create_fk(self, cache_key: str, value: str, context: Dict[str, Any] = None) -> Any:
+        """
+        Auto-create a missing foreign key record with proper dependencies.
+
+        This follows the same logic as the successful import_excel_data command:
+        - Creates parent FKs first when needed (Division for Directorate, etc.)
+        - Provides all required fields with sensible defaults
+        - Uses unique codes with UUID suffix to avoid conflicts
+        """
+        import uuid
+
+        if not value:
+            return None
+
+        context = context or {}
+
+        try:
+            if cache_key == 'divisions':
+                from organization.models import Division
+                # First try to find existing
+                obj = Division.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                # Create new with unique code
+                code = f"DIV_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = Division.objects.create(
+                    name=value,
+                    code=code,
+                    is_active=True
+                )
+                logger.info(f"Auto-created division: {value}")
+                return obj
+
+            elif cache_key == 'directorates':
+                from organization.models import Directorate, Division
+                # First try to find existing
+                obj = Directorate.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                # Need a division - use context or create default
+                division = context.get('division')
+                if not division:
+                    division, _ = Division.objects.get_or_create(
+                        code='DIV_DEFAULT',
+                        defaults={'name': 'Default Division', 'is_active': True}
+                    )
+                # Create with unique code
+                code = f"DIR_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = Directorate.objects.create(
+                    name=value,
+                    code=code,
+                    division=division,
+                    is_active=True
+                )
+                logger.info(f"Auto-created directorate: {value}")
+                return obj
+
+            elif cache_key == 'departments':
+                from organization.models import Department
+                # First try to find existing
+                obj = Department.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                # Directorate is optional for departments
+                code = f"DEPT_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = Department.objects.create(
+                    name=value,
+                    code=code,
+                    directorate=context.get('directorate'),  # Optional
+                    is_active=True
+                )
+                logger.info(f"Auto-created department: {value}")
+                return obj
+
+            elif cache_key == 'grades':
+                from organization.models import JobGrade
+                # First try to find existing
+                obj = JobGrade.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                # Determine level based on name (same logic as import command)
+                level = self._get_grade_level(value)
+                code = f"GRD_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = JobGrade.objects.create(
+                    name=value,
+                    code=code,
+                    level=level,
+                    is_management=level <= 9,
+                    is_active=True
+                )
+                logger.info(f"Auto-created grade: {value} (Level {level})")
+                return obj
+
+            elif cache_key == 'positions':
+                from organization.models import JobPosition, JobGrade
+                # First try to find existing
+                obj = JobPosition.objects.filter(title__iexact=value).first()
+                if obj:
+                    return obj
+                # Need a grade - use context or create default
+                grade = context.get('grade')
+                if not grade:
+                    grade, _ = JobGrade.objects.get_or_create(
+                        code='GRD_DEFAULT',
+                        defaults={'name': 'Default Grade', 'level': 99, 'is_active': True}
+                    )
+                code = f"POS_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = JobPosition.objects.create(
+                    title=value,
+                    code=code,
+                    grade=grade,
+                    is_active=True
+                )
+                logger.info(f"Auto-created position: {value}")
+                return obj
+
+            elif cache_key == 'work_locations':
+                from organization.models import WorkLocation
+                # First try to find existing
+                obj = WorkLocation.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                # WorkLocation requires address and city
+                code = f"LOC_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = WorkLocation.objects.create(
+                    name=value,
+                    code=code,
+                    address=value,  # Use name as address placeholder
+                    city=value,     # Use name as city placeholder
+                    region=context.get('region'),  # Optional
+                    is_active=True
+                )
+                logger.info(f"Auto-created work location: {value}")
+                return obj
+
+            elif cache_key == 'staff_categories':
+                from payroll.models import StaffCategory
+                # First try to find existing
+                obj = StaffCategory.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                code = f"CAT_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = StaffCategory.objects.create(
+                    name=value,
+                    code=code,
+                    payroll_group=f'{value} Payroll',
+                    is_active=True
+                )
+                logger.info(f"Auto-created staff category: {value}")
+                return obj
+
+            elif cache_key == 'banks':
+                from payroll.models import Bank
+                # First try to find existing
+                obj = Bank.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                code = f"BNK_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = Bank.objects.create(
+                    name=value,
+                    code=code,
+                    short_name=value[:50] if len(value) > 50 else value,
+                    is_active=True
+                )
+                logger.info(f"Auto-created bank: {value}")
+                return obj
+
+            elif cache_key == 'bank_branches':
+                from payroll.models import BankBranch, Bank
+                # First try to find existing
+                obj = BankBranch.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                # Need a bank - use context or try to extract from branch name
+                bank = context.get('bank')
+                if not bank:
+                    # Try to find a bank from branch name (e.g., "GCB BANK LTD-TAMALE" -> "GCB BANK LTD")
+                    bank_name = value.rsplit('-', 1)[0].strip() if '-' in value else 'Default Bank'
+                    bank, _ = Bank.objects.get_or_create(
+                        name__iexact=bank_name,
+                        defaults={
+                            'name': bank_name,
+                            'code': f"BNK_{self._generate_code(bank_name, '')}_{uuid.uuid4().hex[:4].upper()}",
+                            'short_name': bank_name[:50],
+                            'is_active': True
+                        }
+                    )
+                code = f"BR_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = BankBranch.objects.create(
+                    name=value,
+                    code=code,
+                    bank=bank,
+                    is_active=True
+                )
+                logger.info(f"Auto-created bank branch: {value}")
+                return obj
+
+            elif cache_key == 'regions':
+                from core.models import Region, Country
+                # First try to find existing
+                obj = Region.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                # Ensure Ghana country exists
+                country, _ = Country.objects.get_or_create(
+                    code='GHA',
+                    defaults={
+                        'name': 'Ghana',
+                        'phone_code': '+233',
+                        'currency_code': 'GHS'
+                    }
+                )
+                code = f"REG_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = Region.objects.create(
+                    name=value,
+                    code=code,
+                    country=country,
+                    is_active=True
+                )
+                logger.info(f"Auto-created region: {value}")
+                return obj
+
+            elif cache_key == 'districts':
+                from core.models import District, Region
+                # First try to find existing
+                obj = District.objects.filter(name__iexact=value).first()
+                if obj:
+                    return obj
+                # Need a region
+                region = context.get('region')
+                if not region:
+                    region, _ = Region.objects.get_or_create(
+                        code='REG_DEFAULT',
+                        defaults={'name': 'Default Region', 'country_id': 'GHA', 'is_active': True}
+                    )
+                code = f"DST_{self._generate_code(value)}_{uuid.uuid4().hex[:4].upper()}"
+                obj = District.objects.create(
+                    name=value,
+                    code=code,
+                    region=region,
+                    is_active=True
+                )
+                logger.info(f"Auto-created district: {value}")
+                return obj
+
+        except Exception as e:
+            logger.warning(f"Failed to auto-create {cache_key} '{value}': {e}")
+
+        return None
+
+    def _get_grade_level(self, grade_name: str) -> int:
+        """Determine grade level from name (same logic as import command)."""
+        grade_levels = {
+            'chief executive': 1,
+            'deputy chief executive': 2,
+            'director': 3,
+            'associate director': 4,
+            'assistant director': 5,
+            'principal manager': 6,
+            'senior manager': 7,
+            'manager': 8,
+            'assistant manager': 9,
+            'chief admin. officers': 10,
+            'chief administrative officers': 10,
+            'principal admin. officers': 11,
+            'principal administrative officers': 11,
+            'senior admin. officer': 12,
+            'senior administrative officer': 12,
+            'administrative officer': 13,
+            'chief admin. assistant': 14,
+            'chief administrative assistant': 14,
+            'principal admin. assistant': 15,
+            'principal administrative assistant': 15,
+            'senior admin. assistant': 16,
+            'senior administrative assistant': 16,
+            'administrative assistant': 17,
+            'chief ancillary staff': 18,
+            'principal ancillary staff': 19,
+            'senior ancillary staff': 20,
+            'ancillary staff': 21,
+        }
+        name_lower = grade_name.lower()
+        for key, level in grade_levels.items():
+            if key in name_lower:
+                return level
+        return 99  # Default level
+
+    def _get_or_create_default(self, cache_key: str, context: Dict[str, Any] = None) -> Any:
+        """
+        Get or create a default record for required FK fields.
+        Used when no value is provided in the import data but the field is required.
+        """
+        context = context or {}
+
+        if cache_key == 'departments':
+            from organization.models import Department
+            obj, created = Department.objects.get_or_create(
+                code='DEPT_DEFAULT',
+                defaults={
+                    'name': 'Default Department',
+                    'is_active': True
+                }
+            )
+            if created:
+                logger.info("Created default department for import")
+            return obj
+
+        elif cache_key == 'positions':
+            from organization.models import JobPosition, JobGrade
+            # First ensure we have a grade
+            grade = context.get('grade')
+            if not grade:
+                grade = self._get_or_create_default('grades')
+            obj, created = JobPosition.objects.get_or_create(
+                code='POS_DEFAULT',
+                defaults={
+                    'title': 'Default Position',
+                    'grade': grade,
+                    'is_active': True
+                }
+            )
+            if created:
+                logger.info("Created default position for import")
+            return obj
+
+        elif cache_key == 'grades':
+            from organization.models import JobGrade
+            obj, created = JobGrade.objects.get_or_create(
+                code='GRD_DEFAULT',
+                defaults={
+                    'name': 'Default Grade',
+                    'level': 99,
+                    'is_active': True
+                }
+            )
+            if created:
+                logger.info("Created default grade for import")
+            return obj
+
+        return None
+
+    def _generate_code(self, name: str, prefix: str) -> str:
+        """Generate a code from a name."""
+        import re
+        # Remove special characters and take first letters of words
+        words = re.sub(r'[^a-zA-Z0-9\s]', '', name).split()
+        if len(words) == 1:
+            code = words[0][:6].upper()
+        else:
+            code = ''.join(w[0] for w in words[:4]).upper()
+        return f"{prefix}_{code}"
 
     def _batch_iterator(self, rows: List, batch_size: int = None) -> Iterator[Tuple[int, List]]:
         """Yield rows in batches for memory-efficient processing."""
@@ -276,30 +650,66 @@ class ImportProcessor:
                         result.skip_count += 1
                         continue
 
-                    # Resolve foreign keys
-                    if 'department' in data and data['department']:
-                        data['department'] = self._resolve_fk('departments', data['department'])
-                    if 'position' in data and data['position']:
-                        data['position'] = self._resolve_fk('positions', data['position'])
-                    if 'grade' in data and data['grade']:
-                        data['grade'] = self._resolve_fk('grades', data['grade'])
-                    if 'supervisor' in data and data['supervisor']:
-                        data['supervisor'] = self._resolve_fk('employees', data['supervisor'])
-                    # New FK fields
+                    # Resolve foreign keys in dependency order
+                    # 1. First resolve independent FKs (no parent dependencies)
+                    division_obj = None
                     if 'division' in data and data['division']:
-                        data['division'] = self._resolve_fk('divisions', data['division'])
-                    if 'directorate' in data and data['directorate']:
-                        data['directorate'] = self._resolve_fk('directorates', data['directorate'])
+                        division_obj = self._resolve_fk('divisions', data['division'])
+                        data['division'] = division_obj
+
+                    grade_obj = None
+                    if 'grade' in data and data['grade']:
+                        grade_obj = self._resolve_fk('grades', data['grade'])
+                        data['grade'] = grade_obj
+
                     if 'staff_category' in data and data['staff_category']:
                         data['staff_category'] = self._resolve_fk('staff_categories', data['staff_category'])
-                    if 'salary_notch' in data and data['salary_notch']:
-                        data['salary_notch'] = self._resolve_fk('salary_notches', data['salary_notch'])
-                    if 'work_location' in data and data['work_location']:
-                        data['work_location'] = self._resolve_fk('work_locations', data['work_location'])
+
+                    region_obj = None
                     if 'residential_region' in data and data['residential_region']:
-                        data['residential_region'] = self._resolve_fk('regions', data['residential_region'])
+                        region_obj = self._resolve_fk('regions', data['residential_region'])
+                        data['residential_region'] = region_obj
+
+                    # 2. Resolve FKs that depend on the above
+                    directorate_obj = None
+                    if 'directorate' in data and data['directorate']:
+                        directorate_obj = self._resolve_fk(
+                            'directorates', data['directorate'],
+                            context={'division': division_obj}
+                        )
+                        data['directorate'] = directorate_obj
+
+                    if 'position' in data and data['position']:
+                        data['position'] = self._resolve_fk(
+                            'positions', data['position'],
+                            context={'grade': grade_obj}
+                        )
+
+                    if 'work_location' in data and data['work_location']:
+                        data['work_location'] = self._resolve_fk(
+                            'work_locations', data['work_location'],
+                            context={'region': region_obj}
+                        )
+
                     if 'residential_district' in data and data['residential_district']:
-                        data['residential_district'] = self._resolve_fk('districts', data['residential_district'])
+                        data['residential_district'] = self._resolve_fk(
+                            'districts', data['residential_district'],
+                            context={'region': region_obj}
+                        )
+
+                    # 3. Resolve FKs that depend on the second level
+                    if 'department' in data and data['department']:
+                        data['department'] = self._resolve_fk(
+                            'departments', data['department'],
+                            context={'directorate': directorate_obj}
+                        )
+
+                    # 4. Other FKs without complex dependencies
+                    if 'supervisor' in data and data['supervisor']:
+                        data['supervisor'] = self._resolve_fk('employees', data['supervisor'], auto_create=False)
+
+                    if 'salary_notch' in data and data['salary_notch']:
+                        data['salary_notch'] = self._resolve_fk('salary_notches', data['salary_notch'], auto_create=False)
 
                     # Transform date fields
                     for date_field in ['date_of_birth', 'date_of_joining']:
@@ -330,20 +740,92 @@ class ImportProcessor:
                         else:
                             data['assignment_status'] = 'ACTIVE'
 
+                    # Ensure required FK fields are set (department, position, grade are required)
+                    if not data.get('department'):
+                        # Create or get default department
+                        data['department'] = self._get_or_create_default('departments')
+
+                    if not data.get('position'):
+                        # Create or get default position
+                        data['position'] = self._get_or_create_default('positions', context={'grade': grade_obj or data.get('grade')})
+
+                    if not data.get('grade'):
+                        # Create or get default grade
+                        data['grade'] = self._get_or_create_default('grades')
+
+                    # Normalize field names (handle AI mapping variations)
+                    field_aliases = {
+                        'region': 'residential_region',
+                        'district': 'residential_district',
+                        'location': 'work_location',
+                        'job_name': 'position',
+                        'job_title': 'position',
+                        'sex': 'gender',
+                        'dob': 'date_of_birth',
+                        'date_joined': 'date_of_joining',
+                        'hire_date': 'date_of_joining',
+                        'original_date_of_hire': 'date_of_joining',
+                        'staff_number': 'employee_number',
+                        'emp_no': 'employee_number',
+                        'fname': 'first_name',
+                        'lname': 'last_name',
+                        'mname': 'middle_name',
+                        'other_names': 'middle_name',
+                        'middle_names': 'middle_name',
+                    }
+
+                    # Apply aliases
+                    for alias, field in field_aliases.items():
+                        if alias in data and field not in data:
+                            data[field] = data.pop(alias)
+                        elif alias in data:
+                            data.pop(alias)  # Remove duplicate
+
+                    # Resolve FK fields that may have been aliased (string values need to be converted to objects)
+                    if 'residential_region' in data and data['residential_region'] and isinstance(data['residential_region'], str):
+                        data['residential_region'] = self._resolve_fk('regions', data['residential_region'])
+
+                    if 'residential_district' in data and data['residential_district'] and isinstance(data['residential_district'], str):
+                        data['residential_district'] = self._resolve_fk(
+                            'districts', data['residential_district'],
+                            context={'region': data.get('residential_region')}
+                        )
+
+                    if 'work_location' in data and data['work_location'] and isinstance(data['work_location'], str):
+                        data['work_location'] = self._resolve_fk(
+                            'work_locations', data['work_location'],
+                            context={'region': data.get('residential_region')}
+                        )
+
+                    if 'position' in data and data['position'] and isinstance(data['position'], str):
+                        data['position'] = self._resolve_fk(
+                            'positions', data['position'],
+                            context={'grade': data.get('grade')}
+                        )
+
+                    # Get valid Employee fields
+                    valid_fields = {f.name for f in Employee._meta.get_fields() if hasattr(f, 'column')}
+                    valid_fields.update(['department', 'position', 'grade', 'division', 'directorate',
+                                        'staff_category', 'salary_notch', 'work_location',
+                                        'residential_region', 'residential_district', 'supervisor'])
+
+                    # Filter to only valid fields
+                    clean_data = {k: v for k, v in data.items() if k in valid_fields}
+
                     # Check if employee exists
                     existing = Employee.objects.filter(
-                        employee_number__iexact=data['employee_number']
+                        employee_number__iexact=clean_data.get('employee_number', '')
                     ).first()
 
                     if existing:
                         # Update existing
-                        for key, value in data.items():
+                        for key, value in clean_data.items():
                             if value is not None:
                                 setattr(existing, key, value)
                         employees_to_update.append(existing)
                     else:
                         # Create new
-                        employees_to_create.append(Employee(**data))
+                        employees_to_create.append(Employee(**clean_data))
 
                     result.success_count += 1
 
@@ -815,19 +1297,37 @@ class ImportProcessor:
 
         from datetime import datetime as dt
 
+        # Convert to string and strip whitespace
+        value_str = str(value).strip()
+
+        # Handle datetime objects from Excel
+        if hasattr(value, 'date'):
+            return value.date()
+
         formats = [
+            '%Y-%m-%d %H:%M:%S',  # Excel datetime format
+            '%Y-%m-%d %H:%M:%S.%f',  # Excel datetime with microseconds
             '%Y-%m-%d',
             '%d/%m/%Y',
             '%m/%d/%Y',
             '%d-%m-%Y',
             '%m-%d-%Y',
+            '%d/%m/%Y %H:%M:%S',
+            '%m/%d/%Y %H:%M:%S',
         ]
 
         for fmt in formats:
             try:
-                return dt.strptime(str(value), fmt).date()
+                return dt.strptime(value_str, fmt).date()
             except ValueError:
                 continue
+
+        # Try parsing with dateutil as fallback
+        try:
+            from dateutil.parser import parse as parse_date
+            return parse_date(value_str).date()
+        except Exception:
+            pass
 
         return None
 

@@ -101,7 +101,7 @@ export default function SignupPage() {
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">NHIA HRMS</h1>
+            <h1 className="text-3xl font-bold text-gray-900">HRMS</h1>
             <p className="mt-2 text-sm text-gray-600">Employee Account Registration</p>
           </div>
 
@@ -330,7 +330,7 @@ export default function SignupPage() {
           )}
 
           <div className="mt-6 text-center text-xs text-gray-500">
-            <p>Ghana's Premier Health Insurance System</p>
+            <p>Powered by HRMS</p>
           </div>
         </div>
       </div>

@@ -12,6 +12,18 @@ app_name = 'employees'
 router = DefaultRouter()
 router.register(r'', views.EmployeeViewSet, basename='employee')
 
+# Data Update router (separate to avoid collision with employee ID routes)
+data_update_router = DefaultRouter()
+data_update_router.register(r'data-updates', views.DataUpdateRequestViewSet, basename='data-update')
+data_update_router.register(r'data-update-documents', views.DataUpdateDocumentViewSet, basename='data-update-document')
+
+# Service Request router
+service_request_router = DefaultRouter()
+service_request_router.register(r'service-request-types', views.ServiceRequestTypeViewSet, basename='service-request-type')
+service_request_router.register(r'service-requests', views.ServiceRequestViewSet, basename='service-request')
+service_request_router.register(r'service-request-comments', views.ServiceRequestCommentViewSet, basename='service-request-comment')
+service_request_router.register(r'service-request-documents', views.ServiceRequestDocumentViewSet, basename='service-request-document')
+
 urlpatterns = [
     # Self-service endpoints (must be before router to take precedence over /employees/<id>/)
     path('me/', views.MyProfileView.as_view(), name='my-profile'),
@@ -24,6 +36,14 @@ urlpatterns = [
     path('me/bank-accounts/', views.MyBankAccountsView.as_view(), name='my-bank-accounts'),
     path('me/team/', views.MyTeamView.as_view(), name='my-team'),
     path('me/team/leave-overview/', views.TeamLeaveOverviewView.as_view(), name='team-leave-overview'),
+    path('me/data-updates/', views.MyDataUpdateRequestsView.as_view(), name='my-data-updates'),
+    path('me/service-requests/', views.MyServiceRequestsView.as_view(), name='my-service-requests'),
+
+    # Data Update requests (admin/HR endpoints)
+    path('', include(data_update_router.urls)),
+
+    # Service Request endpoints (admin/HR)
+    path('', include(service_request_router.urls)),
 
     # Employee endpoints
     path('', include(router.urls)),

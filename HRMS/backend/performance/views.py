@@ -2,6 +2,7 @@
 Views for performance management.
 """
 
+from datetime import date
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -13,7 +14,9 @@ from .models import (
     AppraisalCycle, RatingScale, Competency, GoalCategory,
     Appraisal, Goal, GoalUpdate, CompetencyAssessment,
     PeerFeedback, PerformanceImprovementPlan, PIPReview,
-    DevelopmentPlan, DevelopmentActivity
+    DevelopmentPlan, DevelopmentActivity,
+    CoreValue, CoreValueAssessment, ProbationAssessment,
+    TrainingNeed, PerformanceAppeal
 )
 from .serializers import (
     AppraisalCycleListSerializer, AppraisalCycleSerializer,
@@ -23,7 +26,18 @@ from .serializers import (
     CompetencyAssessmentSerializer, PeerFeedbackSerializer,
     PIPListSerializer, PIPSerializer, PIPReviewSerializer,
     DevelopmentPlanListSerializer, DevelopmentPlanSerializer,
-    DevelopmentActivitySerializer
+    DevelopmentActivitySerializer,
+    CoreValueSerializer, CoreValueAssessmentSerializer,
+    ProbationAssessmentListSerializer, ProbationAssessmentSerializer,
+    ProbationAssessmentCreateSerializer,
+    TrainingNeedListSerializer, TrainingNeedSerializer, TrainingNeedCreateSerializer,
+    PerformanceAppealListSerializer, PerformanceAppealSerializer,
+    PerformanceAppealCreateSerializer, PerformanceAppealDecisionSerializer,
+    AppraisalDetailSerializer
+)
+from .services import (
+    AppraisalScoreCalculator, ProbationService,
+    TrainingNeedService, PerformanceAppealService
 )
 
 
@@ -173,6 +187,27 @@ class AppraisalViewSet(viewsets.ModelViewSet):
         serializer = AppraisalSerializer(appraisal)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'])
+    def calculate_scores(self, request, pk=None):
+        """Calculate weighted scores for appraisal."""
+        appraisal = self.get_object()
+        calculator = AppraisalScoreCalculator(appraisal)
+        scores = calculator.calculate_weighted_score()
+
+        # Optionally save scores
+        save = request.data.get('save', False)
+        if save:
+            calculator.update_appraisal_scores()
+
+        return Response(scores)
+
+    @action(detail=True, methods=['get'])
+    def detail(self, request, pk=None):
+        """Get detailed appraisal with all components."""
+        appraisal = self.get_object()
+        serializer = AppraisalDetailSerializer(appraisal)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Get appraisal statistics."""
@@ -317,3 +352,509 @@ class DevelopmentActivityViewSet(viewsets.ModelViewSet):
         if plan_id:
             queryset = queryset.filter(development_plan_id=plan_id)
         return queryset
+
+
+class CoreValueViewSet(viewsets.ModelViewSet):
+    """Core values management."""
+    queryset = CoreValue.objects.filter(is_active=True)
+    serializer_class = CoreValueSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        include_inactive = self.request.query_params.get('include_inactive')
+        if include_inactive == 'true':
+            queryset = CoreValue.objects.all()
+        return queryset.order_by('sort_order', 'name')
+
+
+class CoreValueAssessmentViewSet(viewsets.ModelViewSet):
+    """Core value assessment management."""
+    queryset = CoreValueAssessment.objects.select_related('appraisal', 'core_value')
+    serializer_class = CoreValueAssessmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        appraisal_id = self.request.query_params.get('appraisal')
+        if appraisal_id:
+            queryset = queryset.filter(appraisal_id=appraisal_id)
+        return queryset
+
+    @action(detail=False, methods=['post'])
+    def bulk_create(self, request):
+        """Create assessments for all active core values for an appraisal."""
+        appraisal_id = request.data.get('appraisal')
+        if not appraisal_id:
+            return Response(
+                {'detail': 'appraisal is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            appraisal = Appraisal.objects.get(pk=appraisal_id)
+        except Appraisal.DoesNotExist:
+            return Response(
+                {'detail': 'Appraisal not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        core_values = CoreValue.objects.filter(is_active=True)
+        created = []
+
+        for value in core_values:
+            assessment, was_created = CoreValueAssessment.objects.get_or_create(
+                appraisal=appraisal,
+                core_value=value
+            )
+            if was_created:
+                created.append(assessment)
+
+        serializer = CoreValueAssessmentSerializer(created, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class ProbationAssessmentViewSet(viewsets.ModelViewSet):
+    """Probation assessment management."""
+    queryset = ProbationAssessment.objects.select_related(
+        'employee', 'employee__department', 'employee__position',
+        'reviewed_by'
+    )
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProbationAssessmentListSerializer
+        if self.action == 'create':
+            return ProbationAssessmentCreateSerializer
+        return ProbationAssessmentSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by status
+        assessment_status = self.request.query_params.get('status')
+        if assessment_status:
+            queryset = queryset.filter(status=assessment_status)
+
+        # Filter by period
+        period = self.request.query_params.get('period')
+        if period:
+            queryset = queryset.filter(assessment_period=period)
+
+        # Filter by department
+        department = self.request.query_params.get('department')
+        if department:
+            queryset = queryset.filter(employee__department_id=department)
+
+        # Search
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(employee__first_name__icontains=search) |
+                Q(employee__last_name__icontains=search) |
+                Q(employee__employee_number__icontains=search)
+            )
+
+        return queryset.order_by('due_date')
+
+    @action(detail=False, methods=['get'])
+    def due(self, request):
+        """Get assessments due within specified days."""
+        days = int(request.query_params.get('days', 30))
+        service = ProbationService()
+        due_assessments = service.get_due_assessments(days_ahead=days)
+
+        # Format response
+        result = []
+        for item in due_assessments:
+            result.append({
+                'employee_id': item['employee'].id,
+                'employee_name': item['employee'].full_name,
+                'employee_number': item['employee'].employee_number,
+                'period': item['period'],
+                'due_date': item['due_date'].isoformat()
+            })
+
+        return Response(result)
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        """Submit assessment for review."""
+        assessment = self.get_object()
+        assessment.status = ProbationAssessment.Status.SUBMITTED
+        assessment.calculate_overall_rating()
+        assessment.save()
+        serializer = ProbationAssessmentSerializer(assessment)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def confirm(self, request, pk=None):
+        """Confirm employee after successful probation."""
+        assessment = self.get_object()
+        service = ProbationService()
+        assessment = service.confirm_employee(assessment)
+        assessment.approved_by = request.user
+        assessment.save()
+        serializer = ProbationAssessmentSerializer(assessment)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def extend(self, request, pk=None):
+        """Extend probation period."""
+        assessment = self.get_object()
+        extension_months = request.data.get('extension_months')
+        reason = request.data.get('reason', '')
+
+        if not extension_months:
+            return Response(
+                {'detail': 'extension_months is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        service = ProbationService()
+        assessment = service.extend_probation(
+            assessment, int(extension_months), reason
+        )
+        serializer = ProbationAssessmentSerializer(assessment)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def terminate(self, request, pk=None):
+        """Terminate employment after failed probation."""
+        assessment = self.get_object()
+        assessment.status = ProbationAssessment.Status.TERMINATED
+        assessment.recommendation = request.data.get('reason', '')
+        assessment.approved_by = request.user
+        assessment.approved_at = timezone.now()
+        assessment.save()
+
+        # Update employee status
+        assessment.employee.employment_status = 'TERMINATED'
+        assessment.employee.save()
+
+        serializer = ProbationAssessmentSerializer(assessment)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get probation assessment statistics."""
+        queryset = self.get_queryset()
+
+        total = queryset.count()
+        by_status = queryset.values('status').annotate(count=Count('id'))
+        by_period = queryset.values('assessment_period').annotate(count=Count('id'))
+
+        overdue = queryset.filter(
+            status__in=['DRAFT', 'SUBMITTED', 'REVIEWED'],
+            due_date__lt=date.today()
+        ).count()
+
+        return Response({
+            'total': total,
+            'by_status': list(by_status),
+            'by_period': list(by_period),
+            'overdue': overdue
+        })
+
+
+class TrainingNeedViewSet(viewsets.ModelViewSet):
+    """Training needs management."""
+    queryset = TrainingNeed.objects.select_related(
+        'employee', 'appraisal', 'competency'
+    )
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return TrainingNeedListSerializer
+        if self.action == 'create':
+            return TrainingNeedCreateSerializer
+        return TrainingNeedSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by status
+        need_status = self.request.query_params.get('status')
+        if need_status:
+            queryset = queryset.filter(status=need_status)
+
+        # Filter by priority
+        priority = self.request.query_params.get('priority')
+        if priority:
+            queryset = queryset.filter(priority=priority)
+
+        # Filter by employee
+        employee_id = self.request.query_params.get('employee')
+        if employee_id:
+            queryset = queryset.filter(employee_id=employee_id)
+
+        # Filter by appraisal
+        appraisal_id = self.request.query_params.get('appraisal')
+        if appraisal_id:
+            queryset = queryset.filter(appraisal_id=appraisal_id)
+
+        # Filter by training type
+        training_type = self.request.query_params.get('type')
+        if training_type:
+            queryset = queryset.filter(training_type=training_type)
+
+        # Search
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(employee__first_name__icontains=search) |
+                Q(employee__last_name__icontains=search)
+            )
+
+        return queryset
+
+    @action(detail=False, methods=['get'])
+    def my_training_needs(self, request):
+        """Get current user's training needs."""
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response(
+                {'detail': 'No employee profile found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        needs = TrainingNeed.objects.filter(employee=employee)
+        serializer = TrainingNeedListSerializer(needs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def update_status(self, request, pk=None):
+        """Update training need status."""
+        need = self.get_object()
+        new_status = request.data.get('status')
+
+        if new_status not in dict(TrainingNeed.Status.choices):
+            return Response(
+                {'detail': 'Invalid status'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        need.status = new_status
+
+        if new_status == TrainingNeed.Status.COMPLETED:
+            need.completion_date = date.today()
+            need.outcome = request.data.get('outcome', '')
+            need.actual_cost = request.data.get('actual_cost')
+
+        need.save()
+        serializer = TrainingNeedSerializer(need)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def identify_from_appraisal(self, request):
+        """Automatically identify training needs from an appraisal."""
+        appraisal_id = request.data.get('appraisal')
+        if not appraisal_id:
+            return Response(
+                {'detail': 'appraisal is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            appraisal = Appraisal.objects.get(pk=appraisal_id)
+        except Appraisal.DoesNotExist:
+            return Response(
+                {'detail': 'Appraisal not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        service = TrainingNeedService()
+        needs = service.identify_from_appraisal(appraisal)
+        serializer = TrainingNeedListSerializer(needs, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get training needs statistics."""
+        queryset = self.get_queryset()
+
+        total = queryset.count()
+        by_status = queryset.values('status').annotate(count=Count('id'))
+        by_priority = queryset.values('priority').annotate(count=Count('id'))
+        by_type = queryset.values('training_type').annotate(count=Count('id'))
+
+        # Cost summary
+        from django.db.models import Sum
+        costs = queryset.aggregate(
+            estimated_total=Sum('estimated_cost'),
+            actual_total=Sum('actual_cost')
+        )
+
+        return Response({
+            'total': total,
+            'by_status': list(by_status),
+            'by_priority': list(by_priority),
+            'by_type': list(by_type),
+            'estimated_cost': costs['estimated_total'],
+            'actual_cost': costs['actual_total']
+        })
+
+
+class PerformanceAppealViewSet(viewsets.ModelViewSet):
+    """Performance appeal management."""
+    queryset = PerformanceAppeal.objects.select_related(
+        'appraisal', 'appraisal__employee', 'appraisal__appraisal_cycle',
+        'reviewer', 'decided_by'
+    )
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return PerformanceAppealListSerializer
+        if self.action == 'create':
+            return PerformanceAppealCreateSerializer
+        return PerformanceAppealSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by status
+        appeal_status = self.request.query_params.get('status')
+        if appeal_status:
+            queryset = queryset.filter(status=appeal_status)
+
+        # Filter by cycle
+        cycle_id = self.request.query_params.get('cycle')
+        if cycle_id:
+            queryset = queryset.filter(appraisal__appraisal_cycle_id=cycle_id)
+
+        # Search
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(appeal_number__icontains=search) |
+                Q(appraisal__employee__first_name__icontains=search) |
+                Q(appraisal__employee__last_name__icontains=search)
+            )
+
+        return queryset
+
+    @action(detail=False, methods=['get'])
+    def my_appeals(self, request):
+        """Get current user's appeals."""
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response(
+                {'detail': 'No employee profile found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        appeals = PerformanceAppeal.objects.filter(
+            appraisal__employee=employee
+        )
+        serializer = PerformanceAppealListSerializer(appeals, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def assign_reviewer(self, request, pk=None):
+        """Assign a reviewer to the appeal."""
+        appeal = self.get_object()
+        reviewer_id = request.data.get('reviewer')
+
+        if not reviewer_id:
+            return Response(
+                {'detail': 'reviewer is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        try:
+            reviewer = User.objects.get(pk=reviewer_id)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'Reviewer not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        appeal.reviewer = reviewer
+        appeal.status = PerformanceAppeal.Status.UNDER_REVIEW
+        appeal.save()
+
+        serializer = PerformanceAppealSerializer(appeal)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def schedule_hearing(self, request, pk=None):
+        """Schedule appeal hearing."""
+        appeal = self.get_object()
+        hearing_date = request.data.get('hearing_date')
+
+        if not hearing_date:
+            return Response(
+                {'detail': 'hearing_date is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        service = PerformanceAppealService()
+        appeal = service.schedule_hearing(
+            appeal, hearing_date, request.user
+        )
+
+        serializer = PerformanceAppealSerializer(appeal)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def decide(self, request, pk=None):
+        """Record appeal decision."""
+        appeal = self.get_object()
+        serializer = PerformanceAppealDecisionSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        service = PerformanceAppealService()
+        appeal = service.record_decision(
+            appeal,
+            decision=serializer.validated_data['decision'],
+            status=serializer.validated_data['status'],
+            revised_ratings=serializer.validated_data.get('revised_ratings'),
+            decided_by=request.user
+        )
+
+        result_serializer = PerformanceAppealSerializer(appeal)
+        return Response(result_serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def withdraw(self, request, pk=None):
+        """Withdraw an appeal."""
+        appeal = self.get_object()
+
+        if appeal.status not in ['SUBMITTED', 'UNDER_REVIEW', 'HEARING']:
+            return Response(
+                {'detail': 'Cannot withdraw appeal in current status'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        appeal.status = PerformanceAppeal.Status.WITHDRAWN
+        appeal.save()
+
+        serializer = PerformanceAppealSerializer(appeal)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get appeal statistics."""
+        queryset = self.get_queryset()
+
+        total = queryset.count()
+        by_status = queryset.values('status').annotate(count=Count('id'))
+
+        pending = queryset.filter(
+            status__in=['SUBMITTED', 'UNDER_REVIEW', 'HEARING']
+        ).count()
+
+        return Response({
+            'total': total,
+            'by_status': list(by_status),
+            'pending': pending
+        })

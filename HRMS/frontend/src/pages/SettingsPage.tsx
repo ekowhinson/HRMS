@@ -464,7 +464,7 @@ export default function SettingsPage() {
               <CardContent>
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input label="Organization Name" value="NHIA" disabled />
+                    <Input label="Organization Name" value="Your Organization" disabled />
                     <Input label="Country" value="Ghana" disabled />
                   </div>
 

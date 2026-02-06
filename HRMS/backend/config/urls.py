@@ -27,6 +27,10 @@ urlpatterns = [
         path('performance/', include('performance.urls')),
         path('reports/', include('reports.urls')),
         path('imports/', include('imports.urls')),
+        path('core/', include('core.urls')),  # Cache, lookups, dashboard stats
+        path('policies/', include('policies.urls')),  # Company policies & SOPs
+        path('exits/', include('exits.urls')),  # Exit/Offboarding management
+        path('recruitment/', include('recruitment.urls')),  # Recruitment & interview scoring
     ])),
 
     # API Documentation
@@ -44,6 +48,6 @@ if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 # Customize admin site
-admin.site.site_header = 'NHIA HRMS Administration'
-admin.site.site_title = 'NHIA HRMS'
+admin.site.site_header = 'HRMS Administration'
+admin.site.site_title = 'HRMS'
 admin.site.index_title = 'Human Resource Management System'

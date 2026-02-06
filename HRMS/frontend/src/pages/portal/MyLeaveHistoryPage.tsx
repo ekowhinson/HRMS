@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import type { LeaveRequest } from '@/types'
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
@@ -57,6 +57,10 @@ export default function MyLeaveHistoryPage() {
     status: '',
     year: '',
   })
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: requests, isLoading, isError } = useQuery({
     queryKey: ['my-leave-history', filters],
@@ -257,11 +261,20 @@ export default function MyLeaveHistoryPage() {
       {/* Results Table */}
       <Card>
         <Table
-          data={isError ? [] : (requests || [])}
+          data={isError ? [] : (requests || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
           columns={columns}
           isLoading={isLoading}
           emptyMessage={isError ? "Unable to load leave history" : "No leave requests found"}
         />
+        {requests && requests.length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(requests.length / pageSize)}
+            totalItems={requests.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
     </div>
   )

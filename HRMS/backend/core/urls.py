@@ -2,7 +2,8 @@
 Core app URL configuration.
 """
 
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -14,9 +15,18 @@ from .views import (
     LookupDataView,
     AllLookupsView,
     DashboardStatsView,
+    AnnouncementViewSet,
+    AnnouncementTargetViewSet,
+    AnnouncementAttachmentViewSet,
 )
 
 app_name = 'core'
+
+# Announcement routes
+router = DefaultRouter()
+router.register(r'announcements', AnnouncementViewSet, basename='announcement')
+router.register(r'announcement-targets', AnnouncementTargetViewSet, basename='announcement-target')
+router.register(r'announcement-attachments', AnnouncementAttachmentViewSet, basename='announcement-attachment')
 
 
 @api_view(['GET'])
@@ -25,7 +35,7 @@ def health_check(request):
     """Health check endpoint."""
     return Response({
         'status': 'healthy',
-        'service': 'NHIA HRMS API',
+        'service': 'HRMS API',
         'version': '1.0.0'
     })
 
@@ -44,4 +54,7 @@ urlpatterns = [
 
     # Dashboard stats (cached)
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+
+    # Announcements
+    path('', include(router.urls)),
 ]

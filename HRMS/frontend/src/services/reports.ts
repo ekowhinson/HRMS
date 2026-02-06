@@ -307,11 +307,20 @@ export const reportsService = {
     return response.data
   },
 
-  // Payroll Reconciliation
+  // Payroll Reconciliation - supports both run IDs and period IDs
   async getPayrollReconciliation(currentRunId?: string, previousRunId?: string) {
     const params = new URLSearchParams()
     if (currentRunId) params.append('current_run', currentRunId)
     if (previousRunId) params.append('previous_run', previousRunId)
+    const response = await api.get(`/reports/payroll/reconciliation/?${params.toString()}`)
+    return response.data
+  },
+
+  // Payroll Reconciliation by Period IDs
+  async getPayrollReconciliationByPeriod(currentPeriodId?: string, previousPeriodId?: string) {
+    const params = new URLSearchParams()
+    if (currentPeriodId) params.append('current_period', currentPeriodId)
+    if (previousPeriodId) params.append('previous_period', previousPeriodId)
     const response = await api.get(`/reports/payroll/reconciliation/?${params.toString()}`)
     return response.data
   },
@@ -324,6 +333,22 @@ export const reportsService = {
     const params = new URLSearchParams()
     if (currentRunId) params.append('current_run', currentRunId)
     if (previousRunId) params.append('previous_run', previousRunId)
+    params.append('format', format)
+
+    const response = await api.get(`/reports/export/reconciliation/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `payroll_reconciliation_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportPayrollReconciliationByPeriod(
+    currentPeriodId?: string,
+    previousPeriodId?: string,
+    format: ExportFormat = 'excel'
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    if (currentPeriodId) params.append('current_period', currentPeriodId)
+    if (previousPeriodId) params.append('previous_period', previousPeriodId)
     params.append('format', format)
 
     const response = await api.get(`/reports/export/reconciliation/?${params.toString()}`, {

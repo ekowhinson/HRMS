@@ -34,6 +34,12 @@ urlpatterns = [
     path('payroll/cost-center/', views.CostCenterReportView.as_view(), name='cost-center'),
     path('payroll/variance/', views.PayrollVarianceReportView.as_view(), name='payroll-variance'),
     path('payroll/reconciliation/', views.PayrollReconciliationReportView.as_view(), name='payroll-reconciliation'),
+    path('payroll/loans/by-type/', views.LoanTypeReportView.as_view(), name='loan-type-report'),
+    path('payroll/dues/', views.DuesReportView.as_view(), name='dues-report'),
+    path('payroll/rent-deductions/', views.RentDeductionsReportView.as_view(), name='rent-deductions'),
+    path('payroll/journal/', views.PayrollJournalView.as_view(), name='payroll-journal'),
+    path('payroll/car-loan-interest/', views.CarLoanInterestReportView.as_view(), name='car-loan-interest'),
+    path('payroll/student-loans/', views.StudentLoanReportView.as_view(), name='student-loans'),
 
     # Statutory reports
     path('statutory/paye/', views.PAYEStatutoryReportView.as_view(), name='paye-statutory'),
@@ -55,4 +61,15 @@ urlpatterns = [
     path('export/leave-balance/', views.ExportLeaveBalanceView.as_view(), name='export-leave-balance'),
     path('export/loans/', views.ExportLoanOutstandingView.as_view(), name='export-loans'),
     path('export/reconciliation/', views.ExportPayrollReconciliationView.as_view(), name='export-reconciliation'),
+    path('export/dues/', views.ExportDuesReportView.as_view(), name='export-dues'),
+    path('export/journal/', views.ExportPayrollJournalView.as_view(), name='export-journal'),
+
+    # Analytics KPI endpoints
+    path('analytics/master/', views.MasterAnalyticsDashboardView.as_view(), name='analytics-master'),
+    path('analytics/recruitment/', views.RecruitmentKPIsView.as_view(), name='analytics-recruitment'),
+    path('analytics/demographics/', views.DemographicsKPIsView.as_view(), name='analytics-demographics'),
+    path('analytics/training/', views.TrainingKPIsView.as_view(), name='analytics-training'),
+    path('analytics/performance/', views.PerformanceKPIsView.as_view(), name='analytics-performance'),
+    path('analytics/compensation/', views.CompensationKPIsView.as_view(), name='analytics-compensation'),
+    path('analytics/exit/', views.ExitKPIsView.as_view(), name='analytics-exit'),
 ]

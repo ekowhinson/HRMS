@@ -40,11 +40,10 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">NHIA HRMS</h1>
+            <h1 className="text-3xl font-bold text-gray-900">HRMS</h1>
             <p className="mt-2 text-sm text-gray-600">
-              National Health Insurance Authority
+              Human Resource Management System
             </p>
-            <p className="text-sm text-gray-500">Human Resource Management System</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -112,7 +111,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-4 text-center text-xs text-gray-500">
-            <p>Ghana's Premier Health Insurance System</p>
+            <p>Powered by HRMS</p>
           </div>
         </div>
       </div>

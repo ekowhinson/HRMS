@@ -15,10 +15,11 @@ import { employeeService } from '@/services/employees'
 import { Card, CardContent } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
+import LinkedSelect from '@/components/ui/LinkedSelect'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import { formatCurrency } from '@/lib/utils'
 import type {
   EmployeeTransaction,
@@ -91,6 +92,10 @@ export default function EmployeeTransactionsPage() {
   const [isBulkMode, setIsBulkMode] = useState(false)
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   // Queries
   const { data: transactionsData, isLoading } = useQuery({
@@ -591,11 +596,20 @@ export default function EmployeeTransactionsPage() {
       <Card>
         <CardContent className="p-0">
           <Table
-            data={transactions}
+            data={transactions.slice((currentPage - 1) * pageSize, currentPage * pageSize)}
             columns={columns}
             isLoading={isLoading}
             emptyMessage="No transactions found"
           />
+          {transactions.length > pageSize && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(transactions.length / pageSize)}
+              totalItems={transactions.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -678,18 +692,18 @@ export default function EmployeeTransactionsPage() {
           )}
 
           {/* Transaction Type */}
-          <Select
+          <LinkedSelect
+            fieldKey="payroll_component"
             label="Transaction Type"
             value={formData.pay_component}
             onChange={(e) => setFormData({ ...formData, pay_component: e.target.value })}
-            options={[
-              { value: '', label: 'Select Transaction Type' },
-              ...components.map((c: PayComponent) => ({
+            placeholder="Select Transaction Type"
+            options={
+              components.map((c: PayComponent) => ({
                 value: c.id,
                 label: `${c.name} (${c.component_type})`,
-              })),
-            ]}
-            required
+              }))
+            }
           />
 
           {/* Value Configuration */}

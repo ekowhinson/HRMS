@@ -1,84 +1,78 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
   MagnifyingGlassIcon,
   PlusIcon,
   FunnelIcon,
   ArrowDownTrayIcon,
-  ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline'
-import { employeeService } from '@/services/employees'
-import { Card, CardContent } from '@/components/ui/Card'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
-import Badge from '@/components/ui/Badge'
-import Table from '@/components/ui/Table'
-import Avatar from '@/components/ui/Avatar'
-import type { Employee } from '@/types'
-
-const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
-  ACTIVE: 'success',
-  PROBATION: 'warning',
-  ON_LEAVE: 'info',
-  SUSPENDED: 'danger',
-  NOTICE: 'warning',
-  TERMINATED: 'danger',
-  RESIGNED: 'default',
-  RETIRED: 'info',
-  DECEASED: 'danger',
-}
+} from '@heroicons/react/24/outline';
+import { employeeService } from '@/services/employees';
+import { Card, CardContent } from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import { StatusBadge } from '@/components/ui/Badge';
+import Table, { TablePagination } from '@/components/ui/Table';
+import Avatar from '@/components/ui/Avatar';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonTable } from '@/components/ui/Skeleton';
+import type { Employee } from '@/types';
 
 export default function EmployeesPage() {
-  const [page, setPage] = useState(1)
-  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({
     department: '',
     employment_status: '',
     grade: '',
-  })
-  const [showFilters, setShowFilters] = useState(false)
+  });
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['employees', page, search, filters],
-    queryFn: () => employeeService.getAll({
-      page,
-      search,
-      ...filters,
-    }),
-  })
+    queryFn: () =>
+      employeeService.getAll({
+        page,
+        search,
+        ...filters,
+      }),
+  });
 
   const { data: departments } = useQuery({
     queryKey: ['departments'],
-    queryFn: employeeService.getDepartments,
-  })
+    queryFn: () => employeeService.getDepartments(),
+  });
 
   const { data: grades } = useQuery({
     queryKey: ['grades'],
     queryFn: employeeService.getGrades,
-  })
+  });
 
   const columns = [
     {
       key: 'employee',
       header: 'Employee',
       render: (employee: Employee) => (
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
           <Avatar
             firstName={employee.first_name}
             lastName={employee.last_name}
             src={employee.photo}
             size="sm"
           />
-          <div className="ml-3">
+          <div>
             <Link
               to={`/employees/${employee.id}`}
-              className="text-sm font-medium text-gray-900 hover:text-primary-600"
+              className="text-sm font-medium text-gray-900 hover:text-primary-600 transition-colors"
             >
               {employee.first_name} {employee.last_name}
             </Link>
-            <p className="text-xs text-gray-500">{(employee as any).employee_number || employee.employee_id}</p>
+            <p className="text-xs text-gray-500">
+              {(employee as any).employee_number || employee.employee_id}
+            </p>
           </div>
         </div>
       ),
@@ -105,56 +99,51 @@ export default function EmployeesPage() {
       key: 'grade',
       header: 'Grade',
       render: (employee: Employee) => (
-        <span className="text-sm text-gray-700">
-          {employee.grade_name || '-'}
-        </span>
+        <span className="text-sm text-gray-700">{employee.grade_name || '-'}</span>
       ),
     },
     {
       key: 'status',
       header: 'Status',
       render: (employee: Employee) => {
-        const status = (employee as any).status || employee.employment_status || 'UNKNOWN'
-        return (
-          <Badge variant={statusColors[status] || 'default'}>
-            {status.replace(/_/g, ' ')}
-          </Badge>
-        )
+        const status =
+          (employee as any).status || employee.employment_status || 'UNKNOWN';
+        return <StatusBadge status={status} category="employment" dot />;
       },
     },
     {
       key: 'hire_date',
       header: 'Hire Date',
       render: (employee: Employee) => {
-        const hireDate = (employee as any).date_of_joining || employee.date_of_hire
+        const hireDate = (employee as any).date_of_joining || employee.date_of_hire;
         return (
           <span className="text-sm text-gray-700">
             {hireDate ? new Date(hireDate).toLocaleDateString() : '-'}
           </span>
-        )
+        );
       },
     },
-  ]
+  ];
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setPage(1)
-  }
+    e.preventDefault();
+    setPage(1);
+  };
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }))
-    setPage(1)
-  }
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  };
 
   const clearFilters = () => {
     setFilters({
       department: '',
       employment_status: '',
       grade: '',
-    })
-    setSearch('')
-    setPage(1)
-  }
+    });
+    setSearch('');
+    setPage(1);
+  };
 
   const employmentStatusOptions = [
     { value: '', label: 'All Statuses' },
@@ -166,31 +155,33 @@ export default function EmployeesPage() {
     { value: 'TERMINATED', label: 'Terminated' },
     { value: 'RESIGNED', label: 'Resigned' },
     { value: 'RETIRED', label: 'Retired' },
-  ]
+  ];
+
+  const totalItems = data?.count || 0;
+  const totalPages = Math.ceil(totalItems / pageSize);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage employee records and information
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm">
-            <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Link to="/employees/new">
-            <Button size="sm">
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Add Employee
+    <div className="space-y-6 animate-fade-in">
+      {/* Page Header */}
+      <PageHeader
+        title="Employees"
+        subtitle="Manage employee records and information"
+        breadcrumbs={[{ label: 'Employees' }]}
+        actions={
+          <div className="flex gap-3">
+            <Button variant="outline" size="sm" leftIcon={<ArrowDownTrayIcon className="w-4 h-4" />}>
+              Export
             </Button>
-          </Link>
-        </div>
-      </div>
+            <Link to="/employees/new">
+              <Button size="sm" leftIcon={<PlusIcon className="w-4 h-4" />}>
+                Add Employee
+              </Button>
+            </Link>
+          </div>
+        }
+      />
 
+      {/* Search and Filters Card */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -209,15 +200,21 @@ export default function EmployeesPage() {
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
-              className={showFilters ? 'bg-gray-100' : ''}
+              className={showFilters ? 'bg-primary-50 border-primary-200' : ''}
+              leftIcon={<FunnelIcon className="w-4 h-4" />}
             >
-              <FunnelIcon className="h-4 w-4 mr-2" />
               Filters
+              {(filters.department || filters.employment_status || filters.grade) && (
+                <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-primary-100 text-primary-700 rounded-full">
+                  {[filters.department, filters.employment_status, filters.grade].filter(Boolean)
+                    .length}
+                </span>
+              )}
             </Button>
           </div>
 
           {showFilters && (
-            <div className="mt-4 pt-4 border-t grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in">
               <Select
                 label="Department"
                 value={filters.department}
@@ -258,51 +255,61 @@ export default function EmployeesPage() {
         </CardContent>
       </Card>
 
+      {/* Employees Table */}
       <Card>
         {isError ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mb-4" />
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Failed to load employees</h2>
-            <p className="text-sm text-gray-500 mb-4">
-              {(error as any)?.message || 'Unable to connect to the server. Please make sure the backend is running.'}
-            </p>
-            <Button onClick={() => refetch()}>Try Again</Button>
-          </div>
-        ) : (
-          <Table
-            data={data?.results || []}
-            columns={columns}
-            isLoading={isLoading}
-            emptyMessage="No employees found"
+          <EmptyState
+            type="error"
+            title="Failed to load employees"
+            description={
+              (error as any)?.message ||
+              'Unable to connect to the server. Please make sure the backend is running.'
+            }
+            action={{
+              label: 'Try Again',
+              onClick: () => refetch(),
+            }}
           />
-        )}
-        {data && data.count > 0 && (
-          <div className="px-6 py-4 border-t flex items-center justify-between">
-            <p className="text-sm text-gray-500">
-              Showing {((page - 1) * 20) + 1} to {Math.min(page * 20, data.count)} of{' '}
-              {data.count} employees
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage(page - 1)}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page * 20 >= data.count}
-                onClick={() => setPage(page + 1)}
-              >
-                Next
-              </Button>
-            </div>
+        ) : isLoading ? (
+          <div className="p-4">
+            <SkeletonTable rows={5} columns={6} showHeader />
           </div>
+        ) : data?.results?.length === 0 ? (
+          <EmptyState
+            type="employees"
+            title="No employees found"
+            description={
+              search || filters.department || filters.employment_status || filters.grade
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Add your first employee to get started.'
+            }
+            action={
+              search || filters.department || filters.employment_status || filters.grade
+                ? { label: 'Clear Filters', onClick: clearFilters }
+                : { label: 'Add Employee', onClick: () => (window.location.href = '/employees/new') }
+            }
+          />
+        ) : (
+          <>
+            <Table
+              data={data?.results || []}
+              columns={columns}
+              isLoading={false}
+              emptyType="employees"
+              striped
+            />
+            {totalPages > 1 && (
+              <TablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                onPageChange={setPage}
+              />
+            )}
+          </>
         )}
       </Card>
     </div>
-  )
+  );
 }

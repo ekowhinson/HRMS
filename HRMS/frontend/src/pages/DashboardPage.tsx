@@ -84,7 +84,7 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <PageHeader
           title="Dashboard"
-          subtitle="Welcome to NHIA Human Resource Management System"
+          subtitle="Welcome to Human Resource Management System"
         />
         <SkeletonDashboard />
       </div>
@@ -97,7 +97,7 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <PageHeader
           title="Dashboard"
-          subtitle="Welcome to NHIA Human Resource Management System"
+          subtitle="Welcome to Human Resource Management System"
         />
         <EmptyState
           type="error"
@@ -178,7 +178,7 @@ export default function DashboardPage() {
       {/* Page Header */}
       <PageHeader
         title="Dashboard"
-        subtitle="Welcome to NHIA Human Resource Management System"
+        subtitle="Welcome to Human Resource Management System"
         actions={
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400 flex items-center gap-1">

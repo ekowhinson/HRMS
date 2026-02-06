@@ -13,11 +13,15 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
 
-from .models import User, Role, UserSession, AuthenticationLog, EmailVerificationToken
+from django.db import models
+
+from .models import User, Role, Permission, UserRole, UserSession, AuthenticationLog, EmailVerificationToken
 from .serializers import (
     LoginSerializer, UserSerializer, UserCreateSerializer, UserUpdateSerializer,
     ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
-    RoleSerializer, UserSessionSerializer, EmployeeSignupSerializer,
+    RoleSerializer, RoleUpdateSerializer, PermissionSerializer, UserRoleSerializer,
+    UserRoleDetailSerializer, UserRoleAssignSerializer, UserSessionSerializer,
+    AuthenticationLogSerializer, EmployeeSignupSerializer,
     VerifyEmailTokenSerializer, CompleteSignupSerializer, EmployeeInfoSerializer
 )
 
@@ -171,7 +175,7 @@ class PasswordResetConfirmView(APIView):
 
 class UserListView(generics.ListCreateAPIView):
     """List and create users."""
-    queryset = User.objects.all()
+    queryset = User.objects.all().prefetch_related('user_roles__role')
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -184,6 +188,14 @@ class UserListView(generics.ListCreateAPIView):
         is_active = self.request.query_params.get('is_active')
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        # Filter by staff status
+        is_staff = self.request.query_params.get('is_staff')
+        if is_staff is not None:
+            queryset = queryset.filter(is_staff=is_staff.lower() == 'true')
+        # Filter by role
+        role = self.request.query_params.get('role')
+        if role:
+            queryset = queryset.filter(user_roles__role_id=role, user_roles__is_active=True)
         # Search by name or email
         search = self.request.query_params.get('search')
         if search:
@@ -192,25 +204,283 @@ class UserListView(generics.ListCreateAPIView):
                 models.Q(last_name__icontains=search) |
                 models.Q(email__icontains=search)
             )
-        return queryset
+        return queryset.distinct()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({'results': serializer.data})
 
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete a user."""
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+    queryset = User.objects.all().prefetch_related('user_roles__role')
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return UserUpdateSerializer
+        return UserSerializer
+
+
+class UserRoleListView(APIView):
+    """Manage user roles."""
+
+    def get(self, request, pk):
+        """Get user's roles."""
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_roles = user.user_roles.filter(is_active=True).select_related('role')
+        serializer = UserRoleDetailSerializer(user_roles, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, pk):
+        """Assign a role to user."""
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UserRoleAssignSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        role = Role.objects.get(id=serializer.validated_data['role'])
+
+        # Check if user already has this role
+        if UserRole.objects.filter(user=user, role=role, is_active=True).exists():
+            return Response(
+                {'error': 'User already has this role'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # If setting as primary, unset other primary roles
+        if serializer.validated_data.get('is_primary', False):
+            user.user_roles.filter(is_primary=True).update(is_primary=False)
+
+        user_role = UserRole.objects.create(
+            user=user,
+            role=role,
+            scope_type=serializer.validated_data.get('scope_type', 'global'),
+            scope_id=serializer.validated_data.get('scope_id'),
+            is_primary=serializer.validated_data.get('is_primary', False),
+            effective_from=serializer.validated_data.get('effective_from', timezone.now().date()),
+            effective_to=serializer.validated_data.get('effective_to'),
+        )
+
+        return Response(UserRoleDetailSerializer(user_role).data, status=status.HTTP_201_CREATED)
+
+
+class UserRoleDetailView(APIView):
+    """Remove a role from user."""
+
+    def delete(self, request, pk, role_pk):
+        """Remove role from user."""
+        try:
+            user_role = UserRole.objects.get(pk=role_pk, user_id=pk)
+        except UserRole.DoesNotExist:
+            return Response({'error': 'User role not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_role.is_active = False
+        user_role.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserResetPasswordView(APIView):
+    """Admin reset user password."""
+
+    def post(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Generate a random password
+        import secrets
+        import string
+        new_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+
+        user.set_password(new_password)
+        user.must_change_password = True
+        user.save()
+
+        # Log password reset
+        AuthenticationLog.objects.create(
+            user=user,
+            email=user.email,
+            event_type=AuthenticationLog.EventType.PASSWORD_RESET,
+            ip_address=self.get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            extra_data={'reset_by': str(request.user.id)}
+        )
+
+        # TODO: Send email with new password
+        return Response({
+            'message': 'Password reset successfully. User must change password on next login.',
+            'temporary_password': new_password  # Only for development
+        })
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+
+
+class UserUnlockView(APIView):
+    """Unlock a user account."""
+
+    def post(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user.failed_login_attempts = 0
+        user.lockout_until = None
+        user.save(update_fields=['failed_login_attempts', 'lockout_until'])
+
+        # Log account unlock
+        AuthenticationLog.objects.create(
+            user=user,
+            email=user.email,
+            event_type=AuthenticationLog.EventType.ACCOUNT_UNLOCKED,
+            ip_address=self.get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            extra_data={'unlocked_by': str(request.user.id)}
+        )
+
+        return Response({'message': 'Account unlocked successfully'})
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+
+
+class UserSessionsView(generics.ListAPIView):
+    """Get sessions for a specific user."""
+    serializer_class = UserSessionSerializer
+
+    def get_queryset(self):
+        return UserSession.objects.filter(user_id=self.kwargs['pk'], is_active=True)
 
 
 class RoleListView(generics.ListCreateAPIView):
     """List and create roles."""
-    queryset = Role.objects.filter(is_active=True)
+    queryset = Role.objects.all().prefetch_related('role_permissions__permission')
     serializer_class = RoleSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        is_system_role = self.request.query_params.get('is_system_role')
+        if is_system_role is not None:
+            queryset = queryset.filter(is_system_role=is_system_role.lower() == 'true')
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                models.Q(name__icontains=search) |
+                models.Q(code__icontains=search)
+            )
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class RoleDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete a role."""
-    queryset = Role.objects.all()
-    serializer_class = RoleSerializer
+    queryset = Role.objects.all().prefetch_related('role_permissions__permission')
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return RoleUpdateSerializer
+        return RoleSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_system_role:
+            return Response(
+                {'error': 'Cannot delete system roles'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
+class RoleUsersView(generics.ListAPIView):
+    """Get users with a specific role."""
+    serializer_class = UserSerializer
+
+    def get_queryset(self):
+        return User.objects.filter(
+            user_roles__role_id=self.kwargs['pk'],
+            user_roles__is_active=True
+        ).prefetch_related('user_roles__role').distinct()
+
+
+class PermissionListView(generics.ListAPIView):
+    """List all permissions."""
+    queryset = Permission.objects.filter(is_active=True)
+    serializer_class = PermissionSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        module = self.request.query_params.get('module')
+        if module:
+            queryset = queryset.filter(module=module)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class AuthenticationLogListView(generics.ListAPIView):
+    """List authentication logs."""
+    serializer_class = AuthenticationLogSerializer
+    queryset = AuthenticationLog.objects.all()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        user = self.request.query_params.get('user')
+        if user:
+            queryset = queryset.filter(user_id=user)
+
+        event_type = self.request.query_params.get('event_type')
+        if event_type:
+            queryset = queryset.filter(event_type=event_type)
+
+        start_date = self.request.query_params.get('start_date')
+        if start_date:
+            queryset = queryset.filter(timestamp__date__gte=start_date)
+
+        end_date = self.request.query_params.get('end_date')
+        if end_date:
+            queryset = queryset.filter(timestamp__date__lte=end_date)
+
+        return queryset[:100]  # Limit to last 100 logs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({'results': serializer.data})
 
 
 class UserSessionListView(generics.ListAPIView):
@@ -239,7 +509,7 @@ class RevokeSessionView(APIView):
 
 class SignupRateThrottle(AnonRateThrottle):
     """Rate limiting for signup endpoints."""
-    rate = '5/hour'
+    rate = '30/hour'  # Increased from 5/hour for development
 
 
 class EmployeeSignupView(APIView):
@@ -266,15 +536,15 @@ class EmployeeSignupView(APIView):
 
         # Build verification URL
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
-        verification_url = f"{frontend_url}/signup/verify?token={token.token}"
+        verification_url = f"{frontend_url}/signup?token={token.token}"
 
         # Send verification email
         try:
-            subject = 'NHIA HRMS - Complete Your Account Registration'
+            subject = 'HRMS - Complete Your Account Registration'
             message = f"""
 Hello {employee.full_name},
 
-You have initiated the account registration process for NHIA HRMS.
+You have initiated the account registration process for HRMS.
 
 Please click the link below to complete your registration:
 {verification_url}
@@ -284,7 +554,7 @@ This link will expire in 24 hours.
 If you did not request this, please ignore this email or contact HR.
 
 Best regards,
-NHIA HRMS Team
+HRMS Team
             """
 
             send_mail(
@@ -292,11 +562,13 @@ NHIA HRMS Team
                 message=message,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],
-                fail_silently=True,
+                fail_silently=False,
             )
-        except Exception:
+        except Exception as e:
             # Log error but don't fail the request
-            pass
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Failed to send signup email to {email}: {e}')
 
         return Response({
             'message': 'Verification email sent. Please check your inbox.',

@@ -266,3 +266,276 @@ export const STATUS_LABELS: Record<ImportStatus, string> = {
   FAILED: 'Failed',
   CANCELLED: 'Cancelled',
 }
+
+// ==================== Multi-File Batch Import ====================
+
+export type BatchStatus =
+  | 'PENDING'
+  | 'ANALYZING'
+  | 'READY'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'PARTIAL'
+  | 'FAILED'
+  | 'CANCELLED'
+
+export interface BatchJob {
+  id: string
+  filename: string
+  detected_model: string
+  detection_confidence: number
+  target_model: string
+  column_mapping: Record<string, string>
+  mapping_confidence: Record<string, {
+    target_field: string
+    confidence: number
+    reason: string
+  }>
+  headers: string[]
+  sample_data: string[][]
+  status: ImportStatus
+  total_rows: number
+  success_count: number
+  error_count: number
+  processing_order: number
+}
+
+export interface ImportBatch {
+  id: string
+  name: string
+  instructions?: string
+  status: BatchStatus
+  analysis_results: Record<string, {
+    detected_model: string
+    confidence: number
+    matched_fields: Record<string, string>
+    file_category: string
+    dependencies: string[]
+    total_rows: number
+    reason: string
+  }>
+  processing_order: string[]
+  file_count: number
+  total_rows: number
+  processed_rows: number
+  success_count: number
+  error_count: number
+  files_completed: number
+  files_failed: number
+  progress: number
+  auto_create_dependencies: boolean
+  update_existing: boolean
+  started_at?: string
+  completed_at?: string
+  created_at: string
+  created_by_name?: string
+  jobs: BatchJob[]
+}
+
+export interface FileAnalysis {
+  detected_model: string
+  confidence: number
+  matched_fields: Record<string, string>
+  file_category: string
+  dependencies: string[]
+  total_rows: number
+  headers: string[]
+  sample_data: string[][]
+  reason: string
+  model_scores: Record<string, number>
+}
+
+export interface AIAnalysisInfo {
+  used: boolean
+  mode: 'ai' | 'rule-based'
+  agents_used: string[]
+  description?: string
+}
+
+export interface AIStatusResponse {
+  ai_available: boolean
+  analysis_mode: 'ai' | 'rule-based'
+  agents: Array<{
+    name: string
+    description: string
+  }>
+  message: string
+}
+
+export interface BatchAnalysisResult {
+  files: Record<string, FileAnalysis>
+  processing_order: string[]
+  detected_models: Record<string, string>
+  confidence_scores: Record<string, number>
+  warnings: string[]
+  errors: string[]
+  ai_analysis?: AIAnalysisInfo
+}
+
+export interface BatchUploadResult {
+  batch: ImportBatch
+  analysis: BatchAnalysisResult
+  ai_analysis?: AIAnalysisInfo
+}
+
+export interface BatchExecuteResult {
+  batch: ImportBatch
+  result: {
+    total_files: number
+    completed_files: number
+    failed_files: number
+    total_rows: number
+    success_count: number
+    error_count: number
+    skip_count: number
+    errors: ImportError[]
+  }
+}
+
+export const batchImportService = {
+  // Check AI analysis status
+  async getAIStatus(): Promise<AIStatusResponse> {
+    const response = await api.get('/imports/batches/ai_status/')
+    return response.data
+  },
+
+  // Upload multiple files for AI-powered analysis
+  async upload(
+    files: File[],
+    options?: {
+      name?: string
+      instructions?: string
+      auto_create_dependencies?: boolean
+      update_existing?: boolean
+    }
+  ): Promise<BatchUploadResult> {
+    const formData = new FormData()
+    files.forEach((file) => {
+      formData.append('files', file)
+    })
+    if (options?.name) formData.append('name', options.name)
+    if (options?.instructions) formData.append('instructions', options.instructions)
+    if (options?.auto_create_dependencies !== undefined) {
+      formData.append('auto_create_dependencies', String(options.auto_create_dependencies))
+    }
+    if (options?.update_existing !== undefined) {
+      formData.append('update_existing', String(options.update_existing))
+    }
+
+    const response = await api.post('/imports/batches/upload/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
+  // Analyze files without creating a batch (preview only)
+  async analyze(files: File[], instructions?: string): Promise<BatchAnalysisResult & { files: Record<string, FileAnalysis> }> {
+    const formData = new FormData()
+    files.forEach((file) => {
+      formData.append('files', file)
+    })
+    if (instructions) formData.append('instructions', instructions)
+
+    const response = await api.post('/imports/batches/analyze/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
+  // Get batch details
+  async getBatch(batchId: string): Promise<ImportBatch> {
+    const response = await api.get(`/imports/batches/${batchId}/`)
+    return response.data
+  },
+
+  // List batches
+  async listBatches(params?: { status?: BatchStatus }): Promise<ImportBatch[]> {
+    const response = await api.get('/imports/batches/', { params })
+    return response.data.results || response.data
+  },
+
+  // Execute batch import
+  async execute(
+    batchId: string,
+    overrides?: Array<{
+      job_id: string
+      target_model?: TargetModel
+      column_mapping?: Record<string, string>
+    }>
+  ): Promise<BatchExecuteResult> {
+    const response = await api.post(`/imports/batches/${batchId}/execute/`, {
+      overrides: overrides || [],
+    })
+    return response.data
+  },
+
+  // Get batch progress
+  async getProgress(batchId: string): Promise<{
+    id: string
+    name: string
+    status: BatchStatus
+    file_count: number
+    files_completed: number
+    files_failed: number
+    total_rows: number
+    processed_rows: number
+    success_count: number
+    error_count: number
+    progress_percentage: number
+    processing_order: string[]
+    files: Array<{
+      filename: string
+      detected_model: string
+      target_model: string
+      status: ImportStatus
+      total_rows: number
+      success_count: number
+      error_count: number
+      processing_order: number
+    }>
+    started_at?: string
+    completed_at?: string
+  }> {
+    const response = await api.get(`/imports/batches/${batchId}/progress/`)
+    return response.data
+  },
+
+  // Update a job's mapping within a batch
+  async updateJob(
+    batchId: string,
+    jobId: string,
+    updates: {
+      target_model?: TargetModel
+      column_mapping?: Record<string, string>
+    }
+  ): Promise<{ message: string; job: BatchJob }> {
+    const response = await api.patch(`/imports/batches/${batchId}/update_job/`, {
+      job_id: jobId,
+      ...updates,
+    })
+    return response.data
+  },
+
+  // Cancel batch
+  async cancel(batchId: string): Promise<void> {
+    await api.post(`/imports/batches/${batchId}/cancel/`)
+  },
+}
+
+export const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
+  PENDING: 'Pending',
+  ANALYZING: 'Analyzing Files',
+  READY: 'Ready for Import',
+  PROCESSING: 'Processing',
+  COMPLETED: 'Completed',
+  PARTIAL: 'Partially Completed',
+  FAILED: 'Failed',
+  CANCELLED: 'Cancelled',
+}
+
+export const FILE_CATEGORY_LABELS: Record<string, string> = {
+  setup: 'Setup Data',
+  main: 'Main Data',
+  transaction: 'Transaction Data',
+  unknown: 'Unknown',
+}

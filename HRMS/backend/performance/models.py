@@ -5,8 +5,10 @@ Performance and Appraisal models.
 import base64
 import hashlib
 import mimetypes
+from decimal import Decimal
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 from core.models import BaseModel
 
@@ -50,11 +52,56 @@ class AppraisalCycle(BaseModel):
     min_goals = models.PositiveIntegerField(default=3)
     max_goals = models.PositiveIntegerField(default=7)
 
+    # Component Weights (must sum to 100)
+    objectives_weight = models.DecimalField(
+        max_digits=5, decimal_places=2, default=60,
+        help_text='Weight percentage for objectives/goals component'
+    )
+    competencies_weight = models.DecimalField(
+        max_digits=5, decimal_places=2, default=20,
+        help_text='Weight percentage for competencies component'
+    )
+    values_weight = models.DecimalField(
+        max_digits=5, decimal_places=2, default=20,
+        help_text='Weight percentage for core values component'
+    )
+
+    # Pass Mark Configuration
+    pass_mark = models.DecimalField(
+        max_digits=5, decimal_places=2, default=60,
+        help_text='Minimum score to pass appraisal'
+    )
+    increment_threshold = models.DecimalField(
+        max_digits=5, decimal_places=2, default=70,
+        help_text='Minimum score for salary increment eligibility'
+    )
+    promotion_threshold = models.DecimalField(
+        max_digits=5, decimal_places=2, default=85,
+        help_text='Minimum score for promotion consideration'
+    )
+    pip_threshold = models.DecimalField(
+        max_digits=5, decimal_places=2, default=40,
+        help_text='Score below which PIP is required'
+    )
+
     class Meta:
         ordering = ['-year']
 
     def __str__(self):
         return f"{self.name} ({self.year})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        # Validate weights sum to 100
+        total_weight = (
+            (self.objectives_weight or Decimal('0')) +
+            (self.competencies_weight or Decimal('0')) +
+            (self.values_weight or Decimal('0'))
+        )
+        if total_weight != Decimal('100'):
+            raise ValidationError(
+                f'Component weights must sum to 100. Current total: {total_weight}'
+            )
 
 
 class RatingScale(BaseModel):
@@ -202,6 +249,28 @@ class Appraisal(BaseModel):
         max_digits=5, decimal_places=2, null=True, blank=True
     )
     competency_final_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    # Core Values Ratings
+    values_self_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    values_manager_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    values_final_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    # Weighted Component Scores
+    weighted_objectives_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    weighted_competencies_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    weighted_values_score = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True
     )
 
@@ -636,3 +705,292 @@ class DevelopmentActivity(BaseModel):
     def has_evidence(self):
         """Check if evidence exists."""
         return self.evidence_data is not None
+
+
+class CoreValue(BaseModel):
+    """Organization core values for assessment."""
+
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, unique=True)
+    description = models.TextField()
+    behavioral_indicators = models.TextField(
+        blank=True,
+        help_text='Behavioral indicators that demonstrate this value'
+    )
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class CoreValueAssessment(BaseModel):
+    """Core value assessment within an appraisal."""
+
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.CASCADE, related_name='value_assessments'
+    )
+    core_value = models.ForeignKey(CoreValue, on_delete=models.CASCADE)
+
+    self_rating = models.IntegerField(null=True, blank=True)
+    self_comments = models.TextField(blank=True)
+    manager_rating = models.IntegerField(null=True, blank=True)
+    manager_comments = models.TextField(blank=True)
+    final_rating = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['appraisal', 'core_value']
+
+    def __str__(self):
+        return f"{self.appraisal.employee} - {self.core_value.name}"
+
+
+class ProbationAssessment(BaseModel):
+    """Probation period assessment (3/6 months or 1 year for Directors)."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+        REVIEWED = 'REVIEWED', 'Under Review'
+        CONFIRMED = 'CONFIRMED', 'Confirmed'
+        EXTENDED = 'EXTENDED', 'Probation Extended'
+        TERMINATED = 'TERMINATED', 'Employment Terminated'
+
+    class Period(models.TextChoices):
+        THREE_MONTHS = '3M', '3 Months'
+        SIX_MONTHS = '6M', '6 Months'
+        TWELVE_MONTHS = '12M', '12 Months'
+
+    employee = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE,
+        related_name='probation_assessments'
+    )
+    assessment_period = models.CharField(max_length=5, choices=Period.choices)
+    assessment_date = models.DateField()
+    due_date = models.DateField()
+
+    # Performance Rating
+    overall_rating = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    # Assessment Areas (scale 1-5)
+    job_knowledge = models.IntegerField(
+        null=True, blank=True,
+        help_text='Understanding of job responsibilities and requirements'
+    )
+    work_quality = models.IntegerField(
+        null=True, blank=True,
+        help_text='Accuracy, thoroughness, and reliability of work'
+    )
+    attendance_punctuality = models.IntegerField(
+        null=True, blank=True,
+        help_text='Attendance record and punctuality'
+    )
+    teamwork = models.IntegerField(
+        null=True, blank=True,
+        help_text='Ability to work effectively with colleagues'
+    )
+    communication = models.IntegerField(
+        null=True, blank=True,
+        help_text='Verbal and written communication skills'
+    )
+    initiative = models.IntegerField(
+        null=True, blank=True,
+        help_text='Self-motivation and proactive approach'
+    )
+
+    # Comments
+    supervisor_comments = models.TextField(blank=True)
+    employee_comments = models.TextField(blank=True)
+    hr_comments = models.TextField(blank=True)
+
+    # Recommendation
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    recommendation = models.TextField(blank=True)
+    extension_duration = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Extension duration in months if probation extended'
+    )
+
+    # Approval
+    reviewed_by = models.ForeignKey(
+        'employees.Employee', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='reviewed_probations'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approved_probations'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-due_date']
+
+    def __str__(self):
+        return f"{self.employee} - {self.get_assessment_period_display()}"
+
+    def calculate_overall_rating(self):
+        """Calculate overall rating from assessment areas."""
+        ratings = [
+            self.job_knowledge, self.work_quality, self.attendance_punctuality,
+            self.teamwork, self.communication, self.initiative
+        ]
+        valid_ratings = [r for r in ratings if r is not None]
+        if valid_ratings:
+            avg = sum(valid_ratings) / len(valid_ratings)
+            # Convert 1-5 scale to percentage
+            self.overall_rating = (avg / 5) * 100
+        return self.overall_rating
+
+
+class TrainingNeed(BaseModel):
+    """Training needs identified from appraisal."""
+
+    class Priority(models.TextChoices):
+        HIGH = 'HIGH', 'High'
+        MEDIUM = 'MEDIUM', 'Medium'
+        LOW = 'LOW', 'Low'
+
+    class Status(models.TextChoices):
+        IDENTIFIED = 'IDENTIFIED', 'Identified'
+        SCHEDULED = 'SCHEDULED', 'Scheduled'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        COMPLETED = 'COMPLETED', 'Completed'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    class Type(models.TextChoices):
+        TRAINING = 'TRAINING', 'Training Course'
+        CERTIFICATION = 'CERTIFICATION', 'Certification'
+        WORKSHOP = 'WORKSHOP', 'Workshop'
+        CONFERENCE = 'CONFERENCE', 'Conference'
+        MENTORING = 'MENTORING', 'Mentoring'
+        ONLINE = 'ONLINE', 'Online Course'
+        ON_THE_JOB = 'ON_THE_JOB', 'On-the-Job Training'
+        OTHER = 'OTHER', 'Other'
+
+    employee = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE,
+        related_name='training_needs'
+    )
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='training_needs'
+    )
+
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    training_type = models.CharField(
+        max_length=20, choices=Type.choices, default=Type.TRAINING
+    )
+    competency = models.ForeignKey(
+        Competency, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='training_needs'
+    )
+    priority = models.CharField(
+        max_length=10, choices=Priority.choices, default=Priority.MEDIUM
+    )
+
+    # Timeline
+    target_date = models.DateField(null=True, blank=True)
+    completion_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.IDENTIFIED
+    )
+
+    # Cost & Resources
+    estimated_cost = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    actual_cost = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    training_provider = models.CharField(max_length=200, blank=True)
+
+    # Evidence
+    outcome = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-priority', 'target_date']
+
+    def __str__(self):
+        return f"{self.employee} - {self.title}"
+
+
+class PerformanceAppeal(BaseModel):
+    """Appeal/grievance against appraisal results."""
+
+    class Status(models.TextChoices):
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+        UNDER_REVIEW = 'UNDER_REVIEW', 'Under Review'
+        HEARING_SCHEDULED = 'HEARING', 'Hearing Scheduled'
+        UPHELD = 'UPHELD', 'Appeal Upheld'
+        PARTIALLY_UPHELD = 'PARTIAL', 'Partially Upheld'
+        DISMISSED = 'DISMISSED', 'Dismissed'
+        WITHDRAWN = 'WITHDRAWN', 'Withdrawn'
+
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.CASCADE, related_name='appeals'
+    )
+    appeal_number = models.CharField(max_length=20, unique=True)
+
+    # Appeal Details
+    grounds = models.TextField(help_text='Reason for appeal')
+    disputed_ratings = models.JSONField(
+        default=dict,
+        help_text='Which ratings are disputed (e.g., {"goals": true, "competencies": false})'
+    )
+    requested_remedy = models.TextField()
+    supporting_evidence = models.TextField(blank=True)
+
+    # Process
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.SUBMITTED
+    )
+
+    # Review
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='reviewed_performance_appeals'
+    )
+    review_comments = models.TextField(blank=True)
+    hearing_date = models.DateTimeField(null=True, blank=True)
+
+    # Outcome
+    decision = models.TextField(blank=True)
+    revised_ratings = models.JSONField(
+        default=dict, blank=True,
+        help_text='Revised ratings if appeal upheld'
+    )
+    decision_date = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='decided_performance_appeals'
+    )
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"{self.appeal_number} - {self.appraisal.employee}"
+
+    def save(self, *args, **kwargs):
+        if not self.appeal_number:
+            # Generate appeal number
+            year = timezone.now().year
+            last = PerformanceAppeal.objects.filter(
+                appeal_number__startswith=f'PA{year}'
+            ).order_by('-appeal_number').first()
+            if last:
+                last_num = int(last.appeal_number[-4:])
+                self.appeal_number = f'PA{year}{last_num + 1:04d}'
+            else:
+                self.appeal_number = f'PA{year}0001'
+        super().save(*args, **kwargs)

@@ -6,7 +6,9 @@ from rest_framework import serializers
 
 from .models import (
     Employee, EmergencyContact, Dependent, Education,
-    WorkExperience, Certification, Skill, BankAccount, EmploymentHistory
+    WorkExperience, Certification, Skill, BankAccount, EmploymentHistory,
+    DataUpdateRequest, DataUpdateDocument,
+    ServiceRequestType, ServiceRequest, ServiceRequestComment, ServiceRequestDocument
 )
 
 
@@ -345,3 +347,349 @@ class MyTeamMemberSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
             start_date__lte=today,
             end_date__gte=today
         ).exists()
+
+
+# ============================================
+# Data Update Request Serializers
+# ============================================
+
+class DataUpdateDocumentSerializer(serializers.ModelSerializer):
+    """Serializer for Data Update supporting documents."""
+    file = serializers.FileField(write_only=True, required=False)
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = DataUpdateDocument
+        fields = [
+            'id', 'data_update_request', 'file', 'file_url',
+            'file_name', 'mime_type', 'file_size',
+            'document_type', 'description',
+            'uploaded_by', 'uploaded_by_name', 'created_at'
+        ]
+        read_only_fields = ['id', 'file_name', 'mime_type', 'file_size', 'uploaded_by', 'created_at']
+
+    def get_file_url(self, obj):
+        """Return file as data URI."""
+        if obj.has_file:
+            return obj.get_file_data_uri()
+        return None
+
+    def create(self, validated_data):
+        file_obj = validated_data.pop('file', None)
+        instance = super().create(validated_data)
+        if file_obj:
+            instance.set_file(file_obj)
+            instance.save()
+        return instance
+
+
+class DataUpdateRequestSerializer(serializers.ModelSerializer):
+    """Serializer for Data Update Requests."""
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    request_type_display = serializers.CharField(source='get_request_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.get_full_name', read_only=True, allow_null=True)
+    documents = DataUpdateDocumentSerializer(many=True, read_only=True)
+    changes_summary = serializers.ReadOnlyField()
+
+    class Meta:
+        model = DataUpdateRequest
+        fields = [
+            'id', 'request_number', 'employee', 'employee_name', 'employee_number',
+            'request_type', 'request_type_display',
+            'old_values', 'new_values', 'changes_summary',
+            'reason', 'status', 'status_display',
+            'submitted_at', 'reviewed_by', 'reviewed_by_name',
+            'reviewed_at', 'review_comments', 'rejection_reason',
+            'applied_at', 'documents',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'request_number', 'employee', 'status',
+            'submitted_at', 'reviewed_by', 'reviewed_at',
+            'applied_at', 'applied_by'
+        ]
+
+
+class DataUpdateRequestCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating data update requests."""
+
+    class Meta:
+        model = DataUpdateRequest
+        fields = [
+            'id', 'request_number', 'request_type', 'old_values', 'new_values', 'reason', 'status'
+        ]
+        read_only_fields = ['id', 'request_number', 'status']
+
+    def create(self, validated_data):
+        import uuid
+        user = self.context['request'].user
+
+        if hasattr(user, 'employee'):
+            validated_data['employee'] = user.employee
+        else:
+            raise serializers.ValidationError("User does not have an employee record")
+
+        # Generate request number
+        validated_data['request_number'] = f"DUR-{uuid.uuid4().hex[:8].upper()}"
+
+        # Capture current values based on request type
+        request_type = validated_data.get('request_type')
+        employee = validated_data['employee']
+
+        if request_type == DataUpdateRequest.RequestType.PERSONAL and not validated_data.get('old_values'):
+            validated_data['old_values'] = {
+                'first_name': employee.first_name,
+                'middle_name': employee.middle_name,
+                'last_name': employee.last_name,
+                'marital_status': employee.marital_status,
+                'nationality': employee.nationality,
+            }
+
+        return super().create(validated_data)
+
+
+class BankUpdateRequestSerializer(serializers.Serializer):
+    """Specialized serializer for bank details update request."""
+    bank_name = serializers.CharField(max_length=100)
+    branch_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    account_number = serializers.CharField(max_length=50)
+    account_name = serializers.CharField(max_length=200)
+    account_type = serializers.ChoiceField(choices=['SAVINGS', 'CURRENT', 'OTHER'], default='SAVINGS')
+    reason = serializers.CharField()
+
+    def validate_account_number(self, value):
+        """Validate account number format."""
+        if len(value) < 8:
+            raise serializers.ValidationError("Account number must be at least 8 characters")
+        return value
+
+
+class NameChangeRequestSerializer(serializers.Serializer):
+    """Specialized serializer for name change request."""
+    title = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    first_name = serializers.CharField(max_length=100, required=False)
+    middle_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=100, required=False)
+    maiden_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    reason = serializers.CharField()
+
+    def validate(self, data):
+        """Ensure at least one name field is provided."""
+        name_fields = ['title', 'first_name', 'middle_name', 'last_name', 'maiden_name']
+        if not any(data.get(field) for field in name_fields):
+            raise serializers.ValidationError("At least one name field must be provided")
+        return data
+
+
+class AddressUpdateRequestSerializer(serializers.Serializer):
+    """Specialized serializer for address update request."""
+    residential_address = serializers.CharField(required=False, allow_blank=True)
+    residential_city = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    postal_address = serializers.CharField(required=False, allow_blank=True)
+    digital_address = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    region = serializers.UUIDField(required=False, allow_null=True)
+    district = serializers.UUIDField(required=False, allow_null=True)
+    reason = serializers.CharField()
+
+
+class EmergencyContactUpdateSerializer(serializers.Serializer):
+    """Specialized serializer for emergency contact update request."""
+    action = serializers.ChoiceField(choices=['ADD', 'UPDATE', 'DELETE'])
+    contact_id = serializers.UUIDField(required=False, allow_null=True)  # For UPDATE/DELETE
+    name = serializers.CharField(max_length=200, required=False)
+    relationship = serializers.CharField(max_length=50, required=False)
+    phone_primary = serializers.CharField(max_length=20, required=False)
+    phone_secondary = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    is_primary = serializers.BooleanField(required=False, default=False)
+    reason = serializers.CharField()
+
+    def validate(self, data):
+        """Validate based on action type."""
+        action = data.get('action')
+        if action == 'ADD':
+            required_fields = ['name', 'relationship', 'phone_primary']
+            for field in required_fields:
+                if not data.get(field):
+                    raise serializers.ValidationError(f"{field} is required for adding a new contact")
+        elif action in ['UPDATE', 'DELETE']:
+            if not data.get('contact_id'):
+                raise serializers.ValidationError("contact_id is required for update/delete actions")
+        return data
+
+
+class DependentUpdateSerializer(serializers.Serializer):
+    """Specialized serializer for dependent update request."""
+    action = serializers.ChoiceField(choices=['ADD', 'UPDATE', 'DELETE'])
+    dependent_id = serializers.UUIDField(required=False, allow_null=True)  # For UPDATE/DELETE
+    first_name = serializers.CharField(max_length=100, required=False)
+    last_name = serializers.CharField(max_length=100, required=False)
+    relationship = serializers.CharField(max_length=50, required=False)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    gender = serializers.ChoiceField(choices=['M', 'F'], required=False)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    is_beneficiary = serializers.BooleanField(required=False, default=False)
+    reason = serializers.CharField()
+
+    def validate(self, data):
+        """Validate based on action type."""
+        action = data.get('action')
+        if action == 'ADD':
+            required_fields = ['first_name', 'last_name', 'relationship']
+            for field in required_fields:
+                if not data.get(field):
+                    raise serializers.ValidationError(f"{field} is required for adding a new dependent")
+        elif action in ['UPDATE', 'DELETE']:
+            if not data.get('dependent_id'):
+                raise serializers.ValidationError("dependent_id is required for update/delete actions")
+        return data
+
+
+# ============================================
+# HR Service Request Serializers
+# ============================================
+
+class ServiceRequestTypeSerializer(serializers.ModelSerializer):
+    """Serializer for ServiceRequestType model."""
+
+    class Meta:
+        model = ServiceRequestType
+        fields = [
+            'id', 'code', 'name', 'description',
+            'sla_days', 'requires_manager_approval', 'requires_hr_approval',
+            'requires_document', 'is_active', 'sort_order'
+        ]
+
+
+class ServiceRequestDocumentSerializer(serializers.ModelSerializer):
+    """Serializer for Service Request documents."""
+    file = serializers.FileField(write_only=True, required=False)
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = ServiceRequestDocument
+        fields = [
+            'id', 'service_request', 'file', 'file_url',
+            'file_name', 'mime_type', 'file_size', 'description',
+            'uploaded_by', 'uploaded_by_name', 'created_at'
+        ]
+        read_only_fields = ['id', 'file_name', 'mime_type', 'file_size', 'uploaded_by', 'created_at']
+
+    def get_file_url(self, obj):
+        if obj.has_file:
+            return obj.get_file_data_uri()
+        return None
+
+    def create(self, validated_data):
+        file_obj = validated_data.pop('file', None)
+        instance = super().create(validated_data)
+        if file_obj:
+            instance.set_file(file_obj)
+            instance.save()
+        return instance
+
+
+class ServiceRequestCommentSerializer(serializers.ModelSerializer):
+    """Serializer for Service Request comments."""
+    commented_by_name = serializers.CharField(source='commented_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = ServiceRequestComment
+        fields = [
+            'id', 'service_request', 'comment', 'comment_type',
+            'is_visible_to_employee', 'commented_by', 'commented_by_name', 'created_at'
+        ]
+        read_only_fields = ['id', 'commented_by', 'created_at']
+
+
+class ServiceRequestSerializer(serializers.ModelSerializer):
+    """Full serializer for Service Request."""
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    request_type_name = serializers.CharField(source='request_type.name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    sla_status_display = serializers.CharField(source='get_sla_status_display', read_only=True)
+    assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True, allow_null=True)
+    resolved_by_name = serializers.CharField(source='resolved_by.get_full_name', read_only=True, allow_null=True)
+    days_until_sla = serializers.ReadOnlyField()
+    is_overdue = serializers.ReadOnlyField()
+    comments = ServiceRequestCommentSerializer(many=True, read_only=True)
+    documents = ServiceRequestDocumentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ServiceRequest
+        fields = [
+            'id', 'request_number', 'employee', 'employee_name', 'employee_number',
+            'request_type', 'request_type_name',
+            'subject', 'description', 'priority', 'priority_display',
+            'status', 'status_display',
+            'submitted_at', 'acknowledged_at',
+            'sla_deadline', 'sla_status', 'sla_status_display',
+            'days_until_sla', 'is_overdue',
+            'assigned_to', 'assigned_to_name', 'assigned_location',
+            'resolved_at', 'resolved_by', 'resolved_by_name',
+            'resolution_notes', 'rejection_reason',
+            'is_escalated', 'escalated_at', 'escalated_to', 'escalation_reason',
+            'satisfaction_rating', 'feedback',
+            'comments', 'documents',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'request_number', 'employee', 'status',
+            'submitted_at', 'acknowledged_at', 'sla_deadline', 'sla_status',
+            'resolved_at', 'resolved_by', 'escalated_at'
+        ]
+
+
+class ServiceRequestCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating service requests."""
+
+    class Meta:
+        model = ServiceRequest
+        fields = [
+            'id', 'request_number', 'request_type',
+            'subject', 'description', 'priority', 'status'
+        ]
+        read_only_fields = ['id', 'request_number', 'status']
+
+    def create(self, validated_data):
+        import uuid
+        user = self.context['request'].user
+
+        if hasattr(user, 'employee'):
+            validated_data['employee'] = user.employee
+        else:
+            raise serializers.ValidationError("User does not have an employee record")
+
+        # Generate request number
+        validated_data['request_number'] = f"SR-{uuid.uuid4().hex[:8].upper()}"
+
+        return super().create(validated_data)
+
+
+class ServiceRequestListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing service requests."""
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    request_type_name = serializers.CharField(source='request_type.name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    sla_status_display = serializers.CharField(source='get_sla_status_display', read_only=True)
+    days_until_sla = serializers.ReadOnlyField()
+    is_overdue = serializers.ReadOnlyField()
+
+    class Meta:
+        model = ServiceRequest
+        fields = [
+            'id', 'request_number', 'employee', 'employee_name', 'employee_number',
+            'request_type', 'request_type_name',
+            'subject', 'priority', 'status', 'status_display',
+            'sla_deadline', 'sla_status', 'sla_status_display',
+            'days_until_sla', 'is_overdue',
+            'submitted_at', 'created_at'
+        ]

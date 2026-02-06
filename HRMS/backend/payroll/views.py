@@ -1292,11 +1292,12 @@ class PayrollRunPayslipsListView(APIView):
 
 
 class PayrollRunPayslipsDownloadView(APIView):
-    """Download all payslips for a payroll run as a ZIP file."""
+    """Download payslips for a payroll run in various formats (PDF, Excel, CSV) with optional filters."""
 
     def get(self, request, run_id):
         import zipfile
         import io
+        from .generators import PayslipGenerator
 
         try:
             payroll_run = PayrollRun.objects.get(pk=run_id)
@@ -1306,32 +1307,81 @@ class PayrollRunPayslipsDownloadView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        payslips = Payslip.objects.filter(
-            payroll_item__payroll_run=payroll_run,
-            file_data__isnull=False
-        ).select_related('payroll_item__employee')
-
-        if not payslips.exists():
+        # Get file_format parameter (default: pdf)
+        # Note: Using 'file_format' instead of 'format' to avoid conflict with DRF's format suffix
+        file_format = request.query_params.get('file_format', 'pdf').lower()
+        if file_format not in ['pdf', 'excel', 'csv', 'text']:
             return Response(
-                {'error': 'No payslips generated for this payroll run'},
+                {'error': 'Invalid file_format. Use: pdf, excel, csv, or text'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get payroll items with filters
+        items = PayrollItem.objects.filter(
+            payroll_run=payroll_run
+        ).exclude(
+            status=PayrollItem.Status.ERROR
+        ).select_related(
+            'employee', 'employee__department', 'employee__position',
+            'employee__division', 'employee__directorate', 'employee__grade',
+            'employee__salary_notch', 'employee__salary_notch__level',
+            'employee__salary_notch__level__band', 'employee__work_location'
+        ).prefetch_related('details', 'details__pay_component')
+
+        # Apply employee filters
+        if request.query_params.get('employee_code'):
+            items = items.filter(employee__employee_number__icontains=request.query_params['employee_code'])
+        if request.query_params.get('division'):
+            items = items.filter(employee__division_id=request.query_params['division'])
+        if request.query_params.get('directorate'):
+            items = items.filter(employee__directorate_id=request.query_params['directorate'])
+        if request.query_params.get('department'):
+            items = items.filter(employee__department_id=request.query_params['department'])
+        if request.query_params.get('position'):
+            items = items.filter(employee__position_id=request.query_params['position'])
+        if request.query_params.get('grade'):
+            items = items.filter(employee__grade_id=request.query_params['grade'])
+        if request.query_params.get('salary_band'):
+            items = items.filter(employee__salary_notch__level__band_id=request.query_params['salary_band'])
+        if request.query_params.get('salary_level'):
+            items = items.filter(employee__salary_notch__level_id=request.query_params['salary_level'])
+        if request.query_params.get('staff_category'):
+            items = items.filter(employee__staff_category_id=request.query_params['staff_category'])
+
+        if not items.exists():
+            return Response(
+                {'error': 'No payroll items found matching the filters'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Create ZIP file in memory
+        period = payroll_run.payroll_period
+
+        # Generate payslips in requested format
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for payslip in payslips:
-                emp = payslip.payroll_item.employee
-                filename = payslip.file_name or f"{emp.employee_number}_{payslip.payslip_number}.pdf"
-                zf.writestr(filename, bytes(payslip.file_data))
+            for item in items:
+                generator = PayslipGenerator(item, period)
+                emp = item.employee
 
-                # Update downloaded_at timestamp
-                payslip.downloaded_at = timezone.now()
-                payslip.save(update_fields=['downloaded_at'])
+                if file_format == 'pdf':
+                    content = generator.generate_pdf()
+                    ext = 'pdf'
+                    mime = 'application/pdf'
+                elif file_format == 'excel':
+                    content = generator.generate_excel()
+                    ext = 'xlsx'
+                    mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                else:  # csv/text
+                    content = generator.generate_text()
+                    ext = 'txt'
+                    mime = 'text/plain'
+
+                filename = f"{emp.employee_number}_{payroll_run.run_number}.{ext}"
+                zf.writestr(filename, content)
 
         buffer.seek(0)
 
-        zip_filename = f"payslips_{payroll_run.run_number}.zip"
+        zip_filename = f"payslips_{payroll_run.run_number}_{file_format}.zip"
         response = HttpResponse(buffer.read(), content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
         return response
@@ -1400,3 +1450,84 @@ class PayrollRunBankFilesListView(APIView):
             'total_count': bank_files.count(),
             'bank_files': list(bank_files)
         })
+
+
+class PayrollRunBankFileDownloadView(APIView):
+    """Download bank payment file for a payroll run in various formats (PDF, Excel, CSV) with optional filters."""
+
+    def get(self, request, run_id):
+        from .generators import BankFileGenerator
+
+        try:
+            payroll_run = PayrollRun.objects.get(pk=run_id)
+        except PayrollRun.DoesNotExist:
+            return Response(
+                {'error': 'Payroll run not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get file_format parameter (default: csv)
+        # Note: Using 'file_format' instead of 'format' to avoid conflict with DRF's format suffix
+        file_format = request.query_params.get('file_format', 'csv').lower()
+        if file_format not in ['pdf', 'excel', 'csv', 'text']:
+            return Response(
+                {'error': 'Invalid file_format. Use: pdf, excel, csv, or text'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get payroll items with bank details
+        items = PayrollItem.objects.filter(
+            payroll_run=payroll_run,
+            bank_account_number__isnull=False
+        ).select_related('employee')
+
+        # Apply employee filters
+        if request.query_params.get('employee_code'):
+            items = items.filter(employee__employee_number__icontains=request.query_params['employee_code'])
+        if request.query_params.get('division'):
+            items = items.filter(employee__division_id=request.query_params['division'])
+        if request.query_params.get('directorate'):
+            items = items.filter(employee__directorate_id=request.query_params['directorate'])
+        if request.query_params.get('department'):
+            items = items.filter(employee__department_id=request.query_params['department'])
+        if request.query_params.get('position'):
+            items = items.filter(employee__position_id=request.query_params['position'])
+        if request.query_params.get('grade'):
+            items = items.filter(employee__grade_id=request.query_params['grade'])
+        if request.query_params.get('salary_band'):
+            items = items.filter(employee__salary_notch__level__band_id=request.query_params['salary_band'])
+        if request.query_params.get('salary_level'):
+            items = items.filter(employee__salary_notch__level_id=request.query_params['salary_level'])
+        if request.query_params.get('staff_category'):
+            items = items.filter(employee__staff_category_id=request.query_params['staff_category'])
+        if request.query_params.get('bank'):
+            items = items.filter(bank_name__icontains=request.query_params['bank'])
+
+        items = items.order_by('bank_name', 'employee__employee_number')
+
+        if not items.exists():
+            return Response(
+                {'error': 'No payment records found matching the filters'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Generate file in requested format
+        generator = BankFileGenerator(payroll_run, list(items))
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+
+        if file_format == 'pdf':
+            content = generator.generate_pdf()
+            filename = f"bank_advice_{payroll_run.run_number}_{timestamp}.pdf"
+            content_type = 'application/pdf'
+        elif file_format == 'excel':
+            content = generator.generate_excel()
+            filename = f"bank_advice_{payroll_run.run_number}_{timestamp}.xlsx"
+            content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        else:  # csv/text
+            content = generator.generate_csv()
+            filename = f"bank_payment_{payroll_run.run_number}_{timestamp}.csv"
+            content_type = 'text/csv'
+
+        response = HttpResponse(content, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response

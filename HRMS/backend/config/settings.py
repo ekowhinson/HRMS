@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     'reports.apps.ReportsConfig',
     'workflow.apps.WorkflowConfig',
     'imports.apps.ImportsConfig',
+    'policies.apps.PoliciesConfig',
+    'exits.apps.ExitsConfig',
 ]
 
 MIDDLEWARE = [
@@ -209,8 +211,8 @@ CORS_ALLOW_CREDENTIALS = True
 
 # API Documentation
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'NHIA HRMS API',
-    'DESCRIPTION': 'National Health Insurance Authority - Human Resource Management System API',
+    'TITLE': 'HRMS API',
+    'DESCRIPTION': 'Human Resource Management System API',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'SCHEMA_PATH_PREFIX': '/api/v1',
@@ -355,10 +357,13 @@ if not DEBUG:
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
 
-# NHIA HRMS Specific Settings
+# Frontend URL for email links
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+
+# HRMS Specific Settings
 HRMS_SETTINGS = {
-    'ORGANIZATION_NAME': 'National Health Insurance Authority',
-    'ORGANIZATION_CODE': 'NHIA',
+    'ORGANIZATION_NAME': 'Your Organization',
+    'ORGANIZATION_CODE': 'ORG',
     'COUNTRY': 'Ghana',
     'CURRENCY': 'GHS',
     'CURRENCY_SYMBOL': 'GH¢',

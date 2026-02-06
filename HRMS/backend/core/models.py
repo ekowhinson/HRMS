@@ -513,3 +513,293 @@ class Notification(BaseModel):
             self.is_read = True
             self.read_at = timezone.now()
             self.save(update_fields=['is_read', 'read_at'])
+
+
+class Announcement(BaseModel):
+    """
+    Company announcements with targeting capabilities.
+    Can be company-wide or targeted to specific departments, grades, or locations.
+    """
+    class Priority(models.TextChoices):
+        LOW = 'LOW', 'Low'
+        NORMAL = 'NORMAL', 'Normal'
+        HIGH = 'HIGH', 'High'
+        URGENT = 'URGENT', 'Urgent'
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SCHEDULED = 'SCHEDULED', 'Scheduled'
+        PUBLISHED = 'PUBLISHED', 'Published'
+        EXPIRED = 'EXPIRED', 'Expired'
+        ARCHIVED = 'ARCHIVED', 'Archived'
+
+    class Category(models.TextChoices):
+        GENERAL = 'GENERAL', 'General'
+        HR = 'HR', 'HR & Admin'
+        POLICY = 'POLICY', 'Policy Update'
+        EVENT = 'EVENT', 'Event'
+        BENEFITS = 'BENEFITS', 'Benefits'
+        TRAINING = 'TRAINING', 'Training'
+        IT = 'IT', 'IT & Systems'
+        SAFETY = 'SAFETY', 'Health & Safety'
+        OTHER = 'OTHER', 'Other'
+
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, unique=True)
+    content = models.TextField()
+    summary = models.CharField(max_length=500, blank=True, help_text='Short summary for previews')
+
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        default=Category.GENERAL
+    )
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.NORMAL
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT
+    )
+
+    # Targeting (null = all employees)
+    is_company_wide = models.BooleanField(default=True, help_text='If false, uses targeting rules')
+
+    # Scheduling
+    publish_date = models.DateTimeField(null=True, blank=True, help_text='When to automatically publish')
+    expiry_date = models.DateTimeField(null=True, blank=True, help_text='When announcement expires')
+
+    # Engagement
+    requires_acknowledgement = models.BooleanField(default=False)
+    allow_comments = models.BooleanField(default=False)
+
+    # Publishing
+    published_at = models.DateTimeField(null=True, blank=True)
+    published_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='published_announcements'
+    )
+
+    # Display settings
+    pin_to_top = models.BooleanField(default=False)
+    show_on_dashboard = models.BooleanField(default=True)
+
+    # Banner image (optional)
+    banner_data = models.BinaryField(null=True, blank=True)
+    banner_name = models.CharField(max_length=255, blank=True)
+    banner_mime_type = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        db_table = 'announcements'
+        ordering = ['-pin_to_top', '-published_at', '-created_at']
+        indexes = [
+            models.Index(fields=['status', '-published_at']),
+            models.Index(fields=['category', 'status']),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            from django.utils.text import slugify
+            base_slug = slugify(self.title)[:200]
+            self.slug = base_slug
+            counter = 1
+            while Announcement.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
+                self.slug = f"{base_slug}-{counter}"
+                counter += 1
+        super().save(*args, **kwargs)
+
+    @property
+    def is_active(self):
+        """Check if announcement is currently active."""
+        if self.status != self.Status.PUBLISHED:
+            return False
+        now = timezone.now()
+        if self.expiry_date and now > self.expiry_date:
+            return False
+        return True
+
+    @property
+    def has_banner(self):
+        """Check if banner image exists."""
+        return self.banner_data is not None and len(self.banner_data) > 0
+
+    def set_banner(self, file_obj):
+        """Store banner image from upload."""
+        self.banner_data = file_obj.read()
+        self.banner_name = file_obj.name
+        self.banner_mime_type = mimetypes.guess_type(file_obj.name)[0] or 'image/jpeg'
+
+    def get_banner_data_uri(self):
+        """Return banner as data URI."""
+        if self.has_banner:
+            encoded = base64.b64encode(self.banner_data).decode('utf-8')
+            return f"data:{self.banner_mime_type};base64,{encoded}"
+        return None
+
+    def publish(self, user=None):
+        """Publish the announcement."""
+        self.status = self.Status.PUBLISHED
+        self.published_at = timezone.now()
+        self.published_by = user
+        self.save()
+
+    def get_target_employees(self):
+        """Get list of employees who should see this announcement."""
+        from employees.models import Employee
+
+        if self.is_company_wide:
+            return Employee.objects.filter(status=Employee.EmploymentStatus.ACTIVE)
+
+        # Get targeted employees
+        targets = self.targets.all()
+        employee_ids = set()
+
+        for target in targets:
+            qs = Employee.objects.filter(status=Employee.EmploymentStatus.ACTIVE)
+
+            if target.department:
+                qs = qs.filter(department=target.department)
+            if target.grade:
+                qs = qs.filter(grade=target.grade)
+            if target.work_location:
+                qs = qs.filter(work_location=target.work_location)
+            if target.employment_type:
+                qs = qs.filter(employment_type=target.employment_type)
+
+            employee_ids.update(qs.values_list('id', flat=True))
+
+        return Employee.objects.filter(id__in=employee_ids)
+
+
+class AnnouncementTarget(BaseModel):
+    """
+    Targeting rules for an announcement.
+    Multiple targets can be added for OR logic (any matching employee sees it).
+    """
+    announcement = models.ForeignKey(
+        Announcement,
+        on_delete=models.CASCADE,
+        related_name='targets'
+    )
+
+    # Target criteria (null = all for that dimension)
+    department = models.ForeignKey(
+        'organization.Department',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='announcement_targets'
+    )
+    grade = models.ForeignKey(
+        'organization.JobGrade',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='announcement_targets'
+    )
+    work_location = models.ForeignKey(
+        'organization.WorkLocation',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='announcement_targets'
+    )
+    employment_type = models.CharField(max_length=20, blank=True)
+
+    class Meta:
+        db_table = 'announcement_targets'
+
+    def __str__(self):
+        parts = []
+        if self.department:
+            parts.append(f"Dept: {self.department.name}")
+        if self.grade:
+            parts.append(f"Grade: {self.grade.name}")
+        if self.work_location:
+            parts.append(f"Location: {self.work_location.name}")
+        if self.employment_type:
+            parts.append(f"Type: {self.employment_type}")
+        return ' | '.join(parts) or 'All Employees'
+
+
+class AnnouncementRead(BaseModel):
+    """
+    Tracks which users have read/acknowledged announcements.
+    """
+    announcement = models.ForeignKey(
+        Announcement,
+        on_delete=models.CASCADE,
+        related_name='reads'
+    )
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.CASCADE,
+        related_name='announcement_reads'
+    )
+    read_at = models.DateTimeField(auto_now_add=True)
+    acknowledged = models.BooleanField(default=False)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'announcement_reads'
+        unique_together = ['announcement', 'employee']
+
+    def __str__(self):
+        return f"{self.employee.employee_number} read {self.announcement.title}"
+
+    def acknowledge(self):
+        """Mark as acknowledged."""
+        if not self.acknowledged:
+            self.acknowledged = True
+            self.acknowledged_at = timezone.now()
+            self.save()
+
+
+class AnnouncementAttachment(BaseModel):
+    """
+    File attachments for announcements.
+    """
+    announcement = models.ForeignKey(
+        Announcement,
+        on_delete=models.CASCADE,
+        related_name='attachments'
+    )
+    file_data = models.BinaryField()
+    file_name = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=100)
+    file_size = models.PositiveIntegerField(default=0)
+    description = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        db_table = 'announcement_attachments'
+
+    def __str__(self):
+        return self.file_name
+
+    @property
+    def has_file(self):
+        """Check if file data exists."""
+        return self.file_data is not None and len(self.file_data) > 0
+
+    def set_file(self, file_obj):
+        """Store file from upload."""
+        self.file_data = file_obj.read()
+        self.file_name = file_obj.name
+        self.mime_type = mimetypes.guess_type(file_obj.name)[0] or 'application/octet-stream'
+        self.file_size = len(self.file_data)
+
+    def get_file_data_uri(self):
+        """Return file as data URI."""
+        if self.has_file:
+            encoded = base64.b64encode(self.file_data).decode('utf-8')
+            return f"data:{self.mime_type};base64,{encoded}"
+        return None

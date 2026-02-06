@@ -1076,6 +1076,40 @@ class PayrollRun(BaseModel):
     def __str__(self):
         return f"{self.run_number} - {self.payroll_period.name}"
 
+    def generate_run_number(self):
+        """Generate a unique run number based on period."""
+        if self.payroll_period:
+            year = self.payroll_period.year
+            month = self.payroll_period.month
+            prefix = f"PR-{year}{month:02d}"
+        else:
+            from django.utils import timezone
+            now = timezone.now()
+            prefix = f"PR-{now.year}{now.month:02d}"
+
+        # Find the highest sequence number for this prefix
+        # Use all_objects to include soft-deleted records (unique constraint is at DB level)
+        existing = PayrollRun.all_objects.filter(
+            run_number__startswith=prefix
+        ).order_by('-run_number').first()
+
+        if existing and existing.run_number:
+            try:
+                # Extract sequence number from existing run_number
+                seq_str = existing.run_number.split('-')[-1]
+                seq = int(seq_str) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+
+        return f"{prefix}-{seq:03d}"
+
+    def save(self, *args, **kwargs):
+        if not self.run_number:
+            self.run_number = self.generate_run_number()
+        super().save(*args, **kwargs)
+
 
 class PayrollItem(BaseModel):
     """

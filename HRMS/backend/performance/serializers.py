@@ -8,7 +8,9 @@ from .models import (
     AppraisalCycle, RatingScale, RatingScaleLevel, Competency, CompetencyLevel,
     GoalCategory, Appraisal, Goal, GoalUpdate, CompetencyAssessment,
     PeerFeedback, PerformanceImprovementPlan, PIPReview,
-    DevelopmentPlan, DevelopmentActivity
+    DevelopmentPlan, DevelopmentActivity,
+    CoreValue, CoreValueAssessment, ProbationAssessment,
+    TrainingNeed, PerformanceAppeal
 )
 
 
@@ -39,6 +41,19 @@ class AppraisalCycleSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppraisalCycle
         fields = '__all__'
+
+    def validate(self, data):
+        """Validate that weights sum to 100."""
+        objectives_weight = data.get('objectives_weight', self.instance.objectives_weight if self.instance else 60)
+        competencies_weight = data.get('competencies_weight', self.instance.competencies_weight if self.instance else 20)
+        values_weight = data.get('values_weight', self.instance.values_weight if self.instance else 20)
+
+        total = objectives_weight + competencies_weight + values_weight
+        if total != 100:
+            raise serializers.ValidationError(
+                f'Component weights must sum to 100. Current total: {total}'
+            )
+        return data
 
 
 class CompetencyLevelSerializer(serializers.ModelSerializer):
@@ -125,10 +140,12 @@ class PeerFeedbackSerializer(serializers.ModelSerializer):
 class AppraisalListSerializer(serializers.ModelSerializer):
     employee_name = serializers.CharField(source='employee.full_name', read_only=True)
     employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
-    department_name = serializers.CharField(source='employee.department.name', read_only=True)
-    position_title = serializers.CharField(source='employee.position.title', read_only=True)
+    department_name = serializers.CharField(source='employee.department.name', read_only=True, allow_null=True)
+    position_title = serializers.CharField(source='employee.position.title', read_only=True, allow_null=True)
     cycle_name = serializers.CharField(source='appraisal_cycle.name', read_only=True)
     cycle_year = serializers.IntegerField(source='appraisal_cycle.year', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    overall_self_rating = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
 
     class Meta:
         model = Appraisal
@@ -136,15 +153,16 @@ class AppraisalListSerializer(serializers.ModelSerializer):
             'id', 'employee', 'employee_name', 'employee_number',
             'department_name', 'position_title',
             'appraisal_cycle', 'cycle_name', 'cycle_year',
-            'status', 'overall_final_rating', 'completion_date'
+            'status', 'status_display', 'overall_self_rating',
+            'overall_final_rating', 'completion_date'
         ]
 
 
 class AppraisalSerializer(serializers.ModelSerializer):
     employee_name = serializers.CharField(source='employee.full_name', read_only=True)
     employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
-    department_name = serializers.CharField(source='employee.department.name', read_only=True)
-    position_title = serializers.CharField(source='employee.position.title', read_only=True)
+    department_name = serializers.CharField(source='employee.department.name', read_only=True, allow_null=True)
+    position_title = serializers.CharField(source='employee.position.title', read_only=True, allow_null=True)
     manager_name = serializers.CharField(source='manager.full_name', read_only=True)
     cycle_name = serializers.CharField(source='appraisal_cycle.name', read_only=True)
     goals = GoalSerializer(many=True, read_only=True)
@@ -230,4 +248,217 @@ class DevelopmentPlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DevelopmentPlan
+        fields = '__all__'
+
+
+# Core Value Serializers
+class CoreValueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoreValue
+        fields = [
+            'id', 'name', 'code', 'description', 'behavioral_indicators',
+            'is_active', 'sort_order', 'created_at', 'updated_at'
+        ]
+
+
+class CoreValueAssessmentSerializer(serializers.ModelSerializer):
+    core_value_name = serializers.CharField(source='core_value.name', read_only=True)
+    core_value_code = serializers.CharField(source='core_value.code', read_only=True)
+
+    class Meta:
+        model = CoreValueAssessment
+        fields = [
+            'id', 'appraisal', 'core_value', 'core_value_name', 'core_value_code',
+            'self_rating', 'self_comments', 'manager_rating', 'manager_comments',
+            'final_rating', 'created_at', 'updated_at'
+        ]
+
+
+# Probation Assessment Serializers
+class ProbationAssessmentListSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    department_name = serializers.CharField(source='employee.department.name', read_only=True)
+    position_title = serializers.CharField(source='employee.position.title', read_only=True)
+    period_display = serializers.CharField(source='get_assessment_period_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = ProbationAssessment
+        fields = [
+            'id', 'employee', 'employee_name', 'employee_number',
+            'department_name', 'position_title',
+            'assessment_period', 'period_display', 'assessment_date', 'due_date',
+            'overall_rating', 'status', 'status_display'
+        ]
+
+
+class ProbationAssessmentSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    department_name = serializers.CharField(source='employee.department.name', read_only=True)
+    position_title = serializers.CharField(source='employee.position.title', read_only=True)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.full_name', read_only=True)
+    period_display = serializers.CharField(source='get_assessment_period_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = ProbationAssessment
+        fields = '__all__'
+
+
+class ProbationAssessmentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProbationAssessment
+        fields = [
+            'employee', 'assessment_period', 'assessment_date', 'due_date',
+            'job_knowledge', 'work_quality', 'attendance_punctuality',
+            'teamwork', 'communication', 'initiative',
+            'supervisor_comments', 'recommendation'
+        ]
+
+
+# Training Need Serializers
+class TrainingNeedListSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    competency_name = serializers.CharField(source='competency.name', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    type_display = serializers.CharField(source='get_training_type_display', read_only=True)
+
+    class Meta:
+        model = TrainingNeed
+        fields = [
+            'id', 'employee', 'employee_name', 'employee_number',
+            'title', 'training_type', 'type_display',
+            'competency', 'competency_name',
+            'priority', 'priority_display',
+            'target_date', 'status', 'status_display'
+        ]
+
+
+class TrainingNeedSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    competency_name = serializers.CharField(source='competency.name', read_only=True)
+    appraisal_cycle = serializers.CharField(
+        source='appraisal.appraisal_cycle.name', read_only=True
+    )
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    type_display = serializers.CharField(source='get_training_type_display', read_only=True)
+
+    class Meta:
+        model = TrainingNeed
+        fields = '__all__'
+
+
+class TrainingNeedCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainingNeed
+        fields = [
+            'employee', 'appraisal', 'title', 'description', 'training_type',
+            'competency', 'priority', 'target_date', 'estimated_cost',
+            'training_provider'
+        ]
+
+
+# Performance Appeal Serializers
+class PerformanceAppealListSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(
+        source='appraisal.employee.full_name', read_only=True
+    )
+    employee_number = serializers.CharField(
+        source='appraisal.employee.employee_number', read_only=True
+    )
+    appraisal_cycle = serializers.CharField(
+        source='appraisal.appraisal_cycle.name', read_only=True
+    )
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = PerformanceAppeal
+        fields = [
+            'id', 'appeal_number', 'appraisal', 'employee_name', 'employee_number',
+            'appraisal_cycle', 'submitted_at', 'status', 'status_display',
+            'hearing_date', 'decision_date'
+        ]
+
+
+class PerformanceAppealSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(
+        source='appraisal.employee.full_name', read_only=True
+    )
+    employee_number = serializers.CharField(
+        source='appraisal.employee.employee_number', read_only=True
+    )
+    appraisal_cycle = serializers.CharField(
+        source='appraisal.appraisal_cycle.name', read_only=True
+    )
+    reviewer_name = serializers.CharField(source='reviewer.get_full_name', read_only=True)
+    decided_by_name = serializers.CharField(source='decided_by.get_full_name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = PerformanceAppeal
+        fields = '__all__'
+
+
+class PerformanceAppealCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PerformanceAppeal
+        fields = [
+            'appraisal', 'grounds', 'disputed_ratings',
+            'requested_remedy', 'supporting_evidence'
+        ]
+
+
+class PerformanceAppealDecisionSerializer(serializers.Serializer):
+    """Serializer for recording appeal decisions."""
+    decision = serializers.CharField()
+    status = serializers.ChoiceField(choices=[
+        ('UPHELD', 'Appeal Upheld'),
+        ('PARTIAL', 'Partially Upheld'),
+        ('DISMISSED', 'Dismissed'),
+    ])
+    revised_ratings = serializers.DictField(required=False)
+
+
+# Enhanced Appraisal Serializer with value assessments
+class AppraisalDetailSerializer(serializers.ModelSerializer):
+    """Extended serializer with all assessment components."""
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    department_name = serializers.CharField(source='employee.department.name', read_only=True)
+    position_title = serializers.CharField(source='employee.position.title', read_only=True)
+    manager_name = serializers.CharField(source='manager.full_name', read_only=True)
+    cycle_name = serializers.CharField(source='appraisal_cycle.name', read_only=True)
+    goals = GoalSerializer(many=True, read_only=True)
+    competency_assessments = CompetencyAssessmentSerializer(many=True, read_only=True)
+    value_assessments = CoreValueAssessmentSerializer(many=True, read_only=True)
+    peer_feedback = PeerFeedbackSerializer(many=True, read_only=True)
+    training_needs = TrainingNeedListSerializer(many=True, read_only=True)
+    appeals = PerformanceAppealListSerializer(many=True, read_only=True)
+
+    # Cycle configuration for frontend reference
+    objectives_weight = serializers.DecimalField(
+        source='appraisal_cycle.objectives_weight',
+        max_digits=5, decimal_places=2, read_only=True
+    )
+    competencies_weight = serializers.DecimalField(
+        source='appraisal_cycle.competencies_weight',
+        max_digits=5, decimal_places=2, read_only=True
+    )
+    values_weight = serializers.DecimalField(
+        source='appraisal_cycle.values_weight',
+        max_digits=5, decimal_places=2, read_only=True
+    )
+    pass_mark = serializers.DecimalField(
+        source='appraisal_cycle.pass_mark',
+        max_digits=5, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = Appraisal
         fields = '__all__'

@@ -736,3 +736,465 @@ class EmploymentHistory(BaseModel):
 
     def __str__(self):
         return f"{self.employee.employee_number} - {self.change_type} - {self.effective_date}"
+
+
+class DataUpdateRequest(BaseModel):
+    """
+    Employee self-service data update request.
+    Allows employees to request changes to their personal data with HR approval.
+    """
+    class RequestType(models.TextChoices):
+        BANK_DETAILS = 'BANK', 'Bank Details'
+        NAME_CHANGE = 'NAME', 'Name Change'
+        ADDRESS = 'ADDRESS', 'Address Update'
+        CONTACT = 'CONTACT', 'Contact Information'
+        EMERGENCY_CONTACT = 'EMERGENCY', 'Emergency Contact'
+        DEPENDENT = 'DEPENDENT', 'Dependent Information'
+        PERSONAL = 'PERSONAL', 'Personal Information'
+        EDUCATION = 'EDUCATION', 'Education/Qualifications'
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        PENDING = 'PENDING', 'Pending Review'
+        UNDER_REVIEW = 'UNDER_REVIEW', 'Under Review'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='data_update_requests'
+    )
+    request_number = models.CharField(max_length=20, unique=True, db_index=True)
+    request_type = models.CharField(
+        max_length=20,
+        choices=RequestType.choices,
+        db_index=True
+    )
+
+    # Current/Old values (snapshot before change)
+    old_values = models.JSONField(default=dict, help_text='Current values before change')
+
+    # Requested new values
+    new_values = models.JSONField(default=dict, help_text='Requested new values')
+
+    # Request details
+    reason = models.TextField(help_text='Reason for the data update request')
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True
+    )
+
+    # Submission
+    submitted_at = models.DateTimeField(null=True, blank=True)
+
+    # Review
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_data_updates'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_comments = models.TextField(blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    # Application of changes
+    applied_at = models.DateTimeField(null=True, blank=True)
+    applied_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='applied_data_updates'
+    )
+
+    class Meta:
+        db_table = 'employee_data_update_requests'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.request_number} - {self.employee.employee_number} - {self.get_request_type_display()}"
+
+    @property
+    def changes_summary(self):
+        """Return a human-readable summary of the requested changes."""
+        summary = []
+        for key in self.new_values:
+            old_val = self.old_values.get(key, 'N/A')
+            new_val = self.new_values.get(key)
+            summary.append({
+                'field': key,
+                'old_value': old_val,
+                'new_value': new_val
+            })
+        return summary
+
+
+class DataUpdateDocument(BaseModel):
+    """
+    Supporting documents for data update requests (e.g., marriage certificate for name change).
+    """
+    class DocumentType(models.TextChoices):
+        MARRIAGE_CERT = 'MARRIAGE', 'Marriage Certificate'
+        DIVORCE_CERT = 'DIVORCE', 'Divorce Certificate'
+        DEED_POLL = 'DEED_POLL', 'Deed Poll / Name Change'
+        BANK_CONFIRMATION = 'BANK_CONFIRM', 'Bank Account Confirmation'
+        UTILITY_BILL = 'UTILITY', 'Utility Bill'
+        ID_DOCUMENT = 'ID', 'ID Document'
+        BIRTH_CERTIFICATE = 'BIRTH', 'Birth Certificate'
+        EDUCATIONAL_CERT = 'EDU_CERT', 'Educational Certificate'
+        OTHER = 'OTHER', 'Other'
+
+    data_update_request = models.ForeignKey(
+        DataUpdateRequest,
+        on_delete=models.CASCADE,
+        related_name='documents'
+    )
+
+    # File storage (using binary field for database storage)
+    file_data = models.BinaryField(null=True, blank=True)
+    file_name = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=100, blank=True)
+    file_size = models.PositiveIntegerField(default=0)
+
+    document_type = models.CharField(
+        max_length=20,
+        choices=DocumentType.choices,
+        default=DocumentType.OTHER
+    )
+    description = models.CharField(max_length=255, blank=True)
+
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='uploaded_data_documents'
+    )
+
+    class Meta:
+        db_table = 'employee_data_update_documents'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.file_name} - {self.get_document_type_display()}"
+
+    @property
+    def has_file(self):
+        """Check if document has file data."""
+        return self.file_data is not None and len(self.file_data) > 0
+
+    def set_file(self, uploaded_file):
+        """Store file from upload."""
+        self.file_data = uploaded_file.read()
+        self.file_name = uploaded_file.name
+        self.mime_type = mimetypes.guess_type(uploaded_file.name)[0] or 'application/octet-stream'
+        self.file_size = len(self.file_data)
+
+    def get_file_data_uri(self):
+        """Return file as data URI."""
+        if self.has_file:
+            encoded = base64.b64encode(self.file_data).decode('utf-8')
+            return f"data:{self.mime_type};base64,{encoded}"
+        return None
+
+
+class ServiceRequestType(BaseModel):
+    """
+    Types of HR service requests employees can submit.
+    """
+    code = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+
+    # SLA configuration
+    sla_days = models.PositiveIntegerField(default=10, help_text='Days before SLA breach')
+    auto_response_message = models.TextField(
+        blank=True,
+        help_text='Automatic response message sent on receipt'
+    )
+
+    # Routing
+    requires_manager_approval = models.BooleanField(default=False)
+    requires_hr_approval = models.BooleanField(default=True)
+    route_to_location_hr = models.BooleanField(
+        default=True,
+        help_text='Route to HR at employee location first'
+    )
+
+    # Document requirements
+    requires_document = models.BooleanField(default=False)
+    document_types_accepted = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='Comma-separated list of accepted document types'
+    )
+
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'service_request_types'
+        ordering = ['sort_order', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+class ServiceRequest(BaseModel):
+    """
+    Employee HR service requests with SLA tracking.
+    """
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+        ACKNOWLEDGED = 'ACKNOWLEDGED', 'Acknowledged'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        PENDING_APPROVAL = 'PENDING_APPROVAL', 'Pending Approval'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+        COMPLETED = 'COMPLETED', 'Completed'
+        ESCALATED = 'ESCALATED', 'Escalated'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    class Priority(models.TextChoices):
+        LOW = 'LOW', 'Low'
+        MEDIUM = 'MEDIUM', 'Medium'
+        HIGH = 'HIGH', 'High'
+        URGENT = 'URGENT', 'Urgent'
+
+    class SLAStatus(models.TextChoices):
+        GREEN = 'GREEN', 'On Track'  # Within SLA
+        AMBER = 'AMBER', 'At Risk'   # 80%+ of SLA elapsed
+        RED = 'RED', 'Breached'      # Past SLA deadline
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='service_requests'
+    )
+    request_type = models.ForeignKey(
+        ServiceRequestType,
+        on_delete=models.PROTECT,
+        related_name='requests'
+    )
+    request_number = models.CharField(max_length=20, unique=True, db_index=True)
+
+    # Request details
+    subject = models.CharField(max_length=200)
+    description = models.TextField()
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.MEDIUM
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True
+    )
+
+    # Submission
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    # SLA tracking
+    sla_deadline = models.DateTimeField(null=True, blank=True)
+    sla_status = models.CharField(
+        max_length=10,
+        choices=SLAStatus.choices,
+        default=SLAStatus.GREEN
+    )
+
+    # Routing
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_service_requests'
+    )
+    assigned_location = models.ForeignKey(
+        'organization.WorkLocation',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='service_requests'
+    )
+
+    # Resolution
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_service_requests'
+    )
+    resolution_notes = models.TextField(blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    # Escalation
+    is_escalated = models.BooleanField(default=False)
+    escalated_at = models.DateTimeField(null=True, blank=True)
+    escalated_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='escalated_service_requests'
+    )
+    escalation_reason = models.TextField(blank=True)
+
+    # Employee feedback
+    satisfaction_rating = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text='1-5 rating'
+    )
+    feedback = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'service_requests'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['employee', 'status']),
+            models.Index(fields=['sla_status', '-sla_deadline']),
+        ]
+
+    def __str__(self):
+        return f"{self.request_number} - {self.subject}"
+
+    def save(self, *args, **kwargs):
+        if not self.request_number:
+            import uuid
+            self.request_number = f"SR-{uuid.uuid4().hex[:8].upper()}"
+        super().save(*args, **kwargs)
+
+    def calculate_sla_deadline(self):
+        """Calculate SLA deadline based on request type."""
+        if self.submitted_at and self.request_type:
+            from datetime import timedelta
+            self.sla_deadline = self.submitted_at + timedelta(days=self.request_type.sla_days)
+
+    def update_sla_status(self):
+        """Update SLA status based on current time."""
+        if not self.sla_deadline or self.status in [
+            self.Status.COMPLETED, self.Status.REJECTED,
+            self.Status.CANCELLED
+        ]:
+            return
+
+        now = timezone.now()
+        if now > self.sla_deadline:
+            self.sla_status = self.SLAStatus.RED
+        elif now > self.sla_deadline - timezone.timedelta(days=2):  # 2 days before deadline
+            self.sla_status = self.SLAStatus.AMBER
+        else:
+            self.sla_status = self.SLAStatus.GREEN
+
+    @property
+    def days_until_sla(self):
+        """Get days remaining until SLA deadline."""
+        if not self.sla_deadline:
+            return None
+        delta = self.sla_deadline - timezone.now()
+        return delta.days
+
+    @property
+    def is_overdue(self):
+        """Check if request is past SLA deadline."""
+        if not self.sla_deadline:
+            return False
+        return timezone.now() > self.sla_deadline
+
+
+class ServiceRequestComment(BaseModel):
+    """
+    Comments/notes on service requests.
+    """
+    class CommentType(models.TextChoices):
+        USER = 'USER', 'User Comment'
+        HR = 'HR', 'HR Note'
+        SYSTEM = 'SYSTEM', 'System'
+        INTERNAL = 'INTERNAL', 'Internal Note'
+
+    service_request = models.ForeignKey(
+        ServiceRequest,
+        on_delete=models.CASCADE,
+        related_name='comments'
+    )
+    comment = models.TextField()
+    comment_type = models.CharField(
+        max_length=20,
+        choices=CommentType.choices,
+        default=CommentType.USER
+    )
+    is_visible_to_employee = models.BooleanField(default=True)
+    commented_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='service_request_comments'
+    )
+
+    class Meta:
+        db_table = 'service_request_comments'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Comment on {self.service_request.request_number}"
+
+
+class ServiceRequestDocument(BaseModel):
+    """
+    Supporting documents for service requests.
+    """
+    service_request = models.ForeignKey(
+        ServiceRequest,
+        on_delete=models.CASCADE,
+        related_name='documents'
+    )
+
+    # File storage
+    file_data = models.BinaryField(null=True, blank=True)
+    file_name = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=100, blank=True)
+    file_size = models.PositiveIntegerField(default=0)
+    description = models.CharField(max_length=255, blank=True)
+
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='service_request_documents'
+    )
+
+    class Meta:
+        db_table = 'service_request_documents'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.file_name
+
+    @property
+    def has_file(self):
+        return self.file_data is not None and len(self.file_data) > 0
+
+    def set_file(self, uploaded_file):
+        self.file_data = uploaded_file.read()
+        self.file_name = uploaded_file.name
+        self.mime_type = mimetypes.guess_type(uploaded_file.name)[0] or 'application/octet-stream'
+        self.file_size = len(self.file_data)
+
+    def get_file_data_uri(self):
+        if self.has_file:
+            encoded = base64.b64encode(self.file_data).decode('utf-8')
+            return f"data:{self.mime_type};base64,{encoded}"
+        return None

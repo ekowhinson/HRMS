@@ -8,7 +8,9 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AppraisalCycleViewSet, RatingScaleViewSet, CompetencyViewSet,
     GoalCategoryViewSet, AppraisalViewSet, GoalViewSet,
-    PIPViewSet, DevelopmentPlanViewSet, DevelopmentActivityViewSet
+    PIPViewSet, DevelopmentPlanViewSet, DevelopmentActivityViewSet,
+    CoreValueViewSet, CoreValueAssessmentViewSet,
+    ProbationAssessmentViewSet, TrainingNeedViewSet, PerformanceAppealViewSet
 )
 
 router = DefaultRouter()
@@ -21,6 +23,13 @@ router.register(r'goals', GoalViewSet, basename='goal')
 router.register(r'pips', PIPViewSet, basename='pip')
 router.register(r'development-plans', DevelopmentPlanViewSet, basename='development-plan')
 router.register(r'development-activities', DevelopmentActivityViewSet, basename='development-activity')
+
+# New NHIA-specific endpoints
+router.register(r'core-values', CoreValueViewSet, basename='core-value')
+router.register(r'value-assessments', CoreValueAssessmentViewSet, basename='value-assessment')
+router.register(r'probation-assessments', ProbationAssessmentViewSet, basename='probation-assessment')
+router.register(r'training-needs', TrainingNeedViewSet, basename='training-need')
+router.register(r'appeals', PerformanceAppealViewSet, basename='performance-appeal')
 
 urlpatterns = [
     path('', include(router.urls)),

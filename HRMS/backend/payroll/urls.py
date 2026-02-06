@@ -70,4 +70,5 @@ urlpatterns = [
     # Bank file downloads
     path('bank-files/<uuid:pk>/download/', views.BankFileDownloadView.as_view(), name='bank-file-download'),
     path('runs/<uuid:run_id>/bank-files/', views.PayrollRunBankFilesListView.as_view(), name='payroll-run-bank-files'),
+    path('runs/<uuid:run_id>/bank-file/download/', views.PayrollRunBankFileDownloadView.as_view(), name='payroll-run-bank-file-download'),
 ]
