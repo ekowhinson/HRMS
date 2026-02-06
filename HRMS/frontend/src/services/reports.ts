@@ -1,6 +1,6 @@
 import api from '@/lib/api'
 
-export type ExportFormat = 'csv' | 'excel' | 'pdf'
+export type ExportFormat = 'csv' | 'excel' | 'pdf' | 'text'
 
 // Common filter type for all reports
 export interface ReportFilters {
@@ -30,6 +30,8 @@ const getFileExtension = (format: ExportFormat): string => {
       return 'xlsx'
     case 'pdf':
       return 'pdf'
+    case 'text':
+      return 'txt'
     default:
       return 'csv'
   }
@@ -115,6 +117,20 @@ export const reportsService = {
       responseType: 'blob',
     })
     downloadFile(response.data, `paye_report_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportPAYEGRAReport(
+    payrollRunId?: string,
+    format: ExportFormat = 'excel',
+    filters?: ReportFilters
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+    if (payrollRunId) params.set('payroll_run', payrollRunId)
+
+    const response = await api.get(`/reports/export/paye-gra/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `paye_gra_${Date.now()}.${getFileExtension(format)}`)
   },
 
   async exportSSNITReport(
@@ -291,6 +307,31 @@ export const reportsService = {
     return response.data
   },
 
+  // Payroll Reconciliation
+  async getPayrollReconciliation(currentRunId?: string, previousRunId?: string) {
+    const params = new URLSearchParams()
+    if (currentRunId) params.append('current_run', currentRunId)
+    if (previousRunId) params.append('previous_run', previousRunId)
+    const response = await api.get(`/reports/payroll/reconciliation/?${params.toString()}`)
+    return response.data
+  },
+
+  async exportPayrollReconciliation(
+    currentRunId?: string,
+    previousRunId?: string,
+    format: ExportFormat = 'excel'
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    if (currentRunId) params.append('current_run', currentRunId)
+    if (previousRunId) params.append('previous_run', previousRunId)
+    params.append('format', format)
+
+    const response = await api.get(`/reports/export/reconciliation/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `payroll_reconciliation_${Date.now()}.${getFileExtension(format)}`)
+  },
+
   // Payslip downloads
   async getPayslipsForRun(payrollRunId: string) {
     const response = await api.get(`/payroll/runs/${payrollRunId}/payslips/`)
@@ -318,6 +359,32 @@ export const reportsService = {
     downloadFile(response.data, `payslips_${Date.now()}.zip`)
   },
 
+  async downloadFilteredPayslips(
+    payrollRunId: string,
+    filters?: ReportFilters,
+    format: ExportFormat = 'pdf'
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '' && key !== 'period') {
+          params.append(key, value)
+        }
+      })
+    }
+    // Map 'csv' to 'text' for payslips since backend uses 'text' for plain text format
+    // Using 'file_format' to avoid conflict with DRF's format suffix
+    const backendFormat = format === 'csv' ? 'text' : format
+    params.append('file_format', backendFormat)
+    const queryString = params.toString()
+    const url = `/payroll/runs/${payrollRunId}/payslips/download/${queryString ? `?${queryString}` : ''}`
+    const response = await api.get(url, {
+      responseType: 'blob',
+    })
+    // Payslips are always downloaded as a ZIP containing individual files in the selected format
+    downloadFile(response.data, `payslips_${Date.now()}.zip`)
+  },
+
   // Bank file downloads
   async getBankFilesForRun(payrollRunId: string) {
     const response = await api.get(`/payroll/runs/${payrollRunId}/bank-files/`)
@@ -331,6 +398,36 @@ export const reportsService = {
     // Get filename from content-disposition header or use default
     const contentDisposition = response.headers['content-disposition']
     let filename = `bank_file_${bankFileId}.csv`
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^"]+)"?/)
+      if (match) filename = match[1]
+    }
+    downloadFile(response.data, filename)
+  },
+
+  async downloadFilteredBankFile(
+    payrollRunId: string,
+    filters?: ReportFilters,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '' && key !== 'period') {
+          params.append(key, value)
+        }
+      })
+    }
+    // Using 'file_format' to avoid conflict with DRF's format suffix
+    params.append('file_format', format)
+    const queryString = params.toString()
+    const url = `/payroll/runs/${payrollRunId}/bank-file/download/${queryString ? `?${queryString}` : ''}`
+    const response = await api.get(url, {
+      responseType: 'blob',
+    })
+    // Get filename from content-disposition header or use default
+    const contentDisposition = response.headers['content-disposition']
+    let filename = `bank_file_${Date.now()}.${getFileExtension(format)}`
     if (contentDisposition) {
       const match = contentDisposition.match(/filename="?([^"]+)"?/)
       if (match) filename = match[1]

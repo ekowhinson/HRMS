@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   ChartBarIcon,
@@ -14,6 +15,7 @@ import {
   ClipboardDocumentListIcon,
   DocumentDuplicateIcon,
   BuildingLibraryIcon,
+  ArrowsRightLeftIcon,
 } from '@heroicons/react/24/outline'
 import { reportsService, ExportFormat } from '@/services/reports'
 import { payrollService } from '@/services/payroll'
@@ -86,6 +88,15 @@ const reportConfigs: ReportConfig[] = [
     exportFn: (filters, format) => reportsService.exportPAYEReport(filters.period, format, filters),
   },
   {
+    id: 'paye-gra',
+    name: 'PAYE GRA Schedule',
+    description: 'Official GRA PAYE Monthly Tax Deductions Schedule format with all 28 columns',
+    icon: BanknotesIcon,
+    category: 'payroll',
+    filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
+    exportFn: (filters, format) => reportsService.exportPAYEGRAReport(filters.period, format, filters),
+  },
+  {
     id: 'ssnit',
     name: 'SSNIT Contribution Report',
     description: 'Monthly SSNIT contributions for statutory submission',
@@ -106,38 +117,29 @@ const reportConfigs: ReportConfig[] = [
   {
     id: 'payslips',
     name: 'Employee Payslips',
-    description: 'Download all generated payslips for a payroll run as a ZIP file',
+    description: 'Download payslips as ZIP file (PDF, Excel, or Text format)',
     icon: DocumentDuplicateIcon,
     category: 'payroll',
-    filters: ['period'],
-    singleDownload: true,
-    downloadLabel: 'Download Payslips (ZIP)',
-    exportFn: (filters) => {
+    filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category'],
+    exportFn: (filters, format) => {
       if (!filters.period) {
         return Promise.reject(new Error('Please select a payroll period'))
       }
-      return reportsService.downloadAllPayslips(filters.period)
+      return reportsService.downloadFilteredPayslips(filters.period, filters, format)
     },
   },
   {
     id: 'bank-file',
     name: 'Bank Payment File',
-    description: 'Download the generated bank payment file for salary transfers',
+    description: 'Download bank payment file (CSV, Excel, or PDF format)',
     icon: BuildingLibraryIcon,
     category: 'payroll',
-    filters: ['period'],
-    singleDownload: true,
-    downloadLabel: 'Download Bank File',
-    exportFn: async (filters) => {
+    filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category', 'bank'],
+    exportFn: async (filters, format) => {
       if (!filters.period) {
         return Promise.reject(new Error('Please select a payroll period'))
       }
-      // Get the bank files for this run and download the first one
-      const data = await reportsService.getBankFilesForRun(filters.period)
-      if (data.bank_files && data.bank_files.length > 0) {
-        return reportsService.downloadBankFile(data.bank_files[0].id)
-      }
-      return Promise.reject(new Error('No bank file generated for this payroll run'))
+      return reportsService.downloadFilteredBankFile(filters.period, filters, format)
     },
   },
   {
@@ -530,6 +532,28 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      {/* Quick Actions */}
+      <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-xl p-4 border border-primary-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary-100 rounded-lg">
+              <ArrowsRightLeftIcon className="h-5 w-5 text-primary-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900">Payroll Reconciliation</h3>
+              <p className="text-sm text-gray-500">Compare payroll between periods to identify changes</p>
+            </div>
+          </div>
+          <Link
+            to="/reports/reconciliation"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            Open Reconciliation
+            <ArrowsRightLeftIcon className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
       {/* Category Filter */}
       <div className="flex flex-wrap gap-2">
         <Button
@@ -623,9 +647,30 @@ export default function ReportsPage() {
                   </div>
 
                   {selectedReport.filters && selectedReport.filters.length > 0 && (
-                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                      <h5 className="text-sm font-medium text-gray-700 sticky top-0 bg-white py-1">Filters</h5>
-                      {selectedReport.filters.map((filter) => renderFilterInput(filter))}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between sticky top-0 bg-white py-1">
+                        <h5 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <FunnelIcon className="h-4 w-4" />
+                          Filters
+                          {Object.values(filters).filter(v => v && v.trim() !== '').length > 0 && (
+                            <span className="bg-primary-100 text-primary-700 text-xs px-2 py-0.5 rounded-full">
+                              {Object.values(filters).filter(v => v && v.trim() !== '').length} active
+                            </span>
+                          )}
+                        </h5>
+                        {Object.values(filters).filter(v => v && v.trim() !== '').length > 0 && (
+                          <button
+                            type="button"
+                            className="text-xs text-gray-500 hover:text-gray-700 underline"
+                            onClick={() => setFilters({})}
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2">
+                        {selectedReport.filters.map((filter) => renderFilterInput(filter))}
+                      </div>
                     </div>
                   )}
 
@@ -645,40 +690,64 @@ export default function ReportsPage() {
                       </>
                     ) : (
                       <>
-                        <h5 className="text-sm font-medium text-gray-700">Download Format</h5>
+                        <h5 className="text-sm font-medium text-gray-700">Select Export Format</h5>
 
-                        <Button
-                          className="w-full"
-                          variant="outline"
-                          onClick={() => handleGenerateReport('csv')}
-                          isLoading={isGenerating === 'csv'}
-                          disabled={isGenerating !== null}
-                        >
-                          <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
-                          Download CSV
-                        </Button>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                              isGenerating === 'csv'
+                                ? 'border-primary-500 bg-primary-50'
+                                : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                            }`}
+                            onClick={() => handleGenerateReport('csv')}
+                            disabled={isGenerating !== null}
+                          >
+                            <DocumentArrowDownIcon className="h-6 w-6 text-green-600 mb-1" />
+                            <span className="text-xs font-medium text-gray-700">CSV</span>
+                            <span className="text-[10px] text-gray-400">Text</span>
+                          </button>
 
-                        <Button
-                          className="w-full"
-                          variant="outline"
-                          onClick={() => handleGenerateReport('excel')}
-                          isLoading={isGenerating === 'excel'}
-                          disabled={isGenerating !== null}
-                        >
-                          <TableCellsIcon className="h-4 w-4 mr-2" />
-                          Download Excel
-                        </Button>
+                          <button
+                            type="button"
+                            className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                              isGenerating === 'excel'
+                                ? 'border-primary-500 bg-primary-50'
+                                : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                            }`}
+                            onClick={() => handleGenerateReport('excel')}
+                            disabled={isGenerating !== null}
+                          >
+                            <TableCellsIcon className="h-6 w-6 text-green-700 mb-1" />
+                            <span className="text-xs font-medium text-gray-700">Excel</span>
+                            <span className="text-[10px] text-gray-400">Spreadsheet</span>
+                          </button>
 
-                        <Button
-                          className="w-full"
-                          variant="outline"
-                          onClick={() => handleGenerateReport('pdf')}
-                          isLoading={isGenerating === 'pdf'}
-                          disabled={isGenerating !== null}
-                        >
-                          <DocumentTextIcon className="h-4 w-4 mr-2" />
-                          Download PDF
-                        </Button>
+                          <button
+                            type="button"
+                            className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                              isGenerating === 'pdf'
+                                ? 'border-primary-500 bg-primary-50'
+                                : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                            }`}
+                            onClick={() => handleGenerateReport('pdf')}
+                            disabled={isGenerating !== null}
+                          >
+                            <DocumentTextIcon className="h-6 w-6 text-red-600 mb-1" />
+                            <span className="text-xs font-medium text-gray-700">PDF</span>
+                            <span className="text-[10px] text-gray-400">Print</span>
+                          </button>
+                        </div>
+
+                        {isGenerating && (
+                          <div className="flex items-center justify-center gap-2 text-sm text-primary-600">
+                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Generating {isGenerating.toUpperCase()} report...
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -686,7 +755,7 @@ export default function ReportsPage() {
                   <p className="text-xs text-gray-400 text-center">
                     {selectedReport.singleDownload
                       ? 'Click the button above to download the file'
-                      : 'Choose your preferred format: CSV for data processing, Excel for spreadsheets, or PDF for printing'}
+                      : 'Click a format to download. CSV for data, Excel for spreadsheets, PDF for printing.'}
                   </p>
                 </div>
               ) : (

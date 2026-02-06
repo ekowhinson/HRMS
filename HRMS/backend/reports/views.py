@@ -806,6 +806,243 @@ class PayrollVarianceReportView(APIView):
         })
 
 
+class PayrollReconciliationReportView(APIView):
+    """Detailed payroll reconciliation between current and previous month."""
+
+    def get(self, request):
+        from decimal import Decimal
+
+        current_run_id = request.query_params.get('current_run')
+        previous_run_id = request.query_params.get('previous_run')
+
+        # Get runs - either from params or last two approved runs
+        if current_run_id and previous_run_id:
+            try:
+                current_run = PayrollRun.objects.get(id=current_run_id)
+                previous_run = PayrollRun.objects.get(id=previous_run_id)
+            except PayrollRun.DoesNotExist:
+                return Response({
+                    'message': 'Invalid payroll run IDs',
+                    'generated_at': timezone.now()
+                }, status=400)
+        else:
+            runs = PayrollRun.objects.filter(
+                status__in=['APPROVED', 'PAID']
+            ).order_by('-run_date')[:2]
+
+            if len(runs) < 2:
+                return Response({
+                    'message': 'Need at least two completed payroll runs for reconciliation',
+                    'generated_at': timezone.now()
+                })
+
+            current_run = runs[0]
+            previous_run = runs[1]
+
+        # Get items from both runs
+        current_items = {
+            item.employee_id: item
+            for item in PayrollItem.objects.filter(payroll_run=current_run).select_related(
+                'employee', 'employee__department', 'employee__position', 'employee__grade'
+            )
+        }
+        previous_items = {
+            item.employee_id: item
+            for item in PayrollItem.objects.filter(payroll_run=previous_run).select_related(
+                'employee', 'employee__department', 'employee__position', 'employee__grade'
+            )
+        }
+
+        # All employee IDs from both periods
+        all_employee_ids = set(current_items.keys()) | set(previous_items.keys())
+
+        # Categorize employees
+        new_employees = []  # In current but not previous
+        separated_employees = []  # In previous but not current
+        changed_employees = []  # In both with differences
+        unchanged_employees = []  # In both with no changes
+
+        def safe_float(val):
+            if val is None:
+                return 0.0
+            return float(val)
+
+        for emp_id in all_employee_ids:
+            current = current_items.get(emp_id)
+            previous = previous_items.get(emp_id)
+
+            if current and not previous:
+                # New employee
+                emp = current.employee
+                new_employees.append({
+                    'employee_number': emp.employee_number,
+                    'employee_name': emp.full_name,
+                    'department': emp.department.name if emp.department else '',
+                    'position': emp.position.title if emp.position else '',
+                    'basic_salary': safe_float(current.basic_salary),
+                    'gross_earnings': safe_float(current.gross_earnings),
+                    'total_deductions': safe_float(current.total_deductions),
+                    'net_salary': safe_float(current.net_salary),
+                    'reason': 'New Hire',
+                })
+            elif previous and not current:
+                # Separated employee
+                emp = previous.employee
+                separated_employees.append({
+                    'employee_number': emp.employee_number,
+                    'employee_name': emp.full_name,
+                    'department': emp.department.name if emp.department else '',
+                    'position': emp.position.title if emp.position else '',
+                    'basic_salary': safe_float(previous.basic_salary),
+                    'gross_earnings': safe_float(previous.gross_earnings),
+                    'total_deductions': safe_float(previous.total_deductions),
+                    'net_salary': safe_float(previous.net_salary),
+                    'reason': emp.exit_reason or 'Separation',
+                })
+            else:
+                # Compare current and previous
+                emp = current.employee
+                curr_basic = safe_float(current.basic_salary)
+                prev_basic = safe_float(previous.basic_salary)
+                curr_gross = safe_float(current.gross_earnings)
+                prev_gross = safe_float(previous.gross_earnings)
+                curr_deductions = safe_float(current.total_deductions)
+                prev_deductions = safe_float(previous.total_deductions)
+                curr_net = safe_float(current.net_salary)
+                prev_net = safe_float(previous.net_salary)
+
+                basic_diff = curr_basic - prev_basic
+                gross_diff = curr_gross - prev_gross
+                deductions_diff = curr_deductions - prev_deductions
+                net_diff = curr_net - prev_net
+
+                # Check if there's any meaningful change (>0.01)
+                has_change = (
+                    abs(basic_diff) > 0.01 or
+                    abs(gross_diff) > 0.01 or
+                    abs(deductions_diff) > 0.01 or
+                    abs(net_diff) > 0.01
+                )
+
+                record = {
+                    'employee_number': emp.employee_number,
+                    'employee_name': emp.full_name,
+                    'department': emp.department.name if emp.department else '',
+                    'position': emp.position.title if emp.position else '',
+                    'prev_basic': prev_basic,
+                    'curr_basic': curr_basic,
+                    'basic_diff': basic_diff,
+                    'prev_gross': prev_gross,
+                    'curr_gross': curr_gross,
+                    'gross_diff': gross_diff,
+                    'prev_deductions': prev_deductions,
+                    'curr_deductions': curr_deductions,
+                    'deductions_diff': deductions_diff,
+                    'prev_net': prev_net,
+                    'curr_net': curr_net,
+                    'net_diff': net_diff,
+                }
+
+                if has_change:
+                    # Determine change reason
+                    reasons = []
+                    if abs(basic_diff) > 0.01:
+                        reasons.append('Salary Change')
+                    if abs(gross_diff - basic_diff) > 0.01:
+                        reasons.append('Allowances/Overtime')
+                    if abs(deductions_diff) > 0.01:
+                        reasons.append('Deductions')
+                    record['change_reasons'] = ', '.join(reasons) if reasons else 'Adjustment'
+                    changed_employees.append(record)
+                else:
+                    unchanged_employees.append(record)
+
+        # Calculate summary totals
+        curr_totals = {
+            'employees': current_run.total_employees or 0,
+            'gross': safe_float(current_run.total_gross),
+            'deductions': safe_float(current_run.total_deductions),
+            'net': safe_float(current_run.total_net),
+            'paye': safe_float(current_run.total_paye),
+            'ssnit_employee': safe_float(current_run.total_ssnit_employee),
+            'ssnit_employer': safe_float(current_run.total_ssnit_employer),
+        }
+        prev_totals = {
+            'employees': previous_run.total_employees or 0,
+            'gross': safe_float(previous_run.total_gross),
+            'deductions': safe_float(previous_run.total_deductions),
+            'net': safe_float(previous_run.total_net),
+            'paye': safe_float(previous_run.total_paye),
+            'ssnit_employee': safe_float(previous_run.total_ssnit_employee),
+            'ssnit_employer': safe_float(previous_run.total_ssnit_employer),
+        }
+
+        def calc_variance(curr, prev):
+            diff = curr - prev
+            pct = (diff / prev * 100) if prev > 0 else (100 if curr > 0 else 0)
+            return {'current': curr, 'previous': prev, 'difference': diff, 'percentage': round(pct, 2)}
+
+        summary = {
+            'current_period': current_run.payroll_period.name if current_run.payroll_period else current_run.run_number,
+            'previous_period': previous_run.payroll_period.name if previous_run.payroll_period else previous_run.run_number,
+            'current_run_date': current_run.run_date.isoformat() if current_run.run_date else None,
+            'previous_run_date': previous_run.run_date.isoformat() if previous_run.run_date else None,
+            'employees': calc_variance(curr_totals['employees'], prev_totals['employees']),
+            'gross': calc_variance(curr_totals['gross'], prev_totals['gross']),
+            'deductions': calc_variance(curr_totals['deductions'], prev_totals['deductions']),
+            'net': calc_variance(curr_totals['net'], prev_totals['net']),
+            'paye': calc_variance(curr_totals['paye'], prev_totals['paye']),
+            'ssnit_employee': calc_variance(curr_totals['ssnit_employee'], prev_totals['ssnit_employee']),
+            'ssnit_employer': calc_variance(curr_totals['ssnit_employer'], prev_totals['ssnit_employer']),
+        }
+
+        # Impact summary
+        impact = {
+            'new_employees_count': len(new_employees),
+            'new_employees_cost': sum(e['gross_earnings'] for e in new_employees),
+            'separated_employees_count': len(separated_employees),
+            'separated_employees_savings': sum(e['gross_earnings'] for e in separated_employees),
+            'changed_employees_count': len(changed_employees),
+            'net_salary_impact': sum(e['net_diff'] for e in changed_employees),
+            'unchanged_employees_count': len(unchanged_employees),
+        }
+
+        return Response({
+            'summary': summary,
+            'impact': impact,
+            'new_employees': sorted(new_employees, key=lambda x: x['employee_name']),
+            'separated_employees': sorted(separated_employees, key=lambda x: x['employee_name']),
+            'changed_employees': sorted(changed_employees, key=lambda x: abs(x['net_diff']), reverse=True),
+            'unchanged_count': len(unchanged_employees),
+            'generated_at': timezone.now()
+        })
+
+
+class ExportPayrollReconciliationView(APIView):
+    """Export payroll reconciliation report."""
+
+    def get(self, request):
+        from .exports import get_payroll_reconciliation_data, generate_excel_response, generate_csv_response, generate_pdf_response
+
+        current_run_id = request.query_params.get('current_run')
+        previous_run_id = request.query_params.get('previous_run')
+        file_format = request.query_params.get('format', 'excel').lower()
+
+        data, headers, title = get_payroll_reconciliation_data(current_run_id, previous_run_id)
+
+        if not data:
+            return Response({'message': 'No reconciliation data available'}, status=400)
+
+        filename_base = f"payroll_reconciliation_{timezone.now().strftime('%Y%m%d')}"
+
+        if file_format == 'csv':
+            return generate_csv_response(data, headers, f"{filename_base}.csv")
+        elif file_format == 'pdf':
+            return generate_pdf_response(data, headers, f"{filename_base}.pdf", title=title, landscape_mode=True)
+        else:
+            return generate_excel_response(data, headers, f"{filename_base}.xlsx", title=title)
+
+
 class PAYEStatutoryReportView(APIView):
     """PAYE statutory report for GRA."""
 
@@ -943,7 +1180,8 @@ class ScheduledReportsView(APIView):
 from .exports import (
     export_employee_master, export_headcount, export_payroll_summary,
     export_paye_report, export_ssnit_report, export_bank_advice,
-    export_leave_balance, export_loan_outstanding, export_payroll_master
+    export_leave_balance, export_loan_outstanding, export_payroll_master,
+    export_paye_gra_report
 )
 
 
@@ -952,8 +1190,15 @@ class ExportEmployeeMasterView(APIView):
 
     def get(self, request):
         filters = {
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
             'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
             'grade': request.query_params.get('grade'),
+            'salary_band': request.query_params.get('salary_band'),
+            'salary_level': request.query_params.get('salary_level'),
+            'staff_category': request.query_params.get('staff_category'),
             'status': request.query_params.get('status'),
         }
         file_format = request.query_params.get('file_format', 'csv')
@@ -964,8 +1209,15 @@ class ExportHeadcountView(APIView):
     """Export headcount report to CSV/Excel/PDF."""
 
     def get(self, request):
+        filters = {
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
+            'department': request.query_params.get('department'),
+            'grade': request.query_params.get('grade'),
+            'staff_category': request.query_params.get('staff_category'),
+        }
         file_format = request.query_params.get('file_format', 'csv')
-        return export_headcount(format=file_format)
+        return export_headcount(filters=filters, format=file_format)
 
 
 class ExportPayrollSummaryView(APIView):
@@ -973,8 +1225,20 @@ class ExportPayrollSummaryView(APIView):
 
     def get(self, request):
         payroll_run_id = request.query_params.get('payroll_run')
+        filters = {
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
+            'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
+            'grade': request.query_params.get('grade'),
+            'salary_band': request.query_params.get('salary_band'),
+            'salary_level': request.query_params.get('salary_level'),
+            'staff_category': request.query_params.get('staff_category'),
+            'bank': request.query_params.get('bank'),
+        }
         file_format = request.query_params.get('file_format', 'csv')
-        return export_payroll_summary(payroll_run_id, format=file_format)
+        return export_payroll_summary(payroll_run_id, filters=filters, format=file_format)
 
 
 class ExportPAYEReportView(APIView):
@@ -982,8 +1246,19 @@ class ExportPAYEReportView(APIView):
 
     def get(self, request):
         payroll_run_id = request.query_params.get('payroll_run')
+        filters = {
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
+            'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
+            'grade': request.query_params.get('grade'),
+            'salary_band': request.query_params.get('salary_band'),
+            'salary_level': request.query_params.get('salary_level'),
+            'staff_category': request.query_params.get('staff_category'),
+        }
         file_format = request.query_params.get('file_format', 'csv')
-        return export_paye_report(payroll_run_id, format=file_format)
+        return export_paye_report(payroll_run_id, filters=filters, format=file_format)
 
 
 class ExportSSNITReportView(APIView):
@@ -991,8 +1266,19 @@ class ExportSSNITReportView(APIView):
 
     def get(self, request):
         payroll_run_id = request.query_params.get('payroll_run')
+        filters = {
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
+            'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
+            'grade': request.query_params.get('grade'),
+            'salary_band': request.query_params.get('salary_band'),
+            'salary_level': request.query_params.get('salary_level'),
+            'staff_category': request.query_params.get('staff_category'),
+        }
         file_format = request.query_params.get('file_format', 'csv')
-        return export_ssnit_report(payroll_run_id, format=file_format)
+        return export_ssnit_report(payroll_run_id, filters=filters, format=file_format)
 
 
 class ExportBankAdviceView(APIView):
@@ -1000,8 +1286,20 @@ class ExportBankAdviceView(APIView):
 
     def get(self, request):
         payroll_run_id = request.query_params.get('payroll_run')
+        filters = {
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
+            'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
+            'grade': request.query_params.get('grade'),
+            'salary_band': request.query_params.get('salary_band'),
+            'salary_level': request.query_params.get('salary_level'),
+            'staff_category': request.query_params.get('staff_category'),
+            'bank': request.query_params.get('bank'),
+        }
         file_format = request.query_params.get('file_format', 'csv')
-        return export_bank_advice(payroll_run_id, format=file_format)
+        return export_bank_advice(payroll_run_id, filters=filters, format=file_format)
 
 
 class ExportLeaveBalanceView(APIView):
@@ -1010,7 +1308,13 @@ class ExportLeaveBalanceView(APIView):
     def get(self, request):
         filters = {
             'year': request.query_params.get('year'),
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
             'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
+            'grade': request.query_params.get('grade'),
+            'staff_category': request.query_params.get('staff_category'),
         }
         file_format = request.query_params.get('file_format', 'csv')
         return export_leave_balance(filters, format=file_format)
@@ -1021,7 +1325,13 @@ class ExportLoanOutstandingView(APIView):
 
     def get(self, request):
         filters = {
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
             'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
+            'grade': request.query_params.get('grade'),
+            'staff_category': request.query_params.get('staff_category'),
         }
         file_format = request.query_params.get('file_format', 'csv')
         return export_loan_outstanding(filters, format=file_format)
@@ -1032,6 +1342,40 @@ class ExportPayrollMasterView(APIView):
 
     def get(self, request):
         payroll_run_id = request.query_params.get('payroll_run')
-        department_id = request.query_params.get('department')
+        filters = {
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
+            'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
+            'grade': request.query_params.get('grade'),
+            'salary_band': request.query_params.get('salary_band'),
+            'salary_level': request.query_params.get('salary_level'),
+            'staff_category': request.query_params.get('staff_category'),
+        }
         file_format = request.query_params.get('file_format', 'csv')
-        return export_payroll_master(payroll_run_id, department_id, format=file_format)
+        return export_payroll_master(payroll_run_id, filters=filters, format=file_format)
+
+
+class ExportPAYEGRAReportView(APIView):
+    """
+    Export PAYE report in GRA (Ghana Revenue Authority) format.
+    Matches the official PAYE Monthly Tax Deductions Schedule format.
+    """
+
+    def get(self, request):
+        payroll_run_id = request.query_params.get('payroll_run')
+        filters = {
+            'employee_code': request.query_params.get('employee_code'),
+            'division': request.query_params.get('division'),
+            'directorate': request.query_params.get('directorate'),
+            'department': request.query_params.get('department'),
+            'position': request.query_params.get('position'),
+            'grade': request.query_params.get('grade'),
+            'salary_band': request.query_params.get('salary_band'),
+            'salary_level': request.query_params.get('salary_level'),
+            'staff_category': request.query_params.get('staff_category'),
+        }
+        # Default to Excel since that's the GRA's preferred format
+        file_format = request.query_params.get('file_format', 'excel')
+        return export_paye_gra_report(payroll_run_id, filters=filters, format=file_format)

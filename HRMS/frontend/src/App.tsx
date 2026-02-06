@@ -28,9 +28,22 @@ import EmployeeTransactionsPage from './pages/admin/EmployeeTransactionsPage'
 import TaxConfigurationPage from './pages/admin/TaxConfigurationPage'
 import LeaveTypeSetupPage from './pages/admin/LeaveTypeSetupPage'
 import DataImportPage from './pages/admin/DataImportPage'
+import DataAnalyzerPage from './pages/admin/DataAnalyzerPage'
 import PayrollSetupPage from './pages/admin/PayrollSetupPage'
+// Performance pages
+import CoreValuesPage from './pages/admin/CoreValuesPage'
+import ProbationAssessmentsPage from './pages/admin/ProbationAssessmentsPage'
+import TrainingNeedsPage from './pages/admin/TrainingNeedsPage'
+import PerformanceAppealsPage from './pages/admin/PerformanceAppealsPage'
+import AppraisalCyclesPage from './pages/admin/AppraisalCyclesPage'
+import AppraisalsPage from './pages/admin/AppraisalsPage'
+import AppraisalDetailPage from './pages/admin/AppraisalDetailPage'
+import CompetenciesPage from './pages/admin/CompetenciesPage'
+// Portal - Performance
+import MyAppraisalPage from './pages/portal/MyAppraisalPage'
 // Report pages
 import PayrollMasterReportPage from './pages/reports/PayrollMasterReportPage'
+import PayrollReconciliationPage from './pages/admin/PayrollReconciliationPage'
 
 // Roles that grant access to HR/Admin features
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
@@ -110,6 +123,7 @@ function App() {
                 <Route path="/my-leave" element={<MyLeaveDashboard />} />
                 <Route path="/my-leave/calendar" element={<MyLeaveCalendarPage />} />
                 <Route path="/my-leave/history" element={<MyLeaveHistoryPage />} />
+                <Route path="/my-appraisal" element={<MyAppraisalPage />} />
 
                 {/* Leave Management - Admin only */}
                 <Route path="/leave" element={<AdminRoute><LeavePage /></AdminRoute>} />
@@ -121,6 +135,7 @@ function App() {
                 {/* Reports - Admin only */}
                 <Route path="/reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
                 <Route path="/reports/payroll-master" element={<AdminRoute><PayrollMasterReportPage /></AdminRoute>} />
+                <Route path="/reports/reconciliation" element={<AdminRoute><PayrollReconciliationPage /></AdminRoute>} />
 
                 {/* Settings - Admin only */}
                 <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
@@ -137,6 +152,17 @@ function App() {
                 <Route path="/admin/leave-types" element={<AdminRoute><LeaveTypeSetupPage /></AdminRoute>} />
                 <Route path="/admin/leave-calendar" element={<AdminRoute><MyLeaveCalendarPage /></AdminRoute>} />
                 <Route path="/admin/data-import" element={<AdminRoute><DataImportPage /></AdminRoute>} />
+                <Route path="/admin/data-analyzer" element={<AdminRoute><DataAnalyzerPage /></AdminRoute>} />
+
+                {/* Performance Management Routes */}
+                <Route path="/admin/appraisal-cycles" element={<AdminRoute><AppraisalCyclesPage /></AdminRoute>} />
+                <Route path="/admin/appraisals" element={<AdminRoute><AppraisalsPage /></AdminRoute>} />
+                <Route path="/admin/appraisals/:id" element={<AdminRoute><AppraisalDetailPage /></AdminRoute>} />
+                <Route path="/admin/competencies" element={<AdminRoute><CompetenciesPage /></AdminRoute>} />
+                <Route path="/admin/core-values" element={<AdminRoute><CoreValuesPage /></AdminRoute>} />
+                <Route path="/admin/probation-assessments" element={<AdminRoute><ProbationAssessmentsPage /></AdminRoute>} />
+                <Route path="/admin/training-needs" element={<AdminRoute><TrainingNeedsPage /></AdminRoute>} />
+                <Route path="/admin/performance-appeals" element={<AdminRoute><PerformanceAppealsPage /></AdminRoute>} />
 
                 {/* Catch-all redirect */}
                 <Route path="*" element={<DefaultRedirect />} />

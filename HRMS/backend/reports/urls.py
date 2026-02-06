@@ -33,6 +33,7 @@ urlpatterns = [
     path('payroll/master/', views.PayrollMasterReportView.as_view(), name='payroll-master'),
     path('payroll/cost-center/', views.CostCenterReportView.as_view(), name='cost-center'),
     path('payroll/variance/', views.PayrollVarianceReportView.as_view(), name='payroll-variance'),
+    path('payroll/reconciliation/', views.PayrollReconciliationReportView.as_view(), name='payroll-reconciliation'),
 
     # Statutory reports
     path('statutory/paye/', views.PAYEStatutoryReportView.as_view(), name='paye-statutory'),
@@ -48,8 +49,10 @@ urlpatterns = [
     path('export/payroll/', views.ExportPayrollSummaryView.as_view(), name='export-payroll'),
     path('export/payroll-master/', views.ExportPayrollMasterView.as_view(), name='export-payroll-master'),
     path('export/paye/', views.ExportPAYEReportView.as_view(), name='export-paye'),
+    path('export/paye-gra/', views.ExportPAYEGRAReportView.as_view(), name='export-paye-gra'),
     path('export/ssnit/', views.ExportSSNITReportView.as_view(), name='export-ssnit'),
     path('export/bank-advice/', views.ExportBankAdviceView.as_view(), name='export-bank-advice'),
     path('export/leave-balance/', views.ExportLeaveBalanceView.as_view(), name='export-leave-balance'),
     path('export/loans/', views.ExportLoanOutstandingView.as_view(), name='export-loans'),
+    path('export/reconciliation/', views.ExportPayrollReconciliationView.as_view(), name='export-reconciliation'),
 ]
