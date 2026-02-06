@@ -118,7 +118,7 @@ export const payrollService = {
   },
 
   // Download bank file
-  async downloadBankFile(runId: string, bankName?: string): Promise<void> {
+  async downloadBankFile(runId: string, _bankName?: string): Promise<void> {
     const response = await api.post(
       `/payroll/runs/${runId}/generate-bank-file/`,
       { format: 'CSV' }

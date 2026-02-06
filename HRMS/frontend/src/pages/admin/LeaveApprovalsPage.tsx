@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import Modal from '@/components/ui/Modal'
 import Avatar from '@/components/ui/Avatar'
 import type { LeaveRequest } from '@/types'
@@ -33,6 +33,10 @@ export default function LeaveApprovalsPage() {
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectModal, setShowRejectModal] = useState(false)
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: requests, isLoading } = useQuery({
     queryKey: ['leave-requests-admin', statusFilter],
@@ -116,7 +120,7 @@ export default function LeaveApprovalsPage() {
       key: 'days',
       header: 'Days',
       render: (request: LeaveRequest) => (
-        <span className="text-sm font-medium text-gray-900">{request.days_requested}</span>
+        <span className="text-sm font-medium text-gray-900">{request.number_of_days}</span>
       ),
     },
     {
@@ -218,11 +222,20 @@ export default function LeaveApprovalsPage() {
           </CardTitle>
         </CardHeader>
         <Table
-          data={requests?.results || []}
+          data={(requests?.results || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
           columns={columns}
           isLoading={isLoading}
           emptyMessage="No leave requests found"
         />
+        {requests?.results && requests.results.length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(requests.results.length / pageSize)}
+            totalItems={requests.results.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       {/* View Request Modal */}
@@ -256,7 +269,7 @@ export default function LeaveApprovalsPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Days Requested</p>
-                <p className="font-medium">{selectedRequest.days_requested}</p>
+                <p className="font-medium">{selectedRequest.number_of_days}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Start Date</p>

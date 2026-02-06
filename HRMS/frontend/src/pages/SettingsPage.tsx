@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   UserCircleIcon,
@@ -7,7 +7,6 @@ import {
   BellIcon,
   ShieldCheckIcon,
   BuildingOfficeIcon,
-  Cog6ToothIcon,
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/features/auth/store'
 import { authService } from '@/services/auth'
@@ -20,7 +19,6 @@ type SettingsTab = 'profile' | 'password' | 'notifications' | 'security' | 'orga
 
 export default function SettingsPage() {
   const { user, updateUser } = useAuthStore()
-  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
 
   const [profileForm, setProfileForm] = useState({

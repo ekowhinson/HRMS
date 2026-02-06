@@ -64,8 +64,8 @@ export default function ColumnMapper({
   const unmappedRequired = useMemo(() => {
     const mappedFields = new Set(Object.values(columnMapping))
     return Object.entries(fieldDefinitions)
-      .filter(([key, field]) => field.required && !mappedFields.has(key))
-      .map(([key, field]) => field.name)
+      .filter(([fieldKey, field]) => field.required && !mappedFields.has(fieldKey))
+      .map(([, field]) => field.name)
   }, [fieldDefinitions, columnMapping])
 
   // Handle mapping change for a column

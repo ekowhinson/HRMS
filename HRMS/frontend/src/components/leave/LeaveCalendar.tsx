@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/solid'
 import Button from '@/components/ui/Button'
-import Badge from '@/components/ui/Badge'
 import type { LeaveCalendarEvent } from '@/types'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

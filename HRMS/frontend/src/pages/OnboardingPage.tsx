@@ -6,7 +6,6 @@ import {
   CheckCircleIcon,
   UserIcon,
   PhoneIcon,
-  BanknotesIcon,
   CameraIcon,
   ArrowRightIcon,
   ArrowLeftIcon,

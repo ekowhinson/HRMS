@@ -778,9 +778,9 @@ export default function EmployeeDetailPage() {
             <CardTitle>Education History</CardTitle>
           </CardHeader>
           <CardContent>
-            {employee.education?.length > 0 ? (
+            {(employee.education?.length ?? 0) > 0 ? (
               <div className="space-y-4">
-                {employee.education.map((edu: any, index: number) => (
+                {employee.education?.map((edu: any, index: number) => (
                   <div key={index} className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium text-gray-900">{edu.degree}</h4>
                     <p className="text-sm text-gray-600">{edu.institution}</p>
@@ -803,9 +803,9 @@ export default function EmployeeDetailPage() {
             <CardTitle>Documents</CardTitle>
           </CardHeader>
           <CardContent>
-            {employee.documents?.length > 0 ? (
+            {(employee.documents?.length ?? 0) > 0 ? (
               <div className="space-y-3">
-                {employee.documents.map((doc: any, index: number) => (
+                {employee.documents?.map((doc: any, index: number) => (
                   <div
                     key={index}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
@@ -872,9 +872,9 @@ export default function EmployeeDetailPage() {
               <CardTitle>Leave Balances</CardTitle>
             </CardHeader>
             <CardContent>
-              {employee.leave_balances?.length > 0 ? (
+              {(employee.leave_balances?.length ?? 0) > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {employee.leave_balances.map((balance: any, index: number) => {
+                  {employee.leave_balances?.map((balance: any, index: number) => {
                     const taken = balance.taken || 0
                     const entitlement = balance.total_entitlement || 0
                     const available = balance.available_balance || 0
@@ -989,7 +989,7 @@ export default function EmployeeDetailPage() {
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <span className="text-sm font-semibold text-gray-900">
-                                {request.number_of_days || request.days_requested || '-'} days
+                                {request.number_of_days || '-'} days
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
@@ -1031,7 +1031,7 @@ export default function EmployeeDetailPage() {
                     <div key={i} className="h-16 bg-gray-200 rounded" />
                   ))}
                 </div>
-              ) : employeeTransactions?.results?.length > 0 ? (
+              ) : (employeeTransactions?.results?.length ?? 0) > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -1060,7 +1060,7 @@ export default function EmployeeDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {employeeTransactions.results.map((txn: EmployeeTransaction) => (
+                      {employeeTransactions?.results?.map((txn: EmployeeTransaction) => (
                         <tr key={txn.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                             {txn.reference_number}

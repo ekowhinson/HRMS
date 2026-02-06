@@ -13,7 +13,7 @@ import { authService } from '@/services/auth'
 import { useAuthStore } from '@/features/auth/store'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import type { SignupInitiateData, CompleteSignupData, SignupVerifyResponse } from '@/types'
+import type { SignupInitiateData, CompleteSignupData } from '@/types'
 
 type Step = 'identify' | 'verify' | 'password'
 

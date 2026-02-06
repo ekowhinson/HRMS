@@ -14,7 +14,6 @@ import { portalService } from '@/services/portal'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import Modal from '@/components/ui/Modal'
 import Avatar from '@/components/ui/Avatar'
 import Badge from '@/components/ui/Badge'
 

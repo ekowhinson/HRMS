@@ -24,7 +24,8 @@ const FILE_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }
   pdf: DocumentIcon,
 }
 
-const ACCEPTED_TYPES = {
+// Accepted file types for import
+export const ACCEPTED_TYPES = {
   'text/csv': ['.csv'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
   'application/vnd.ms-excel': ['.xls'],

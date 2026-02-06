@@ -15,7 +15,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import Modal from '@/components/ui/Modal'
 import Avatar from '@/components/ui/Avatar'
 import { formatCurrency } from '@/lib/utils'
@@ -43,12 +43,17 @@ export default function LoanManagementPage() {
   })
   const [rejectReason, setRejectReason] = useState('')
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+
   const { data: loans, isLoading } = useQuery({
     queryKey: ['all-loans', statusFilter],
     queryFn: () => benefitsService.getAllLoans({ status: statusFilter }),
   })
 
-  const { data: loanTypes } = useQuery({
+  // Loan types available for future filtering/display
+  useQuery({
     queryKey: ['loan-types'],
     queryFn: benefitsService.getLoanTypes,
   })
@@ -341,11 +346,20 @@ export default function LoanManagementPage() {
           </CardTitle>
         </CardHeader>
         <Table
-          data={loans || []}
+          data={(loans || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
           columns={columns}
           isLoading={isLoading}
           emptyMessage="No loan applications found"
         />
+        {loans && loans.length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(loans.length / pageSize)}
+            totalItems={loans.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       {/* View Loan Modal */}

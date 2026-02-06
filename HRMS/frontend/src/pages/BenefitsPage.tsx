@@ -14,7 +14,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import Modal from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
 import type { LoanAccount, BenefitClaim } from '@/types'
@@ -52,6 +52,11 @@ export default function BenefitsPage() {
     amount: '',
     description: '',
   })
+
+  // Pagination state
+  const [loansPage, setLoansPage] = useState(1)
+  const [claimsPage, setClaimsPage] = useState(1)
+  const pageSize = 10
 
   const { data: myLoans, isLoading: loansLoading } = useQuery({
     queryKey: ['my-loans'],
@@ -277,7 +282,7 @@ export default function BenefitsPage() {
       {activeTab === 'loans' && (
         <>
           {/* Loan Summary Cards */}
-          {loanSummary && (loanSummary.total > 0 || myLoans?.length > 0) && (
+          {loanSummary && (loanSummary.total > 0 || (myLoans?.length ?? 0) > 0) && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
                 <CardContent className="p-4">
@@ -336,11 +341,20 @@ export default function BenefitsPage() {
               </CardTitle>
             </CardHeader>
             <Table
-              data={myLoans || []}
+              data={(myLoans || []).slice((loansPage - 1) * pageSize, loansPage * pageSize)}
               columns={loanColumns}
               isLoading={loansLoading}
               emptyMessage="No loans found"
             />
+            {myLoans && myLoans.length > pageSize && (
+              <TablePagination
+                currentPage={loansPage}
+                totalPages={Math.ceil(myLoans.length / pageSize)}
+                totalItems={myLoans.length}
+                pageSize={pageSize}
+                onPageChange={setLoansPage}
+              />
+            )}
           </Card>
         </>
       )}
@@ -354,11 +368,20 @@ export default function BenefitsPage() {
             </CardTitle>
           </CardHeader>
           <Table
-            data={myClaims || []}
+            data={(myClaims || []).slice((claimsPage - 1) * pageSize, claimsPage * pageSize)}
             columns={claimColumns}
             isLoading={claimsLoading}
             emptyMessage="No claims found"
           />
+          {myClaims && myClaims.length > pageSize && (
+            <TablePagination
+              currentPage={claimsPage}
+              totalPages={Math.ceil(myClaims.length / pageSize)}
+              totalItems={myClaims.length}
+              pageSize={pageSize}
+              onPageChange={setClaimsPage}
+            />
+          )}
         </Card>
       )}
 

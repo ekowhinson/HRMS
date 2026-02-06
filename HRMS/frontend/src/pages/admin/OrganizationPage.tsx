@@ -13,12 +13,12 @@ import {
   Squares2X2Icon,
 } from '@heroicons/react/24/outline'
 import { employeeService } from '@/services/employees'
-import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Modal from '@/components/ui/Modal'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 
 type TabType = 'divisions' | 'directorates' | 'departments' | 'positions' | 'grades'
 
@@ -93,6 +93,16 @@ export default function OrganizationPage() {
 
   // Filter states
   const [selectedDivision, setSelectedDivision] = useState<string>('')
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+
+  // Reset pagination when tab changes
+  const handleTabChangeWithReset = (tab: TabType) => {
+    setCurrentPage(1)
+    handleTabChange(tab)
+  }
 
   // Sync tab changes to URL
   const handleTabChange = (tab: TabType) => {
@@ -475,7 +485,7 @@ export default function OrganizationPage() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => handleTabChange(tab.id as TabType)}
+              onClick={() => handleTabChangeWithReset(tab.id as TabType)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-primary-600 text-primary-600'
@@ -509,19 +519,44 @@ export default function OrganizationPage() {
       {/* Content */}
       <Card>
         {activeTab === 'divisions' && (
-          <Table data={divisions} columns={divisionColumns} isLoading={loadingDivisions} emptyMessage="No divisions found" />
+          <>
+            <Table data={divisions.slice((currentPage - 1) * pageSize, currentPage * pageSize)} columns={divisionColumns} isLoading={loadingDivisions} emptyMessage="No divisions found" />
+            {divisions.length > pageSize && (
+              <TablePagination currentPage={currentPage} totalPages={Math.ceil(divisions.length / pageSize)} totalItems={divisions.length} pageSize={pageSize} onPageChange={setCurrentPage} />
+            )}
+          </>
         )}
         {activeTab === 'directorates' && (
-          <Table data={directorates} columns={directorateColumns} isLoading={loadingDirectorates} emptyMessage="No directorates found" />
+          <>
+            <Table data={directorates.slice((currentPage - 1) * pageSize, currentPage * pageSize)} columns={directorateColumns} isLoading={loadingDirectorates} emptyMessage="No directorates found" />
+            {directorates.length > pageSize && (
+              <TablePagination currentPage={currentPage} totalPages={Math.ceil(directorates.length / pageSize)} totalItems={directorates.length} pageSize={pageSize} onPageChange={setCurrentPage} />
+            )}
+          </>
         )}
         {activeTab === 'departments' && (
-          <Table data={departments} columns={departmentColumns} isLoading={loadingDepts} emptyMessage="No departments found" />
+          <>
+            <Table data={departments.slice((currentPage - 1) * pageSize, currentPage * pageSize)} columns={departmentColumns} isLoading={loadingDepts} emptyMessage="No departments found" />
+            {departments.length > pageSize && (
+              <TablePagination currentPage={currentPage} totalPages={Math.ceil(departments.length / pageSize)} totalItems={departments.length} pageSize={pageSize} onPageChange={setCurrentPage} />
+            )}
+          </>
         )}
         {activeTab === 'positions' && (
-          <Table data={positions} columns={positionColumns} isLoading={loadingPositions} emptyMessage="No positions found" />
+          <>
+            <Table data={positions.slice((currentPage - 1) * pageSize, currentPage * pageSize)} columns={positionColumns} isLoading={loadingPositions} emptyMessage="No positions found" />
+            {positions.length > pageSize && (
+              <TablePagination currentPage={currentPage} totalPages={Math.ceil(positions.length / pageSize)} totalItems={positions.length} pageSize={pageSize} onPageChange={setCurrentPage} />
+            )}
+          </>
         )}
         {activeTab === 'grades' && (
-          <Table data={grades} columns={gradeColumns} isLoading={loadingGrades} emptyMessage="No grades found" />
+          <>
+            <Table data={grades.slice((currentPage - 1) * pageSize, currentPage * pageSize)} columns={gradeColumns} isLoading={loadingGrades} emptyMessage="No grades found" />
+            {grades.length > pageSize && (
+              <TablePagination currentPage={currentPage} totalPages={Math.ceil(grades.length / pageSize)} totalItems={grades.length} pageSize={pageSize} onPageChange={setCurrentPage} />
+            )}
+          </>
         )}
       </Card>
 

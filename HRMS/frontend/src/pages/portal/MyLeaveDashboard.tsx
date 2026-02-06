@@ -6,7 +6,6 @@ import {
   PlusIcon,
   CalendarIcon,
   ClockIcon,
-  ChartBarIcon,
   UserGroupIcon,
   ArrowRightIcon,
 } from '@heroicons/react/24/outline'
@@ -15,12 +14,11 @@ import { portalService } from '@/services/portal'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
+import LinkedSelect from '@/components/ui/LinkedSelect'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import Table from '@/components/ui/Table'
-import Avatar from '@/components/ui/Avatar'
-import type { LeaveRequest, LeaveBalance, TeamLeaveOverview } from '@/types'
+import type { LeaveRequest } from '@/types'
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
   DRAFT: 'info',
@@ -326,17 +324,18 @@ export default function MyLeaveDashboard() {
         title="Apply for Leave"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Select
+          <LinkedSelect
+            fieldKey="leave_type"
             label="Leave Type"
             value={formData.leave_type}
             onChange={(e) => setFormData({ ...formData, leave_type: e.target.value })}
+            placeholder="Select leave type"
             options={
               leaveTypes?.map((lt: any) => ({
                 value: lt.id,
                 label: lt.name,
               })) || []
             }
-            placeholder="Select leave type"
           />
 
           <div className="grid grid-cols-2 gap-4">
