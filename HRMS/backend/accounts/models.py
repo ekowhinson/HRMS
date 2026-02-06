@@ -183,6 +183,14 @@ class Role(TimeStampedModel):
     is_system_role = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     level = models.PositiveSmallIntegerField(default=0)
+    district = models.ForeignKey(
+        'core.District',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='roles',
+        help_text='Optional district scope for location-based roles'
+    )
 
     class Meta:
         db_table = 'roles'

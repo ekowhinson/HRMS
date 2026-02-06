@@ -8,6 +8,7 @@ import {
   TrashIcon,
   UsersIcon,
   LockClosedIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline'
 import { roleService, permissionService, type Role, type Permission } from '@/services/users'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -16,6 +17,8 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
+import Select from '@/components/ui/Select'
+import api from '@/lib/api'
 
 export default function RoleManagementPage() {
   const queryClient = useQueryClient()
@@ -31,6 +34,7 @@ export default function RoleManagementPage() {
     code: '',
     description: '',
     level: 50,
+    district: '' as string | null,
     permissions: [] as string[],
   })
 
@@ -44,6 +48,15 @@ export default function RoleManagementPage() {
   const { data: permissionsByModule } = useQuery({
     queryKey: ['permissions-by-module'],
     queryFn: () => permissionService.getPermissionsByModule(),
+  })
+
+  // Fetch districts for dropdown
+  const { data: districts } = useQuery({
+    queryKey: ['districts'],
+    queryFn: async () => {
+      const response = await api.get('/core/districts/')
+      return response.data.results || response.data
+    },
   })
 
   // Create role mutation
@@ -66,6 +79,7 @@ export default function RoleManagementPage() {
       name: string
       description: string
       level: number
+      district: string | null
       is_active: boolean
       permissions: string[]
     }> }) =>
@@ -103,6 +117,7 @@ export default function RoleManagementPage() {
       code: '',
       description: '',
       level: 50,
+      district: '',
       permissions: [],
     })
   }
@@ -113,7 +128,10 @@ export default function RoleManagementPage() {
       toast.error('Name and code are required')
       return
     }
-    createMutation.mutate(formData)
+    createMutation.mutate({
+      ...formData,
+      district: formData.district || null,
+    })
   }
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -125,6 +143,7 @@ export default function RoleManagementPage() {
         name: formData.name,
         description: formData.description,
         level: formData.level,
+        district: formData.district || null,
       },
     })
   }
@@ -146,6 +165,7 @@ export default function RoleManagementPage() {
       code: role.code,
       description: role.description || '',
       level: role.level || 50,
+      district: role.district || '',
       permissions: role.permissions?.map((p) => p.id) || [],
     })
     setShowEditModal(true)
@@ -300,6 +320,9 @@ export default function RoleManagementPage() {
                       Level
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      District
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Type
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -336,6 +359,19 @@ export default function RoleManagementPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                         {role.level}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {role.district_name ? (
+                          <div className="flex items-center gap-1">
+                            <MapPinIcon className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-700">{role.district_name}</span>
+                            {role.region_name && (
+                              <span className="text-xs text-gray-500">({role.region_name})</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">All Districts</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge variant={role.is_system_role ? 'info' : 'default'}>
@@ -454,6 +490,23 @@ export default function RoleManagementPage() {
           <p className="text-xs text-gray-500">
             Level determines role hierarchy. Higher values = higher authority.
           </p>
+          <Select
+            label="District (Optional)"
+            value={formData.district || ''}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setFormData({ ...formData, district: e.target.value || null })
+            }
+            options={[
+              { value: '', label: 'All Districts (Global Role)' },
+              ...(districts || []).map((d: { id: string; name: string; region?: { name: string } }) => ({
+                value: d.id,
+                label: d.region ? `${d.name} (${d.region.name})` : d.name,
+              })),
+            ]}
+          />
+          <p className="text-xs text-gray-500">
+            Assign a district to limit this role to a specific location.
+          </p>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
@@ -517,6 +570,20 @@ export default function RoleManagementPage() {
             }
             min={1}
             max={100}
+          />
+          <Select
+            label="District (Optional)"
+            value={formData.district || ''}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setFormData({ ...formData, district: e.target.value || null })
+            }
+            options={[
+              { value: '', label: 'All Districts (Global Role)' },
+              ...(districts || []).map((d: { id: string; name: string; region?: { name: string } }) => ({
+                value: d.id,
+                label: d.region ? `${d.name} (${d.region.name})` : d.name,
+              })),
+            ]}
           />
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button

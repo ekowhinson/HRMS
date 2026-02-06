@@ -19,6 +19,9 @@ export interface Role {
   is_system_role: boolean
   is_active: boolean
   level: number
+  district?: string | null
+  district_name?: string | null
+  region_name?: string | null
   permissions: Permission[]
   permissions_count?: number
   users_count?: number

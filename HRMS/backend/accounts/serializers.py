@@ -207,12 +207,15 @@ class RoleSerializer(serializers.ModelSerializer):
     permissions = serializers.SerializerMethodField()
     permissions_count = serializers.SerializerMethodField()
     users_count = serializers.SerializerMethodField()
+    district_name = serializers.CharField(source='district.name', read_only=True, allow_null=True)
+    region_name = serializers.CharField(source='district.region.name', read_only=True, allow_null=True)
 
     class Meta:
         model = Role
         fields = [
             'id', 'name', 'code', 'description', 'is_system_role', 'is_active',
-            'level', 'permissions', 'permissions_count', 'users_count', 'created_at', 'updated_at'
+            'level', 'district', 'district_name', 'region_name',
+            'permissions', 'permissions_count', 'users_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'is_system_role', 'created_at', 'updated_at']
 
