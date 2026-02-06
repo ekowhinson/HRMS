@@ -51,4 +51,18 @@ urlpatterns = [
     # Session management
     path('sessions/', views.UserSessionListView.as_view(), name='session-list'),
     path('sessions/<uuid:pk>/revoke/', views.RevokeSessionView.as_view(), name='revoke-session'),
+
+    # Authentication providers (public)
+    path('providers/', views.AuthProviderListView.as_view(), name='auth-providers'),
+    path('ldap/login/', views.LDAPLoginView.as_view(), name='ldap-login'),
+    path('azure/authorize/', views.AzureADAuthorizeView.as_view(), name='azure-authorize'),
+    path('azure/callback/', views.AzureADCallbackView.as_view(), name='azure-callback'),
+
+    # User linked providers
+    path('me/providers/', views.UserLinkedProvidersView.as_view(), name='user-linked-providers'),
+
+    # Admin provider management
+    path('admin/providers/', views.AuthProviderAdminListView.as_view(), name='admin-providers'),
+    path('admin/providers/<uuid:pk>/', views.AuthProviderAdminDetailView.as_view(), name='admin-provider-detail'),
+    path('admin/providers/<uuid:pk>/test/', views.AuthProviderTestView.as_view(), name='admin-provider-test'),
 ]

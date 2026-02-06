@@ -49,6 +49,12 @@ export const payrollService = {
     return response.data
   },
 
+  // Get payroll computation progress
+  async getComputeProgress(runId: string): Promise<any> {
+    const response = await api.get(`/payroll/runs/${runId}/progress/`)
+    return response.data
+  },
+
   // Recompute payroll (for DRAFT, COMPUTED, or REJECTED runs)
   async recomputePayroll(runId: string): Promise<any> {
     const response = await api.post(`/payroll/runs/${runId}/recompute/`)
@@ -58,6 +64,12 @@ export const payrollService = {
   // Reset payroll run to DRAFT status
   async resetToDraft(runId: string): Promise<any> {
     const response = await api.post(`/payroll/runs/${runId}/reset_to_draft/`)
+    return response.data
+  },
+
+  // Delete a payroll run (only DRAFT status)
+  async deletePayrollRun(runId: string): Promise<any> {
+    const response = await api.delete(`/payroll/runs/${runId}/`)
     return response.data
   },
 

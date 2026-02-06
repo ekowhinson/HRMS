@@ -38,6 +38,98 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+class AuthProvider(TimeStampedModel):
+    """
+    Authentication provider configuration.
+    Stores settings for each enabled auth method (Local, LDAP, Azure AD).
+    """
+    class ProviderType(models.TextChoices):
+        LOCAL = 'LOCAL', 'Local (Email/Password)'
+        LDAP = 'LDAP', 'LDAP/Active Directory'
+        AZURE_AD = 'AZURE_AD', 'Azure Active Directory'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    provider_type = models.CharField(
+        max_length=20,
+        choices=ProviderType.choices,
+        unique=True
+    )
+    is_enabled = models.BooleanField(default=False)
+    is_default = models.BooleanField(default=False)
+    priority = models.PositiveSmallIntegerField(default=0)
+
+    # Provider-specific configuration (JSON)
+    # LDAP: server_uri, bind_dn, bind_password, user_search_base, etc.
+    # Azure AD: client_id, client_secret, tenant_id, redirect_uri, etc.
+    config = models.JSONField(default=dict, blank=True)
+
+    # User provisioning settings
+    auto_provision_users = models.BooleanField(
+        default=True,
+        help_text='Automatically create user accounts on first login'
+    )
+    auto_link_by_email = models.BooleanField(
+        default=True,
+        help_text='Link to existing user accounts by email'
+    )
+    default_role = models.ForeignKey(
+        'Role',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='auth_provider_defaults',
+        help_text='Default role for auto-provisioned users'
+    )
+
+    # Domain restrictions (empty = all allowed)
+    allowed_domains = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of allowed email domains (empty = all allowed)'
+    )
+
+    # Connection status
+    last_connection_test = models.DateTimeField(null=True, blank=True)
+    last_connection_status = models.BooleanField(null=True, blank=True)
+    last_connection_error = models.TextField(null=True, blank=True)
+
+    # Sync status (for LDAP)
+    last_sync_at = models.DateTimeField(null=True, blank=True)
+    last_sync_count = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'auth_providers'
+        ordering = ['priority', 'name']
+        verbose_name = 'Authentication Provider'
+        verbose_name_plural = 'Authentication Providers'
+
+    def __str__(self):
+        status = "enabled" if self.is_enabled else "disabled"
+        return f"{self.name} ({self.provider_type}) - {status}"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one default provider
+        if self.is_default:
+            AuthProvider.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+    def get_config_value(self, key, default=None):
+        """Safely get a configuration value."""
+        return self.config.get(key, default)
+
+    def set_config_value(self, key, value):
+        """Set a configuration value."""
+        self.config[key] = value
+
+    def check_domain_allowed(self, email):
+        """Check if email domain is allowed for this provider."""
+        if not self.allowed_domains:
+            return True
+        domain = email.split('@')[-1].lower()
+        return domain in [d.lower() for d in self.allowed_domains]
+
+
 class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     """
     Custom User model that uses email as the unique identifier.
@@ -53,6 +145,30 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
+
+    # Authentication source tracking
+    auth_source = models.CharField(
+        max_length=20,
+        choices=AuthProvider.ProviderType.choices,
+        default='LOCAL',
+        db_index=True,
+        help_text='The authentication provider used for this user'
+    )
+    external_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='External ID from LDAP/Azure AD'
+    )
+    is_external_auth = models.BooleanField(
+        default=False,
+        help_text='User authenticates via external provider'
+    )
+    can_change_password = models.BooleanField(
+        default=True,
+        help_text='False for LDAP/Azure AD users'
+    )
 
     # Security fields
     failed_login_attempts = models.PositiveSmallIntegerField(default=0)
@@ -326,11 +442,89 @@ class PasswordHistory(models.Model):
         return f"{self.user.email} - {self.created_at}"
 
 
+class UserAuthProvider(TimeStampedModel):
+    """
+    Links users to their authentication providers.
+    Supports account linking (same user, multiple providers).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='linked_providers'
+    )
+    provider = models.ForeignKey(
+        AuthProvider,
+        on_delete=models.CASCADE,
+        related_name='user_links'
+    )
+
+    # External identifiers from the provider
+    external_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Unique ID from external provider (e.g., objectGUID, Azure oid)'
+    )
+    external_username = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Username in external system (e.g., sAMAccountName)'
+    )
+
+    # Metadata from external provider
+    provider_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Additional data from the provider'
+    )
+
+    # Status
+    is_primary = models.BooleanField(
+        default=False,
+        help_text='Primary authentication method for this user'
+    )
+    is_active = models.BooleanField(default=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+    login_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'user_auth_providers'
+        unique_together = ['user', 'provider']
+        ordering = ['-is_primary', '-last_login']
+        verbose_name = 'User Auth Provider Link'
+        verbose_name_plural = 'User Auth Provider Links'
+        indexes = [
+            models.Index(fields=['external_id', 'provider']),
+            models.Index(fields=['external_username', 'provider']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.provider.name}"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one primary provider per user
+        if self.is_primary:
+            UserAuthProvider.objects.filter(
+                user=self.user,
+                is_primary=True
+            ).exclude(pk=self.pk).update(is_primary=False)
+        super().save(*args, **kwargs)
+
+    def record_login(self):
+        """Record a successful login via this provider."""
+        self.last_login = timezone.now()
+        self.login_count += 1
+        self.save(update_fields=['last_login', 'login_count'])
+
+
 class AuthenticationLog(models.Model):
     """
     Log all authentication events.
     """
     class EventType(models.TextChoices):
+        # Local authentication
         LOGIN_SUCCESS = 'LOGIN_SUCCESS', 'Login Success'
         LOGIN_FAILED = 'LOGIN_FAILED', 'Login Failed'
         LOGOUT = 'LOGOUT', 'Logout'
@@ -340,11 +534,30 @@ class AuthenticationLog(models.Model):
         TWO_FACTOR_FAILED = '2FA_FAILED', '2FA Failed'
         ACCOUNT_LOCKED = 'ACCOUNT_LOCKED', 'Account Locked'
         ACCOUNT_UNLOCKED = 'ACCOUNT_UNLOCKED', 'Account Unlocked'
+        # LDAP authentication
+        LDAP_LOGIN_SUCCESS = 'LDAP_SUCCESS', 'LDAP Login Success'
+        LDAP_LOGIN_FAILED = 'LDAP_FAILED', 'LDAP Login Failed'
+        LDAP_SYNC = 'LDAP_SYNC', 'LDAP User Sync'
+        # Azure AD authentication
+        AZURE_LOGIN_SUCCESS = 'AZURE_SUCCESS', 'Azure AD Login Success'
+        AZURE_LOGIN_FAILED = 'AZURE_FAILED', 'Azure AD Login Failed'
+        # Account management
+        ACCOUNT_PROVISIONED = 'PROVISIONED', 'Account Auto-Provisioned'
+        ACCOUNT_LINKED = 'LINKED', 'Account Linked to Provider'
+        PROVIDER_CONFIGURED = 'PROVIDER_CFG', 'Provider Configured'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='auth_logs')
     email = models.EmailField()
     event_type = models.CharField(max_length=20, choices=EventType.choices, db_index=True)
+    auth_provider = models.ForeignKey(
+        AuthProvider,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='auth_logs',
+        help_text='Authentication provider used'
+    )
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField(null=True, blank=True)
     location = models.CharField(max_length=200, null=True, blank=True)

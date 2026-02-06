@@ -47,6 +47,8 @@ import MyAppraisalPage from './pages/portal/MyAppraisalPage'
 // Report pages
 import PayrollMasterReportPage from './pages/reports/PayrollMasterReportPage'
 import PayrollReconciliationPage from './pages/admin/PayrollReconciliationPage'
+import PayrollJournalPage from './pages/admin/PayrollJournalPage'
+import SalaryReconciliationPage from './pages/admin/SalaryReconciliationPage'
 // Policy pages
 import PoliciesPage from './pages/admin/PoliciesPage'
 import PolicyDetailPage from './pages/admin/PolicyDetailPage'
@@ -62,6 +64,7 @@ import AnnouncementsPage from './pages/admin/AnnouncementsPage'
 // User & Role Management pages
 import UserManagementPage from './pages/admin/UserManagementPage'
 import RoleManagementPage from './pages/admin/RoleManagementPage'
+import AuthProvidersPage from './pages/admin/AuthProvidersPage'
 
 // Roles that grant access to HR/Admin features
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
@@ -157,6 +160,8 @@ function App() {
                 <Route path="/reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
                 <Route path="/reports/payroll-master" element={<AdminRoute><PayrollMasterReportPage /></AdminRoute>} />
                 <Route path="/reports/reconciliation" element={<AdminRoute><PayrollReconciliationPage /></AdminRoute>} />
+                <Route path="/reports/journal" element={<AdminRoute><PayrollJournalPage /></AdminRoute>} />
+                <Route path="/reports/salary-reconciliation" element={<AdminRoute><SalaryReconciliationPage /></AdminRoute>} />
 
                 {/* Settings - Admin only */}
                 <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
@@ -205,6 +210,7 @@ function App() {
                 {/* User & Role Management Routes */}
                 <Route path="/admin/users" element={<AdminRoute><UserManagementPage /></AdminRoute>} />
                 <Route path="/admin/roles" element={<AdminRoute><RoleManagementPage /></AdminRoute>} />
+                <Route path="/admin/auth-providers" element={<AdminRoute><AuthProvidersPage /></AdminRoute>} />
 
                 {/* Catch-all redirect */}
                 <Route path="*" element={<DefaultRedirect />} />

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -10,6 +10,7 @@ import {
   CalculatorIcon,
   ClockIcon,
   ArrowPathIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { payrollService } from '@/services/payroll'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -39,12 +40,57 @@ export default function PayrollProcessingPage() {
   const [newRunPeriod, setNewRunPeriod] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState<{
-    action: 'compute' | 'approve' | 'pay' | 'cancel' | 'bank_files' | 'payslips' | 'reset_draft' | 'reopen_period'
+    action: 'compute' | 'approve' | 'pay' | 'cancel' | 'bank_files' | 'payslips' | 'reset_draft' | 'reopen_period' | 'delete'
     runId?: string
     periodId?: string
     title?: string
     message?: string
   } | null>(null)
+
+  // Progress tracking state
+  const [computingRunId, setComputingRunId] = useState<string | null>(null)
+  const [progress, setProgress] = useState<{
+    status: string
+    total: number
+    processed: number
+    percentage: number
+    current_employee: string
+  } | null>(null)
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Poll for progress when computing
+  useEffect(() => {
+    if (computingRunId) {
+      const pollProgress = async () => {
+        try {
+          const result = await payrollService.getComputeProgress(computingRunId)
+          if (result.success && result.data) {
+            // Only update progress if we're actually computing (status is 'computing')
+            // This prevents stale cache data from closing the modal prematurely
+            if (result.data.status === 'computing') {
+              setProgress(result.data)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching progress:', error)
+        }
+      }
+
+      // Start polling after a short delay to let backend start computing
+      const startTimeout = setTimeout(() => {
+        pollProgress()
+        progressIntervalRef.current = setInterval(pollProgress, 500)
+      }, 300)
+
+      return () => {
+        clearTimeout(startTimeout)
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current)
+          progressIntervalRef.current = null
+        }
+      }
+    }
+  }, [computingRunId])
 
   const { data: periods } = useQuery({
     queryKey: ['payroll-periods'],
@@ -70,11 +116,25 @@ export default function PayrollProcessingPage() {
   })
 
   const computeMutation = useMutation({
-    mutationFn: (runId: string) => payrollService.computePayroll(runId),
+    mutationFn: (runId: string) => {
+      // Close confirm modal and start progress tracking
+      setShowConfirmModal(null)
+      setComputingRunId(runId)
+      setProgress({ status: 'starting', total: 0, processed: 0, percentage: 0, current_employee: '' })
+      return payrollService.computePayroll(runId)
+    },
+    onSettled: () => {
+      // Clean up polling when mutation completes (success or error)
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
+      setComputingRunId(null)
+      setProgress(null)
+    },
     onSuccess: (data) => {
       toast.success(`Payroll computed: ${data.data?.total_employees || 0} employees processed`)
       queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
-      setShowConfirmModal(null)
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to compute payroll')
@@ -154,6 +214,18 @@ export default function PayrollProcessingPage() {
     },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (runId: string) => payrollService.deletePayrollRun(runId),
+    onSuccess: () => {
+      toast.success('Payroll run deleted successfully')
+      queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
+      setShowConfirmModal(null)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to delete payroll run')
+    },
+  })
+
   const handleAction = () => {
     if (!showConfirmModal) return
 
@@ -179,6 +251,9 @@ export default function PayrollProcessingPage() {
       case 'reopen_period':
         if (showConfirmModal.periodId) reopenPeriodMutation.mutate(showConfirmModal.periodId)
         break
+      case 'delete':
+        if (showConfirmModal.runId) deleteMutation.mutate(showConfirmModal.runId)
+        break
     }
   }
 
@@ -196,7 +271,8 @@ export default function PayrollProcessingPage() {
     generateBankFilesMutation.isPending ||
     generatePayslipsMutation.isPending ||
     resetToDraftMutation.isPending ||
-    reopenPeriodMutation.isPending
+    reopenPeriodMutation.isPending ||
+    deleteMutation.isPending
 
   return (
     <div className="space-y-6">
@@ -337,19 +413,36 @@ export default function PayrollProcessingPage() {
                   {/* Actions */}
                   <div className="flex flex-wrap gap-3">
                     {status === 'DRAFT' && (
-                      <Button
-                        onClick={() =>
-                          setShowConfirmModal({
-                            action: 'compute',
-                            runId: run.id,
-                            title: 'Compute Payroll',
-                            message: 'This will calculate salaries for all eligible employees in this payroll run.'
-                          })
-                        }
-                      >
-                        <CalculatorIcon className="h-4 w-4 mr-2" />
-                        Compute Payroll
-                      </Button>
+                      <>
+                        <Button
+                          onClick={() =>
+                            setShowConfirmModal({
+                              action: 'compute',
+                              runId: run.id,
+                              title: 'Compute Payroll',
+                              message: 'This will calculate salaries for all eligible employees in this payroll run.'
+                            })
+                          }
+                        >
+                          <CalculatorIcon className="h-4 w-4 mr-2" />
+                          Compute Payroll
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={() =>
+                            setShowConfirmModal({
+                              action: 'delete',
+                              runId: run.id,
+                              title: 'Delete Payroll Run',
+                              message: 'Are you sure you want to delete this payroll run? This action cannot be undone.'
+                            })
+                          }
+                        >
+                          <TrashIcon className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      </>
                     )}
                     {status === 'COMPUTED' && (
                       <>
@@ -592,6 +685,64 @@ export default function PayrollProcessingPage() {
             >
               Confirm
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Payroll Computation Progress Modal */}
+      <Modal
+        isOpen={computeMutation.isPending}
+        onClose={() => {}} // Prevent closing during computation
+        title="Computing Payroll"
+      >
+        <div className="space-y-6 py-4">
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Progress</span>
+              <span className="font-medium text-primary-600">{progress?.percentage || 0}%</span>
+            </div>
+            <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${progress?.percentage || 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 bg-blue-50 rounded-lg text-center">
+              <p className="text-2xl font-bold text-blue-700">{progress?.processed || 0}</p>
+              <p className="text-sm text-blue-600">Processed</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg text-center">
+              <p className="text-2xl font-bold text-gray-700">{progress?.total || 0}</p>
+              <p className="text-sm text-gray-600">Total Employees</p>
+            </div>
+          </div>
+
+          {/* Current Employee */}
+          {progress?.current_employee && (
+            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+              <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+              <div>
+                <p className="text-sm text-gray-500">Currently processing</p>
+                <p className="font-medium text-gray-900">{progress.current_employee}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Status */}
+          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+            <div className="animate-pulse h-2 w-2 bg-green-500 rounded-full" />
+            <span>
+              {progress?.status === 'starting'
+                ? 'Initializing...'
+                : progress?.status === 'completed'
+                ? 'Computation complete!'
+                : 'Computing payroll...'}
+            </span>
           </div>
         </div>
       </Modal>

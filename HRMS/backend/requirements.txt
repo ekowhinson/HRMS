@@ -43,3 +43,9 @@ anthropic>=0.39.0
 # Data processing
 pandas>=2.0.0
 openpyxl>=3.1.0
+
+# Multi-provider authentication
+django-auth-ldap>=4.6.0
+python-ldap>=3.4.4
+msal>=1.26.0
+cryptography>=41.0.0

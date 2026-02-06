@@ -342,40 +342,180 @@ class PayrollPeriodViewSet(viewsets.ModelViewSet):
     def reopen(self, request, pk=None):
         """
         Reopen a payroll period to allow reprocessing.
-        Only COMPUTED or APPROVED periods can be reopened (not PAID or CLOSED).
+
+        POST /payroll/periods/{id}/reopen/
+        Body: {
+            "force": true,           # Required for PAID/CLOSED periods
+            "reset_runs": true,      # Optional: Reset payroll runs to DRAFT
+            "reason": "Correction"   # Required for PAID/CLOSED periods
+        }
         """
         period = self.get_object()
+        force = request.data.get('force', False)
+        reset_runs = request.data.get('reset_runs', False)
+        reason = request.data.get('reason', '')
 
-        # Cannot reopen PAID or CLOSED periods without special confirmation
-        if period.status == 'PAID':
-            force = request.data.get('force', False)
-            if not force:
-                return Response({
-                    'error': 'This period has been marked as PAID. '
-                             'Reopening may cause discrepancies. '
-                             'Set "force": true to confirm.',
-                    'requires_confirmation': True
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-        if period.status == 'CLOSED':
-            return Response({
-                'error': 'Cannot reopen a CLOSED period. '
-                         'Please contact system administrator.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
+        # Already open
         if period.status == 'OPEN':
             return Response({
                 'message': 'Period is already open.',
                 'data': PayrollPeriodSerializer(period).data
             })
 
+        # PAID periods require force and reason
+        if period.status == 'PAID':
+            if not force:
+                return Response({
+                    'error': 'This period has been marked as PAID. '
+                             'Reopening may cause discrepancies with bank files already sent. '
+                             'Set "force": true and provide a "reason" to confirm.',
+                    'requires_confirmation': True,
+                    'current_status': period.status
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if not reason:
+                return Response({
+                    'error': 'A reason is required to reopen a PAID period.',
+                    'requires_confirmation': True
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # CLOSED periods require force and reason
+        if period.status == 'CLOSED':
+            if not force:
+                return Response({
+                    'error': 'This period is CLOSED. '
+                             'Reopening a closed period should only be done for corrections. '
+                             'Set "force": true and provide a "reason" to confirm.',
+                    'requires_confirmation': True,
+                    'current_status': period.status
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if not reason:
+                return Response({
+                    'error': 'A reason is required to reopen a CLOSED period.',
+                    'requires_confirmation': True
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Store previous status for audit
+        previous_status = period.status
+
         # Reopen the period
         period.status = PayrollPeriod.Status.OPEN
         period.save(update_fields=['status', 'updated_at'])
 
+        # Reset payroll runs if requested
+        runs_reset = 0
+        if reset_runs:
+            # Reset runs to DRAFT or REJECTED so they can be recomputed
+            runs = PayrollRun.objects.filter(payroll_period=period)
+            for run in runs:
+                if run.status in ['COMPUTED', 'APPROVED', 'REVIEWING']:
+                    run.status = PayrollRun.Status.DRAFT
+                    run.save(update_fields=['status', 'updated_at'])
+                    runs_reset += 1
+                elif run.status in ['PAID', 'REVERSED']:
+                    # For paid runs, mark as REJECTED to allow new run
+                    run.status = PayrollRun.Status.REJECTED
+                    run.save(update_fields=['status', 'updated_at'])
+                    runs_reset += 1
+
+        # Log the action (if audit model exists)
+        try:
+            from core.models import AuditLog
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action='REOPEN_PERIOD',
+                model_name='PayrollPeriod',
+                object_id=str(period.id),
+                changes={
+                    'previous_status': previous_status,
+                    'new_status': 'OPEN',
+                    'reason': reason,
+                    'runs_reset': runs_reset,
+                    'force': force
+                }
+            )
+        except Exception:
+            pass  # Audit logging is optional
+
         return Response({
             'message': f'Period {period.name} reopened successfully.',
+            'previous_status': previous_status,
+            'runs_reset': runs_reset,
+            'reason': reason,
             'data': PayrollPeriodSerializer(period).data
+        })
+
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        """
+        Close a payroll period after all processing is complete.
+
+        POST /payroll/periods/{id}/close/
+        """
+        period = self.get_object()
+
+        if period.status == 'CLOSED':
+            return Response({
+                'message': 'Period is already closed.',
+                'data': PayrollPeriodSerializer(period).data
+            })
+
+        # Should typically only close PAID periods
+        if period.status not in ['PAID', 'APPROVED']:
+            return Response({
+                'error': f'Cannot close a period with status {period.status}. '
+                         'Period should be PAID or APPROVED before closing.',
+                'current_status': period.status
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        previous_status = period.status
+        period.status = PayrollPeriod.Status.CLOSED
+        period.save(update_fields=['status', 'updated_at'])
+
+        return Response({
+            'message': f'Period {period.name} closed successfully.',
+            'previous_status': previous_status,
+            'data': PayrollPeriodSerializer(period).data
+        })
+
+    @action(detail=True, methods=['get'])
+    def status_info(self, request, pk=None):
+        """
+        Get status information and available actions for a period.
+
+        GET /payroll/periods/{id}/status_info/
+        """
+        period = self.get_object()
+        runs = PayrollRun.objects.filter(payroll_period=period)
+
+        # Determine available actions based on current status
+        available_actions = []
+        if period.status == 'OPEN':
+            available_actions = ['compute', 'create_run']
+        elif period.status == 'PROCESSING':
+            available_actions = ['wait']  # In progress
+        elif period.status == 'COMPUTED':
+            available_actions = ['approve', 'reopen', 'recompute']
+        elif period.status == 'APPROVED':
+            available_actions = ['process_payment', 'reopen', 'close']
+        elif period.status == 'PAID':
+            available_actions = ['close', 'reopen']  # reopen requires force
+        elif period.status == 'CLOSED':
+            available_actions = ['reopen']  # reopen requires force
+
+        return Response({
+            'period': PayrollPeriodSerializer(period).data,
+            'status': period.status,
+            'status_display': period.get_status_display(),
+            'available_actions': available_actions,
+            'runs_count': runs.count(),
+            'runs_summary': {
+                'draft': runs.filter(status='DRAFT').count(),
+                'computed': runs.filter(status='COMPUTED').count(),
+                'approved': runs.filter(status='APPROVED').count(),
+                'paid': runs.filter(status='PAID').count(),
+            },
+            'can_reopen': period.status in ['COMPUTED', 'APPROVED', 'PAID', 'CLOSED'],
+            'reopen_requires_force': period.status in ['PAID', 'CLOSED'],
         })
 
 
@@ -452,6 +592,27 @@ class PayrollRunViewSet(viewsets.ModelViewSet):
             'data': PayrollRunSerializer(payroll_run).data
         })
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a payroll run. Only DRAFT status runs can be deleted.
+        Uses soft delete to maintain audit trail.
+        """
+        payroll_run = self.get_object()
+
+        # Only allow deletion of DRAFT runs
+        if payroll_run.status != PayrollRun.Status.DRAFT:
+            return Response({
+                'error': f'Cannot delete payroll run in status: {payroll_run.get_status_display()}. '
+                         f'Only DRAFT runs can be deleted.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Soft delete the payroll run (cascades to related items)
+        payroll_run.delete(user=request.user)
+
+        return Response({
+            'message': 'Payroll run deleted successfully'
+        }, status=status.HTTP_200_OK)
+
 
 class AdHocPaymentViewSet(viewsets.ModelViewSet):
     """ViewSet for Ad Hoc Payments."""
@@ -465,11 +626,12 @@ class EmployeeTransactionViewSet(viewsets.ModelViewSet):
     """ViewSet for Employee Transactions with approval workflow."""
     queryset = EmployeeTransaction.objects.select_related(
         'employee', 'employee__department', 'pay_component',
-        'approved_by', 'payroll_period'
+        'approved_by', 'payroll_period', 'calendar',
+        'job_grade', 'salary_band'
     )
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'is_recurring', 'pay_component', 'pay_component__component_type', 'employee']
-    search_fields = ['reference_number', 'employee__employee_number', 'employee__first_name', 'employee__last_name']
+    filterset_fields = ['status', 'is_recurring', 'pay_component', 'pay_component__component_type', 'employee', 'target_type', 'job_grade', 'salary_band']
+    search_fields = ['reference_number', 'employee__employee_number', 'employee__first_name', 'employee__last_name', 'job_grade__name', 'salary_band__name']
     ordering_fields = ['reference_number', 'effective_from', 'effective_to', 'status', 'created_at']
     ordering = ['-created_at']
 
@@ -687,6 +849,49 @@ class ComputePayrollView(APIView):
                 {'error': f'Failed to compute payroll: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class PayrollProgressView(APIView):
+    """Check payroll computation progress."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.core.cache import cache
+
+        try:
+            payroll_run = PayrollRun.objects.get(pk=pk)
+        except PayrollRun.DoesNotExist:
+            return Response(
+                {'error': 'Payroll run not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        progress_key = f'payroll_progress_{pk}'
+        progress = cache.get(progress_key)
+
+        if progress:
+            return Response({
+                'success': True,
+                'data': {
+                    'run_id': str(pk),
+                    'run_status': payroll_run.status,
+                    **progress
+                }
+            })
+        else:
+            # No progress in cache - return based on run status
+            return Response({
+                'success': True,
+                'data': {
+                    'run_id': str(pk),
+                    'run_status': payroll_run.status,
+                    'status': 'completed' if payroll_run.status == 'COMPUTED' else 'idle',
+                    'total': payroll_run.total_employees or 0,
+                    'processed': payroll_run.total_employees or 0,
+                    'percentage': 100 if payroll_run.status == 'COMPUTED' else 0,
+                    'current_employee': '',
+                }
+            })
 
 
 class ApprovePayrollView(APIView):

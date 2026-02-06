@@ -462,3 +462,82 @@ class RoleUpdateSerializer(serializers.ModelSerializer):
                     pass
 
         return instance
+
+
+# ============================================
+# Authentication Provider Serializers
+# ============================================
+
+from .models import AuthProvider, UserAuthProvider
+
+
+class AuthProviderSerializer(serializers.ModelSerializer):
+    """
+    Public serializer for auth providers (limited info).
+    """
+    class Meta:
+        model = AuthProvider
+        fields = ['id', 'name', 'provider_type', 'is_enabled', 'is_default']
+        read_only_fields = fields
+
+
+class AuthProviderConfigSerializer(serializers.ModelSerializer):
+    """
+    Admin serializer for auth provider configuration.
+    """
+    default_role_name = serializers.CharField(source='default_role.name', read_only=True)
+    users_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuthProvider
+        fields = [
+            'id', 'name', 'provider_type', 'is_enabled', 'is_default', 'priority',
+            'config', 'auto_provision_users', 'auto_link_by_email',
+            'default_role', 'default_role_name', 'allowed_domains',
+            'last_connection_test', 'last_connection_status', 'last_connection_error',
+            'last_sync_at', 'last_sync_count', 'users_count',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'provider_type', 'default_role_name', 'users_count',
+            'last_connection_test', 'last_connection_status', 'last_connection_error',
+            'last_sync_at', 'last_sync_count', 'created_at', 'updated_at'
+        ]
+
+    def get_users_count(self, obj):
+        return UserAuthProvider.objects.filter(provider=obj, is_active=True).count()
+
+    def validate_config(self, value):
+        """Validate provider-specific configuration."""
+        provider_type = self.instance.provider_type if self.instance else None
+
+        if provider_type == 'LDAP':
+            required_fields = ['server_uri']
+            for field in required_fields:
+                if not value.get(field):
+                    raise serializers.ValidationError(f"LDAP config requires '{field}'")
+
+        elif provider_type == 'AZURE_AD':
+            required_fields = ['tenant_id', 'client_id', 'client_secret']
+            for field in required_fields:
+                if not value.get(field):
+                    raise serializers.ValidationError(f"Azure AD config requires '{field}'")
+
+        return value
+
+
+class UserAuthProviderSerializer(serializers.ModelSerializer):
+    """
+    Serializer for user auth provider links.
+    """
+    provider_name = serializers.CharField(source='provider.name', read_only=True)
+    provider_type = serializers.CharField(source='provider.provider_type', read_only=True)
+
+    class Meta:
+        model = UserAuthProvider
+        fields = [
+            'id', 'provider', 'provider_name', 'provider_type',
+            'external_id', 'external_username', 'is_primary', 'is_active',
+            'last_login', 'login_count', 'created_at'
+        ]
+        read_only_fields = ['id', 'external_id', 'external_username', 'last_login', 'login_count', 'created_at']

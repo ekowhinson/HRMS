@@ -118,6 +118,14 @@ else:
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
 
+# Authentication Backends (Multi-provider support)
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.local.LocalAuthBackend',
+    'accounts.backends.ldap.LDAPAuthBackend',
+    'accounts.backends.azure_ad.AzureADBackend',
+    'django.contrib.auth.backends.ModelBackend',  # Fallback for admin
+]
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {

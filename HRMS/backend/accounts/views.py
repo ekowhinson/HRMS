@@ -659,3 +659,327 @@ class VerifyEmailView(APIView):
         if x_forwarded_for:
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')
+
+
+# ============================================
+# Authentication Provider Views
+# ============================================
+
+from .models import AuthProvider, UserAuthProvider
+from .serializers import AuthProviderSerializer, AuthProviderConfigSerializer
+
+
+class AuthProviderListView(APIView):
+    """
+    Public endpoint to list enabled authentication providers.
+    Used by login page to show available auth methods.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        providers = AuthProvider.objects.filter(is_enabled=True).order_by('priority')
+        return Response([{
+            'id': str(p.id),
+            'name': p.name,
+            'type': p.provider_type,
+            'is_default': p.is_default,
+        } for p in providers])
+
+
+class LDAPLoginView(APIView):
+    """
+    LDAP/Active Directory authentication endpoint.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response(
+                {'error': 'Username and password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from django.contrib.auth import authenticate
+        user = authenticate(request, username=username, password=password)
+
+        if not user:
+            return Response(
+                {'error': 'Invalid LDAP credentials'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Check if user is active
+        if not user.is_active:
+            return Response(
+                {'error': 'User account is disabled'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Update last login info
+        user.last_login_at = timezone.now()
+        user.last_login_ip = self.get_client_ip(request)
+        user.save(update_fields=['last_login_at', 'last_login_ip'])
+
+        # Generate tokens
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data
+        })
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+
+
+class AzureADAuthorizeView(APIView):
+    """
+    Generate Azure AD authorization URL for OAuth flow.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        try:
+            provider = AuthProvider.objects.get(
+                provider_type='AZURE_AD',
+                is_enabled=True
+            )
+        except AuthProvider.DoesNotExist:
+            return Response(
+                {'error': 'Azure AD authentication not configured'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        config = provider.config
+        redirect_uri = config.get('redirect_uri') or request.build_absolute_uri('/auth/azure/callback')
+
+        from .backends.azure_ad import AzureADBackend
+        auth_url, state = AzureADBackend.get_authorization_url(config, redirect_uri)
+
+        if not auth_url:
+            return Response(
+                {'error': 'Failed to generate authorization URL'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response({
+            'auth_url': auth_url,
+            'state': state
+        })
+
+
+class AzureADCallbackView(APIView):
+    """
+    Handle Azure AD OAuth callback.
+    Exchange authorization code for tokens and authenticate user.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        code = request.data.get('code')
+        state = request.data.get('state')
+
+        if not code:
+            return Response(
+                {'error': 'Authorization code is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate state
+        from .backends.azure_ad import AzureADBackend
+        if state and not AzureADBackend.validate_state(state):
+            return Response(
+                {'error': 'Invalid state parameter'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            provider = AuthProvider.objects.get(
+                provider_type='AZURE_AD',
+                is_enabled=True
+            )
+        except AuthProvider.DoesNotExist:
+            return Response(
+                {'error': 'Azure AD authentication not configured'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        config = provider.config
+        redirect_uri = config.get('redirect_uri') or request.build_absolute_uri('/auth/azure/callback')
+
+        # Exchange code for tokens
+        tokens = AzureADBackend.exchange_code_for_tokens(config, code, redirect_uri)
+
+        if not tokens:
+            return Response(
+                {'error': 'Failed to exchange authorization code'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Authenticate user with tokens
+        from django.contrib.auth import authenticate
+        user = authenticate(request, azure_token=tokens)
+
+        if not user:
+            return Response(
+                {'error': 'User authentication failed'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Update last login info
+        user.last_login_at = timezone.now()
+        user.last_login_ip = self.get_client_ip(request)
+        user.save(update_fields=['last_login_at', 'last_login_ip'])
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data
+        })
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+
+
+# ============================================
+# Admin Authentication Provider Views
+# ============================================
+
+class AuthProviderAdminListView(APIView):
+    """
+    Admin endpoint to list all authentication providers.
+    """
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        providers = AuthProvider.objects.all().order_by('priority')
+        serializer = AuthProviderConfigSerializer(providers, many=True)
+        return Response(serializer.data)
+
+
+class AuthProviderAdminDetailView(APIView):
+    """
+    Admin endpoint to get/update a specific authentication provider.
+    """
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request, pk):
+        try:
+            provider = AuthProvider.objects.get(pk=pk)
+        except AuthProvider.DoesNotExist:
+            return Response(
+                {'error': 'Provider not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = AuthProviderConfigSerializer(provider)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        try:
+            provider = AuthProvider.objects.get(pk=pk)
+        except AuthProvider.DoesNotExist:
+            return Response(
+                {'error': 'Provider not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = AuthProviderConfigSerializer(provider, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+
+            # Log configuration change
+            AuthenticationLog.objects.create(
+                user=request.user,
+                email=request.user.email,
+                event_type='PROVIDER_CFG',
+                auth_provider=provider,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                extra_data={'action': 'update'}
+            )
+
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+
+
+class AuthProviderTestView(APIView):
+    """
+    Admin endpoint to test authentication provider connection.
+    """
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, pk):
+        try:
+            provider = AuthProvider.objects.get(pk=pk)
+        except AuthProvider.DoesNotExist:
+            return Response(
+                {'error': 'Provider not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        config = provider.config
+        success = False
+        message = "Unknown provider type"
+
+        if provider.provider_type == 'LOCAL':
+            success = True
+            message = "Local authentication is always available"
+        elif provider.provider_type == 'LDAP':
+            from .backends.ldap import LDAPAuthBackend
+            success, message = LDAPAuthBackend.test_connection(config)
+        elif provider.provider_type == 'AZURE_AD':
+            from .backends.azure_ad import AzureADBackend
+            success, message = AzureADBackend.test_connection(config)
+
+        # Update provider connection status
+        provider.last_connection_test = timezone.now()
+        provider.last_connection_status = success
+        provider.last_connection_error = None if success else message
+        provider.save(update_fields=['last_connection_test', 'last_connection_status', 'last_connection_error'])
+
+        return Response({
+            'success': success,
+            'message': message
+        })
+
+
+class UserLinkedProvidersView(APIView):
+    """
+    Get providers linked to the current user.
+    """
+    def get(self, request):
+        links = UserAuthProvider.objects.filter(
+            user=request.user,
+            is_active=True
+        ).select_related('provider')
+
+        return Response([{
+            'id': str(link.id),
+            'provider_id': str(link.provider.id),
+            'provider_name': link.provider.name,
+            'provider_type': link.provider.provider_type,
+            'external_username': link.external_username,
+            'is_primary': link.is_primary,
+            'last_login': link.last_login,
+            'login_count': link.login_count,
+        } for link in links])
