@@ -59,6 +59,7 @@ import ExitsPage from './pages/admin/ExitsPage'
 import ExitDetailPage from './pages/admin/ExitDetailPage'
 // Recruitment pages
 import RecruitmentPage from './pages/admin/RecruitmentPage'
+import VacancyFormPage from './pages/admin/VacancyFormPage'
 import VacancyDetailPage from './pages/admin/VacancyDetailPage'
 // Announcements pages
 import AnnouncementsPage from './pages/admin/AnnouncementsPage'
@@ -218,7 +219,9 @@ function App() {
 
                 {/* Recruitment Routes */}
                 <Route path="/admin/recruitment" element={<AdminRoute><RecruitmentPage /></AdminRoute>} />
+                <Route path="/admin/recruitment/vacancies/new" element={<AdminRoute><VacancyFormPage /></AdminRoute>} />
                 <Route path="/admin/recruitment/vacancies/:id" element={<AdminRoute><VacancyDetailPage /></AdminRoute>} />
+                <Route path="/admin/recruitment/vacancies/:id/edit" element={<AdminRoute><VacancyFormPage /></AdminRoute>} />
 
                 {/* Announcements Routes */}
                 <Route path="/admin/announcements" element={<AdminRoute><AnnouncementsPage /></AdminRoute>} />

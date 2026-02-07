@@ -2772,6 +2772,8 @@ class PayrollJournalReportView(APIView):
         details = PayrollItemDetail.objects.filter(
             payroll_item__payroll_run=run,
             amount__gt=0
+        ).exclude(
+            pay_component__code='SSNIT_EMP'
         ).values(
             'pay_component__code',
             'pay_component__name',
@@ -2959,9 +2961,12 @@ class ExportPayrollJournalView(APIView):
             return Response({'message': 'No payroll run found'}, status=404)
 
         # Get aggregated amounts by component
+        # Exclude SSNIT_EMP as it's handled via PayrollItem.ssnit_employee aggregate below
         details = PayrollItemDetail.objects.filter(
             payroll_item__payroll_run=run,
             amount__gt=0
+        ).exclude(
+            pay_component__code='SSNIT_EMP'
         ).values(
             'pay_component__code',
             'pay_component__name',

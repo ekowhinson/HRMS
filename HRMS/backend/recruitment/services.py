@@ -8,8 +8,11 @@ from django.utils import timezone
 
 from .models import (
     Vacancy, Applicant, ShortlistCriteria, ShortlistRun, ShortlistResult,
-    ShortlistTemplate, ShortlistTemplateCriteria
+    ShortlistTemplate, ShortlistTemplateCriteria, ApplicantStatusHistory
 )
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class ShortlistingService:
@@ -374,3 +377,98 @@ def apply_template_to_vacancy(vacancy: Vacancy, template: ShortlistTemplate, cle
         )
 
     return vacancy.shortlist_criteria.count()
+
+
+def auto_shortlist_applicant(applicant: Applicant):
+    """
+    Automatically evaluate a single applicant against the vacancy's shortlisting
+    criteria and update their status to SHORTLISTED if they qualify.
+
+    Called when an applicant is created (admin or public application).
+    Returns the outcome string or None if no criteria exist / auto-shortlist disabled.
+    """
+    vacancy = applicant.vacancy
+
+    # Check if auto-shortlist is enabled for this vacancy
+    if not getattr(vacancy, 'auto_shortlist', True):
+        return None
+
+    criteria = list(vacancy.shortlist_criteria.all().order_by('sort_order'))
+    if not criteria:
+        return None
+
+    # Use the same scoring logic as ShortlistingService
+    service = ShortlistingService.__new__(ShortlistingService)
+    service.criteria = criteria
+    service.vacancy = vacancy
+
+    # Score the applicant
+    score_breakdown = {}
+    failed_mandatory = []
+    total_weighted_score = Decimal('0')
+    max_possible_score = Decimal('0')
+
+    for criterion in criteria:
+        score, max_score, matched = service._evaluate_criterion(criterion, applicant)
+        weighted_score = score * criterion.weight
+
+        score_breakdown[criterion.name] = {
+            'criterion_type': criterion.criteria_type,
+            'score': float(score),
+            'max_score': float(max_score),
+            'weighted_score': float(weighted_score),
+            'weight': float(criterion.weight),
+            'matched': matched,
+            'is_mandatory': criterion.is_mandatory,
+        }
+
+        total_weighted_score += weighted_score
+        max_possible_score += Decimal(criterion.max_score) * criterion.weight
+
+        if criterion.is_mandatory and not matched:
+            failed_mandatory.append({
+                'criterion': criterion.name,
+                'type': criterion.criteria_type,
+            })
+
+    # Calculate percentage
+    if max_possible_score > 0:
+        percentage_score = (total_weighted_score / max_possible_score) * 100
+    else:
+        percentage_score = Decimal('0')
+
+    pass_score = Decimal('60')  # Default pass threshold
+
+    # Determine outcome
+    if failed_mandatory:
+        outcome = 'DISQUALIFIED'
+    elif percentage_score >= pass_score:
+        outcome = 'QUALIFIED'
+    else:
+        outcome = 'NOT_QUALIFIED'
+
+    # Save score on applicant
+    applicant.screening_score = int(percentage_score)
+    applicant.screening_notes = f'Auto-evaluated: {outcome} ({percentage_score:.1f}%)'
+
+    if outcome == 'QUALIFIED':
+        old_status = applicant.status
+        applicant.status = Applicant.Status.SHORTLISTED
+        applicant.save(update_fields=['status', 'screening_score', 'screening_notes'])
+
+        ApplicantStatusHistory.objects.create(
+            applicant=applicant,
+            old_status=old_status,
+            new_status=Applicant.Status.SHORTLISTED,
+            notes=f'Auto-shortlisted (Score: {percentage_score:.1f}%)',
+            is_visible_to_applicant=True,
+            public_message='Congratulations! You have been shortlisted for further consideration.',
+        )
+        logger.info(f'Auto-shortlisted applicant {applicant.applicant_number} '
+                     f'for vacancy {vacancy.vacancy_number} (score: {percentage_score:.1f}%)')
+    else:
+        applicant.save(update_fields=['screening_score', 'screening_notes'])
+        logger.info(f'Auto-evaluation for applicant {applicant.applicant_number}: '
+                     f'{outcome} (score: {percentage_score:.1f}%)')
+
+    return outcome

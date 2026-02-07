@@ -3,7 +3,7 @@ import type { PaginatedResponse } from '@/types'
 
 // ==================== Types ====================
 
-export type VacancyStatus = 'DRAFT' | 'OPEN' | 'ON_HOLD' | 'CLOSED' | 'FILLED' | 'CANCELLED'
+export type VacancyStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'PUBLISHED' | 'OPEN' | 'ON_HOLD' | 'CLOSED' | 'FILLED' | 'CANCELLED'
 export type ApplicantStatus = 'NEW' | 'SCREENING' | 'SHORTLISTED' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED' | 'WITHDRAWN'
 export type InterviewStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | 'RESCHEDULED'
 export type OfferStatus = 'DRAFT' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'NEGOTIATING' | 'WITHDRAWN' | 'EXPIRED'
@@ -256,11 +256,18 @@ export interface ShortlistCriteria {
   vacancy: string
   criteria_type: string
   criteria_type_display: string
-  value: string
   match_type: string
+  match_type_display: string
+  name: string
+  description: string
+  value_text: string
+  value_number: number | null
+  value_min: number | null
+  value_max: number | null
   weight: number
   max_score: number
   is_mandatory: boolean
+  sort_order: number
   created_at: string
 }
 

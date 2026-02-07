@@ -20,6 +20,7 @@ from .models import (
     InterviewScoringSheet, InterviewScoreItem, InterviewReport,
     VacancyURL, VacancyURLView, ApplicantPortalAccess, ApplicantStatusHistory
 )
+from .services import ShortlistingService, auto_shortlist_applicant, apply_template_to_vacancy
 from .serializers import (
     VacancySerializer, ApplicantSerializer,
     InterviewSerializer, InterviewPanelSerializer, InterviewFeedbackSerializer,
@@ -90,7 +91,13 @@ class ApplicantViewSet(viewsets.ModelViewSet):
         # Generate applicant number
         import uuid
         applicant_number = f"APP-{uuid.uuid4().hex[:8].upper()}"
-        serializer.save(applicant_number=applicant_number)
+        applicant = serializer.save(applicant_number=applicant_number)
+
+        # Auto-shortlist if vacancy has criteria configured
+        try:
+            auto_shortlist_applicant(applicant)
+        except Exception:
+            pass  # Don't fail applicant creation if auto-shortlist errors
 
     @action(detail=True, methods=['post'])
     def shortlist(self, request, pk=None):
@@ -688,6 +695,12 @@ class PublicApplicationSubmitView(APIView):
             applicant = serializer.save()
             vacancy_url.record_use()
 
+            # Auto-shortlist if vacancy has criteria configured
+            try:
+                auto_shortlist_applicant(applicant)
+            except Exception:
+                pass  # Don't fail submission if auto-shortlist errors
+
             # Get portal access
             portal_access = ApplicantPortalAccess.objects.get(applicant=applicant)
 
@@ -816,7 +829,6 @@ from .serializers import (
     ShortlistResultSerializer, ShortlistResultOverrideSerializer,
     ApplyTemplateSerializer
 )
-from .services import ShortlistingService, apply_template_to_vacancy
 
 
 class ShortlistCriteriaViewSet(viewsets.ModelViewSet):

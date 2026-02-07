@@ -85,6 +85,11 @@ class Vacancy(BaseModel):
     budget_code = models.CharField(max_length=50, blank=True)
     justification = models.TextField(blank=True)
 
+    auto_shortlist = models.BooleanField(
+        default=True,
+        help_text='Automatically shortlist applicants who meet the defined criteria'
+    )
+
     class Meta:
         verbose_name_plural = 'Vacancies'
         ordering = ['-created_at']
