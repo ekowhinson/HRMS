@@ -15,6 +15,9 @@ import toast from 'react-hot-toast'
 interface ReconciliationItem {
   description?: string
   employee_name?: string
+  component_name?: string
+  previous_amount?: number
+  current_amount?: number
   amount: number
   change?: number
 }
@@ -237,7 +240,7 @@ export default function SalaryReconciliationPage() {
             <div className="ml-4 space-y-1">
               {reconciliation.change_in_recurring.items.map((item, idx) => (
                 <div key={idx} className="flex justify-between text-sm text-gray-600">
-                  <span>{item.description || item.employee_name}</span>
+                  <span>{item.description || (item.employee_name && item.component_name ? `${item.employee_name} - ${item.component_name}` : item.employee_name)}</span>
                   <span>{item.change !== undefined && item.change !== 0 ? formatCurrency(item.change) : '-'}</span>
                 </div>
               ))}

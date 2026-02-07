@@ -3163,6 +3163,7 @@ class SalaryReconciliationView(APIView):
                     'amount': safe_decimal(detail.amount),
                     'name': detail.pay_component.name,
                     'is_recurring': detail.pay_component.is_recurring,
+                    'component_type': detail.pay_component.component_type,
                 }
 
         # Get previous period items
@@ -3177,6 +3178,7 @@ class SalaryReconciliationView(APIView):
                     'amount': safe_decimal(detail.amount),
                     'name': detail.pay_component.name,
                     'is_recurring': detail.pay_component.is_recurring,
+                    'component_type': detail.pay_component.component_type,
                 }
 
         all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
@@ -3249,18 +3251,29 @@ class SalaryReconciliationView(APIView):
                             })
                             total_non_recurring_less += detail['amount']
 
-                # Check recurring earnings changes (basic salary changes)
-                curr_basic = safe_decimal(curr_item.basic_salary)
-                prev_basic = safe_decimal(prev_item.basic_salary)
-                if curr_basic != prev_basic:
-                    diff = curr_basic - prev_basic
-                    recurring_changes.append({
-                        'employee_name': emp.full_name,
-                        'previous_amount': float(prev_basic),
-                        'current_amount': float(curr_basic),
-                        'change': float(diff),
-                    })
-                    total_recurring_changes += diff
+                # Check recurring earnings changes (all recurring earning components)
+                all_recurring_codes = set()
+                for code, detail in curr_comps.items():
+                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
+                        all_recurring_codes.add(code)
+                for code, detail in prev_comps.items():
+                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
+                        all_recurring_codes.add(code)
+
+                for code in all_recurring_codes:
+                    curr_amt = curr_comps.get(code, {}).get('amount', Decimal('0'))
+                    prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
+                    if curr_amt != prev_amt:
+                        diff = curr_amt - prev_amt
+                        comp_name = (curr_comps.get(code) or prev_comps.get(code))['name']
+                        recurring_changes.append({
+                            'employee_name': emp.full_name,
+                            'component_name': comp_name,
+                            'previous_amount': float(prev_amt),
+                            'current_amount': float(curr_amt),
+                            'change': float(diff),
+                        })
+                        total_recurring_changes += diff
 
         # Build response
         return Response({
@@ -3384,6 +3397,7 @@ class ExportSalaryReconciliationView(APIView):
                     'amount': safe_decimal(detail.amount),
                     'name': detail.pay_component.name,
                     'is_recurring': detail.pay_component.is_recurring,
+                    'component_type': detail.pay_component.component_type,
                 }
 
         previous_items = {}
@@ -3397,6 +3411,7 @@ class ExportSalaryReconciliationView(APIView):
                     'amount': safe_decimal(detail.amount),
                     'name': detail.pay_component.name,
                     'is_recurring': detail.pay_component.is_recurring,
+                    'component_type': detail.pay_component.component_type,
                 }
 
         all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
@@ -3409,11 +3424,13 @@ class ExportSalaryReconciliationView(APIView):
         deletions = []
         non_recurring_add = []
         non_recurring_less = []
+        recurring_changes = []
 
         total_additions = Decimal('0')
         total_deletions = Decimal('0')
         total_non_recurring_add = Decimal('0')
         total_non_recurring_less = Decimal('0')
+        total_recurring_changes = Decimal('0')
 
         for emp_id in all_emp_ids:
             curr_item = current_items.get(emp_id)
@@ -3440,6 +3457,8 @@ class ExportSalaryReconciliationView(APIView):
                 total_deletions += basic
 
             elif curr_item and prev_item:
+                emp = curr_item.employee
+
                 for code, detail in curr_comps.items():
                     if not detail['is_recurring'] and detail['amount'] > 0:
                         prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
@@ -3458,6 +3477,27 @@ class ExportSalaryReconciliationView(APIView):
                                 'Amount': float(detail['amount']),
                             })
                             total_non_recurring_less += detail['amount']
+
+                # Check recurring earnings changes (all recurring earning components)
+                all_recurring_codes = set()
+                for code, detail in curr_comps.items():
+                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
+                        all_recurring_codes.add(code)
+                for code, detail in prev_comps.items():
+                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
+                        all_recurring_codes.add(code)
+
+                for code in all_recurring_codes:
+                    curr_amt = curr_comps.get(code, {}).get('amount', Decimal('0'))
+                    prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
+                    if curr_amt != prev_amt:
+                        diff = curr_amt - prev_amt
+                        comp_name = (curr_comps.get(code) or prev_comps.get(code))['name']
+                        recurring_changes.append({
+                            'Description': f"{emp.full_name} - {comp_name}",
+                            'Amount': float(diff),
+                        })
+                        total_recurring_changes += diff
 
         # Build export rows
         rows = []
@@ -3492,6 +3532,16 @@ class ExportSalaryReconciliationView(APIView):
         else:
             rows.append({'Description': '  NO TRANSACTION', 'Amount': 0, 'Total': ''})
         rows.append({'Description': '', 'Amount': '', 'Total': float(total_non_recurring_add)})
+        rows.append({'Description': '', 'Amount': '', 'Total': ''})
+
+        # Section: Change in Recurring Earnings
+        rows.append({'Description': 'Change in Recurring Earnings', 'Amount': '', 'Total': ''})
+        if recurring_changes:
+            for item in sorted(recurring_changes, key=lambda x: x['Description']):
+                rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
+        else:
+            rows.append({'Description': '  NO TRANSACTION', 'Amount': 0, 'Total': ''})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(total_recurring_changes)})
         rows.append({'Description': '', 'Amount': '', 'Total': ''})
 
         # Section: Additions
