@@ -1640,7 +1640,7 @@ def get_payroll_reconciliation_data(current_run_id: str = None, previous_run_id:
             return [], [], None
     else:
         runs = PayrollRun.objects.filter(
-            status__in=['APPROVED', 'PAID']
+            status__in=['COMPUTED', 'APPROVED', 'PAID']
         ).order_by('-run_date')[:2]
 
         if len(runs) < 2:
@@ -1903,3 +1903,56 @@ def generate_payroll_master_pdf(data: list, headers: list, column_keys: list, fi
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+class ReportExporter:
+    """
+    Utility class for exporting report data to various formats.
+    Provides a simple interface for CSV, Excel, and PDF exports.
+    """
+
+    @staticmethod
+    def export_data(data: list, headers: list, filename: str, format_type: str = 'csv', title: str = None):
+        """
+        Export data to the specified format.
+
+        Args:
+            data: List of dictionaries containing the data to export
+            headers: List of column headers
+            filename: Base filename (without extension)
+            format_type: One of 'csv', 'excel', 'pdf'
+            title: Optional title for the report
+
+        Returns:
+            HttpResponse with the exported file
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Normalize data to use header keys
+        normalized_data = []
+        for row in data:
+            normalized_row = {}
+            for header in headers:
+                # Try both original header and normalized key
+                key = header.lower().replace(' ', '_').replace('(', '').replace(')', '').replace('%', '')
+                normalized_row[key] = row.get(header, row.get(key, ''))
+            normalized_data.append(normalized_row)
+
+        if format_type.lower() == 'excel':
+            return generate_excel_response(
+                normalized_data, headers,
+                f"{filename}_{timestamp}.xlsx",
+                title=title
+            )
+        elif format_type.lower() == 'pdf':
+            return generate_pdf_response(
+                normalized_data, headers,
+                f"{filename}_{timestamp}.pdf",
+                title=title,
+                landscape_mode=True
+            )
+        else:
+            return generate_csv_response(
+                normalized_data, headers,
+                f"{filename}_{timestamp}.csv"
+            )

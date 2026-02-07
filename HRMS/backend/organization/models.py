@@ -225,7 +225,25 @@ class JobGrade(BaseModel):
     level = models.PositiveSmallIntegerField(db_index=True)
     description = models.TextField(null=True, blank=True)
 
-    # Salary range
+    # Link to salary structure
+    salary_band = models.ForeignKey(
+        'payroll.SalaryBand',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='job_grades',
+        help_text='Salary band applicable to this job grade'
+    )
+    salary_level = models.ForeignKey(
+        'payroll.SalaryLevel',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='job_grades',
+        help_text='Default salary level for this job grade'
+    )
+
+    # Salary range (can be auto-populated from salary_band)
     min_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     max_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     mid_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -273,7 +291,9 @@ class JobPosition(BaseModel):
     short_title = models.CharField(max_length=100, null=True, blank=True)
     grade = models.ForeignKey(
         JobGrade,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='positions'
     )
     category = models.ForeignKey(

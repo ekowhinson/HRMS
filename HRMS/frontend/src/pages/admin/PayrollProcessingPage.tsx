@@ -689,63 +689,212 @@ export default function PayrollProcessingPage() {
         </div>
       </Modal>
 
-      {/* Payroll Computation Progress Modal */}
-      <Modal
-        isOpen={computeMutation.isPending}
-        onClose={() => {}} // Prevent closing during computation
-        title="Computing Payroll"
-      >
-        <div className="space-y-6 py-4">
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Progress</span>
-              <span className="font-medium text-primary-600">{progress?.percentage || 0}%</span>
-            </div>
-            <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+      {/* Payroll Computation Progress Modal - Stunning Design */}
+      {computeMutation.isPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Animated Background Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-slate-900/95 backdrop-blur-sm" />
+
+          {/* Floating Particles */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {[...Array(20)].map((_, i) => (
               <div
-                className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-300 ease-out"
-                style={{ width: `${progress?.percentage || 0}%` }}
+                key={i}
+                className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  animationDuration: `${2 + Math.random() * 3}s`,
+                }}
               />
-            </div>
+            ))}
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg text-center">
-              <p className="text-2xl font-bold text-blue-700">{progress?.processed || 0}</p>
-              <p className="text-sm text-blue-600">Processed</p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg text-center">
-              <p className="text-2xl font-bold text-gray-700">{progress?.total || 0}</p>
-              <p className="text-sm text-gray-600">Total Employees</p>
-            </div>
-          </div>
+          {/* Main Modal Card */}
+          <div className="relative w-full max-w-lg mx-4 bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl overflow-hidden">
+            {/* Animated Gradient Border */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 opacity-20 animate-pulse" />
 
-          {/* Current Employee */}
-          {progress?.current_employee && (
-            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-              <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full" />
-              <div>
-                <p className="text-sm text-gray-500">Currently processing</p>
-                <p className="font-medium text-gray-900">{progress.current_employee}</p>
+            {/* Content Container */}
+            <div className="relative p-8">
+              {/* Header with Glow */}
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 to-purple-600 shadow-lg shadow-purple-500/30 mb-4">
+                  <CalculatorIcon className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-1">Computing Payroll</h2>
+                <p className="text-white/60 text-sm">Processing employee salaries</p>
+              </div>
+
+              {/* Circular Progress Indicator */}
+              <div className="flex justify-center mb-8">
+                <div className="relative w-48 h-48">
+                  {/* Outer Glow Ring */}
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 opacity-20 blur-xl animate-pulse" />
+
+                  {/* Background Circle */}
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.1)"
+                      strokeWidth="8"
+                    />
+                    {/* Animated Progress Arc */}
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="none"
+                      stroke="url(#progressGradient)"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${(progress?.percentage || 0) * 2.64} 264`}
+                      className="transition-all duration-500 ease-out"
+                      style={{
+                        filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.8))',
+                      }}
+                    />
+                    <defs>
+                      <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#06b6d4" />
+                        <stop offset="50%" stopColor="#8b5cf6" />
+                        <stop offset="100%" stopColor="#ec4899" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+
+                  {/* Center Content */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-5xl font-black bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                      {progress?.percentage || 0}%
+                    </span>
+                    <span className="text-white/50 text-sm mt-1">Complete</span>
+                  </div>
+
+                  {/* Orbiting Dot */}
+                  <div
+                    className="absolute w-4 h-4 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full shadow-lg shadow-purple-500/50"
+                    style={{
+                      top: '50%',
+                      left: '50%',
+                      transform: `rotate(${(progress?.percentage || 0) * 3.6 - 90}deg) translateX(76px) translateY(-50%)`,
+                      transition: 'transform 0.5s ease-out',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl opacity-0 group-hover:opacity-100 blur transition-opacity duration-300" />
+                  <div className="relative bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/10 hover:border-cyan-500/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                        <CheckIcon className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-3xl font-bold text-white">{progress?.processed || 0}</p>
+                        <p className="text-cyan-300/80 text-sm">Processed</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl opacity-0 group-hover:opacity-100 blur transition-opacity duration-300" />
+                  <div className="relative bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/10 hover:border-purple-500/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                        <BanknotesIcon className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-3xl font-bold text-white">{progress?.total || 0}</p>
+                        <p className="text-purple-300/80 text-sm">Total</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Employee Processing */}
+              {progress?.current_employee && (
+                <div className="relative overflow-hidden bg-white/5 backdrop-blur rounded-2xl p-4 border border-white/10 mb-6">
+                  {/* Animated Shimmer */}
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+                  <div className="relative flex items-center gap-4">
+                    {/* Animated Avatar Placeholder */}
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 via-purple-500 to-pink-500 p-0.5">
+                        <div className="w-full h-full rounded-full bg-slate-800 flex items-center justify-center">
+                          <span className="text-lg font-bold text-white">
+                            {progress.current_employee.charAt(0)}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Pulse Ring */}
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400 to-purple-500 animate-ping opacity-30" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Currently Processing</p>
+                      <p className="text-white font-semibold truncate">{progress.current_employee}</p>
+                    </div>
+
+                    {/* Processing Indicator */}
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="w-2 h-2 rounded-full bg-gradient-to-r from-cyan-400 to-purple-500"
+                          style={{
+                            animation: 'bounce 1s infinite',
+                            animationDelay: `${i * 0.15}s`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Wave Progress Bar */}
+              <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progress?.percentage || 0}%` }}
+                >
+                  {/* Animated Shine */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_1.5s_infinite]" />
+                </div>
+              </div>
+
+              {/* Status Text */}
+              <div className="flex items-center justify-center gap-3 mt-6">
+                <div className="relative">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-500" />
+                  <div className="absolute inset-0 w-3 h-3 rounded-full bg-green-400 animate-ping" />
+                </div>
+                <span className="text-white/70 text-sm font-medium">
+                  {progress?.status === 'starting'
+                    ? 'Initializing payroll engine...'
+                    : progress?.status === 'completed'
+                    ? '✨ Computation complete!'
+                    : 'Crunching numbers...'}
+                </span>
               </div>
             </div>
-          )}
 
-          {/* Status */}
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-            <div className="animate-pulse h-2 w-2 bg-green-500 rounded-full" />
-            <span>
-              {progress?.status === 'starting'
-                ? 'Initializing...'
-                : progress?.status === 'completed'
-                ? 'Computation complete!'
-                : 'Computing payroll...'}
-            </span>
+            {/* Bottom Glow */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 h-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 blur-sm" />
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   )
 }

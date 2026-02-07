@@ -35,8 +35,10 @@ export const portalService = {
   async getMyLeaveBalances(year?: number): Promise<LeaveBalance[]> {
     const params = year ? { year } : {}
     const response = await api.get('/employees/me/leave-balances/', { params })
-    // Handle both paginated and non-paginated responses
-    return response.data.results || response.data
+    // Handle wrapped responses and paginated responses
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave balances')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Leave History
@@ -45,14 +47,18 @@ export const portalService = {
     year?: number
   }): Promise<LeaveRequest[]> {
     const response = await api.get('/employees/me/leave-history/', { params })
-    // Handle both paginated and non-paginated responses
-    return response.data.results || response.data
+    // Handle wrapped responses and paginated responses
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave history')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Emergency Contacts
   async getMyEmergencyContacts(): Promise<EmergencyContact[]> {
     const response = await api.get('/employees/me/emergency-contacts/')
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load emergency contacts')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   async createEmergencyContact(
@@ -80,7 +86,9 @@ export const portalService = {
   // Dependents
   async getMyDependents(): Promise<Dependent[]> {
     const response = await api.get('/employees/me/dependents/')
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load dependents')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   async createDependent(data: Omit<Dependent, 'id' | 'age'>): Promise<Dependent> {
@@ -100,17 +108,23 @@ export const portalService = {
   // Bank Accounts (read-only)
   async getMyBankAccounts(): Promise<BankAccount[]> {
     const response = await api.get('/employees/me/bank-accounts/')
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load bank accounts')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Team (for managers)
   async getMyTeam(): Promise<TeamMember[]> {
     const response = await api.get('/employees/me/team/')
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load team')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   async getTeamLeaveOverview(): Promise<TeamLeaveOverview> {
     const response = await api.get('/employees/me/team/leave-overview/')
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load team leave overview')
+    return data
   },
 }

@@ -86,11 +86,17 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 class JobGradeSerializer(serializers.ModelSerializer):
     """Serializer for JobGrade model."""
+    salary_band_name = serializers.CharField(source='salary_band.name', read_only=True, allow_null=True)
+    salary_band_code = serializers.CharField(source='salary_band.code', read_only=True, allow_null=True)
+    salary_level_name = serializers.CharField(source='salary_level.name', read_only=True, allow_null=True)
+    salary_level_code = serializers.CharField(source='salary_level.code', read_only=True, allow_null=True)
 
     class Meta:
         model = JobGrade
         fields = [
             'id', 'code', 'name', 'level', 'description',
+            'salary_band', 'salary_band_name', 'salary_band_code',
+            'salary_level', 'salary_level_name', 'salary_level_code',
             'min_salary', 'max_salary', 'mid_salary',
             'annual_leave_days', 'sick_leave_days',
             'is_management', 'is_active'

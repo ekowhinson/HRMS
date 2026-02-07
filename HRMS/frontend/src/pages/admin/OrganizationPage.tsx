@@ -13,6 +13,7 @@ import {
   Squares2X2Icon,
 } from '@heroicons/react/24/outline'
 import { employeeService } from '@/services/employees'
+import api from '@/lib/api'
 import { Card } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -75,6 +76,26 @@ interface Grade {
   level: number
   min_salary: number
   max_salary: number
+  salary_band?: string
+  salary_band_name?: string
+  salary_band_code?: string
+  salary_level?: string
+  salary_level_name?: string
+  salary_level_code?: string
+}
+
+interface SalaryBand {
+  id: string
+  code: string
+  name: string
+}
+
+interface SalaryLevel {
+  id: string
+  code: string
+  name: string
+  band: string
+  band_code?: string
 }
 
 export default function OrganizationPage() {
@@ -142,6 +163,23 @@ export default function OrganizationPage() {
   const { data: grades = [], isLoading: loadingGrades } = useQuery({
     queryKey: ['grades'],
     queryFn: employeeService.getGrades,
+  })
+
+  // Salary structure queries for grade linking
+  const { data: salaryBands = [] } = useQuery({
+    queryKey: ['salaryBands'],
+    queryFn: async () => {
+      const res = await api.get('/payroll/salary-bands/', { params: { page_size: 100 } })
+      return res.data.results || res.data || []
+    },
+  })
+
+  const { data: salaryLevels = [] } = useQuery({
+    queryKey: ['salaryLevels'],
+    queryFn: async () => {
+      const res = await api.get('/payroll/salary-levels/', { params: { page_size: 100 } })
+      return res.data.results || res.data || []
+    },
   })
 
   // Division mutations
@@ -435,7 +473,33 @@ export default function OrganizationPage() {
     { key: 'code', header: 'Code', render: (g: Grade) => <span className="font-mono text-sm">{g.code}</span> },
     { key: 'name', header: 'Name', render: (g: Grade) => <span className="font-medium">{g.name}</span> },
     { key: 'level', header: 'Level', render: (g: Grade) => g.level },
-    { key: 'salary', header: 'Salary Range', render: (g: Grade) => `GHS ${g.min_salary?.toLocaleString()} - ${g.max_salary?.toLocaleString()}` },
+    {
+      key: 'salary_band',
+      header: 'Salary Band',
+      render: (g: Grade) => g.salary_band_name ? (
+        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">{g.salary_band_name}</span>
+      ) : (
+        <span className="text-gray-400">-</span>
+      )
+    },
+    {
+      key: 'salary_level',
+      header: 'Salary Level',
+      render: (g: Grade) => g.salary_level_name ? (
+        <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">{g.salary_level_name}</span>
+      ) : (
+        <span className="text-gray-400">-</span>
+      )
+    },
+    {
+      key: 'salary',
+      header: 'Salary Range',
+      render: (g: Grade) => (g.min_salary || g.max_salary) ? (
+        <span className="text-sm">GHS {(g.min_salary || 0).toLocaleString()} - {(g.max_salary || 0).toLocaleString()}</span>
+      ) : (
+        <span className="text-gray-400">-</span>
+      )
+    },
     {
       key: 'actions', header: '', render: (g: Grade) => (
         <div className="flex gap-2">
@@ -630,12 +694,55 @@ export default function OrganizationPage() {
 
           {activeTab === 'grades' && (
             <>
-              <Input label="Code" value={formData.code || ''} onChange={(e) => setFormData({ ...formData, code: e.target.value })} />
-              <Input label="Name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
-              <Input label="Level" type="number" value={formData.level || ''} onChange={(e) => setFormData({ ...formData, level: e.target.value })} required />
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Min Salary" type="number" value={formData.min_salary || ''} onChange={(e) => setFormData({ ...formData, min_salary: e.target.value })} />
-                <Input label="Max Salary" type="number" value={formData.max_salary || ''} onChange={(e) => setFormData({ ...formData, max_salary: e.target.value })} />
+                <Input label="Code" value={formData.code || ''} onChange={(e) => setFormData({ ...formData, code: e.target.value })} />
+                <Input label="Level" type="number" value={formData.level || ''} onChange={(e) => setFormData({ ...formData, level: e.target.value })} required />
+              </div>
+              <Input label="Name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+
+              {/* Salary Structure Linking */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Salary Structure Link</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <Select
+                    label="Salary Band"
+                    value={formData.salary_band || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      salary_band: e.target.value || null,
+                      salary_level: '' // Clear level when band changes
+                    })}
+                    options={[
+                      { value: '', label: 'Select Salary Band' },
+                      ...salaryBands.map((b: SalaryBand) => ({ value: b.id, label: `${b.code} - ${b.name}` }))
+                    ]}
+                  />
+                  <Select
+                    label="Salary Level"
+                    value={formData.salary_level || ''}
+                    onChange={(e) => setFormData({ ...formData, salary_level: e.target.value || null })}
+                    options={[
+                      { value: '', label: formData.salary_band ? 'Select Salary Level' : 'Select a band first' },
+                      ...salaryLevels
+                        .filter((l: SalaryLevel) => !formData.salary_band || l.band === formData.salary_band)
+                        .map((l: SalaryLevel) => ({ value: l.id, label: `${l.code} - ${l.name}` }))
+                    ]}
+                  />
+                </div>
+                {formData.salary_band && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Linking a grade to a salary band/level will filter available salary notches in employee forms.
+                  </p>
+                )}
+              </div>
+
+              {/* Salary Range (optional) */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Salary Range (Optional)</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Min Salary" type="number" value={formData.min_salary || ''} onChange={(e) => setFormData({ ...formData, min_salary: e.target.value })} />
+                  <Input label="Max Salary" type="number" value={formData.max_salary || ''} onChange={(e) => setFormData({ ...formData, max_salary: e.target.value })} />
+                </div>
               </div>
             </>
           )}

@@ -31,6 +31,9 @@ export interface StaffCategory {
   name: string
   description?: string
   payroll_group?: string
+  salary_band?: string
+  salary_band_name?: string
+  salary_band_code?: string
   sort_order: number
   is_active: boolean
   employee_count?: number
@@ -210,7 +213,7 @@ export const payrollSetupService = {
 
   // Salary Bands
   async getSalaryBands(): Promise<SalaryBand[]> {
-    const response = await api.get<PaginatedResponse<SalaryBand> | SalaryBand[]>('/payroll/salary-bands/')
+    const response = await api.get<PaginatedResponse<SalaryBand> | SalaryBand[]>('/payroll/salary-bands/', { params: { page_size: 100 } })
     return Array.isArray(response.data) ? response.data : response.data.results
   },
 
@@ -235,7 +238,8 @@ export const payrollSetupService = {
 
   // Salary Levels
   async getSalaryLevels(bandId?: string): Promise<SalaryLevel[]> {
-    const params = bandId ? { band: bandId } : {}
+    const params: Record<string, any> = { page_size: 100 }
+    if (bandId) params.band = bandId
     const response = await api.get<PaginatedResponse<SalaryLevel> | SalaryLevel[]>('/payroll/salary-levels/', { params })
     return Array.isArray(response.data) ? response.data : response.data.results
   },
@@ -261,7 +265,8 @@ export const payrollSetupService = {
 
   // Salary Notches
   async getSalaryNotches(levelId?: string): Promise<SalaryNotch[]> {
-    const params = levelId ? { level: levelId } : {}
+    const params: Record<string, any> = { page_size: 500 }
+    if (levelId) params.level = levelId
     const response = await api.get<PaginatedResponse<SalaryNotch> | SalaryNotch[]>('/payroll/salary-notches/', { params })
     return Array.isArray(response.data) ? response.data : response.data.results
   },

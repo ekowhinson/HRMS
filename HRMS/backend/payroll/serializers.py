@@ -258,19 +258,26 @@ class SSNITRateSerializer(serializers.ModelSerializer):
 
 class EmployeeTransactionSerializer(serializers.ModelSerializer):
     """Serializer for EmployeeTransaction with calculated amount preview."""
-    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
-    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
-    department_name = serializers.CharField(source='employee.department.name', read_only=True)
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True, allow_null=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True, allow_null=True)
+    department_name = serializers.CharField(source='employee.department.name', read_only=True, allow_null=True)
     component_code = serializers.CharField(source='pay_component.code', read_only=True)
     component_name = serializers.CharField(source='pay_component.name', read_only=True)
     component_type = serializers.CharField(source='pay_component.component_type', read_only=True)
     override_type_display = serializers.CharField(source='get_override_type_display', read_only=True)
+    target_type_display = serializers.CharField(source='get_target_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True)
     payroll_period_name = serializers.CharField(source='payroll_period.name', read_only=True)
     calendar_name = serializers.CharField(source='calendar.name', read_only=True)
     calendar_year = serializers.IntegerField(source='calendar.year', read_only=True)
     calendar_month = serializers.IntegerField(source='calendar.month', read_only=True)
+    # Grade/Band fields
+    job_grade_name = serializers.CharField(source='job_grade.name', read_only=True, allow_null=True)
+    job_grade_code = serializers.CharField(source='job_grade.code', read_only=True, allow_null=True)
+    salary_band_name = serializers.CharField(source='salary_band.name', read_only=True, allow_null=True)
+    salary_band_code = serializers.CharField(source='salary_band.code', read_only=True, allow_null=True)
+    applicable_employee_count = serializers.SerializerMethodField()
     calculated_amount = serializers.SerializerMethodField()
     supporting_document = serializers.SerializerMethodField()
 
@@ -278,7 +285,11 @@ class EmployeeTransactionSerializer(serializers.ModelSerializer):
         model = EmployeeTransaction
         fields = [
             'id', 'reference_number',
+            'target_type', 'target_type_display',
             'employee', 'employee_name', 'employee_number', 'department_name',
+            'job_grade', 'job_grade_name', 'job_grade_code',
+            'salary_band', 'salary_band_name', 'salary_band_code',
+            'applicable_employee_count',
             'pay_component', 'component_code', 'component_name', 'component_type',
             'override_type', 'override_type_display',
             'override_amount', 'override_percentage', 'override_formula',
@@ -296,14 +307,22 @@ class EmployeeTransactionSerializer(serializers.ModelSerializer):
             'document_name'
         ]
 
+    def get_applicable_employee_count(self, obj):
+        """Get count of employees this transaction applies to."""
+        try:
+            return obj.get_applicable_employees().count()
+        except Exception:
+            return 0
+
     def get_calculated_amount(self, obj):
         """Calculate the amount based on employee's current salary."""
         try:
-            current_salary = obj.employee.salaries.filter(is_current=True).first()
-            if current_salary:
-                basic = current_salary.basic_salary or Decimal('0')
-                gross = current_salary.gross_salary or basic
-                return str(obj.calculate_amount(basic, gross))
+            if obj.employee:
+                current_salary = obj.employee.salaries.filter(is_current=True).first()
+                if current_salary:
+                    basic = current_salary.basic_salary or Decimal('0')
+                    gross = current_salary.gross_salary or basic
+                    return str(obj.calculate_amount(basic, gross))
         except Exception:
             pass
         return None
@@ -316,28 +335,31 @@ class EmployeeTransactionSerializer(serializers.ModelSerializer):
 
 
 class EmployeeTransactionCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating transactions, supports bulk via employee_ids."""
+    """Serializer for creating transactions, supports bulk via employee_ids or grade/band targeting."""
     employee_ids = serializers.ListField(
         child=serializers.UUIDField(),
         write_only=True,
         required=False,
-        help_text="List of employee IDs for bulk creation"
+        help_text="List of employee IDs for bulk creation (only for INDIVIDUAL target type)"
     )
     supporting_document = serializers.FileField(write_only=True, required=False)
 
     class Meta:
         model = EmployeeTransaction
         fields = [
-            'employee', 'employee_ids', 'pay_component',
+            'target_type', 'employee', 'employee_ids', 'job_grade', 'salary_band',
+            'pay_component',
             'override_type', 'override_amount', 'override_percentage', 'override_formula',
             'is_recurring', 'effective_from', 'effective_to',
             'payroll_period', 'description', 'supporting_document'
         ]
 
     def validate(self, data):
-        """Validate override type has required fields."""
+        """Validate override type has required fields and target fields."""
         override_type = data.get('override_type', EmployeeTransaction.OverrideType.NONE)
+        target_type = data.get('target_type', EmployeeTransaction.TargetType.INDIVIDUAL)
 
+        # Validate override type fields
         if override_type == EmployeeTransaction.OverrideType.FIXED:
             if not data.get('override_amount'):
                 raise serializers.ValidationError({
@@ -364,11 +386,28 @@ class EmployeeTransactionCreateSerializer(serializers.ModelSerializer):
                 'effective_to': 'Effective to date must be after effective from date.'
             })
 
-        # Must have either employee or employee_ids
-        if not data.get('employee') and not data.get('employee_ids'):
-            raise serializers.ValidationError({
-                'employee': 'Either employee or employee_ids is required.'
-            })
+        # Validate target type requirements
+        if target_type == EmployeeTransaction.TargetType.INDIVIDUAL:
+            if not data.get('employee') and not data.get('employee_ids'):
+                raise serializers.ValidationError({
+                    'employee': 'Employee or employee_ids is required for individual transactions.'
+                })
+        elif target_type == EmployeeTransaction.TargetType.GRADE:
+            if not data.get('job_grade'):
+                raise serializers.ValidationError({
+                    'job_grade': 'Job grade is required for grade-based transactions.'
+                })
+            # Clear employee fields for grade transactions
+            data['employee'] = None
+            data.pop('employee_ids', None)
+        elif target_type == EmployeeTransaction.TargetType.BAND:
+            if not data.get('salary_band'):
+                raise serializers.ValidationError({
+                    'salary_band': 'Salary band is required for band-based transactions.'
+                })
+            # Clear employee fields for band transactions
+            data['employee'] = None
+            data.pop('employee_ids', None)
 
         return data
 
@@ -548,11 +587,14 @@ class BankBranchSerializer(serializers.ModelSerializer):
 class StaffCategorySerializer(serializers.ModelSerializer):
     """Serializer for StaffCategory model."""
     employee_count = serializers.SerializerMethodField()
+    salary_band_name = serializers.CharField(source='salary_band.name', read_only=True, allow_null=True)
+    salary_band_code = serializers.CharField(source='salary_band.code', read_only=True, allow_null=True)
 
     class Meta:
         model = StaffCategory
         fields = [
             'id', 'code', 'name', 'description', 'payroll_group',
+            'salary_band', 'salary_band_name', 'salary_band_code',
             'sort_order', 'is_active', 'employee_count',
             'created_at', 'updated_at'
         ]
@@ -602,14 +644,16 @@ class SalaryNotchSerializer(serializers.ModelSerializer):
     """Serializer for SalaryNotch model."""
     level_name = serializers.CharField(source='level.name', read_only=True)
     level_code = serializers.CharField(source='level.code', read_only=True)
+    band_id = serializers.UUIDField(source='level.band.id', read_only=True)
     band_code = serializers.CharField(source='level.band.code', read_only=True)
+    band_name = serializers.CharField(source='level.band.name', read_only=True)
     full_code = serializers.SerializerMethodField()
     employee_count = serializers.SerializerMethodField()
 
     class Meta:
         model = SalaryNotch
         fields = [
-            'id', 'level', 'level_name', 'level_code', 'band_code',
+            'id', 'level', 'level_name', 'level_code', 'band_id', 'band_code', 'band_name',
             'code', 'name', 'full_code', 'amount', 'description',
             'sort_order', 'is_active', 'employee_count',
             'created_at', 'updated_at'

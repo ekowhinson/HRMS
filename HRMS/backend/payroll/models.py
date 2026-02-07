@@ -95,6 +95,15 @@ class StaffCategory(BaseModel):
         blank=True,
         help_text='Payroll processing group (e.g., Districts Payroll, HQ Payroll)'
     )
+    # Link to salary structure
+    salary_band = models.ForeignKey(
+        'SalaryBand',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='staff_categories',
+        help_text='Default salary band for this staff category'
+    )
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveSmallIntegerField(default=0)
 
@@ -1518,15 +1527,53 @@ class EmployeeTransaction(BaseModel):
         COMPLETED = 'COMPLETED', 'Completed'
         CANCELLED = 'CANCELLED', 'Cancelled'
 
+    class TargetType(models.TextChoices):
+        INDIVIDUAL = 'INDIVIDUAL', 'Individual Employee'
+        GRADE = 'GRADE', 'Job Grade'
+        BAND = 'BAND', 'Salary Band'
+
     # Unique tracking
     reference_number = models.CharField(max_length=50, unique=True, db_index=True)
 
-    # Core relationships
+    # Target type - determines how this transaction is applied
+    target_type = models.CharField(
+        max_length=20,
+        choices=TargetType.choices,
+        default=TargetType.INDIVIDUAL,
+        db_index=True,
+        help_text='Determines whether this transaction applies to an individual, grade, or band'
+    )
+
+    # Core relationships - employee is nullable for grade/band transactions
     employee = models.ForeignKey(
         'employees.Employee',
         on_delete=models.CASCADE,
-        related_name='transactions'
+        related_name='transactions',
+        null=True,
+        blank=True,
+        help_text='Required for INDIVIDUAL target type'
     )
+
+    # Grade-based transactions - applies to all employees with this grade
+    job_grade = models.ForeignKey(
+        'organization.JobGrade',
+        on_delete=models.CASCADE,
+        related_name='transactions',
+        null=True,
+        blank=True,
+        help_text='Required for GRADE target type'
+    )
+
+    # Band-based transactions - applies to all employees with this salary band
+    salary_band = models.ForeignKey(
+        SalaryBand,
+        on_delete=models.CASCADE,
+        related_name='transactions',
+        null=True,
+        blank=True,
+        help_text='Required for BAND target type'
+    )
+
     pay_component = models.ForeignKey(
         PayComponent,
         on_delete=models.PROTECT,
@@ -1602,10 +1649,59 @@ class EmployeeTransaction(BaseModel):
             models.Index(fields=['employee', 'status']),
             models.Index(fields=['pay_component', 'status']),
             models.Index(fields=['effective_from', 'effective_to']),
+            models.Index(fields=['target_type', 'status']),
+            models.Index(fields=['job_grade', 'status']),
+            models.Index(fields=['salary_band', 'status']),
         ]
 
     def __str__(self):
-        return f"{self.reference_number} - {self.employee.employee_number} - {self.pay_component.code}"
+        if self.target_type == self.TargetType.INDIVIDUAL and self.employee:
+            return f"{self.reference_number} - {self.employee.employee_number} - {self.pay_component.code}"
+        elif self.target_type == self.TargetType.GRADE and self.job_grade:
+            return f"{self.reference_number} - Grade:{self.job_grade.code} - {self.pay_component.code}"
+        elif self.target_type == self.TargetType.BAND and self.salary_band:
+            return f"{self.reference_number} - Band:{self.salary_band.code} - {self.pay_component.code}"
+        return f"{self.reference_number} - {self.pay_component.code}"
+
+    def clean(self):
+        """Validate that the appropriate target field is set based on target_type."""
+        from django.core.exceptions import ValidationError
+        errors = {}
+
+        if self.target_type == self.TargetType.INDIVIDUAL:
+            if not self.employee:
+                errors['employee'] = 'Employee is required for individual transactions.'
+        elif self.target_type == self.TargetType.GRADE:
+            if not self.job_grade:
+                errors['job_grade'] = 'Job grade is required for grade-based transactions.'
+        elif self.target_type == self.TargetType.BAND:
+            if not self.salary_band:
+                errors['salary_band'] = 'Salary band is required for band-based transactions.'
+
+        if errors:
+            raise ValidationError(errors)
+
+    def get_applicable_employees(self):
+        """Get all employees this transaction applies to."""
+        from employees.models import Employee
+
+        if self.target_type == self.TargetType.INDIVIDUAL:
+            return Employee.objects.filter(pk=self.employee_id) if self.employee_id else Employee.objects.none()
+        elif self.target_type == self.TargetType.GRADE:
+            return Employee.objects.filter(
+                grade=self.job_grade,
+                status='ACTIVE',
+                is_deleted=False
+            )
+        elif self.target_type == self.TargetType.BAND:
+            # Employees linked to this band via their grade's salary_band or via salary_notch
+            return Employee.objects.filter(
+                models.Q(grade__salary_band=self.salary_band) |
+                models.Q(salary_notch__level__band=self.salary_band),
+                status='ACTIVE',
+                is_deleted=False
+            ).distinct()
+        return Employee.objects.none()
 
     def set_document(self, file_obj, filename=None):
         """Store supporting document as binary data."""

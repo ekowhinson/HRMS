@@ -16,6 +16,7 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from django.core.files.base import ContentFile
 from django.conf import settings
+from django.core.cache import cache
 
 from employees.models import Employee, BankAccount
 from .models import (
@@ -350,12 +351,29 @@ class PayrollService:
         Get all active employee transactions effective for this payroll period.
 
         Includes:
+        - Individual transactions for the employee (target_type='INDIVIDUAL')
+        - Grade-based transactions for the employee's grade (target_type='GRADE')
+        - Band-based transactions for the employee's salary band (target_type='BAND')
         - ACTIVE status transactions
         - Recurring transactions where effective_from <= period end
         - One-time transactions specifically for this period
         """
+        # Build filter for which transactions apply to this employee
+        employee_filter = Q(target_type='INDIVIDUAL', employee=employee)
+
+        # Add grade-based transactions if employee has a grade
+        if employee.grade_id:
+            employee_filter |= Q(target_type='GRADE', job_grade_id=employee.grade_id)
+
+        # Add band-based transactions if employee's grade has a salary band
+        if employee.grade and hasattr(employee.grade, 'salary_band') and employee.grade.salary_band_id:
+            employee_filter |= Q(target_type='BAND', salary_band_id=employee.grade.salary_band_id)
+        # Also check via salary_notch -> level -> band
+        elif employee.salary_notch and employee.salary_notch.level and employee.salary_notch.level.band_id:
+            employee_filter |= Q(target_type='BAND', salary_band_id=employee.salary_notch.level.band_id)
+
         return list(EmployeeTransaction.objects.filter(
-            employee=employee,
+            employee_filter,
             status='ACTIVE',
             effective_from__lte=self.period.end_date
         ).filter(
@@ -676,7 +694,20 @@ class PayrollService:
         self.payroll_run.status = PayrollRun.Status.COMPUTING
         self.payroll_run.save(update_fields=['status'])
 
-        employees = self.get_eligible_employees()
+        employees = list(self.get_eligible_employees())
+        employee_count = len(employees)
+
+        # Initialize progress tracking in cache
+        progress_key = f'payroll_progress_{self.payroll_run.id}'
+        cache.set(progress_key, {
+            'status': 'computing',
+            'total': employee_count,
+            'processed': 0,
+            'current_employee': '',
+            'percentage': 0,
+            'started_at': timezone.now().isoformat(),
+        }, timeout=3600)  # 1 hour timeout
+
         total_employees = 0
         total_gross = Decimal('0')
         total_deductions = Decimal('0')
@@ -689,8 +720,21 @@ class PayrollService:
         total_ssnit_employer = Decimal('0')
         total_tier2_employer = Decimal('0')
         errors = []
+        processed_count = 0
 
         for employee in employees:
+            # Update progress in cache
+            processed_count += 1
+            percentage = int((processed_count / employee_count) * 100) if employee_count > 0 else 0
+            cache.set(progress_key, {
+                'status': 'computing',
+                'total': employee_count,
+                'processed': processed_count,
+                'current_employee': employee.full_name,
+                'percentage': percentage,
+                'started_at': cache.get(progress_key, {}).get('started_at', ''),
+            }, timeout=3600)
+
             result = self.compute_employee_payroll(employee)
 
             if isinstance(result, tuple):
@@ -770,6 +814,18 @@ class PayrollService:
         self.payroll_run.computed_by = user
         self.payroll_run.computed_at = timezone.now()
         self.payroll_run.save()
+
+        # Mark progress as complete
+        cache.set(progress_key, {
+            'status': 'completed',
+            'total': employee_count,
+            'processed': employee_count,
+            'current_employee': '',
+            'percentage': 100,
+            'completed_at': timezone.now().isoformat(),
+            'total_employees': total_employees,
+            'errors_count': len(errors),
+        }, timeout=300)  # Keep for 5 minutes after completion
 
         return {
             'total_employees': total_employees,

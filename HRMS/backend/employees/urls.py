@@ -41,14 +41,14 @@ urlpatterns = [
     path('me/data-updates/', views.MyDataUpdateRequestsView.as_view(), name='my-data-updates'),
     path('me/service-requests/', views.MyServiceRequestsView.as_view(), name='my-service-requests'),
 
-    # Employee endpoints (must come before other routers to handle root list view)
-    path('', include(router.urls)),
-
-    # Data Update requests (admin/HR endpoints)
+    # Data Update requests (admin/HR endpoints) - MUST come before DefaultRouter
     path('', include(data_update_router.urls)),
 
-    # Service Request endpoints (admin/HR)
+    # Service Request endpoints (admin/HR) - MUST come before DefaultRouter
     path('', include(service_request_router.urls)),
+
+    # Employee endpoints (catch-all with DefaultRouter - MUST be LAST)
+    path('', include(router.urls)),
 
     # Bulk operations
     path('bulk/import/', views.BulkImportView.as_view(), name='bulk-import'),

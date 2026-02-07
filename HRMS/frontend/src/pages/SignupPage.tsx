@@ -17,6 +17,14 @@ import type { SignupInitiateData, CompleteSignupData } from '@/types'
 
 type Step = 'identify' | 'verify' | 'password'
 
+// Helper to safely extract error message as string
+const getErrorMessage = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value) && value.length > 0) return String(value[0])
+  if (value && typeof value === 'object' && 'message' in value) return String((value as any).message)
+  return 'An error occurred'
+}
+
 export default function SignupPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -52,14 +60,17 @@ export default function SignupPage() {
     },
     onError: (error: any) => {
       const errorData = error.response?.data
-      if (errorData?.email) {
-        identifyForm.setError('email', { message: errorData.email[0] || errorData.email })
-      } else if (errorData?.employee_number) {
-        identifyForm.setError('employee_number', {
-          message: errorData.employee_number[0] || errorData.employee_number,
-        })
+      // Handle wrapped error format: {success: false, error: {details: {...}}}
+      const details = errorData?.error?.details || {}
+      if (details?.email) {
+        identifyForm.setError('email', { message: getErrorMessage(details.email) })
+      } else if (details?.employee_number) {
+        identifyForm.setError('employee_number', { message: getErrorMessage(details.employee_number) })
+      } else if (details?.ghana_card_number) {
+        identifyForm.setError('ghana_card_number', { message: getErrorMessage(details.ghana_card_number) })
       } else {
-        toast.error(errorData?.detail || 'Failed to initiate signup')
+        const msg = errorData?.error?.message || errorData?.detail
+        toast.error(typeof msg === 'string' ? msg : 'Failed to initiate signup')
       }
     },
   })
@@ -75,20 +86,28 @@ export default function SignupPage() {
     },
     onError: (error: any) => {
       const errorData = error.response?.data
-      if (errorData?.password) {
-        passwordForm.setError('password', {
-          message: Array.isArray(errorData.password) ? errorData.password[0] : errorData.password,
-        })
-      } else if (errorData?.token) {
+      // Handle wrapped error format: {success: false, error: {details: {...}}}
+      const details = errorData?.error?.details || {}
+      if (details?.password) {
+        passwordForm.setError('password', { message: getErrorMessage(details.password) })
+      } else if (details?.token) {
         toast.error('Invalid or expired token. Please start over.')
         setStep('identify')
       } else {
-        toast.error(errorData?.detail || 'Failed to create account')
+        const msg = errorData?.error?.message || errorData?.detail
+        toast.error(typeof msg === 'string' ? msg : 'Failed to create account')
       }
     },
   })
 
   const handleIdentifySubmit = identifyForm.handleSubmit((data) => {
+    // Validate that at least one identifier is provided
+    if (!data.employee_number && !data.ghana_card_number) {
+      identifyForm.setError('employee_number', {
+        message: 'Either employee number or Ghana Card number is required'
+      })
+      return
+    }
     initiateMutation.mutate(data)
   })
 

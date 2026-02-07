@@ -234,6 +234,7 @@ export const roleService = {
     code: string
     description?: string
     level?: number
+    district?: string | null
     permissions?: string[]
   }): Promise<Role> => {
     const response = await api.post('/auth/roles/', data)
@@ -245,6 +246,7 @@ export const roleService = {
     name: string
     description: string
     level: number
+    district: string | null
     is_active: boolean
     permissions: string[]
   }>): Promise<Role> => {

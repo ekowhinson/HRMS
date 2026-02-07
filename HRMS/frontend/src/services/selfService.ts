@@ -181,7 +181,9 @@ export const dataUpdateService = {
   // Get my data update requests
   getMyRequests: async () => {
     const response = await api.get('/employees/data-updates/my_requests/')
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load data update requests')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Get single request
@@ -262,7 +264,9 @@ export const serviceRequestService = {
   // Get all service request types
   getTypes: async (): Promise<ServiceRequestType[]> => {
     const response = await api.get('/employees/service-request-types/')
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load service request types')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Get all service requests
@@ -282,7 +286,9 @@ export const serviceRequestService = {
   // Get my service requests
   getMyRequests: async () => {
     const response = await api.get('/employees/service-requests/my_requests/')
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load service requests')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Get single request
@@ -332,7 +338,9 @@ export const serviceRequestService = {
   // Get comments
   getComments: async (id: string): Promise<ServiceRequestComment[]> => {
     const response = await api.get(`/employees/service-requests/${id}/comments/`)
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load comments')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Upload document

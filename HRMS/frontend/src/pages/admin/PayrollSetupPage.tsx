@@ -576,6 +576,17 @@ export default function PayrollSetupPage() {
       render: (item: StaffCategory) => <span className="text-sm">{item.payroll_group || '-'}</span>,
     },
     {
+      key: 'salary_band',
+      header: 'Salary Band',
+      render: (item: StaffCategory) => item.salary_band_name ? (
+        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+          {item.salary_band_name}
+        </span>
+      ) : (
+        <span className="text-gray-400">-</span>
+      ),
+    },
+    {
       key: 'employees',
       header: 'Employees',
       render: (item: StaffCategory) => <span className="text-sm">{item.employee_count || 0}</span>,
@@ -1221,13 +1232,21 @@ export default function PayrollSetupPage() {
 
           {activeTab === 'categories' && (
             <>
-              <Input
-                label="Code"
-                value={formData.code || ''}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                required
-                disabled={!!editingItem}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Code"
+                  value={formData.code || ''}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  required
+                  disabled={!!editingItem}
+                />
+                <Input
+                  label="Sort Order"
+                  type="number"
+                  value={formData.sort_order || 0}
+                  onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) })}
+                />
+              </div>
               <Input
                 label="Name"
                 value={formData.name || ''}
@@ -1238,14 +1257,27 @@ export default function PayrollSetupPage() {
                 label="Payroll Group"
                 value={formData.payroll_group || ''}
                 onChange={(e) => setFormData({ ...formData, payroll_group: e.target.value })}
+                placeholder="e.g., Districts Payroll, HQ Payroll"
               />
-              <Input
-                label="Sort Order"
-                type="number"
-                value={formData.sort_order || 0}
-                onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) })}
-              />
-              <label className="flex items-center gap-2">
+
+              {/* Salary Structure Link */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Salary Structure Link</h4>
+                <Select
+                  label="Default Salary Band"
+                  value={formData.salary_band || ''}
+                  onChange={(e) => setFormData({ ...formData, salary_band: e.target.value || null })}
+                  options={[
+                    { value: '', label: 'Select Salary Band (Optional)' },
+                    ...bands.map((b: SalaryBand) => ({ value: b.id, label: `${b.code} - ${b.name}` })),
+                  ]}
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Linking a staff category to a salary band will filter available salary notches when this category is selected.
+                </p>
+              </div>
+
+              <label className="flex items-center gap-2 mt-4">
                 <input
                   type="checkbox"
                   checked={formData.is_active ?? true}

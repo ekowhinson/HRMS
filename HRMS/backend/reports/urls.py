@@ -34,10 +34,12 @@ urlpatterns = [
     path('payroll/cost-center/', views.CostCenterReportView.as_view(), name='cost-center'),
     path('payroll/variance/', views.PayrollVarianceReportView.as_view(), name='payroll-variance'),
     path('payroll/reconciliation/', views.PayrollReconciliationReportView.as_view(), name='payroll-reconciliation'),
+    path('payroll/reconciliation/comprehensive/', views.ComprehensiveReconciliationView.as_view(), name='payroll-reconciliation-comprehensive'),
+    path('payroll/salary-reconciliation/', views.SalaryReconciliationView.as_view(), name='salary-reconciliation'),
     path('payroll/loans/by-type/', views.LoanTypeReportView.as_view(), name='loan-type-report'),
     path('payroll/dues/', views.DuesReportView.as_view(), name='dues-report'),
     path('payroll/rent-deductions/', views.RentDeductionsReportView.as_view(), name='rent-deductions'),
-    path('payroll/journal/', views.PayrollJournalView.as_view(), name='payroll-journal'),
+    path('payroll/journal/', views.PayrollJournalReportView.as_view(), name='payroll-journal'),
     path('payroll/car-loan-interest/', views.CarLoanInterestReportView.as_view(), name='car-loan-interest'),
     path('payroll/student-loans/', views.StudentLoanReportView.as_view(), name='student-loans'),
 
@@ -63,6 +65,7 @@ urlpatterns = [
     path('export/reconciliation/', views.ExportPayrollReconciliationView.as_view(), name='export-reconciliation'),
     path('export/dues/', views.ExportDuesReportView.as_view(), name='export-dues'),
     path('export/journal/', views.ExportPayrollJournalView.as_view(), name='export-journal'),
+    path('export/salary-reconciliation/', views.ExportSalaryReconciliationView.as_view(), name='export-salary-reconciliation'),
 
     # Analytics KPI endpoints
     path('analytics/master/', views.MasterAnalyticsDashboardView.as_view(), name='analytics-master'),

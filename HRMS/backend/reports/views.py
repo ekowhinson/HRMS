@@ -835,7 +835,7 @@ class PayrollReconciliationReportView(APIView):
 
                 previous_run = PayrollRun.objects.filter(
                     payroll_period=previous_period,
-                    status__in=['APPROVED', 'PAID']
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
                 ).order_by('-run_date').first()
 
                 if not current_run:
@@ -870,7 +870,7 @@ class PayrollReconciliationReportView(APIView):
         # Default to last two approved runs
         if not current_run or not previous_run:
             runs = PayrollRun.objects.filter(
-                status__in=['APPROVED', 'PAID']
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
             ).order_by('-run_date')[:2]
 
             if len(runs) < 2:
@@ -1061,6 +1061,367 @@ class PayrollReconciliationReportView(APIView):
         })
 
 
+class ComprehensiveReconciliationView(APIView):
+    """
+    Comprehensive payroll reconciliation showing all transactions between two periods.
+
+    Starts with previous month's gross/net and factors in all transactions
+    to arrive at the current month's gross/net.
+    """
+
+    def get(self, request):
+        from decimal import Decimal
+        from collections import defaultdict
+        from payroll.models import PayrollPeriod, PayComponent, AdHocPayment, EmployeeTransaction
+
+        current_period_id = request.query_params.get('current_period')
+        previous_period_id = request.query_params.get('previous_period')
+
+        # Validate periods
+        if not current_period_id or not previous_period_id:
+            # Default to last two periods with completed runs
+            runs = PayrollRun.objects.filter(
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
+            ).select_related('payroll_period').order_by('-payroll_period__year', '-payroll_period__month')[:2]
+
+            if len(runs) < 2:
+                return Response({
+                    'error': 'Need at least two completed payroll periods for reconciliation',
+                    'generated_at': timezone.now()
+                }, status=400)
+
+            current_run = runs[0]
+            previous_run = runs[1]
+        else:
+            try:
+                current_period = PayrollPeriod.objects.get(id=current_period_id)
+                previous_period = PayrollPeriod.objects.get(id=previous_period_id)
+
+                current_run = PayrollRun.objects.filter(
+                    payroll_period=current_period,
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
+                ).order_by('-run_date').first()
+
+                previous_run = PayrollRun.objects.filter(
+                    payroll_period=previous_period,
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
+                ).order_by('-run_date').first()
+
+                if not current_run or not previous_run:
+                    return Response({
+                        'error': 'No completed payroll runs found for the specified periods',
+                        'generated_at': timezone.now()
+                    }, status=400)
+
+            except PayrollPeriod.DoesNotExist:
+                return Response({'error': 'Invalid period IDs'}, status=400)
+
+        def safe_decimal(val):
+            if val is None:
+                return Decimal('0')
+            return Decimal(str(val))
+
+        def safe_float(val):
+            return float(safe_decimal(val))
+
+        # Get all payroll items with details
+        current_items = {}
+        current_details = defaultdict(dict)  # emp_id -> component_code -> amount
+        for item in PayrollItem.objects.filter(payroll_run=current_run).select_related(
+            'employee', 'employee__department', 'employee__grade'
+        ).prefetch_related('details__pay_component'):
+            current_items[item.employee_id] = item
+            for detail in item.details.all():
+                current_details[item.employee_id][detail.pay_component.code] = safe_decimal(detail.amount)
+
+        previous_items = {}
+        previous_details = defaultdict(dict)
+        for item in PayrollItem.objects.filter(payroll_run=previous_run).select_related(
+            'employee', 'employee__department', 'employee__grade'
+        ).prefetch_related('details__pay_component'):
+            previous_items[item.employee_id] = item
+            for detail in item.details.all():
+                previous_details[item.employee_id][detail.pay_component.code] = safe_decimal(detail.amount)
+
+        all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
+
+        # Starting point - Previous period totals
+        prev_totals = {
+            'gross': safe_decimal(previous_run.total_gross),
+            'net': safe_decimal(previous_run.total_net),
+            'deductions': safe_decimal(previous_run.total_deductions),
+            'paye': safe_decimal(previous_run.total_paye),
+            'ssnit_employee': safe_decimal(previous_run.total_ssnit_employee),
+            'employees': previous_run.total_employees or 0,
+        }
+
+        # Ending point - Current period totals
+        curr_totals = {
+            'gross': safe_decimal(current_run.total_gross),
+            'net': safe_decimal(current_run.total_net),
+            'deductions': safe_decimal(current_run.total_deductions),
+            'paye': safe_decimal(current_run.total_paye),
+            'ssnit_employee': safe_decimal(current_run.total_ssnit_employee),
+            'employees': current_run.total_employees or 0,
+        }
+
+        # Track all changes
+        changes = {
+            'new_employees': [],
+            'separated_employees': [],
+            'basic_salary_changes': [],
+            'allowance_changes': defaultdict(list),
+            'deduction_changes': defaultdict(list),
+            'adhoc_payments': [],
+        }
+
+        # Component type lookup
+        components = {c.code: c for c in PayComponent.objects.filter(is_active=True)}
+
+        # Analyze each employee
+        for emp_id in all_emp_ids:
+            curr_item = current_items.get(emp_id)
+            prev_item = previous_items.get(emp_id)
+            curr_comps = current_details.get(emp_id, {})
+            prev_comps = previous_details.get(emp_id, {})
+
+            if curr_item and not prev_item:
+                # New employee
+                emp = curr_item.employee
+                changes['new_employees'].append({
+                    'employee_number': emp.employee_number,
+                    'employee_name': emp.full_name,
+                    'department': emp.department.name if emp.department else '',
+                    'grade': emp.grade.code if emp.grade else '',
+                    'basic_salary': safe_float(curr_item.basic_salary),
+                    'gross': safe_float(curr_item.gross_earnings),
+                    'deductions': safe_float(curr_item.total_deductions),
+                    'net': safe_float(curr_item.net_salary),
+                })
+
+            elif prev_item and not curr_item:
+                # Separated employee
+                emp = prev_item.employee
+                changes['separated_employees'].append({
+                    'employee_number': emp.employee_number,
+                    'employee_name': emp.full_name,
+                    'department': emp.department.name if emp.department else '',
+                    'grade': emp.grade.code if emp.grade else '',
+                    'basic_salary': safe_float(prev_item.basic_salary),
+                    'gross': safe_float(prev_item.gross_earnings),
+                    'deductions': safe_float(prev_item.total_deductions),
+                    'net': safe_float(prev_item.net_salary),
+                    'reason': emp.exit_reason or 'Separation',
+                })
+
+            else:
+                # Existing employee - check for changes
+                emp = curr_item.employee
+
+                # Basic salary change
+                curr_basic = safe_decimal(curr_item.basic_salary)
+                prev_basic = safe_decimal(prev_item.basic_salary)
+                if curr_basic != prev_basic:
+                    changes['basic_salary_changes'].append({
+                        'employee_number': emp.employee_number,
+                        'employee_name': emp.full_name,
+                        'department': emp.department.name if emp.department else '',
+                        'previous': safe_float(prev_basic),
+                        'current': safe_float(curr_basic),
+                        'difference': safe_float(curr_basic - prev_basic),
+                    })
+
+                # Component-level changes
+                all_comp_codes = set(curr_comps.keys()) | set(prev_comps.keys())
+                for comp_code in all_comp_codes:
+                    if comp_code == 'BASIC':
+                        continue  # Already handled above
+
+                    curr_amt = curr_comps.get(comp_code, Decimal('0'))
+                    prev_amt = prev_comps.get(comp_code, Decimal('0'))
+
+                    if curr_amt != prev_amt:
+                        component = components.get(comp_code)
+                        if not component:
+                            continue
+
+                        change_record = {
+                            'employee_number': emp.employee_number,
+                            'employee_name': emp.full_name,
+                            'component_code': comp_code,
+                            'component_name': component.name,
+                            'previous': safe_float(prev_amt),
+                            'current': safe_float(curr_amt),
+                            'difference': safe_float(curr_amt - prev_amt),
+                        }
+
+                        if component.component_type == 'EARNING':
+                            changes['allowance_changes'][comp_code].append(change_record)
+                        elif component.component_type == 'DEDUCTION':
+                            changes['deduction_changes'][comp_code].append(change_record)
+
+        # Get ad-hoc payments for current period
+        adhoc_payments = AdHocPayment.objects.filter(
+            payroll_period=current_run.payroll_period,
+            status='APPROVED'
+        ).select_related('employee', 'pay_component')
+
+        for adhoc in adhoc_payments:
+            changes['adhoc_payments'].append({
+                'employee_number': adhoc.employee.employee_number,
+                'employee_name': adhoc.employee.full_name,
+                'component': adhoc.pay_component.name,
+                'amount': safe_float(adhoc.amount),
+                'description': adhoc.description,
+            })
+
+        # Build reconciliation summary (waterfall)
+        reconciliation_waterfall = []
+
+        # Starting point
+        reconciliation_waterfall.append({
+            'description': f'Previous Period ({previous_run.payroll_period.name})',
+            'gross': safe_float(prev_totals['gross']),
+            'net': safe_float(prev_totals['net']),
+            'is_total': True,
+        })
+
+        # New employees impact
+        new_emp_gross = sum(e['gross'] for e in changes['new_employees'])
+        new_emp_net = sum(e['net'] for e in changes['new_employees'])
+        if new_emp_gross != 0:
+            reconciliation_waterfall.append({
+                'description': f"New Employees ({len(changes['new_employees'])})",
+                'gross_change': new_emp_gross,
+                'net_change': new_emp_net,
+                'count': len(changes['new_employees']),
+            })
+
+        # Separated employees impact
+        sep_emp_gross = sum(e['gross'] for e in changes['separated_employees'])
+        sep_emp_net = sum(e['net'] for e in changes['separated_employees'])
+        if sep_emp_gross != 0:
+            reconciliation_waterfall.append({
+                'description': f"Separated Employees ({len(changes['separated_employees'])})",
+                'gross_change': -sep_emp_gross,
+                'net_change': -sep_emp_net,
+                'count': len(changes['separated_employees']),
+            })
+
+        # Basic salary changes
+        salary_change_total = sum(e['difference'] for e in changes['basic_salary_changes'])
+        if salary_change_total != 0:
+            reconciliation_waterfall.append({
+                'description': f"Basic Salary Changes ({len(changes['basic_salary_changes'])})",
+                'gross_change': salary_change_total,
+                'net_change': salary_change_total * 0.7,  # Approximate after tax
+                'count': len(changes['basic_salary_changes']),
+            })
+
+        # Allowance changes by component
+        for comp_code, comp_changes in changes['allowance_changes'].items():
+            total_change = sum(c['difference'] for c in comp_changes)
+            if total_change != 0:
+                comp_name = components.get(comp_code, {})
+                comp_name = comp_name.name if hasattr(comp_name, 'name') else comp_code
+                reconciliation_waterfall.append({
+                    'description': f"{comp_name} ({len(comp_changes)} employees)",
+                    'gross_change': total_change,
+                    'net_change': total_change * 0.85,  # Approximate after tax
+                    'count': len(comp_changes),
+                    'component_code': comp_code,
+                })
+
+        # Deduction changes by component
+        for comp_code, comp_changes in changes['deduction_changes'].items():
+            total_change = sum(c['difference'] for c in comp_changes)
+            if total_change != 0:
+                comp_name = components.get(comp_code, {})
+                comp_name = comp_name.name if hasattr(comp_name, 'name') else comp_code
+                reconciliation_waterfall.append({
+                    'description': f"{comp_name} ({len(comp_changes)} employees)",
+                    'gross_change': 0,  # Deductions don't affect gross
+                    'net_change': -total_change,  # Increase in deduction = decrease in net
+                    'count': len(comp_changes),
+                    'component_code': comp_code,
+                    'is_deduction': True,
+                })
+
+        # Ad-hoc payments
+        adhoc_total = sum(a['amount'] for a in changes['adhoc_payments'])
+        if adhoc_total != 0:
+            reconciliation_waterfall.append({
+                'description': f"Ad-hoc Payments ({len(changes['adhoc_payments'])})",
+                'gross_change': adhoc_total,
+                'net_change': adhoc_total * 0.85,  # Approximate after tax
+                'count': len(changes['adhoc_payments']),
+            })
+
+        # Ending point
+        reconciliation_waterfall.append({
+            'description': f'Current Period ({current_run.payroll_period.name})',
+            'gross': safe_float(curr_totals['gross']),
+            'net': safe_float(curr_totals['net']),
+            'is_total': True,
+        })
+
+        # Calculate variance explanation
+        gross_variance = curr_totals['gross'] - prev_totals['gross']
+        net_variance = curr_totals['net'] - prev_totals['net']
+
+        explained_gross = sum(
+            item.get('gross_change', 0) for item in reconciliation_waterfall
+            if not item.get('is_total')
+        )
+        explained_net = sum(
+            item.get('net_change', 0) for item in reconciliation_waterfall
+            if not item.get('is_total')
+        )
+
+        unexplained_gross = float(gross_variance) - explained_gross
+        unexplained_net = float(net_variance) - explained_net
+
+        if abs(unexplained_gross) > 1 or abs(unexplained_net) > 1:
+            reconciliation_waterfall.insert(-1, {
+                'description': 'Other Adjustments (Tax/SSNIT rate changes, rounding)',
+                'gross_change': unexplained_gross,
+                'net_change': unexplained_net,
+            })
+
+        # Summary statistics
+        summary = {
+            'previous_period': previous_run.payroll_period.name,
+            'current_period': current_run.payroll_period.name,
+            'previous_gross': safe_float(prev_totals['gross']),
+            'current_gross': safe_float(curr_totals['gross']),
+            'gross_variance': safe_float(gross_variance),
+            'gross_variance_pct': float(gross_variance / prev_totals['gross'] * 100) if prev_totals['gross'] else 0,
+            'previous_net': safe_float(prev_totals['net']),
+            'current_net': safe_float(curr_totals['net']),
+            'net_variance': safe_float(net_variance),
+            'net_variance_pct': float(net_variance / prev_totals['net'] * 100) if prev_totals['net'] else 0,
+            'previous_employees': prev_totals['employees'],
+            'current_employees': curr_totals['employees'],
+            'employee_variance': curr_totals['employees'] - prev_totals['employees'],
+        }
+
+        return Response({
+            'summary': summary,
+            'waterfall': reconciliation_waterfall,
+            'details': {
+                'new_employees': sorted(changes['new_employees'], key=lambda x: x['gross'], reverse=True),
+                'separated_employees': sorted(changes['separated_employees'], key=lambda x: x['gross'], reverse=True),
+                'basic_salary_changes': sorted(changes['basic_salary_changes'], key=lambda x: abs(x['difference']), reverse=True),
+                'allowance_changes': {k: sorted(v, key=lambda x: abs(x['difference']), reverse=True)
+                                      for k, v in changes['allowance_changes'].items()},
+                'deduction_changes': {k: sorted(v, key=lambda x: abs(x['difference']), reverse=True)
+                                      for k, v in changes['deduction_changes'].items()},
+                'adhoc_payments': changes['adhoc_payments'],
+            },
+            'generated_at': timezone.now(),
+        })
+
+
 class ExportPayrollReconciliationView(APIView):
     """Export payroll reconciliation report."""
 
@@ -1086,7 +1447,7 @@ class ExportPayrollReconciliationView(APIView):
 
                 previous_run = PayrollRun.objects.filter(
                     payroll_period=previous_period,
-                    status__in=['APPROVED', 'PAID']
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
                 ).order_by('-run_date').first()
 
                 if current_run:
@@ -1720,12 +2081,12 @@ class DuesReportView(APIView):
             if period:
                 run = PayrollRun.objects.filter(
                     payroll_period=period,
-                    status__in=['APPROVED', 'PAID']
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
                 ).order_by('-run_date').first()
         else:
             # Latest approved run
             run = PayrollRun.objects.filter(
-                status__in=['APPROVED', 'PAID']
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
             ).order_by('-run_date').first()
 
         if not run:
@@ -1817,11 +2178,11 @@ class RentDeductionsReportView(APIView):
             if period:
                 run = PayrollRun.objects.filter(
                     payroll_period=period,
-                    status__in=['APPROVED', 'PAID']
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
                 ).order_by('-run_date').first()
         else:
             run = PayrollRun.objects.filter(
-                status__in=['APPROVED', 'PAID']
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
             ).order_by('-run_date').first()
 
         if not run:
@@ -1895,11 +2256,11 @@ class PayrollJournalView(APIView):
             if period:
                 run = PayrollRun.objects.filter(
                     payroll_period=period,
-                    status__in=['APPROVED', 'PAID']
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
                 ).order_by('-run_date').first()
         else:
             run = PayrollRun.objects.filter(
-                status__in=['APPROVED', 'PAID']
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
             ).order_by('-run_date').first()
 
         if not run:
@@ -2148,11 +2509,11 @@ class StudentLoanReportView(APIView):
             if period:
                 run = PayrollRun.objects.filter(
                     payroll_period=period,
-                    status__in=['APPROVED', 'PAID']
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
                 ).order_by('-run_date').first()
         else:
             run = PayrollRun.objects.filter(
-                status__in=['APPROVED', 'PAID']
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
             ).order_by('-run_date').first()
 
         # Get student loans from loan accounts
@@ -2224,75 +2585,865 @@ class StudentLoanReportView(APIView):
 
 
 class ExportDuesReportView(APIView):
-    """Export dues report to CSV."""
+    """Export dues report to CSV/Excel/PDF."""
 
     def get(self, request):
         from .exports import ReportExporter
+        from payroll.models import PayComponent, PayrollItemDetail
+        from django.db.models import Q
 
         component_code = request.query_params.get('component_code')
-        format_type = request.query_params.get('format', 'csv')
+        # Use file_format instead of format to avoid DRF content negotiation conflict
+        format_type = request.query_params.get('file_format', request.query_params.get('format', 'csv'))
+        run_id = request.query_params.get('run_id')
 
-        # Get the report data
-        dues_view = DuesReportView()
-        dues_response = dues_view.get(request)
+        # Get deduction components of FUND category or matching code
+        components_qs = PayComponent.objects.filter(
+            component_type='DEDUCTION',
+            is_active=True
+        )
 
-        if not dues_response.data.get('components'):
-            return Response({'message': 'No data to export'}, status=404)
+        if component_code:
+            components_qs = components_qs.filter(code__icontains=component_code)
+        else:
+            components_qs = components_qs.filter(
+                Q(category='FUND') |
+                Q(code__icontains='PAWU') |
+                Q(code__icontains='UNICOF') |
+                Q(code__icontains='CREDIT') |
+                Q(code__icontains='UNION') |
+                Q(name__icontains='dues') |
+                Q(name__icontains='fund')
+            )
+
+        component_ids = list(components_qs.values_list('id', flat=True))
+
+        # Get payroll run
+        if run_id:
+            run = PayrollRun.objects.filter(id=run_id).first()
+        else:
+            run = PayrollRun.objects.filter(
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
+            ).order_by('-run_date').first()
+
+        if not run:
+            return Response({'message': 'No payroll run found'}, status=404)
+
+        # Get deduction details for these components
+        details = PayrollItemDetail.objects.filter(
+            payroll_item__payroll_run=run,
+            pay_component_id__in=component_ids,
+            amount__gt=0
+        ).select_related(
+            'payroll_item__employee',
+            'payroll_item__employee__department',
+            'pay_component'
+        ).order_by('pay_component__code', 'payroll_item__employee__employee_number')
+
+        if not details.exists():
+            return Response({'message': 'No dues data found'}, status=404)
 
         # Flatten for export
         rows = []
-        for comp in dues_response.data['components']:
-            for emp in comp['employees']:
-                rows.append({
-                    'Component Code': comp['component_code'],
-                    'Component Name': comp['component_name'],
-                    'Employee Number': emp['employee_number'],
-                    'Employee Name': emp['employee_name'],
-                    'Department': emp['department'],
-                    'Amount': emp['amount'],
-                })
+        for detail in details:
+            emp = detail.payroll_item.employee
+            rows.append({
+                'Component Code': detail.pay_component.code,
+                'Component Name': detail.pay_component.name,
+                'Employee Number': emp.employee_number,
+                'Employee Name': emp.full_name,
+                'Department': emp.department.name if emp.department else '',
+                'Amount': float(detail.amount),
+            })
 
         headers = ['Component Code', 'Component Name', 'Employee Number', 'Employee Name', 'Department', 'Amount']
-        filename = f"dues_report_{dues_response.data['payroll_period'].replace(' ', '_')}"
+        period_name = run.payroll_period.name if run.payroll_period else run.run_number
+        filename = f"dues_report_{period_name.replace(' ', '_')}"
 
         return ReportExporter.export_data(rows, headers, filename, format_type)
+
+
+class PayrollJournalReportView(APIView):
+    """
+    Payroll Journal Report - accounting entries for payroll.
+
+    Format matches standard payroll journal:
+    - Credits: Deductions, liabilities (Tax, SSF, Loans, Net Pay)
+    - Debits: Earnings, expenses (Salaries, Allowances, Employer Contributions)
+    """
+
+    def get(self, request):
+        from payroll.models import PayComponent, PayrollItemDetail, PayrollItem
+        from django.db.models import Sum
+        from decimal import Decimal
+
+        run_id = request.query_params.get('run_id')
+
+        # Get payroll run
+        if run_id:
+            run = PayrollRun.objects.filter(id=run_id).first()
+        else:
+            run = PayrollRun.objects.filter(
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
+            ).order_by('-run_date').first()
+
+        if not run:
+            return Response({'message': 'No payroll run found'}, status=404)
+
+        # Get aggregated amounts by component
+        details = PayrollItemDetail.objects.filter(
+            payroll_item__payroll_run=run,
+            amount__gt=0
+        ).values(
+            'pay_component__code',
+            'pay_component__name',
+            'pay_component__component_type',
+        ).annotate(
+            total_amount=Sum('amount')
+        ).order_by('pay_component__name')
+
+        if not details.exists():
+            return Response({'message': 'No journal data found'}, status=404)
+
+        # Get aggregates from PayrollItem (includes net pay, employee SSF, and employer contributions)
+        item_totals = PayrollItem.objects.filter(
+            payroll_run=run
+        ).aggregate(
+            net_pay=Sum('net_salary'),
+            ssnit_employee=Sum('ssnit_employee'),
+            ssnit_employer=Sum('ssnit_employer'),
+            tier2_employer=Sum('tier2_employer'),
+        )
+        net_pay = item_totals['net_pay'] or Decimal('0')
+        ssnit_employee = item_totals['ssnit_employee'] or Decimal('0')
+        ssnit_employer = item_totals['ssnit_employer'] or Decimal('0')
+        tier2_employer = item_totals['tier2_employer'] or Decimal('0')
+
+        # Build journal entries
+        # Accounting treatment (double-entry):
+        # - Earnings: Debit (Salary Expense)
+        # - Employer Contributions: Debit (Expense) AND Credit (Liability)
+        # - Deductions: Credit (Liability)
+        # - Net Pay: Credit (Bank/Cash)
+        credit_entries = []
+        debit_entries = []
+        total_credits = Decimal('0')
+        total_debits = Decimal('0')
+
+        for detail in details:
+            amount = detail['total_amount'] or Decimal('0')
+            component_type = detail['pay_component__component_type']
+            account_code = detail['pay_component__code']
+            account_name = detail['pay_component__name']
+
+            if component_type == 'EARNING':
+                # Earnings go to debit only (salary expense)
+                debit_entries.append({
+                    'account_code': account_code,
+                    'account_name': account_name,
+                    'component_type': component_type,
+                    'credit_amount': None,
+                    'debit_amount': float(amount),
+                })
+                total_debits += amount
+            else:
+                # Deductions go to credit (liability)
+                credit_entries.append({
+                    'account_code': account_code,
+                    'account_name': account_name,
+                    'component_type': component_type,
+                    'credit_amount': float(amount),
+                    'debit_amount': None,
+                })
+                total_credits += amount
+
+        # Add SSNIT employee contribution (stored on PayrollItem, not in details)
+        if ssnit_employee > 0:
+            credit_entries.append({
+                'account_code': 'SSF_EMP',
+                'account_name': 'Employee SSF Contribution (5.5%)',
+                'component_type': 'DEDUCTION',
+                'credit_amount': float(ssnit_employee),
+                'debit_amount': None,
+            })
+            total_credits += ssnit_employee
+
+        # Add employer contributions (from PayrollItem) - both Debit AND Credit
+        if ssnit_employer > 0:
+            # SSNIT Employer - Debit (expense)
+            debit_entries.append({
+                'account_code': 'SSF_EMPR',
+                'account_name': 'Employer SSF Contribution (13%)',
+                'component_type': 'EMPLOYER',
+                'credit_amount': None,
+                'debit_amount': float(ssnit_employer),
+            })
+            total_debits += ssnit_employer
+            # SSNIT Employer - Credit (liability)
+            credit_entries.append({
+                'account_code': 'SSF_EMPR',
+                'account_name': 'Employer SSF Contribution (13%)',
+                'component_type': 'EMPLOYER',
+                'credit_amount': float(ssnit_employer),
+                'debit_amount': None,
+            })
+            total_credits += ssnit_employer
+
+        if tier2_employer > 0:
+            # Tier 2 Employer - Debit (expense)
+            debit_entries.append({
+                'account_code': 'TIER2_EMPR',
+                'account_name': 'Tier 2 Pension (Employer)',
+                'component_type': 'EMPLOYER',
+                'credit_amount': None,
+                'debit_amount': float(tier2_employer),
+            })
+            total_debits += tier2_employer
+            # Tier 2 Employer - Credit (liability)
+            credit_entries.append({
+                'account_code': 'TIER2_EMPR',
+                'account_name': 'Tier 2 Pension (Employer)',
+                'component_type': 'EMPLOYER',
+                'credit_amount': float(tier2_employer),
+                'debit_amount': None,
+            })
+            total_credits += tier2_employer
+
+        # Add Bank/Cash Payment as credit entry (balancing entry)
+        bank_payment_entry = {
+            'account_code': 'BANK_CASH',
+            'account_name': 'Bank/Cash Payment',
+            'component_type': 'PAYMENT',
+            'credit_amount': float(net_pay),
+            'debit_amount': None,
+        }
+        credit_entries.insert(0, bank_payment_entry)
+        total_credits += net_pay
+
+        # Combine: Credits first, then Debits
+        all_entries = credit_entries + debit_entries
+
+        # Period info
+        period_name = run.payroll_period.name if run.payroll_period else run.run_number
+        period_start = run.payroll_period.start_date if run.payroll_period else None
+        period_end = run.payroll_period.end_date if run.payroll_period else None
+
+        return Response({
+            'success': True,
+            'data': {
+                'period': {
+                    'name': period_name,
+                    'start_date': period_start,
+                    'end_date': period_end,
+                    'run_id': str(run.id),
+                    'run_number': run.run_number,
+                    'run_date': run.run_date,
+                    'status': run.status,
+                },
+                'entries': all_entries,
+                'summary': {
+                    'total_credits': float(total_credits),
+                    'total_debits': float(total_debits),
+                    'is_balanced': abs(total_credits - total_debits) < Decimal('0.01'),
+                    'variance': float(abs(total_credits - total_debits)),
+                },
+                'meta': {
+                    'credit_count': len(credit_entries),
+                    'debit_count': len(debit_entries),
+                    'total_entries': len(all_entries),
+                }
+            }
+        })
 
 
 class ExportPayrollJournalView(APIView):
-    """Export payroll journal to CSV."""
+    """Export payroll journal to CSV/Excel/PDF matching GTP format."""
 
     def get(self, request):
         from .exports import ReportExporter
+        from payroll.models import PayComponent, PayrollItemDetail, PayrollItem
+        from django.db.models import Sum
+        from decimal import Decimal
 
-        format_type = request.query_params.get('format', 'csv')
+        # Use file_format instead of format to avoid DRF content negotiation conflict
+        format_type = request.query_params.get('file_format', request.query_params.get('format', 'csv'))
+        run_id = request.query_params.get('run_id')
 
-        # Get the report data
-        journal_view = PayrollJournalView()
-        journal_response = journal_view.get(request)
+        # Get payroll run
+        if run_id:
+            run = PayrollRun.objects.filter(id=run_id).first()
+        else:
+            run = PayrollRun.objects.filter(
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
+            ).order_by('-run_date').first()
 
-        if not journal_response.data.get('journal_entries'):
-            return Response({'message': 'No data to export'}, status=404)
+        if not run:
+            return Response({'message': 'No payroll run found'}, status=404)
 
-        rows = []
-        for entry in journal_response.data['journal_entries']:
-            rows.append({
-                'Account Code': entry['code'],
-                'Account Name': entry['name'],
-                'Type': entry['component_type'],
-                'Debit': entry['debit'] or '',
-                'Credit': entry['credit'] or '',
+        # Get aggregated amounts by component
+        details = PayrollItemDetail.objects.filter(
+            payroll_item__payroll_run=run,
+            amount__gt=0
+        ).values(
+            'pay_component__code',
+            'pay_component__name',
+            'pay_component__component_type',
+        ).annotate(
+            total_amount=Sum('amount')
+        ).order_by('pay_component__name')
+
+        if not details.exists():
+            return Response({'message': 'No journal data found'}, status=404)
+
+        # Get aggregates from PayrollItem (includes net pay, employee SSF, and employer contributions)
+        item_totals = PayrollItem.objects.filter(
+            payroll_run=run
+        ).aggregate(
+            net_pay=Sum('net_salary'),
+            ssnit_employee=Sum('ssnit_employee'),
+            ssnit_employer=Sum('ssnit_employer'),
+            tier2_employer=Sum('tier2_employer'),
+        )
+        net_pay = item_totals['net_pay'] or Decimal('0')
+        ssnit_employee = item_totals['ssnit_employee'] or Decimal('0')
+        ssnit_employer = item_totals['ssnit_employer'] or Decimal('0')
+        tier2_employer = item_totals['tier2_employer'] or Decimal('0')
+
+        # Build journal entries - Credits first, then Debits
+        # Accounting treatment (double-entry):
+        # - Earnings: Debit (Salary Expense)
+        # - Employer Contributions: Debit (Expense) AND Credit (Liability)
+        # - Deductions: Credit (Liability)
+        # - Net Pay: Credit (Bank/Cash)
+        credit_rows = []
+        debit_rows = []
+        total_credits = Decimal('0')
+        total_debits = Decimal('0')
+
+        for detail in details:
+            amount = detail['total_amount'] or Decimal('0')
+            component_type = detail['pay_component__component_type']
+            account_name = detail['pay_component__name']
+
+            if component_type == 'EARNING':
+                # Earnings go to debit only (salary expense)
+                debit_rows.append({
+                    'Account Name': account_name,
+                    'Credit Amount': '',
+                    'Debit Amount': float(amount),
+                })
+                total_debits += amount
+            else:
+                # Deductions go to credit (liability)
+                credit_rows.append({
+                    'Account Name': account_name,
+                    'Credit Amount': float(amount),
+                    'Debit Amount': '',
+                })
+                total_credits += amount
+
+        # Add SSNIT employee contribution (stored on PayrollItem, not in details)
+        if ssnit_employee > 0:
+            credit_rows.append({
+                'Account Name': 'Employee SSF Contribution (5.5%)',
+                'Credit Amount': float(ssnit_employee),
+                'Debit Amount': '',
             })
+            total_credits += ssnit_employee
 
-        # Add totals row
+        # Add employer contributions (from PayrollItem) - both Debit AND Credit
+        if ssnit_employer > 0:
+            debit_rows.append({
+                'Account Name': 'Employer SSF Contribution (13%)',
+                'Credit Amount': '',
+                'Debit Amount': float(ssnit_employer),
+            })
+            total_debits += ssnit_employer
+            credit_rows.append({
+                'Account Name': 'Employer SSF Contribution (13%)',
+                'Credit Amount': float(ssnit_employer),
+                'Debit Amount': '',
+            })
+            total_credits += ssnit_employer
+
+        if tier2_employer > 0:
+            debit_rows.append({
+                'Account Name': 'Tier 2 Pension (Employer)',
+                'Credit Amount': '',
+                'Debit Amount': float(tier2_employer),
+            })
+            total_debits += tier2_employer
+            credit_rows.append({
+                'Account Name': 'Tier 2 Pension (Employer)',
+                'Credit Amount': float(tier2_employer),
+                'Debit Amount': '',
+            })
+            total_credits += tier2_employer
+
+        # Add Bank/Cash Payment as first credit entry
+        credit_rows.insert(0, {
+            'Account Name': 'Bank/Cash Payment',
+            'Credit Amount': float(net_pay),
+            'Debit Amount': '',
+        })
+        total_credits += net_pay
+
+        # Combine rows: Credits first, then Debits
+        rows = credit_rows + debit_rows
+
+        # Add TOTAL row
         rows.append({
-            'Account Code': '',
-            'Account Name': 'TOTALS',
-            'Type': '',
-            'Debit': journal_response.data['total_debits'],
-            'Credit': journal_response.data['total_credits'],
+            'Account Name': 'TOTAL',
+            'Credit Amount': float(total_credits),
+            'Debit Amount': float(total_debits),
         })
 
-        headers = ['Account Code', 'Account Name', 'Type', 'Debit', 'Credit']
-        filename = f"payroll_journal_{journal_response.data['payroll_period'].replace(' ', '_')}"
+        headers = ['Account Name', 'Credit Amount', 'Debit Amount']
+        period_name = run.payroll_period.name if run.payroll_period else run.run_number
+        filename = f"payroll_journal_{period_name.replace(' ', '_')}"
+        title = f"Payroll Journal - {period_name}"
 
-        return ReportExporter.export_data(rows, headers, filename, format_type)
+        return ReportExporter.export_data(rows, headers, filename, format_type, title=title)
+
+
+class SalaryReconciliationView(APIView):
+    """
+    Salary Reconciliation Report matching GTP format.
+
+    Shows period-to-period changes:
+    - Non-recurring earnings (add/subtract)
+    - Recurring earnings changes
+    - New employees (additions)
+    - Removed employees (deletions)
+    - Final gross salary
+    """
+
+    def get(self, request):
+        from decimal import Decimal
+        from collections import defaultdict
+        from payroll.models import PayrollPeriod, PayComponent, PayrollItemDetail
+
+        current_period_id = request.query_params.get('current_period')
+        previous_period_id = request.query_params.get('previous_period')
+
+        # Get payroll runs
+        if current_period_id and previous_period_id:
+            try:
+                current_period = PayrollPeriod.objects.get(id=current_period_id)
+                previous_period = PayrollPeriod.objects.get(id=previous_period_id)
+
+                current_run = PayrollRun.objects.filter(
+                    payroll_period=current_period,
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
+                ).order_by('-run_date').first()
+
+                previous_run = PayrollRun.objects.filter(
+                    payroll_period=previous_period,
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
+                ).order_by('-run_date').first()
+
+            except PayrollPeriod.DoesNotExist:
+                return Response({'message': 'Invalid period IDs'}, status=404)
+        else:
+            # Default to last two periods
+            runs = PayrollRun.objects.filter(
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
+            ).select_related('payroll_period').order_by('-payroll_period__year', '-payroll_period__month')[:2]
+
+            if len(runs) < 2:
+                return Response({
+                    'message': 'Need at least two completed payroll periods for reconciliation'
+                }, status=404)
+
+            current_run = runs[0]
+            previous_run = runs[1]
+
+        if not current_run or not previous_run:
+            return Response({'message': 'No completed payroll runs found'}, status=404)
+
+        def safe_decimal(val):
+            return Decimal(str(val)) if val else Decimal('0')
+
+        # Get recurring vs non-recurring components
+        recurring_codes = set(PayComponent.objects.filter(
+            is_active=True, is_recurring=True
+        ).values_list('code', flat=True))
+
+        non_recurring_codes = set(PayComponent.objects.filter(
+            is_active=True, is_recurring=False, component_type='EARNING'
+        ).values_list('code', flat=True))
+
+        # Get current period items
+        current_items = {}
+        current_details = defaultdict(dict)
+        for item in PayrollItem.objects.filter(payroll_run=current_run).select_related(
+            'employee'
+        ).prefetch_related('details__pay_component'):
+            current_items[item.employee_id] = item
+            for detail in item.details.all():
+                current_details[item.employee_id][detail.pay_component.code] = {
+                    'amount': safe_decimal(detail.amount),
+                    'name': detail.pay_component.name,
+                    'is_recurring': detail.pay_component.is_recurring,
+                }
+
+        # Get previous period items
+        previous_items = {}
+        previous_details = defaultdict(dict)
+        for item in PayrollItem.objects.filter(payroll_run=previous_run).select_related(
+            'employee'
+        ).prefetch_related('details__pay_component'):
+            previous_items[item.employee_id] = item
+            for detail in item.details.all():
+                previous_details[item.employee_id][detail.pay_component.code] = {
+                    'amount': safe_decimal(detail.amount),
+                    'name': detail.pay_component.name,
+                    'is_recurring': detail.pay_component.is_recurring,
+                }
+
+        all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
+
+        # Calculate totals
+        prev_gross = safe_decimal(previous_run.total_gross)
+        curr_gross = safe_decimal(current_run.total_gross)
+
+        # Track changes
+        additions = []  # New employees
+        deletions = []  # Removed employees
+        non_recurring_add = []  # Non-recurring earnings to add
+        non_recurring_less = []  # Non-recurring earnings to subtract
+        recurring_changes = []  # Changes in recurring earnings
+
+        total_additions = Decimal('0')
+        total_deletions = Decimal('0')
+        total_non_recurring_add = Decimal('0')
+        total_non_recurring_less = Decimal('0')
+        total_recurring_changes = Decimal('0')
+
+        for emp_id in all_emp_ids:
+            curr_item = current_items.get(emp_id)
+            prev_item = previous_items.get(emp_id)
+            curr_comps = current_details.get(emp_id, {})
+            prev_comps = previous_details.get(emp_id, {})
+
+            if curr_item and not prev_item:
+                # New employee - Addition
+                emp = curr_item.employee
+                basic = safe_decimal(curr_item.basic_salary)
+                additions.append({
+                    'employee_name': emp.full_name,
+                    'amount': float(basic),
+                })
+                total_additions += basic
+
+            elif prev_item and not curr_item:
+                # Removed employee - Deletion
+                emp = prev_item.employee
+                basic = safe_decimal(prev_item.basic_salary)
+                deletions.append({
+                    'employee_name': emp.full_name,
+                    'amount': float(basic),
+                })
+                total_deletions += basic
+
+            elif curr_item and prev_item:
+                # Existing employee - check for changes
+                emp = curr_item.employee
+
+                # Check non-recurring earnings in current period
+                for code, detail in curr_comps.items():
+                    if not detail['is_recurring'] and detail['amount'] > 0:
+                        prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
+                        if detail['amount'] != prev_amt:
+                            non_recurring_add.append({
+                                'description': detail['name'],
+                                'amount': float(detail['amount']),
+                            })
+                            total_non_recurring_add += detail['amount']
+
+                # Check non-recurring that were in previous but not current
+                for code, detail in prev_comps.items():
+                    if not detail['is_recurring'] and detail['amount'] > 0:
+                        if code not in curr_comps or curr_comps[code]['amount'] == 0:
+                            non_recurring_less.append({
+                                'description': detail['name'],
+                                'amount': float(detail['amount']),
+                            })
+                            total_non_recurring_less += detail['amount']
+
+                # Check recurring earnings changes (basic salary changes)
+                curr_basic = safe_decimal(curr_item.basic_salary)
+                prev_basic = safe_decimal(prev_item.basic_salary)
+                if curr_basic != prev_basic:
+                    diff = curr_basic - prev_basic
+                    recurring_changes.append({
+                        'employee_name': emp.full_name,
+                        'previous_amount': float(prev_basic),
+                        'current_amount': float(curr_basic),
+                        'change': float(diff),
+                    })
+                    total_recurring_changes += diff
+
+        # Build response
+        return Response({
+            'success': True,
+            'data': {
+                'periods': {
+                    'current': {
+                        'name': current_run.payroll_period.name if current_run.payroll_period else current_run.run_number,
+                        'run_id': str(current_run.id),
+                        'gross': float(curr_gross),
+                    },
+                    'previous': {
+                        'name': previous_run.payroll_period.name if previous_run.payroll_period else previous_run.run_number,
+                        'run_id': str(previous_run.id),
+                        'gross': float(prev_gross),
+                    },
+                },
+                'reconciliation': {
+                    'previous_gross': float(prev_gross),
+                    'less_non_recurring': {
+                        'items': non_recurring_less if non_recurring_less else [{'description': 'NO TRANSACTION', 'amount': 0}],
+                        'total': float(total_non_recurring_less),
+                    },
+                    'basic_plus_recurring': float(prev_gross - total_non_recurring_less),
+                    'add_non_recurring': {
+                        'items': non_recurring_add if non_recurring_add else [{'description': 'NO TRANSACTION', 'amount': 0}],
+                        'total': float(total_non_recurring_add),
+                    },
+                    'change_in_recurring': {
+                        'items': recurring_changes if recurring_changes else [{'description': 'NO TRANSACTION', 'change': 0}],
+                        'total': float(total_recurring_changes),
+                    },
+                    'additions': {
+                        'items': additions if additions else [{'employee_name': 'NO ADDITIONS', 'amount': 0}],
+                        'total': float(total_additions),
+                    },
+                    'deletions': {
+                        'items': deletions if deletions else [{'employee_name': 'NO DELETIONS', 'amount': 0}],
+                        'total': float(total_deletions),
+                    },
+                    'current_gross': float(curr_gross),
+                },
+                'summary': {
+                    'previous_gross': float(prev_gross),
+                    'less_non_recurring': float(total_non_recurring_less),
+                    'add_non_recurring': float(total_non_recurring_add),
+                    'recurring_changes': float(total_recurring_changes),
+                    'additions': float(total_additions),
+                    'deletions': float(total_deletions),
+                    'calculated_gross': float(
+                        prev_gross - total_non_recurring_less + total_non_recurring_add +
+                        total_recurring_changes + total_additions - total_deletions
+                    ),
+                    'actual_gross': float(curr_gross),
+                    'variance': float(
+                        curr_gross - (prev_gross - total_non_recurring_less + total_non_recurring_add +
+                        total_recurring_changes + total_additions - total_deletions)
+                    ),
+                },
+            }
+        })
+
+
+class ExportSalaryReconciliationView(APIView):
+    """Export salary reconciliation to CSV/Excel/PDF matching GTP format."""
+
+    def get(self, request):
+        from .exports import ReportExporter
+        from decimal import Decimal
+        from collections import defaultdict
+        from payroll.models import PayrollPeriod, PayComponent
+
+        format_type = request.query_params.get('file_format', request.query_params.get('format', 'csv'))
+        current_period_id = request.query_params.get('current_period')
+        previous_period_id = request.query_params.get('previous_period')
+
+        # Get payroll runs (same logic as above)
+        if current_period_id and previous_period_id:
+            try:
+                current_period = PayrollPeriod.objects.get(id=current_period_id)
+                previous_period = PayrollPeriod.objects.get(id=previous_period_id)
+
+                current_run = PayrollRun.objects.filter(
+                    payroll_period=current_period,
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
+                ).order_by('-run_date').first()
+
+                previous_run = PayrollRun.objects.filter(
+                    payroll_period=previous_period,
+                    status__in=['COMPUTED', 'APPROVED', 'PAID']
+                ).order_by('-run_date').first()
+
+            except PayrollPeriod.DoesNotExist:
+                return Response({'message': 'Invalid period IDs'}, status=404)
+        else:
+            runs = PayrollRun.objects.filter(
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
+            ).select_related('payroll_period').order_by('-payroll_period__year', '-payroll_period__month')[:2]
+
+            if len(runs) < 2:
+                return Response({'message': 'Need at least two completed payroll periods'}, status=404)
+
+            current_run = runs[0]
+            previous_run = runs[1]
+
+        if not current_run or not previous_run:
+            return Response({'message': 'No completed payroll runs found'}, status=404)
+
+        def safe_decimal(val):
+            return Decimal(str(val)) if val else Decimal('0')
+
+        # Get current and previous items
+        current_items = {}
+        current_details = defaultdict(dict)
+        for item in PayrollItem.objects.filter(payroll_run=current_run).select_related(
+            'employee'
+        ).prefetch_related('details__pay_component'):
+            current_items[item.employee_id] = item
+            for detail in item.details.all():
+                current_details[item.employee_id][detail.pay_component.code] = {
+                    'amount': safe_decimal(detail.amount),
+                    'name': detail.pay_component.name,
+                    'is_recurring': detail.pay_component.is_recurring,
+                }
+
+        previous_items = {}
+        previous_details = defaultdict(dict)
+        for item in PayrollItem.objects.filter(payroll_run=previous_run).select_related(
+            'employee'
+        ).prefetch_related('details__pay_component'):
+            previous_items[item.employee_id] = item
+            for detail in item.details.all():
+                previous_details[item.employee_id][detail.pay_component.code] = {
+                    'amount': safe_decimal(detail.amount),
+                    'name': detail.pay_component.name,
+                    'is_recurring': detail.pay_component.is_recurring,
+                }
+
+        all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
+
+        prev_gross = safe_decimal(previous_run.total_gross)
+        curr_gross = safe_decimal(current_run.total_gross)
+
+        # Track changes
+        additions = []
+        deletions = []
+        non_recurring_add = []
+        non_recurring_less = []
+
+        total_additions = Decimal('0')
+        total_deletions = Decimal('0')
+        total_non_recurring_add = Decimal('0')
+        total_non_recurring_less = Decimal('0')
+
+        for emp_id in all_emp_ids:
+            curr_item = current_items.get(emp_id)
+            prev_item = previous_items.get(emp_id)
+            curr_comps = current_details.get(emp_id, {})
+            prev_comps = previous_details.get(emp_id, {})
+
+            if curr_item and not prev_item:
+                emp = curr_item.employee
+                basic = safe_decimal(curr_item.basic_salary)
+                additions.append({
+                    'Description': emp.full_name,
+                    'Amount': float(basic),
+                })
+                total_additions += basic
+
+            elif prev_item and not curr_item:
+                emp = prev_item.employee
+                basic = safe_decimal(prev_item.basic_salary)
+                deletions.append({
+                    'Description': emp.full_name,
+                    'Amount': float(basic),
+                })
+                total_deletions += basic
+
+            elif curr_item and prev_item:
+                for code, detail in curr_comps.items():
+                    if not detail['is_recurring'] and detail['amount'] > 0:
+                        prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
+                        if detail['amount'] != prev_amt:
+                            non_recurring_add.append({
+                                'Description': detail['name'],
+                                'Amount': float(detail['amount']),
+                            })
+                            total_non_recurring_add += detail['amount']
+
+                for code, detail in prev_comps.items():
+                    if not detail['is_recurring'] and detail['amount'] > 0:
+                        if code not in curr_comps or curr_comps[code]['amount'] == 0:
+                            non_recurring_less.append({
+                                'Description': detail['name'],
+                                'Amount': float(detail['amount']),
+                            })
+                            total_non_recurring_less += detail['amount']
+
+        # Build export rows
+        rows = []
+
+        # Get previous period name
+        prev_period_name = previous_run.payroll_period.name if previous_run.payroll_period else previous_run.run_number
+
+        # Section: Previous Month Gross Salary (Starting Point)
+        rows.append({'Description': f'Previous Month Gross Salary ({prev_period_name})', 'Amount': '', 'Total': float(prev_gross)})
+        rows.append({'Description': '', 'Amount': '', 'Total': ''})
+
+        # Section: Less Non-Recurring Earnings
+        rows.append({'Description': 'Less: Non-Recurring Earnings', 'Amount': '', 'Total': ''})
+        if non_recurring_less:
+            for item in non_recurring_less:
+                rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
+        else:
+            rows.append({'Description': '  NO TRANSACTION', 'Amount': 0, 'Total': ''})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(total_non_recurring_less)})
+        rows.append({'Description': '', 'Amount': '', 'Total': ''})
+
+        # Section: Basic Salary Plus Recurring Earnings
+        basic_plus_recurring = prev_gross - total_non_recurring_less
+        rows.append({'Description': 'Basic Salary Plus Recurring Earnings', 'Amount': '', 'Total': float(basic_plus_recurring)})
+        rows.append({'Description': '', 'Amount': '', 'Total': ''})
+
+        # Section: Add Non-Recurring Earnings
+        rows.append({'Description': 'Add: Non-Recurring Earnings', 'Amount': '', 'Total': ''})
+        if non_recurring_add:
+            for item in non_recurring_add:
+                rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
+        else:
+            rows.append({'Description': '  NO TRANSACTION', 'Amount': 0, 'Total': ''})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(total_non_recurring_add)})
+        rows.append({'Description': '', 'Amount': '', 'Total': ''})
+
+        # Section: Additions
+        rows.append({'Description': 'Additions (New Employees)', 'Amount': '', 'Total': ''})
+        if additions:
+            for item in sorted(additions, key=lambda x: x['Description']):
+                rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
+        else:
+            rows.append({'Description': '  NO ADDITIONS', 'Amount': 0, 'Total': ''})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(total_additions)})
+        rows.append({'Description': '', 'Amount': '', 'Total': ''})
+
+        # Section: Deletions
+        rows.append({'Description': 'Less: Deletions (Separated Employees)', 'Amount': '', 'Total': ''})
+        if deletions:
+            for item in sorted(deletions, key=lambda x: x['Description']):
+                rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
+        else:
+            rows.append({'Description': '  NO DELETIONS', 'Amount': 0, 'Total': ''})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(total_deletions)})
+        rows.append({'Description': '', 'Amount': '', 'Total': ''})
+
+        # Get current period name
+        current_period_name = current_run.payroll_period.name if current_run.payroll_period else current_run.run_number
+
+        # Final Gross Salary - Current Month
+        rows.append({'Description': f'Current Month Gross Salary ({current_period_name})', 'Amount': '', 'Total': float(curr_gross)})
+
+        headers = ['Description', 'Amount', 'Total']
+        filename = f"salary_reconciliation_{current_period_name.replace(' ', '_')}"
+        title = f"Salary Reconciliation - {current_period_name}"
+
+        return ReportExporter.export_data(rows, headers, filename, format_type, title=title)

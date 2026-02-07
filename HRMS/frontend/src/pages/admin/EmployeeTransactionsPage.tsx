@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { transactionsService } from '@/services/transactions'
 import { employeeService } from '@/services/employees'
+import api from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
@@ -45,9 +46,20 @@ const overrideTypeOptions = [
   { value: 'FORMULA', label: 'Custom Formula' },
 ]
 
+const targetTypeOptions = [
+  { value: 'INDIVIDUAL', label: 'Individual Employee', description: 'Apply to a specific employee' },
+  { value: 'GRADE', label: 'Job Grade', description: 'Apply to all employees in a grade' },
+  { value: 'BAND', label: 'Salary Band', description: 'Apply to all employees in a salary band' },
+]
+
+type TargetType = 'INDIVIDUAL' | 'GRADE' | 'BAND'
+
 interface TransactionFormData {
+  target_type: TargetType
   employee: string
   employee_ids: string[]
+  job_grade: string
+  salary_band: string
   pay_component: string
   override_type: TransactionOverrideType
   override_amount: string
@@ -60,8 +72,11 @@ interface TransactionFormData {
 }
 
 const initialFormData: TransactionFormData = {
+  target_type: 'INDIVIDUAL',
   employee: '',
   employee_ids: [],
+  job_grade: '',
+  salary_band: '',
   pay_component: '',
   override_type: 'NONE',
   override_amount: '',
@@ -80,6 +95,7 @@ export default function EmployeeTransactionsPage() {
     status: '',
     pay_component: '',
     department: '',
+    target_type: '',
     search: '',
   })
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -106,6 +122,7 @@ export default function EmployeeTransactionsPage() {
         status: filters.status || undefined,
         pay_component: filters.pay_component || undefined,
         department: filters.department || undefined,
+        target_type: filters.target_type || undefined,
         search: filters.search || undefined,
       }
 
@@ -147,9 +164,27 @@ export default function EmployeeTransactionsPage() {
     },
   })
 
+  const { data: gradesData } = useQuery({
+    queryKey: ['job-grades'],
+    queryFn: async () => {
+      const res = await api.get('/organization/grades/', { params: { page_size: 100 } })
+      return res.data.results || res.data || []
+    },
+  })
+
+  const { data: salaryBandsData } = useQuery({
+    queryKey: ['salary-bands'],
+    queryFn: async () => {
+      const res = await api.get('/payroll/salary-bands/', { params: { page_size: 100 } })
+      return res.data.results || res.data || []
+    },
+  })
+
   const transactions = transactionsData?.results || []
   const components = componentsData?.results || []
   const employees = employeesData?.results || []
+  const grades = gradesData || []
+  const salaryBands = salaryBandsData || []
 
   // Mutations
   const createMutation = useMutation({
@@ -238,6 +273,7 @@ export default function EmployeeTransactionsPage() {
     e.preventDefault()
 
     const data: any = {
+      target_type: formData.target_type,
       pay_component: formData.pay_component,
       override_type: formData.override_type,
       is_recurring: formData.is_recurring,
@@ -257,7 +293,14 @@ export default function EmployeeTransactionsPage() {
       data.override_formula = formData.override_formula
     }
 
-    if (isBulkMode && selectedEmployees.length > 0) {
+    // Set target based on target_type
+    if (formData.target_type === 'GRADE') {
+      data.job_grade = formData.job_grade
+      createMutation.mutate(data)
+    } else if (formData.target_type === 'BAND') {
+      data.salary_band = formData.salary_band
+      createMutation.mutate(data)
+    } else if (isBulkMode && selectedEmployees.length > 0) {
       data.employee_ids = selectedEmployees
       bulkCreateMutation.mutate(data)
     } else {
@@ -347,14 +390,35 @@ export default function EmployeeTransactionsPage() {
       ),
     },
     {
-      key: 'employee',
-      header: 'Employee',
-      render: (item: EmployeeTransaction) => (
-        <div>
-          <div className="font-medium">{item.employee_name}</div>
-          <div className="text-xs text-gray-500">{item.employee_number}</div>
-        </div>
-      ),
+      key: 'target',
+      header: 'Target',
+      render: (item: EmployeeTransaction) => {
+        const targetType = (item as any).target_type || 'INDIVIDUAL'
+        if (targetType === 'GRADE') {
+          return (
+            <div>
+              <Badge variant="info" className="mb-1">Grade</Badge>
+              <div className="font-medium">{(item as any).job_grade_name || 'N/A'}</div>
+              <div className="text-xs text-gray-500">{(item as any).applicable_employee_count || 0} employees</div>
+            </div>
+          )
+        }
+        if (targetType === 'BAND') {
+          return (
+            <div>
+              <Badge variant="warning" className="mb-1">Band</Badge>
+              <div className="font-medium">{(item as any).salary_band_name || 'N/A'}</div>
+              <div className="text-xs text-gray-500">{(item as any).applicable_employee_count || 0} employees</div>
+            </div>
+          )
+        }
+        return (
+          <div>
+            <div className="font-medium">{item.employee_name || 'N/A'}</div>
+            <div className="text-xs text-gray-500">{item.employee_number || ''}</div>
+          </div>
+        )
+      },
     },
     {
       key: 'transaction',
@@ -546,6 +610,17 @@ export default function EmployeeTransactionsPage() {
               className="w-48"
             />
             <Select
+              value={filters.target_type}
+              onChange={(e) => setFilters({ ...filters, target_type: e.target.value })}
+              options={[
+                { value: '', label: 'All Targets' },
+                { value: 'INDIVIDUAL', label: 'Individual' },
+                { value: 'GRADE', label: 'Job Grade' },
+                { value: 'BAND', label: 'Salary Band' },
+              ]}
+              className="w-36"
+            />
+            <Select
               value={filters.department}
               onChange={(e) => setFilters({ ...filters, department: e.target.value })}
               options={[
@@ -621,74 +696,153 @@ export default function EmployeeTransactionsPage() {
         size="lg"
       >
         <form onSubmit={handleSubmitCreate} className="space-y-6">
-          {/* Bulk Mode Toggle */}
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={!isBulkMode}
-                onChange={() => setIsBulkMode(false)}
-                className="text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm">Single Employee</span>
+          {/* Target Type Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Apply Transaction To
             </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={isBulkMode}
-                onChange={() => setIsBulkMode(true)}
-                className="text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm">Multiple Employees</span>
-            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {targetTypeOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setFormData({ ...formData, target_type: opt.value as TargetType })
+                    setIsBulkMode(false)
+                    setSelectedEmployees([])
+                  }}
+                  className={`px-3 py-2 text-sm rounded-lg border text-left ${
+                    formData.target_type === opt.value
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="font-medium">{opt.label}</div>
+                  <div className="text-xs text-gray-500">{opt.description}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Employee Selection */}
-          {isBulkMode ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Employees ({selectedEmployees.length} selected)
-              </label>
-              <div className="max-h-48 overflow-y-auto border rounded-lg">
-                {employees.map((emp: Employee) => (
-                  <label
-                    key={emp.id}
-                    className="flex items-center gap-3 p-2 hover:bg-gray-50 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedEmployees.includes(emp.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedEmployees([...selectedEmployees, emp.id])
-                        } else {
-                          setSelectedEmployees(selectedEmployees.filter((id) => id !== emp.id))
-                        }
-                      }}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span className="text-sm">
-                      {emp.full_name || `${emp.first_name} ${emp.last_name}`}
-                    </span>
-                    <span className="text-xs text-gray-500">{emp.employee_number}</span>
-                  </label>
-                ))}
+          {/* Target Selection based on type */}
+          {formData.target_type === 'INDIVIDUAL' && (
+            <>
+              {/* Bulk Mode Toggle */}
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={!isBulkMode}
+                    onChange={() => setIsBulkMode(false)}
+                    className="text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm">Single Employee</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={isBulkMode}
+                    onChange={() => setIsBulkMode(true)}
+                    className="text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm">Multiple Employees</span>
+                </label>
               </div>
+
+              {/* Employee Selection */}
+              {isBulkMode ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Employees ({selectedEmployees.length} selected)
+                  </label>
+                  <div className="max-h-48 overflow-y-auto border rounded-lg">
+                    {employees.map((emp: Employee) => (
+                      <label
+                        key={emp.id}
+                        className="flex items-center gap-3 p-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedEmployees.includes(emp.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedEmployees([...selectedEmployees, emp.id])
+                            } else {
+                              setSelectedEmployees(selectedEmployees.filter((id) => id !== emp.id))
+                            }
+                          }}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="text-sm">
+                          {emp.full_name || `${emp.first_name} ${emp.last_name}`}
+                        </span>
+                        <span className="text-xs text-gray-500">{emp.employee_number}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <Select
+                  label="Employee"
+                  value={formData.employee}
+                  onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
+                  options={[
+                    { value: '', label: 'Select Employee' },
+                    ...employees.map((emp: Employee) => ({
+                      value: emp.id,
+                      label: `${emp.full_name || `${emp.first_name} ${emp.last_name}`} (${emp.employee_number})`,
+                    })),
+                  ]}
+                  required={!isBulkMode}
+                />
+              )}
+            </>
+          )}
+
+          {formData.target_type === 'GRADE' && (
+            <div>
+              <Select
+                label="Job Grade"
+                value={formData.job_grade}
+                onChange={(e) => setFormData({ ...formData, job_grade: e.target.value })}
+                options={[
+                  { value: '', label: 'Select Job Grade' },
+                  ...grades.map((g: any) => ({
+                    value: g.id,
+                    label: `${g.code} - ${g.name}`,
+                  })),
+                ]}
+                required
+              />
+              {formData.job_grade && (
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                  <strong>Note:</strong> This transaction will apply to all active employees with this job grade.
+                </div>
+              )}
             </div>
-          ) : (
-            <Select
-              label="Employee"
-              value={formData.employee}
-              onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
-              options={[
-                { value: '', label: 'Select Employee' },
-                ...employees.map((emp: Employee) => ({
-                  value: emp.id,
-                  label: `${emp.full_name || `${emp.first_name} ${emp.last_name}`} (${emp.employee_number})`,
-                })),
-              ]}
-              required={!isBulkMode}
-            />
+          )}
+
+          {formData.target_type === 'BAND' && (
+            <div>
+              <Select
+                label="Salary Band"
+                value={formData.salary_band}
+                onChange={(e) => setFormData({ ...formData, salary_band: e.target.value })}
+                options={[
+                  { value: '', label: 'Select Salary Band' },
+                  ...salaryBands.map((b: any) => ({
+                    value: b.id,
+                    label: `${b.code} - ${b.name}`,
+                  })),
+                ]}
+                required
+              />
+              {formData.salary_band && (
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                  <strong>Note:</strong> This transaction will apply to all active employees in this salary band (via grade or salary notch).
+                </div>
+              )}
+            </div>
           )}
 
           {/* Transaction Type */}
@@ -869,14 +1023,32 @@ export default function EmployeeTransactionsPage() {
                 </p>
               </div>
               <div>
-                <label className="text-xs text-gray-500">Employee</label>
-                <p>{showViewModal.employee_name}</p>
-                <p className="text-sm text-gray-500">{showViewModal.employee_number}</p>
+                <label className="text-xs text-gray-500">Target Type</label>
+                <p>
+                  <Badge variant={(showViewModal as any).target_type === 'GRADE' ? 'info' : (showViewModal as any).target_type === 'BAND' ? 'warning' : 'default'}>
+                    {(showViewModal as any).target_type_display || (showViewModal as any).target_type || 'Individual'}
+                  </Badge>
+                </p>
               </div>
               <div>
-                <label className="text-xs text-gray-500">Department</label>
-                <p>{showViewModal.department_name || '-'}</p>
+                <label className="text-xs text-gray-500">Applies To</label>
+                {(showViewModal as any).target_type === 'GRADE' ? (
+                  <p>{(showViewModal as any).job_grade_name} ({(showViewModal as any).applicable_employee_count || 0} employees)</p>
+                ) : (showViewModal as any).target_type === 'BAND' ? (
+                  <p>{(showViewModal as any).salary_band_name} ({(showViewModal as any).applicable_employee_count || 0} employees)</p>
+                ) : (
+                  <>
+                    <p>{showViewModal.employee_name}</p>
+                    <p className="text-sm text-gray-500">{showViewModal.employee_number}</p>
+                  </>
+                )}
               </div>
+              {(showViewModal as any).target_type !== 'GRADE' && (showViewModal as any).target_type !== 'BAND' && (
+                <div>
+                  <label className="text-xs text-gray-500">Department</label>
+                  <p>{showViewModal.department_name || '-'}</p>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-gray-500">Transaction Type</label>
                 <p>{showViewModal.component_name}</p>

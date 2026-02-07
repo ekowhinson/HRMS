@@ -113,9 +113,12 @@ export default function ExitsPage() {
     { value: 'REJECTED', label: 'Rejected' },
   ]
 
+  // Handle both array and paginated response for exitTypes
+  const exitTypesArray = Array.isArray(exitTypes) ? exitTypes : ((exitTypes as any)?.results || [])
+
   const typeOptions = [
     { value: '', label: 'All Types' },
-    ...(exitTypes?.map((t) => ({ value: t.id, label: t.name })) || []),
+    ...exitTypesArray.map((t: any) => ({ value: t.id, label: t.name })),
   ]
 
   const employeeOptions = [
@@ -128,7 +131,7 @@ export default function ExitsPage() {
 
   const exitTypeOptions = [
     { value: '', label: 'Select Exit Type...' },
-    ...(exitTypes?.map((t) => ({ value: t.id, label: t.name })) || []),
+    ...exitTypesArray.map((t: any) => ({ value: t.id, label: t.name })),
   ]
 
   return (

@@ -71,9 +71,23 @@ const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
 
 function useIsHROrAdmin() {
   const user = useAuthStore((state) => state.user)
-  const userRoles = user?.roles?.map((r: any) => r.code || r.name || r) || []
-  return user?.is_staff || user?.is_superuser ||
-    userRoles.some((role: string) => HR_ADMIN_ROLES.includes(role.toUpperCase()))
+  if (!user) return false
+
+  // Check staff/superuser first
+  if (user.is_staff || user.is_superuser) return true
+
+  // Safely extract role strings
+  const userRoles: string[] = []
+  if (Array.isArray(user.roles)) {
+    user.roles.forEach((r: any) => {
+      const roleStr = typeof r === 'string' ? r : (r?.code || r?.name || '')
+      if (typeof roleStr === 'string' && roleStr) {
+        userRoles.push(roleStr.toUpperCase())
+      }
+    })
+  }
+
+  return userRoles.some((role) => HR_ADMIN_ROLES.includes(role))
 }
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {

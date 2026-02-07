@@ -38,6 +38,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.select_related(
         'department', 'position', 'grade', 'supervisor'
     ).prefetch_related('dependents', 'emergency_contacts')
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'department', 'grade', 'employment_type']
     search_fields = ['employee_number', 'first_name', 'last_name', 'work_email']
@@ -74,6 +76,75 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         employee.status = Employee.EmploymentStatus.TERMINATED
         employee.save()
         return Response({'message': 'Employee deactivated successfully'})
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def upload_photo(self, request, pk=None):
+        """Upload employee photo."""
+        employee = self.get_object()
+        photo = request.FILES.get('photo')
+
+        if not photo:
+            return Response(
+                {'detail': 'No photo provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        if photo.content_type not in allowed_types:
+            return Response(
+                {'detail': 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate file size (max 5MB)
+        max_size = 5 * 1024 * 1024
+        if photo.size > max_size:
+            return Response(
+                {'detail': 'File too large. Maximum size is 5MB'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        employee.set_photo(photo)
+        employee.save()
+
+        return Response({
+            'message': 'Photo uploaded successfully',
+            'photo_url': employee.get_photo_data_uri()
+        })
+
+    @action(detail=True, methods=['delete'])
+    def delete_photo(self, request, pk=None):
+        """Delete employee photo."""
+        employee = self.get_object()
+
+        if not employee.has_photo:
+            return Response(
+                {'detail': 'No photo to delete'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        employee.set_photo(None)
+        employee.save()
+
+        return Response({'message': 'Photo deleted successfully'})
+
+    @action(detail=True, methods=['get'])
+    def photo(self, request, pk=None):
+        """Get employee photo as data URI."""
+        employee = self.get_object()
+
+        if not employee.has_photo:
+            return Response(
+                {'detail': 'No photo available'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            'photo_url': employee.get_photo_data_uri(),
+            'photo_name': employee.photo_name,
+            'photo_type': employee.photo_mime
+        })
 
 
 class BulkImportView(APIView):

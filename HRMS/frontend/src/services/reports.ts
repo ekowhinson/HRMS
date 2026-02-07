@@ -357,6 +357,70 @@ export const reportsService = {
     downloadFile(response.data, `payroll_reconciliation_${Date.now()}.${getFileExtension(format)}`)
   },
 
+  // Payroll Journal
+  async getPayrollJournal(runId?: string) {
+    const params = new URLSearchParams()
+    if (runId) params.append('run_id', runId)
+    const response = await api.get(`/reports/payroll/journal/?${params.toString()}`)
+    return response.data
+  },
+
+  async exportPayrollJournal(
+    runId?: string,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    if (runId) params.append('run_id', runId)
+    params.append('file_format', format)
+
+    const response = await api.get(`/reports/export/journal/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `payroll_journal_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  // Salary Reconciliation
+  async getSalaryReconciliation(currentPeriodId?: string, previousPeriodId?: string) {
+    const params = new URLSearchParams()
+    if (currentPeriodId) params.append('current_period', currentPeriodId)
+    if (previousPeriodId) params.append('previous_period', previousPeriodId)
+    const response = await api.get(`/reports/payroll/salary-reconciliation/?${params.toString()}`)
+    return response.data
+  },
+
+  async exportSalaryReconciliation(
+    currentPeriodId?: string,
+    previousPeriodId?: string,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    if (currentPeriodId) params.append('current_period', currentPeriodId)
+    if (previousPeriodId) params.append('previous_period', previousPeriodId)
+    params.append('file_format', format)
+
+    const response = await api.get(`/reports/export/salary-reconciliation/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `salary_reconciliation_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  // Dues Report
+  async exportDuesReport(
+    runId?: string,
+    componentCode?: string,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    if (runId) params.append('run_id', runId)
+    if (componentCode) params.append('component_code', componentCode)
+    params.append('file_format', format)
+
+    const response = await api.get(`/reports/export/dues/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `dues_report_${Date.now()}.${getFileExtension(format)}`)
+  },
+
   // Payslip downloads
   async getPayslipsForRun(payrollRunId: string) {
     const response = await api.get(`/payroll/runs/${payrollRunId}/payslips/`)

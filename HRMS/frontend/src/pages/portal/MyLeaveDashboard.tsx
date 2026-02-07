@@ -256,7 +256,7 @@ export default function MyLeaveDashboard() {
         </div>
 
         {/* Team On Leave Today (for managers) */}
-        {teamOverview && teamOverview.team_size > 0 && (
+        {teamOverview && typeof teamOverview.team_size === 'number' && teamOverview.team_size > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -279,18 +279,18 @@ export default function MyLeaveDashboard() {
                   <Badge variant="info">{teamOverview.on_leave_count}</Badge>
                 </div>
 
-                {teamOverview.on_leave_today.length > 0 && (
+                {teamOverview.on_leave_today && teamOverview.on_leave_today.length > 0 && (
                   <div className="mt-4">
                     <p className="text-xs font-medium text-gray-500 mb-2">WHO'S OUT TODAY</p>
                     <div className="space-y-2">
-                      {teamOverview.on_leave_today.map((person) => (
+                      {teamOverview.on_leave_today.map((person: any) => (
                         <div
                           key={person.id}
                           className="flex items-center gap-2 text-sm"
                         >
                           <div
                             className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: person.leave_type_color }}
+                            style={{ backgroundColor: person.leave_type_color || '#6b7280' }}
                           />
                           <span className="text-gray-700">{person.employee_name}</span>
                           <span className="text-gray-400">-</span>
@@ -301,7 +301,7 @@ export default function MyLeaveDashboard() {
                   </div>
                 )}
 
-                {teamOverview.pending_approvals > 0 && (
+                {typeof teamOverview.pending_approvals === 'number' && teamOverview.pending_approvals > 0 && (
                   <Link to="/admin/leave-approvals">
                     <Button variant="outline" size="sm" className="w-full">
                       Review Pending Approvals

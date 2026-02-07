@@ -20,7 +20,9 @@ export const leaveService = {
   // Get all leave types with optional filters
   getLeaveTypes: async (filters?: LeaveTypeFilters): Promise<LeaveType[]> => {
     const response = await api.get('/leave/types/', { params: filters })
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave types')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Get single leave type
@@ -57,7 +59,9 @@ export const leaveService = {
   // Get my leave requests
   getMyRequests: async (): Promise<LeaveRequest[]> => {
     const response = await api.get('/leave/requests/')
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave requests')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Get single leave request
@@ -111,7 +115,9 @@ export const leaveService = {
   // Get my leave balances
   getMyBalances: async (): Promise<LeaveBalance[]> => {
     const response = await api.get('/leave/balances/')
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave balances')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Get employee leave balances
@@ -123,7 +129,9 @@ export const leaveService = {
   // Get pending approvals (for managers)
   getPendingApprovals: async (): Promise<LeaveRequest[]> => {
     const response = await api.get('/leave/pending-approvals/')
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load pending approvals')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // Get leave calendar (team leave overview)
@@ -135,19 +143,27 @@ export const leaveService = {
     status?: string
   }) => {
     const response = await api.get('/leave/calendar/', { params })
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave calendar')
+    return data
   },
 
   // ==================== Leave Plans ====================
 
   getLeavePlans: async (params?: { year?: number; status?: string; employee?: string }) => {
     const response = await api.get('/leave/plans/', { params })
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave plans')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   getMyLeavePlans: async () => {
-    const response = await api.get('/leave/plans/my_plans/')
-    return response.data
+    const response = await api.get('/leave/plans/my_plan/')
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load my leave plans')
+    // my_plan returns a single object or message, not array
+    if (data?.message) return [] // No plan found
+    return Array.isArray(data) ? data : (data ? [data] : [])
   },
 
   getLeavePlan: async (id: string) => {
@@ -192,19 +208,25 @@ export const leaveService = {
 
   getPendingLeavePlans: async () => {
     const response = await api.get('/leave/plans/pending_approval/')
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load pending leave plans')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   getLeavePlanCalendar: async (params: { year?: number; start_date?: string; end_date?: string; department?: string }) => {
     const response = await api.get('/leave/calendar/plans/', { params })
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave plan calendar')
+    return data
   },
 
   // ==================== Leave Plan Entries ====================
 
   getLeavePlanEntries: async (params?: { leave_plan?: string; quarter?: number; status?: string }) => {
     const response = await api.get('/leave/plan-entries/', { params })
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave plan entries')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   createLeavePlanEntry: async (data: {
@@ -238,12 +260,16 @@ export const leaveService = {
 
   getCarryForwardRequests: async (params?: { from_year?: number; to_year?: number; status?: string; employee?: string }) => {
     const response = await api.get('/leave/carry-forward/', { params })
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load carry forward requests')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   getMyCarryForwardRequests: async () => {
     const response = await api.get('/leave/carry-forward/my_requests/')
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load my carry forward requests')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   createCarryForwardRequest: async (data: {
@@ -279,24 +305,32 @@ export const leaveService = {
 
   getPendingHRReview: async () => {
     const response = await api.get('/leave/carry-forward/pending_hr_review/')
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load pending HR review')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   getPendingCEOApproval: async () => {
     const response = await api.get('/leave/carry-forward/pending_ceo_approval/')
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load pending CEO approval')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   // ==================== Leave Reminders ====================
 
   getLeaveReminders: async (params?: { year?: number; reminder_type?: string; acknowledged?: boolean }) => {
     const response = await api.get('/leave/reminders/', { params })
-    return response.data.results || response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave reminders')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   getMyReminders: async () => {
     const response = await api.get('/leave/reminders/my_reminders/')
-    return response.data
+    const data = response.data
+    if (data?.success === false) throw new Error(data.error?.message || 'Failed to load my reminders')
+    return Array.isArray(data) ? data : (data?.results || [])
   },
 
   acknowledgeReminder: async (id: string) => {
