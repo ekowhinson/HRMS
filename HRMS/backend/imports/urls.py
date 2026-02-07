@@ -22,4 +22,8 @@ urlpatterns = [
     path('unified/status/<str:task_id>/', views.UnifiedImportStatusView.as_view(), name='unified-import-status'),
     path('salary-structure/', views.SalaryStructureImportView.as_view(), name='salary-structure-import'),
     path('employee-update/', views.EmployeeUpdateImportView.as_view(), name='employee-update-import'),
+    path('payroll-setup/upload/', views.PayrollSetupUploadView.as_view(), name='payroll-setup-upload'),
+    path('payroll-setup/execute/', views.PayrollSetupExecuteView.as_view(), name='payroll-setup-execute'),
+    path('payroll-setup/progress/<str:task_id>/', views.PayrollSetupProgressView.as_view(), name='payroll-setup-progress'),
+    path('payroll-setup/reset/', views.PayrollSetupResetView.as_view(), name='payroll-setup-reset'),
 ]

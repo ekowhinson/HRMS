@@ -1755,3 +1755,162 @@ class SalaryStructureImportView(APIView):
                 'SalaryNotch records with salary amounts',
             ],
         })
+
+
+class PayrollSetupUploadView(APIView):
+    """Upload and analyze payroll implementation files."""
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        """
+        Upload both Excel files and return analysis preview.
+        POST /imports/payroll-setup/upload/
+        """
+        from .payroll_analyzer import PayrollFileAnalyzer
+
+        allowances_file = request.FILES.get('allowances_file')
+        staff_data_file = request.FILES.get('staff_data_file')
+
+        if not allowances_file or not staff_data_file:
+            return Response(
+                {'error': 'Both allowances_file and staff_data_file are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate file types
+        for f in [allowances_file, staff_data_file]:
+            if not f.name.lower().endswith(('.xlsx', '.xls')):
+                return Response(
+                    {'error': f'File {f.name} must be an Excel file (.xlsx or .xls)'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            analyzer = PayrollFileAnalyzer()
+
+            # Read file contents
+            allowances_content = allowances_file.read()
+            staff_content = staff_data_file.read()
+
+            # Analyze both files
+            allowances_data = analyzer.analyze_allowances_file(allowances_content)
+            staff_data = analyzer.analyze_staff_data_file(staff_content)
+            summary = analyzer.generate_summary()
+
+            # Store in cache for the execute step
+            import uuid
+            task_id = uuid.uuid4().hex
+            cache.set(f'payroll_setup_files_{task_id}', {
+                'allowances_data': allowances_data,
+                'staff_data': staff_data,
+            }, timeout=3600)
+
+            return Response({
+                'task_id': task_id,
+                'summary': summary,
+                'allowances_preview': {
+                    band: list(policy.keys())
+                    for band, policy in allowances_data.items()
+                },
+                'staff_preview': {
+                    'total_employees': len(staff_data),
+                    'sample': staff_data[:5] if staff_data else [],
+                },
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to analyze files: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class PayrollSetupExecuteView(APIView):
+    """Execute the payroll setup process."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """
+        Execute all 5 phases of payroll setup.
+        POST /imports/payroll-setup/execute/
+        """
+        from .payroll_setup import PayrollSetupProcessor
+
+        task_id = request.data.get('task_id')
+        if not task_id:
+            return Response(
+                {'error': 'task_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Retrieve cached file data
+        cached = cache.get(f'payroll_setup_files_{task_id}')
+        if not cached:
+            return Response(
+                {'error': 'File data not found. Please upload files again.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        allowances_data = cached['allowances_data']
+        staff_data = cached['staff_data']
+
+        # Execute synchronously (could be made async with Celery if needed)
+        processor = PayrollSetupProcessor(task_id=task_id, user=request.user)
+
+        try:
+            results = processor.execute(allowances_data, staff_data)
+            return Response({
+                'task_id': task_id,
+                'status': 'completed',
+                'results': results,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'task_id': task_id,
+                'status': 'failed',
+                'error': str(e),
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PayrollSetupProgressView(APIView):
+    """Get progress of payroll setup."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, task_id):
+        """
+        Poll processing progress.
+        GET /imports/payroll-setup/progress/<task_id>/
+        """
+        progress = cache.get(f'payroll_setup_{task_id}')
+        if not progress:
+            return Response(
+                {'error': 'No progress data found for this task'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(progress)
+
+
+class PayrollSetupResetView(APIView):
+    """Reset all payroll data for re-run."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """
+        Clear all payroll data.
+        POST /imports/payroll-setup/reset/
+        """
+        from .payroll_setup import PayrollSetupProcessor
+
+        try:
+            counts = PayrollSetupProcessor.reset_payroll_data()
+            return Response({
+                'status': 'success',
+                'message': 'All payroll data has been cleared',
+                'deleted': counts,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to reset: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
