@@ -182,12 +182,24 @@ export const employeeService = {
   },
 
   // Upload employee photo
-  uploadPhoto: async (id: string, file: File) => {
+  uploadPhoto: async (id: string, file: File): Promise<{ message: string; photo_url: string }> => {
     const formData = new FormData()
     formData.append('photo', file)
-    const response = await api.patch(`/employees/${id}/`, formData, {
+    const response = await api.post(`/employees/${id}/upload_photo/`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
+    return response.data
+  },
+
+  // Delete employee photo
+  deletePhoto: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/employees/${id}/delete_photo/`)
+    return response.data
+  },
+
+  // Get employee photo
+  getPhoto: async (id: string): Promise<{ photo_url: string; photo_name: string; photo_type: string }> => {
+    const response = await api.get(`/employees/${id}/photo/`)
     return response.data
   },
 

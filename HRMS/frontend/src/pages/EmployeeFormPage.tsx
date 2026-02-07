@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, CameraIcon, TrashIcon, UserCircleIcon } from '@heroicons/react/24/outline'
 import { employeeService } from '@/services/employees'
 import { payrollSetupService } from '@/services/payrollSetup'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -83,9 +83,11 @@ interface EmployeeFormData {
   disability: string
 
   // Bank Details
-  bank_name: string
-  bank_branch: string
-  bank_account_number: string
+  bank_id: string
+  branch_id: string
+  account_number: string
+  account_name: string
+  account_type: string
 
   // Notes
   notes: string
@@ -145,9 +147,11 @@ const initialFormData: EmployeeFormData = {
   blood_group: '',
   medical_conditions: '',
   disability: '',
-  bank_name: '',
-  bank_branch: '',
-  bank_account_number: '',
+  bank_id: '',
+  branch_id: '',
+  account_number: '',
+  account_name: '',
+  account_type: 'SAVINGS',
   notes: '',
 }
 
@@ -159,6 +163,9 @@ export default function EmployeeFormPage() {
 
   const [formData, setFormData] = useState<EmployeeFormData>(initialFormData)
   const [activeSection, setActiveSection] = useState(0)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const { data: employee, isLoading: loadingEmployee } = useQuery({
     queryKey: ['employee', id],
@@ -250,9 +257,27 @@ export default function EmployeeFormPage() {
   const { data: salaryNotches } = useQuery({
     queryKey: ['salaryNotches'],
     queryFn: async () => {
-      const res = await api.get('/payroll/salary-notches/')
+      // Fetch all notches (override pagination) since we need them all for filtering
+      const res = await api.get('/payroll/salary-notches/', { params: { page_size: 500 } })
       return res.data.results || res.data || []
     },
+  })
+
+  const { data: salaryBands } = useQuery({
+    queryKey: ['salaryBands'],
+    queryFn: async () => {
+      const res = await api.get('/payroll/salary-bands/', { params: { page_size: 100 } })
+      return res.data.results || res.data || []
+    },
+  })
+
+  const { data: salaryLevels } = useQuery({
+    queryKey: ['salaryLevels'],
+    queryFn: async () => {
+      const res = await api.get('/payroll/salary-levels/', { params: { page_size: 100 } })
+      return res.data.results || res.data || []
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })
 
   const { data: banks, isLoading: loadingBanks } = useQuery({
@@ -261,8 +286,8 @@ export default function EmployeeFormPage() {
   })
 
   const { data: bankBranches, isLoading: loadingBranches } = useQuery({
-    queryKey: ['bankBranches', formData.bank_name],
-    queryFn: () => payrollSetupService.getBankBranches(formData.bank_name || undefined),
+    queryKey: ['bankBranches', formData.bank_id],
+    queryFn: () => payrollSetupService.getBankBranches(formData.bank_id || undefined),
     enabled: true,
   })
 
@@ -323,13 +348,29 @@ export default function EmployeeFormPage() {
         blood_group: emp.blood_group || '',
         medical_conditions: emp.medical_conditions || '',
         disability: emp.disability || '',
-        bank_name: emp.bank_name || '',
-        bank_branch: emp.bank_branch || '',
-        bank_account_number: emp.bank_account_number || '',
+        // Bank account - get from bank_accounts_list
+        bank_id: emp.bank_accounts_list?.[0]?.bank || '',
+        branch_id: emp.bank_accounts_list?.[0]?.branch || '',
+        account_number: emp.bank_accounts_list?.[0]?.account_number || emp.bank_account_number || '',
+        account_name: emp.bank_accounts_list?.[0]?.account_name || '',
+        account_type: emp.bank_accounts_list?.[0]?.account_type || 'SAVINGS',
         notes: emp.notes || '',
       })
+      // Load existing photo if available
+      if (emp.photo) {
+        setPhotoPreview(emp.photo)
+      } else if (emp.has_photo && id) {
+        // Fetch photo from API if employee has one
+        employeeService.getPhoto(id).then((res) => {
+          if (res.photo_url) {
+            setPhotoPreview(res.photo_url)
+          }
+        }).catch(() => {
+          // Ignore errors - photo may not exist
+        })
+      }
     }
-  }, [employee])
+  }, [employee, id])
 
   const createMutation = useMutation({
     mutationFn: employeeService.create,
@@ -371,6 +412,74 @@ export default function EmployeeFormPage() {
 
   const handleChange = (field: keyof EmployeeFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  // Photo handling functions
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+
+    // If editing, upload immediately
+    if (isEdit && id) {
+      handlePhotoUpload(file)
+    }
+  }
+
+  const handlePhotoUpload = async (file: File) => {
+    if (!id) return
+
+    setIsUploadingPhoto(true)
+    try {
+      const result = await employeeService.uploadPhoto(id, file)
+      setPhotoPreview(result.photo_url)
+      toast.success('Photo uploaded successfully')
+      queryClient.invalidateQueries({ queryKey: ['employee', id] })
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to upload photo')
+      // Revert preview if upload failed
+      if (employee && (employee as any).photo) {
+        setPhotoPreview((employee as any).photo)
+      } else {
+        setPhotoPreview(null)
+      }
+    } finally {
+      setIsUploadingPhoto(false)
+    }
+  }
+
+  const handlePhotoDelete = async () => {
+    if (!id) return
+
+    setIsUploadingPhoto(true)
+    try {
+      await employeeService.deletePhoto(id)
+      setPhotoPreview(null)
+      toast.success('Photo deleted successfully')
+      queryClient.invalidateQueries({ queryKey: ['employee', id] })
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to delete photo')
+    } finally {
+      setIsUploadingPhoto(false)
+    }
   }
 
   const sections = [
@@ -440,6 +549,71 @@ export default function EmployeeFormPage() {
               <CardTitle>Personal Information</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Photo Upload Section */}
+              <div className="flex items-start gap-6 mb-6 pb-6 border-b">
+                <div className="relative">
+                  <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-2 border-gray-200">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt="Employee photo"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <UserCircleIcon className="h-20 w-20 text-gray-400" />
+                    )}
+                    {isUploadingPhoto && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
+                        <div className="animate-spin h-8 w-8 border-2 border-white border-t-transparent rounded-full" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-gray-900 mb-2">Employee Photo</h3>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Upload a professional photo. Max size: 5MB. Supported formats: JPG, PNG, GIF.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={isUploadingPhoto || (!isEdit)}
+                    >
+                      <CameraIcon className="h-4 w-4 mr-1" />
+                      {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                    </Button>
+                    {photoPreview && isEdit && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handlePhotoDelete}
+                        disabled={isUploadingPhoto}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <TrashIcon className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  {!isEdit && (
+                    <p className="text-xs text-amber-600 mt-2">
+                      Save the employee record first, then you can upload a photo.
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Select
                   label="Title"
@@ -834,9 +1008,16 @@ export default function EmployeeFormPage() {
                   fieldKey="grade"
                   label="Grade"
                   value={formData.grade}
-                  onChange={(e) => handleChange('grade', e.target.value)}
+                  onChange={(e) => {
+                    handleChange('grade', e.target.value)
+                    // Clear salary_notch when grade changes (affects filtering)
+                    handleChange('salary_notch', '')
+                  }}
                   placeholder="Select Grade"
-                  options={(grades || []).map((g: any) => ({ value: g.id, label: g.name }))}
+                  options={(grades || []).map((g: any) => ({
+                    value: g.id,
+                    label: `${g.name}${g.salary_band_name ? ` (${g.salary_band_name})` : ''}`
+                  }))}
                 />
                 <LinkedSelect
                   fieldKey="work_location"
@@ -876,27 +1057,108 @@ export default function EmployeeFormPage() {
               <CardTitle>Salary Structure</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <LinkedSelect
-                  fieldKey="staff_category"
-                  label="Staff Category"
-                  value={formData.staff_category}
-                  onChange={(e) => handleChange('staff_category', e.target.value)}
-                  placeholder="Select Staff Category"
-                  options={(staffCategories || []).map((c: any) => ({ value: c.id, label: c.name }))}
-                />
-                <LinkedSelect
-                  fieldKey="salary_notch"
-                  label="Salary Notch"
-                  value={formData.salary_notch}
-                  onChange={(e) => handleChange('salary_notch', e.target.value)}
-                  placeholder="Select Salary Notch"
-                  options={(salaryNotches || []).map((n: any) => ({
-                    value: n.id,
-                    label: `${n.band_name || ''} ${n.level_name || ''} Notch ${n.notch || ''}`.trim(),
-                  }))}
-                />
-              </div>
+              {(() => {
+                // Get the selected grade's linked salary structure
+                const selectedGrade = (grades || []).find((g: any) => g.id === formData.grade)
+                const gradeLinkedBandId = selectedGrade?.salary_band || null
+                const gradeLinkedLevelId = selectedGrade?.salary_level || null
+
+                // Get the selected staff category's linked salary band
+                const selectedCategory = (staffCategories || []).find((c: any) => c.id === formData.staff_category)
+                const categoryLinkedBandId = selectedCategory?.salary_band || null
+
+                // Determine which band to use for filtering (grade takes priority)
+                const effectiveBandId = gradeLinkedBandId || categoryLinkedBandId
+
+                // Filter salary notches by band and/or level
+                let filteredNotches = salaryNotches || []
+                if (gradeLinkedLevelId) {
+                  // If grade has a specific level linked, filter notches by that level
+                  // Convert both to strings for comparison to handle UUID format differences
+                  filteredNotches = filteredNotches.filter((n: any) =>
+                    String(n.level).toLowerCase() === String(gradeLinkedLevelId).toLowerCase()
+                  )
+                } else if (effectiveBandId) {
+                  // Otherwise filter by band
+                  filteredNotches = filteredNotches.filter((n: any) =>
+                    String(n.band_id).toLowerCase() === String(effectiveBandId).toLowerCase()
+                  )
+                }
+
+                // Get linked structure names for display
+                const linkedBand = (salaryBands || []).find((b: any) => b.id === effectiveBandId)
+                const linkedLevel = (salaryLevels || []).find((l: any) => l.id === gradeLinkedLevelId)
+
+                return (
+                  <div className="space-y-4">
+                    {/* Show linked structure info if grade has links */}
+                    {(gradeLinkedBandId || categoryLinkedBandId) && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-blue-700">
+                          <strong>Linked Salary Structure:</strong>{' '}
+                          {linkedBand && <span>Band: {linkedBand.name}</span>}
+                          {linkedLevel && <span> → Level: {linkedLevel.name}</span>}
+                          {!linkedBand && categoryLinkedBandId && <span>(from Staff Category)</span>}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Salary notch options are filtered based on the selected grade/category.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <LinkedSelect
+                        fieldKey="staff_category"
+                        label="Staff Category"
+                        value={formData.staff_category}
+                        onChange={(e) => {
+                          handleChange('staff_category', e.target.value)
+                          // Clear salary_notch if filter changes
+                          if (!gradeLinkedBandId) {
+                            handleChange('salary_notch', '')
+                          }
+                        }}
+                        placeholder="Select Staff Category"
+                        options={(staffCategories || []).map((c: any) => ({
+                          value: c.id,
+                          label: `${c.name}${c.salary_band_name ? ` (${c.salary_band_name})` : ''}`
+                        }))}
+                      />
+                      <LinkedSelect
+                        fieldKey="salary_notch"
+                        label="Salary Notch"
+                        value={formData.salary_notch}
+                        onChange={(e) => handleChange('salary_notch', e.target.value)}
+                        placeholder={filteredNotches.length === 0
+                          ? 'No notches available for selected structure'
+                          : 'Select Salary Notch'}
+                        options={filteredNotches.map((n: any) => ({
+                          value: n.id,
+                          label: `${n.band_name || ''} / ${n.level_name || ''} / ${n.name || n.code} - GHS ${Number(n.amount || 0).toLocaleString()}`,
+                        }))}
+                      />
+                    </div>
+
+                    {/* Show current salary if notch is selected */}
+                    {formData.salary_notch && (() => {
+                      const selectedNotch = (salaryNotches || []).find((n: any) => n.id === formData.salary_notch)
+                      if (selectedNotch) {
+                        return (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
+                            <p className="text-sm text-green-700">
+                              <strong>Selected Salary:</strong> GHS {Number(selectedNotch.amount || 0).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              {selectedNotch.full_code || `${selectedNotch.band_code}/${selectedNotch.level_code}/${selectedNotch.code}`}
+                            </p>
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         )}
@@ -965,10 +1227,10 @@ export default function EmployeeFormPage() {
                 <LinkedSelect
                   fieldKey="bank"
                   label="Bank Name"
-                  value={formData.bank_name}
+                  value={formData.bank_id}
                   onChange={(e) => {
-                    handleChange('bank_name', e.target.value)
-                    handleChange('bank_branch', '')
+                    handleChange('bank_id', e.target.value)
+                    handleChange('branch_id', '')
                   }}
                   placeholder="Select Bank"
                   isLoading={loadingBanks}
@@ -977,19 +1239,35 @@ export default function EmployeeFormPage() {
                 <LinkedSelect
                   fieldKey="bank_branch"
                   label="Branch"
-                  value={formData.bank_branch}
-                  onChange={(e) => handleChange('bank_branch', e.target.value)}
-                  placeholder={formData.bank_name ? 'Select Branch' : 'Select a bank first'}
+                  value={formData.branch_id}
+                  onChange={(e) => handleChange('branch_id', e.target.value)}
+                  placeholder={formData.bank_id ? 'Select Branch' : 'Select a bank first'}
                   isLoading={loadingBranches}
-                  disabled={!formData.bank_name}
+                  disabled={!formData.bank_id}
                   options={(bankBranches || [])
-                    .filter((b) => !formData.bank_name || b.bank === formData.bank_name)
+                    .filter((b) => !formData.bank_id || b.bank === formData.bank_id)
                     .map((b) => ({ value: b.id, label: b.name }))}
                 />
                 <Input
                   label="Account Number"
-                  value={formData.bank_account_number}
-                  onChange={(e) => handleChange('bank_account_number', e.target.value)}
+                  value={formData.account_number}
+                  onChange={(e) => handleChange('account_number', e.target.value)}
+                />
+                <Input
+                  label="Account Name"
+                  value={formData.account_name}
+                  onChange={(e) => handleChange('account_name', e.target.value)}
+                  placeholder="Account holder name"
+                />
+                <Select
+                  label="Account Type"
+                  value={formData.account_type}
+                  onChange={(e) => handleChange('account_type', e.target.value)}
+                  options={[
+                    { value: 'SAVINGS', label: 'Savings' },
+                    { value: 'CURRENT', label: 'Current' },
+                    { value: 'OTHER', label: 'Other' },
+                  ]}
                 />
                 <div className="md:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>

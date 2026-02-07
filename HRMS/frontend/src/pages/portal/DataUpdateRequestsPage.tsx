@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import {
   PencilSquareIcon,
   PlusIcon,
@@ -8,6 +9,9 @@ import {
   CheckIcon,
   ClockIcon,
   ExclamationCircleIcon,
+  PaperClipIcon,
+  ArrowDownTrayIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { Card } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -15,6 +19,7 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import { dataUpdateService, DataUpdateRequest, DataUpdateRequestType } from '@/services/selfService'
+import { documentService, formatFileSize, downloadFromDataUri } from '@/services/documents'
 
 const REQUEST_TYPE_OPTIONS: { value: DataUpdateRequestType; label: string; description: string }[] = [
   { value: 'BANK_DETAILS', label: 'Bank Details', description: 'Update your bank account information' },
@@ -36,11 +41,23 @@ const STATUS_COLORS: Record<string, 'default' | 'info' | 'warning' | 'success' |
   CANCELLED: 'default',
 }
 
+// Document type options for data update requests
+const DOCUMENT_TYPE_OPTIONS = [
+  { value: 'SUPPORTING_DOCUMENT', label: 'Supporting Document' },
+  { value: 'ID_DOCUMENT', label: 'ID Document' },
+  { value: 'BANK_STATEMENT', label: 'Bank Statement' },
+  { value: 'CERTIFICATE', label: 'Certificate' },
+  { value: 'OTHER', label: 'Other' },
+]
+
 export default function DataUpdateRequestsPage() {
   const queryClient = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<DataUpdateRequest | null>(null)
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false)
+  const [selectedDocType, setSelectedDocType] = useState('SUPPORTING_DOCUMENT')
   const [formData, setFormData] = useState<{
     request_type: DataUpdateRequestType | ''
     reason: string
@@ -60,10 +77,16 @@ export default function DataUpdateRequestsPage() {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: dataUpdateService.createRequest,
-    onSuccess: () => {
+    onSuccess: (newRequest) => {
       queryClient.invalidateQueries({ queryKey: ['my-data-update-requests'] })
       setIsCreateModalOpen(false)
       resetForm()
+      // Automatically open detail modal so user can attach documents
+      if (newRequest) {
+        setSelectedRequest(newRequest)
+        setIsDetailModalOpen(true)
+        toast.success('Request created! You can now attach supporting documents.')
+      }
     },
   })
 
@@ -84,6 +107,69 @@ export default function DataUpdateRequestsPage() {
       setIsDetailModalOpen(false)
     },
   })
+
+  // Fetch documents for selected request
+  const { data: documents = [], isLoading: loadingDocuments, refetch: refetchDocuments } = useQuery({
+    queryKey: ['data-update-documents', selectedRequest?.id],
+    queryFn: () => documentService.dataUpdateDocuments.get(selectedRequest!.id),
+    enabled: !!selectedRequest?.id,
+  })
+
+  // Document upload handler
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedRequest) return
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB')
+      return
+    }
+
+    setIsUploadingDocument(true)
+    try {
+      await documentService.dataUpdateDocuments.upload(
+        selectedRequest.id,
+        file,
+        selectedDocType
+      )
+      toast.success('Document uploaded successfully')
+      refetchDocuments()
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to upload document')
+    } finally {
+      setIsUploadingDocument(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Document download handler
+  const handleDocumentDownload = async (docId: string, fileName: string) => {
+    try {
+      const doc = await documentService.dataUpdateDocuments.download(docId)
+      if (doc.file_url) {
+        downloadFromDataUri(doc.file_url, fileName)
+        toast.success('Document downloaded')
+      }
+    } catch (error: any) {
+      toast.error('Failed to download document')
+    }
+  }
+
+  // Document delete handler
+  const handleDocumentDelete = async (docId: string) => {
+    if (!confirm('Are you sure you want to delete this document?')) return
+
+    try {
+      await documentService.dataUpdateDocuments.delete(docId)
+      toast.success('Document deleted')
+      refetchDocuments()
+    } catch (error: any) {
+      toast.error('Failed to delete document')
+    }
+  }
 
   const resetForm = () => {
     setFormData({
@@ -327,6 +413,18 @@ export default function DataUpdateRequestsPage() {
             </div>
           )}
 
+          {/* Document Note */}
+          {formData.request_type && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <PaperClipIcon className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-blue-700">
+                  After creating this request, you'll be able to attach supporting documents such as ID cards, bank statements, or certificates.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-3">
             <Button
@@ -426,6 +524,101 @@ export default function DataUpdateRequestsPage() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Supporting Documents Section */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-gray-500">Supporting Documents</p>
+                {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="text-sm border border-gray-300 rounded-lg px-2 py-1"
+                      value={selectedDocType}
+                      onChange={(e) => setSelectedDocType(e.target.value)}
+                    >
+                      {DOCUMENT_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+                      onChange={handleDocumentUpload}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingDocument}
+                    >
+                      {isUploadingDocument ? (
+                        <div className="animate-spin h-4 w-4 border-2 border-primary-600 border-t-transparent rounded-full" />
+                      ) : (
+                        <>
+                          <PaperClipIcon className="h-4 w-4 mr-1" />
+                          Attach
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {loadingDocuments ? (
+                <div className="text-center py-4 text-gray-500">Loading documents...</div>
+              ) : documents.length === 0 ? (
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <PaperClipIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No documents attached</p>
+                  {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Upload supporting documents like ID cards, bank statements, or certificates
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map((doc: any) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg border border-gray-200">
+                          <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{doc.file_name}</p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(doc.file_size)} • {doc.document_type_display || doc.document_type}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleDocumentDownload(doc.id, doc.file_name)}
+                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Download"
+                        >
+                          <ArrowDownTrayIcon className="h-4 w-4" />
+                        </button>
+                        {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
+                          <button
+                            onClick={() => handleDocumentDelete(doc.id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Actions */}

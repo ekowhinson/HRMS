@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import {
   TicketIcon,
   PlusIcon,
@@ -10,6 +11,10 @@ import {
   ExclamationTriangleIcon,
   PaperAirplaneIcon,
   StarIcon,
+  PaperClipIcon,
+  DocumentTextIcon,
+  ArrowDownTrayIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
 import { Card } from '@/components/ui/Card'
@@ -23,6 +28,7 @@ import {
   ServiceRequestType,
   ServiceRequestPriority,
 } from '@/services/selfService'
+import { documentService, formatFileSize, downloadFromDataUri } from '@/services/documents'
 
 const STATUS_COLORS: Record<string, 'default' | 'info' | 'warning' | 'success' | 'danger'> = {
   DRAFT: 'default',
@@ -52,6 +58,7 @@ const SLA_COLORS: Record<string, string> = {
 
 export default function ServiceRequestsPage() {
   const queryClient = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
@@ -59,6 +66,7 @@ export default function ServiceRequestsPage() {
   const [newComment, setNewComment] = useState('')
   const [feedbackRating, setFeedbackRating] = useState(0)
   const [feedbackText, setFeedbackText] = useState('')
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false)
   const [formData, setFormData] = useState({
     request_type: '',
     subject: '',
@@ -131,6 +139,66 @@ export default function ServiceRequestsPage() {
       setFeedbackText('')
     },
   })
+
+  // Fetch documents for selected request
+  const { data: documents = [], isLoading: loadingDocuments, refetch: refetchDocuments } = useQuery({
+    queryKey: ['service-request-documents', selectedRequest?.id],
+    queryFn: () => documentService.serviceRequestDocuments.get(selectedRequest!.id),
+    enabled: !!selectedRequest?.id,
+  })
+
+  // Document upload handler
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedRequest) return
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB')
+      return
+    }
+
+    setIsUploadingDocument(true)
+    try {
+      await documentService.serviceRequestDocuments.upload(selectedRequest.id, file)
+      toast.success('Document uploaded successfully')
+      refetchDocuments()
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to upload document')
+    } finally {
+      setIsUploadingDocument(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Document download handler
+  const handleDocumentDownload = async (docId: string, fileName: string) => {
+    try {
+      // Use the generic attachment download
+      const doc = await documentService.downloadAttachment(docId)
+      if (doc.file_url) {
+        downloadFromDataUri(doc.file_url, fileName)
+        toast.success('Document downloaded')
+      }
+    } catch (error: any) {
+      toast.error('Failed to download document')
+    }
+  }
+
+  // Document delete handler
+  const handleDocumentDelete = async (docId: string) => {
+    if (!confirm('Are you sure you want to delete this document?')) return
+
+    try {
+      await documentService.serviceRequestDocuments.delete(selectedRequest!.id, docId)
+      toast.success('Document deleted')
+      refetchDocuments()
+    } catch (error: any) {
+      toast.error('Failed to delete document')
+    }
+  }
 
   const resetForm = () => {
     setFormData({
@@ -530,6 +598,87 @@ export default function ServiceRequestsPage() {
                   >
                     <PaperAirplaneIcon className="h-4 w-4" />
                   </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Attachments Section */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium text-gray-700">
+                  Attachments ({documents.length})
+                </p>
+                {!['COMPLETED', 'CANCELLED', 'REJECTED'].includes(selectedRequest.status) && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+                      onChange={handleDocumentUpload}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingDocument}
+                    >
+                      {isUploadingDocument ? (
+                        <div className="animate-spin h-4 w-4 border-2 border-primary-600 border-t-transparent rounded-full" />
+                      ) : (
+                        <>
+                          <PaperClipIcon className="h-4 w-4 mr-1" />
+                          Attach File
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {loadingDocuments ? (
+                <div className="text-center py-4 text-gray-500">Loading documents...</div>
+              ) : documents.length === 0 ? (
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <PaperClipIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No attachments</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map((doc: any) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg border border-gray-200">
+                          <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{doc.file_name}</p>
+                          <p className="text-xs text-gray-500">{formatFileSize(doc.file_size)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleDocumentDownload(doc.id, doc.file_name)}
+                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Download"
+                        >
+                          <ArrowDownTrayIcon className="h-4 w-4" />
+                        </button>
+                        {!['COMPLETED', 'CANCELLED', 'REJECTED'].includes(selectedRequest.status) && (
+                          <button
+                            onClick={() => handleDocumentDelete(doc.id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
