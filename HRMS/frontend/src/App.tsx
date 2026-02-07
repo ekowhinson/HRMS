@@ -3,6 +3,8 @@ import { useAuthStore } from './features/auth/store'
 import MainLayout from './components/layout/MainLayout'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import OnboardingPage from './pages/OnboardingPage'
 import DashboardPage from './pages/DashboardPage'
 import EmployeesPage from './pages/EmployeesPage'
@@ -132,6 +134,8 @@ function App() {
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
       <Route path="/signup/verify" element={<PublicRoute><SignupPage /></PublicRoute>} />
+      <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+      <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
 
       {/* Onboarding (authenticated but no layout) */}
       <Route path="/onboarding" element={<PrivateRoute><OnboardingPage /></PrivateRoute>} />
@@ -179,8 +183,8 @@ function App() {
                 <Route path="/reports/journal" element={<AdminRoute><PayrollJournalPage /></AdminRoute>} />
                 <Route path="/reports/salary-reconciliation" element={<AdminRoute><SalaryReconciliationPage /></AdminRoute>} />
 
-                {/* Settings - Admin only */}
-                <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+                {/* Settings - Available to all authenticated users */}
+                <Route path="/settings" element={<SettingsPage />} />
 
                 {/* Admin Routes - Admin only */}
                 <Route path="/admin/payroll" element={<AdminRoute><PayrollProcessingPage /></AdminRoute>} />

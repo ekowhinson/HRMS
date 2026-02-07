@@ -67,6 +67,7 @@ const selfServiceNavigation: NavItem[] = [
   { name: 'Data Updates', href: '/my-data-updates', icon: DocumentPlusIcon },
   { name: 'Service Requests', href: '/my-service-requests', icon: ClipboardDocumentCheckIcon },
   { name: 'My Appraisal', href: '/my-appraisal', icon: ChartBarIcon },
+  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
 // HR Section - Top level items

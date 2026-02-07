@@ -9,6 +9,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .views import (
+    TwoFactorPolicyView,
     CacheStatsView,
     CacheWarmView,
     CacheClearView,
@@ -46,6 +47,9 @@ def health_check(request):
 
 urlpatterns = [
     path('', health_check, name='health-check'),
+
+    # 2FA policy (admin only)
+    path('2fa-policy/', TwoFactorPolicyView.as_view(), name='2fa-policy'),
 
     # Cache management (admin only)
     path('cache/stats/', CacheStatsView.as_view(), name='cache-stats'),

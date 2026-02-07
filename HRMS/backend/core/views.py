@@ -35,6 +35,86 @@ from .serializers import (
 )
 
 
+class TwoFactorPolicyView(APIView):
+    """
+    Admin endpoint to get/update org-wide 2FA policy.
+    GET: Return current policy values.
+    PUT: Update policy values.
+    """
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request):
+        from accounts.tfa_policy import TFAPolicy
+        return Response({
+            'tfa_enforcement': TFAPolicy.get('tfa_enforcement'),
+            'tfa_allowed_methods': TFAPolicy.allowed_methods(),
+            'tfa_grace_period_days': TFAPolicy.grace_period_days(),
+        })
+
+    def put(self, request):
+        import json as _json
+        from .models import SystemConfiguration
+        from accounts.tfa_policy import TFAPolicy
+
+        data = request.data
+        updated = []
+
+        if 'tfa_enforcement' in data:
+            val = data['tfa_enforcement']
+            if val not in ('optional', 'required', 'required_admins'):
+                return Response(
+                    {'error': 'tfa_enforcement must be optional, required, or required_admins'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            obj, _ = SystemConfiguration.objects.update_or_create(
+                key='tfa_enforcement',
+                defaults={'value': val, 'value_type': 'string', 'category': 'security'},
+            )
+            updated.append('tfa_enforcement')
+
+        if 'tfa_allowed_methods' in data:
+            methods = data['tfa_allowed_methods']
+            if not isinstance(methods, list) or not all(m in ('EMAIL', 'SMS', 'TOTP') for m in methods):
+                return Response(
+                    {'error': 'tfa_allowed_methods must be a list containing EMAIL, SMS, and/or TOTP'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not methods:
+                return Response(
+                    {'error': 'At least one method must be allowed'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            obj, _ = SystemConfiguration.objects.update_or_create(
+                key='tfa_allowed_methods',
+                defaults={'value': _json.dumps(methods), 'value_type': 'json', 'category': 'security'},
+            )
+            updated.append('tfa_allowed_methods')
+
+        if 'tfa_grace_period_days' in data:
+            try:
+                days = int(data['tfa_grace_period_days'])
+                if days < 0:
+                    raise ValueError
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'tfa_grace_period_days must be a non-negative integer'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            obj, _ = SystemConfiguration.objects.update_or_create(
+                key='tfa_grace_period_days',
+                defaults={'value': str(days), 'value_type': 'integer', 'category': 'security'},
+            )
+            updated.append('tfa_grace_period_days')
+
+        return Response({
+            'message': 'Policy updated',
+            'updated': updated,
+            'tfa_enforcement': TFAPolicy.get('tfa_enforcement'),
+            'tfa_allowed_methods': TFAPolicy.allowed_methods(),
+            'tfa_grace_period_days': TFAPolicy.grace_period_days(),
+        })
+
+
 class CacheStatsView(APIView):
     """
     Get cache statistics and status.

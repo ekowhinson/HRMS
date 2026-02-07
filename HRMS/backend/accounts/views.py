@@ -27,7 +27,7 @@ from .serializers import (
 
 
 class LoginView(APIView):
-    """User login endpoint."""
+    """User login endpoint with 2FA support."""
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -35,9 +35,55 @@ class LoginView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data['user']
+        two_factor_code = request.data.get('two_factor_code', '').strip()
+
+        # Check if 2FA is enabled
+        if user.two_factor_enabled:
+            if not two_factor_code:
+                # Auto-send code for EMAIL/SMS methods
+                if user.two_factor_method in ('EMAIL', 'SMS'):
+                    self._send_2fa_code(user)
+
+                return Response({
+                    'two_factor_required': True,
+                    'method': user.two_factor_method,
+                })
+
+            # Verify the 2FA code
+            if not self._verify_2fa_code(user, two_factor_code):
+                # Log 2FA failure
+                AuthenticationLog.objects.create(
+                    user=user,
+                    email=user.email,
+                    event_type=AuthenticationLog.EventType.TWO_FACTOR_FAILED,
+                    ip_address=self.get_client_ip(request),
+                    user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                )
+                return Response(
+                    {'error': 'Invalid verification code.'},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            # Log 2FA success
+            AuthenticationLog.objects.create(
+                user=user,
+                email=user.email,
+                event_type=AuthenticationLog.EventType.TWO_FACTOR_SUCCESS,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            )
 
         # Reset failed login attempts
         user.reset_failed_login()
+
+        # Check 2FA policy enforcement
+        from .tfa_policy import TFAPolicy
+        if TFAPolicy.is_required_for(user) and not user.two_factor_enabled:
+            if not TFAPolicy.is_within_grace(user):
+                return Response(
+                    {'error': 'setup_required', 'message': 'Two-factor authentication is required by your organization. Please contact your administrator.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         # Update last login info
         user.last_login_at = timezone.now()
@@ -56,11 +102,70 @@ class LoginView(APIView):
             user_agent=request.META.get('HTTP_USER_AGENT', '')
         )
 
-        return Response({
+        response_data = {
             'access': str(refresh.access_token),
             'refresh': str(refresh),
-            'user': UserSerializer(user).data
-        })
+            'user': UserSerializer(user).data,
+        }
+
+        # Grace period warning
+        if TFAPolicy.is_required_for(user) and not user.two_factor_enabled:
+            response_data['two_factor_setup_required'] = True
+
+        return Response(response_data)
+
+    def _send_2fa_code(self, user):
+        """Generate and send OTP code for EMAIL/SMS 2FA methods."""
+        import secrets as _secrets
+        import hashlib as _hashlib
+        from django.core.cache import cache
+
+        code = f'{_secrets.randbelow(1000000):06d}'
+        code_hash = _hashlib.sha256(code.encode()).hexdigest()
+        cache.set(f'2fa_login_{user.id}', code_hash, 300)
+
+        if user.two_factor_method == 'EMAIL':
+            try:
+                send_mail(
+                    subject='HRMS - Your Login Verification Code',
+                    message=f'Your verification code is: {code}\n\nThis code expires in 5 minutes.',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception:
+                pass
+
+    def _verify_2fa_code(self, user, code):
+        """Verify 2FA code (TOTP, EMAIL/SMS OTP, or backup code)."""
+        import hashlib as _hashlib
+        from django.core.cache import cache
+
+        # Try TOTP verification
+        if user.two_factor_method == 'TOTP' and user.two_factor_secret:
+            import pyotp
+            totp = pyotp.TOTP(user.two_factor_secret)
+            if totp.verify(code, valid_window=1):
+                return True
+
+        # Try EMAIL/SMS OTP verification
+        if user.two_factor_method in ('EMAIL', 'SMS'):
+            cached_hash = cache.get(f'2fa_login_{user.id}')
+            if cached_hash:
+                code_hash = _hashlib.sha256(code.encode()).hexdigest()
+                if code_hash == cached_hash:
+                    cache.delete(f'2fa_login_{user.id}')
+                    return True
+
+        # Try backup code
+        if user.backup_codes:
+            code_hash = _hashlib.sha256(code.encode()).hexdigest()
+            if code_hash in user.backup_codes:
+                user.backup_codes.remove(code_hash)
+                user.save(update_fields=['backup_codes'])
+                return True
+
+        return False
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -151,26 +256,163 @@ class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # TODO: Send password reset email
-        # For now, just return success message
+        email = serializer.validated_data['email']
+
+        # Always return success to prevent email enumeration
+        try:
+            user = User.objects.get(email=email, is_active=True)
+        except User.DoesNotExist:
+            return Response({
+                'message': 'If the email exists, a password reset link has been sent'
+            })
+
+        # Create password reset token (1 hour expiry)
+        token = EmailVerificationToken.create_password_reset_token(
+            email=email,
+            expiry_hours=1
+        )
+
+        # Build reset URL
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        reset_url = f"{frontend_url}/reset-password?token={token.token}"
+
+        # Send reset email
+        try:
+            subject = 'HRMS - Password Reset Request'
+            message = f"""
+Hello {user.first_name or user.email},
+
+We received a request to reset your password for your HRMS account.
+
+Please click the link below to reset your password:
+{reset_url}
+
+This link will expire in 1 hour.
+
+If you did not request a password reset, please ignore this email. Your password will remain unchanged.
+
+Best regards,
+HRMS Team
+            """
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            logger.error(f'Failed to send password reset email to {email}: {e}')
+
         return Response({
             'message': 'If the email exists, a password reset link has been sent'
         })
 
 
 class PasswordResetConfirmView(APIView):
-    """Confirm password reset."""
+    """Confirm password reset with token."""
     permission_classes = [permissions.AllowAny]
 
+    def get(self, request):
+        """Validate token and return status."""
+        token_str = request.query_params.get('token')
+        if not token_str:
+            return Response(
+                {'error': 'Token is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            token = EmailVerificationToken.objects.get(
+                token=token_str,
+                token_type=EmailVerificationToken.TokenType.PASSWORD_RESET,
+                is_used=False
+            )
+        except EmailVerificationToken.DoesNotExist:
+            return Response(
+                {'error': 'Invalid or expired token'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if token.is_expired:
+            return Response(
+                {'error': 'This reset link has expired. Please request a new one.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({
+            'valid': True,
+            'email': token.email
+        })
+
     def post(self, request):
+        """Reset password using token."""
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # TODO: Validate token and reset password
-        return Response({'message': 'Password has been reset successfully'})
+        token_str = serializer.validated_data['token']
+
+        try:
+            token = EmailVerificationToken.objects.get(
+                token=token_str,
+                token_type=EmailVerificationToken.TokenType.PASSWORD_RESET,
+                is_used=False
+            )
+        except EmailVerificationToken.DoesNotExist:
+            return Response(
+                {'error': 'Invalid or expired token'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if token.is_expired:
+            return Response(
+                {'error': 'This reset link has expired. Please request a new one.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Find the user
+        try:
+            user = User.objects.get(email=token.email, is_active=True)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User account not found'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Reset the password
+        user.set_password(serializer.validated_data['new_password'])
+        user.failed_login_attempts = 0
+        user.lockout_until = None
+        user.save()
+
+        # Mark token as used
+        token.is_used = True
+        token.used_at = timezone.now()
+        token.save()
+
+        # Log password reset
+        AuthenticationLog.objects.create(
+            user=user,
+            email=user.email,
+            event_type=AuthenticationLog.EventType.PASSWORD_RESET,
+            ip_address=self.get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+        )
+
+        return Response({'message': 'Password has been reset successfully. You can now log in.'})
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
 
 
 class UserListView(generics.ListCreateAPIView):
@@ -319,10 +561,39 @@ class UserResetPasswordView(APIView):
             extra_data={'reset_by': str(request.user.id)}
         )
 
-        # TODO: Send email with new password
+        # Send email with temporary password
+        try:
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+            subject = 'HRMS - Your Password Has Been Reset'
+            message = f"""
+Hello {user.first_name or user.email},
+
+Your HRMS account password has been reset by an administrator.
+
+Your temporary password is: {new_password}
+
+Please log in at {frontend_url}/login and change your password immediately.
+
+If you did not expect this, please contact your HR administrator.
+
+Best regards,
+HRMS Team
+            """
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Failed to send password reset email to {user.email}: {e}')
+
         return Response({
             'message': 'Password reset successfully. User must change password on next login.',
-            'temporary_password': new_password  # Only for development
         })
 
     def get_client_ip(self, request):
@@ -983,3 +1254,272 @@ class UserLinkedProvidersView(APIView):
             'last_login': link.last_login,
             'login_count': link.login_count,
         } for link in links])
+
+
+# ============================================
+# Two-Factor Authentication Views
+# ============================================
+
+import pyotp
+import qrcode
+import io
+import base64
+import secrets
+import hashlib
+
+from django.core.cache import cache
+from .serializers import TwoFactorSetupSerializer, TwoFactorDisableSerializer
+
+
+class TwoFactorSetupView(APIView):
+    """Setup / enable two-factor authentication."""
+
+    def get(self, request):
+        """
+        GET: Generate setup info.
+        For TOTP: returns secret + QR code.
+        For EMAIL/SMS: returns confirmation of method.
+        """
+        from .tfa_policy import TFAPolicy
+
+        method = request.query_params.get('method', 'EMAIL').upper()
+        user = request.user
+
+        # Check if method is allowed by policy
+        allowed = TFAPolicy.allowed_methods()
+        if method not in allowed:
+            return Response(
+                {'error': f'Method {method} is not allowed by organization policy. Allowed: {", ".join(allowed)}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.two_factor_enabled:
+            return Response(
+                {'error': 'Two-factor authentication is already enabled. Disable it first to change method.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if method == 'TOTP':
+            # Generate a new TOTP secret
+            secret = pyotp.random_base32()
+            # Store temporarily in cache (10 min)
+            cache.set(f'2fa_setup_{user.id}', {'secret': secret, 'method': 'TOTP'}, 600)
+
+            totp = pyotp.TOTP(secret)
+            provisioning_uri = totp.provisioning_uri(
+                name=user.email,
+                issuer_name='HRMS',
+            )
+
+            # Generate QR code as base64 data URI
+            img = qrcode.make(provisioning_uri)
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG')
+            qr_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+            return Response({
+                'method': 'TOTP',
+                'secret': secret,
+                'qr_code': f'data:image/png;base64,{qr_base64}',
+                'provisioning_uri': provisioning_uri,
+            })
+
+        elif method in ('EMAIL', 'SMS'):
+            # Generate a 6-digit OTP and send it
+            code = f'{secrets.randbelow(1000000):06d}'
+            code_hash = hashlib.sha256(code.encode()).hexdigest()
+            cache.set(f'2fa_setup_{user.id}', {'code_hash': code_hash, 'method': method}, 300)
+
+            if method == 'EMAIL':
+                try:
+                    send_mail(
+                        subject='HRMS - Two-Factor Authentication Setup Code',
+                        message=f'Your verification code is: {code}\n\nThis code expires in 5 minutes.',
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        fail_silently=False,
+                    )
+                except Exception:
+                    pass
+
+            return Response({
+                'method': method,
+                'message': f'Verification code sent via {"email" if method == "EMAIL" else "SMS"}.',
+            })
+
+        return Response({'error': 'Invalid method'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        """Verify code and enable 2FA."""
+        serializer = TwoFactorSetupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        code = serializer.validated_data['code']
+        method = serializer.validated_data.get('method', 'EMAIL').upper()
+
+        setup_data = cache.get(f'2fa_setup_{user.id}')
+        if not setup_data:
+            return Response(
+                {'error': 'Setup session expired. Please start again.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        actual_method = setup_data.get('method', method)
+
+        if actual_method == 'TOTP':
+            secret = setup_data.get('secret')
+            totp = pyotp.TOTP(secret)
+            if not totp.verify(code, valid_window=1):
+                return Response(
+                    {'error': 'Invalid code. Please try again.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user.two_factor_secret = secret
+        else:
+            code_hash = hashlib.sha256(code.encode()).hexdigest()
+            if code_hash != setup_data.get('code_hash'):
+                return Response(
+                    {'error': 'Invalid code. Please try again.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Generate backup codes
+        backup_codes = [f'{secrets.randbelow(100000000):08d}' for _ in range(10)]
+        hashed_backup_codes = [
+            hashlib.sha256(c.encode()).hexdigest() for c in backup_codes
+        ]
+
+        user.two_factor_enabled = True
+        user.two_factor_method = actual_method
+        user.backup_codes = hashed_backup_codes
+        if actual_method != 'TOTP':
+            user.two_factor_secret = None
+        user.save(update_fields=[
+            'two_factor_enabled', 'two_factor_method',
+            'two_factor_secret', 'backup_codes',
+        ])
+
+        # Clear setup cache
+        cache.delete(f'2fa_setup_{user.id}')
+
+        return Response({
+            'message': 'Two-factor authentication enabled successfully.',
+            'backup_codes': backup_codes,
+        })
+
+
+class TwoFactorDisableView(APIView):
+    """Disable two-factor authentication."""
+
+    def post(self, request):
+        from .tfa_policy import TFAPolicy
+
+        user = request.user
+
+        # Block disable if policy requires 2FA for this user
+        if TFAPolicy.is_required_for(user):
+            return Response(
+                {'error': 'Your organization requires two-factor authentication. You cannot disable it.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = TwoFactorDisableSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not user.check_password(serializer.validated_data['password']):
+            return Response(
+                {'error': 'Incorrect password.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.two_factor_enabled = False
+        user.two_factor_secret = None
+        user.two_factor_method = 'EMAIL'
+        user.backup_codes = None
+        user.save(update_fields=[
+            'two_factor_enabled', 'two_factor_secret',
+            'two_factor_method', 'backup_codes',
+        ])
+
+        return Response({'message': 'Two-factor authentication disabled.'})
+
+
+class TwoFactorBackupCodesView(APIView):
+    """Regenerate backup codes."""
+
+    def post(self, request):
+        user = request.user
+        if not user.two_factor_enabled:
+            return Response(
+                {'error': 'Two-factor authentication is not enabled.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        backup_codes = [f'{secrets.randbelow(100000000):08d}' for _ in range(10)]
+        hashed_backup_codes = [
+            hashlib.sha256(c.encode()).hexdigest() for c in backup_codes
+        ]
+
+        user.backup_codes = hashed_backup_codes
+        user.save(update_fields=['backup_codes'])
+
+        return Response({'backup_codes': backup_codes})
+
+
+class TwoFactorPolicyStatusView(APIView):
+    """Return 2FA policy status for the current authenticated user."""
+
+    def get(self, request):
+        from .tfa_policy import TFAPolicy
+
+        user = request.user
+        deadline = TFAPolicy.grace_deadline_for(user)
+
+        return Response({
+            'enforcement': TFAPolicy.get('tfa_enforcement'),
+            'allowed_methods': TFAPolicy.allowed_methods(),
+            'is_required': TFAPolicy.is_required_for(user),
+            'grace_deadline': deadline.isoformat() if deadline else None,
+        })
+
+
+class TwoFactorSendCodeView(APIView):
+    """Send OTP code via email or SMS (used during login)."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response(
+                {'error': 'Email is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(email=email, is_active=True)
+        except User.DoesNotExist:
+            # Don't reveal whether user exists
+            return Response({'message': 'If the account exists, a code has been sent.'})
+
+        if not user.two_factor_enabled:
+            return Response({'message': 'If the account exists, a code has been sent.'})
+
+        code = f'{secrets.randbelow(1000000):06d}'
+        code_hash = hashlib.sha256(code.encode()).hexdigest()
+        cache.set(f'2fa_login_{user.id}', code_hash, 300)
+
+        if user.two_factor_method == 'EMAIL':
+            try:
+                send_mail(
+                    subject='HRMS - Your Login Verification Code',
+                    message=f'Your verification code is: {code}\n\nThis code expires in 5 minutes.',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception:
+                pass
+        # SMS sending would go here when SMS provider is configured
+
+        return Response({'message': 'Verification code sent.'})

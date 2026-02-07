@@ -24,6 +24,13 @@ urlpatterns = [
     path('password/reset/', views.PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password/reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
 
+    # Two-Factor Authentication
+    path('2fa/setup/', views.TwoFactorSetupView.as_view(), name='2fa-setup'),
+    path('2fa/disable/', views.TwoFactorDisableView.as_view(), name='2fa-disable'),
+    path('2fa/backup-codes/', views.TwoFactorBackupCodesView.as_view(), name='2fa-backup-codes'),
+    path('2fa/policy/', views.TwoFactorPolicyStatusView.as_view(), name='2fa-policy-status'),
+    path('2fa/send-code/', views.TwoFactorSendCodeView.as_view(), name='2fa-send-code'),
+
     # User profile
     path('me/', views.CurrentUserView.as_view(), name='current-user'),
     path('me/update/', views.UpdateProfileView.as_view(), name='update-profile'),
