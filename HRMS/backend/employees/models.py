@@ -3,6 +3,7 @@ Employee management models for NHIA HRMS.
 """
 
 import base64
+import hashlib
 import mimetypes
 from django.db import models
 from django.conf import settings
@@ -172,7 +173,9 @@ class Employee(BaseModel):
     )
     grade = models.ForeignKey(
         'organization.JobGrade',
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='employees'
     )
     work_location = models.ForeignKey(
@@ -861,6 +864,7 @@ class DataUpdateDocument(BaseModel):
     file_name = models.CharField(max_length=255)
     mime_type = models.CharField(max_length=100, blank=True)
     file_size = models.PositiveIntegerField(default=0)
+    file_checksum = models.CharField(max_length=64, null=True, blank=True)
 
     document_type = models.CharField(
         max_length=20,
@@ -888,15 +892,46 @@ class DataUpdateDocument(BaseModel):
         """Check if document has file data."""
         return self.file_data is not None and len(self.file_data) > 0
 
+    @property
+    def is_image(self):
+        """Check if the file is an image."""
+        return self.mime_type.startswith('image/') if self.mime_type else False
+
+    @property
+    def is_pdf(self):
+        """Check if the file is a PDF."""
+        return self.mime_type == 'application/pdf' if self.mime_type else False
+
+    @property
+    def is_document(self):
+        """Check if the file is a document (PDF, Word, etc.)."""
+        document_types = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]
+        return self.mime_type in document_types if self.mime_type else False
+
     def set_file(self, uploaded_file):
-        """Store file from upload."""
-        self.file_data = uploaded_file.read()
+        """Store file from upload with checksum calculation."""
+        content = uploaded_file.read()
+        self.file_data = content
         self.file_name = uploaded_file.name
-        self.mime_type = mimetypes.guess_type(uploaded_file.name)[0] or 'application/octet-stream'
-        self.file_size = len(self.file_data)
+        self.mime_type = getattr(uploaded_file, 'content_type', None) or \
+            mimetypes.guess_type(uploaded_file.name)[0] or 'application/octet-stream'
+        self.file_size = len(content)
+        self.file_checksum = hashlib.sha256(content).hexdigest()
+
+    def get_file_base64(self):
+        """Return file data as base64 encoded string."""
+        if self.has_file:
+            return base64.b64encode(self.file_data).decode('utf-8')
+        return None
 
     def get_file_data_uri(self):
-        """Return file as data URI."""
+        """Return file as data URI for embedding/download."""
         if self.has_file:
             encoded = base64.b64encode(self.file_data).decode('utf-8')
             return f"data:{self.mime_type};base64,{encoded}"

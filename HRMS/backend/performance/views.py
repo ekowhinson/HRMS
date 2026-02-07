@@ -9,6 +9,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from .models import (
     AppraisalCycle, RatingScale, Competency, GoalCategory,
@@ -16,7 +17,7 @@ from .models import (
     PeerFeedback, PerformanceImprovementPlan, PIPReview,
     DevelopmentPlan, DevelopmentActivity,
     CoreValue, CoreValueAssessment, ProbationAssessment,
-    TrainingNeed, PerformanceAppeal
+    TrainingNeed, PerformanceAppeal, TrainingDocument, AppraisalDocument
 )
 from .serializers import (
     AppraisalCycleListSerializer, AppraisalCycleSerializer,
@@ -33,7 +34,7 @@ from .serializers import (
     TrainingNeedListSerializer, TrainingNeedSerializer, TrainingNeedCreateSerializer,
     PerformanceAppealListSerializer, PerformanceAppealSerializer,
     PerformanceAppealCreateSerializer, PerformanceAppealDecisionSerializer,
-    AppraisalDetailSerializer
+    AppraisalDetailSerializer, TrainingDocumentSerializer, AppraisalDocumentSerializer
 )
 from .services import (
     AppraisalScoreCalculator, ProbationService,
@@ -858,3 +859,65 @@ class PerformanceAppealViewSet(viewsets.ModelViewSet):
             'by_status': list(by_status),
             'pending': pending
         })
+
+
+class TrainingDocumentViewSet(viewsets.ModelViewSet):
+    """Training document management with binary file storage."""
+    queryset = TrainingDocument.objects.select_related('training_need', 'uploaded_by')
+    serializer_class = TrainingDocumentSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        training_need_id = self.request.query_params.get('training_need')
+        if training_need_id:
+            queryset = queryset.filter(training_need_id=training_need_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(uploaded_by=self.request.user)
+
+    @action(detail=True, methods=['get'])
+    def download(self, request, pk=None):
+        """Download document with file data URI."""
+        document = self.get_object()
+        if not document.has_file:
+            return Response(
+                {'detail': 'No file attached'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = TrainingDocumentSerializer(document)
+        return Response(serializer.data)
+
+
+class AppraisalDocumentViewSet(viewsets.ModelViewSet):
+    """Appraisal document management with binary file storage."""
+    queryset = AppraisalDocument.objects.select_related('appraisal', 'uploaded_by')
+    serializer_class = AppraisalDocumentSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        appraisal_id = self.request.query_params.get('appraisal')
+        if appraisal_id:
+            queryset = queryset.filter(appraisal_id=appraisal_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(uploaded_by=self.request.user)
+
+    @action(detail=True, methods=['get'])
+    def download(self, request, pk=None):
+        """Download document with file data URI."""
+        document = self.get_object()
+        if not document.has_file:
+            return Response(
+                {'detail': 'No file attached'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = AppraisalDocumentSerializer(document)
+        return Response(serializer.data)

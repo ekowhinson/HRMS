@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Count, Q
@@ -713,10 +714,11 @@ class DataUpdateRequestViewSet(viewsets.ModelViewSet):
 
 
 class DataUpdateDocumentViewSet(viewsets.ModelViewSet):
-    """ViewSet for data update supporting documents."""
+    """ViewSet for data update supporting documents with binary file storage."""
     queryset = DataUpdateDocument.objects.select_related('data_update_request', 'uploaded_by')
     serializer_class = DataUpdateDocumentSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['data_update_request', 'document_type']
 
@@ -739,6 +741,18 @@ class DataUpdateDocumentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(uploaded_by=self.request.user)
+
+    @action(detail=True, methods=['get'])
+    def download(self, request, pk=None):
+        """Download document with file data URI."""
+        document = self.get_object()
+        if not document.has_file:
+            return Response(
+                {'detail': 'No file attached'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = DataUpdateDocumentSerializer(document)
+        return Response(serializer.data)
 
 
 class MyDataUpdateRequestsView(generics.ListCreateAPIView):
@@ -773,7 +787,7 @@ class ServiceRequestTypeViewSet(viewsets.ModelViewSet):
     serializer_class = ServiceRequestTypeSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'is_active', 'requires_approval']
+    filterset_fields = ['is_active', 'requires_manager_approval', 'requires_hr_approval']
     search_fields = ['name', 'code', 'description']
     ordering = ['sort_order', 'name']
 

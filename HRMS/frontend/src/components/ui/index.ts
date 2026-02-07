@@ -96,3 +96,9 @@ export type { TooltipProps } from './Tooltip';
 // Textarea
 export { default as Textarea } from './Textarea';
 export type { TextareaProps } from './Textarea';
+
+// Document Components
+export { default as DocumentUploader, formatFileSize, isPreviewable } from './DocumentUploader';
+export type { DocumentInfo } from './DocumentUploader';
+export { default as DocumentViewer } from './DocumentViewer';
+export { default as DocumentList } from './DocumentList';

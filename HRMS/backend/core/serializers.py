@@ -7,8 +7,128 @@ from django.utils import timezone
 
 from .models import (
     Region, District, Notification, AuditLog,
-    Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment
+    Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment,
+    Attachment
 )
+
+
+# ============================================
+# Document Handling Mixins
+# ============================================
+
+class DocumentSerializerMixin:
+    """
+    Mixin for serializers that handle document upload/download.
+    Provides standardized file upload and base64 download.
+
+    Use this mixin with models that inherit from BinaryFileMixin.
+    Add 'file', 'file_url', 'file_info' to your serializer's fields.
+    """
+    file = serializers.FileField(write_only=True, required=False)
+    file_url = serializers.SerializerMethodField()
+    file_info = serializers.SerializerMethodField()
+
+    def get_file_url(self, obj):
+        """Return file as data URI for embedding/download."""
+        if hasattr(obj, 'has_file') and obj.has_file:
+            return obj.get_file_data_uri()
+        return None
+
+    def get_file_info(self, obj):
+        """Return file metadata."""
+        if hasattr(obj, 'has_file') and obj.has_file:
+            return {
+                'name': obj.file_name,
+                'size': obj.file_size,
+                'type': obj.mime_type,
+                'checksum': obj.file_checksum,
+                'is_image': obj.is_image,
+                'is_pdf': obj.is_pdf,
+                'is_document': obj.is_document,
+            }
+        return None
+
+    def handle_file_upload(self, instance, file_obj):
+        """Handle file upload for create/update operations."""
+        if file_obj:
+            instance.set_file(file_obj)
+            instance.save()
+        return instance
+
+
+class DocumentListSerializerMixin:
+    """
+    Lightweight mixin for document lists (excludes file_url to reduce payload).
+    Use this for list views where you don't need the actual file content.
+    """
+    file_info = serializers.SerializerMethodField()
+
+    def get_file_info(self, obj):
+        """Return file metadata."""
+        if hasattr(obj, 'has_file') and obj.has_file:
+            return {
+                'name': obj.file_name,
+                'size': obj.file_size,
+                'type': obj.mime_type,
+                'is_image': obj.is_image,
+                'is_pdf': obj.is_pdf,
+            }
+        return None
+
+
+# ============================================
+# Attachment Serializers
+# ============================================
+
+class AttachmentSerializer(DocumentSerializerMixin, serializers.ModelSerializer):
+    """
+    Full serializer for generic Attachment model.
+    Supports file upload and base64 download.
+    """
+    class Meta:
+        model = Attachment
+        fields = [
+            'id', 'attachment_type', 'description',
+            'content_type_name', 'object_id',
+            'file', 'file_url', 'file_info',
+            'file_name', 'file_size', 'mime_type',
+            'created_at', 'created_by'
+        ]
+        read_only_fields = ['id', 'file_name', 'file_size', 'mime_type', 'created_at', 'created_by']
+
+    def create(self, validated_data):
+        file_obj = validated_data.pop('file', None)
+        # Set created_by from request
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
+        instance = super().create(validated_data)
+        self.handle_file_upload(instance, file_obj)
+        return instance
+
+    def update(self, validated_data):
+        file_obj = validated_data.pop('file', None)
+        instance = super().update(instance, validated_data)
+        if file_obj:
+            self.handle_file_upload(instance, file_obj)
+        return instance
+
+
+class AttachmentListSerializer(DocumentListSerializerMixin, serializers.ModelSerializer):
+    """
+    Lightweight serializer for attachment lists.
+    Excludes file content to reduce payload size.
+    """
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = Attachment
+        fields = [
+            'id', 'attachment_type', 'description',
+            'content_type_name', 'object_id',
+            'file_info', 'file_name', 'file_size', 'mime_type',
+            'created_at', 'created_by_name'
+        ]
 
 
 class RegionSerializer(serializers.ModelSerializer):

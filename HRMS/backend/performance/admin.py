@@ -10,7 +10,7 @@ from .models import (
     PeerFeedback, PerformanceImprovementPlan, PIPReview,
     DevelopmentPlan, DevelopmentActivity,
     CoreValue, CoreValueAssessment, ProbationAssessment,
-    TrainingNeed, PerformanceAppeal
+    TrainingNeed, PerformanceAppeal, TrainingDocument, AppraisalDocument
 )
 
 
@@ -276,3 +276,36 @@ class PerformanceAppealAdmin(admin.ModelAdmin):
     def get_employee(self, obj):
         return obj.appraisal.employee
     get_employee.short_description = 'Employee'
+
+
+# Document Inlines
+class TrainingDocumentInline(admin.TabularInline):
+    model = TrainingDocument
+    extra = 0
+    fields = ['document_type', 'file_name', 'file_size', 'description', 'created_at']
+    readonly_fields = ['file_name', 'file_size', 'created_at']
+
+
+class AppraisalDocumentInline(admin.TabularInline):
+    model = AppraisalDocument
+    extra = 0
+    fields = ['document_type', 'file_name', 'file_size', 'description', 'created_at']
+    readonly_fields = ['file_name', 'file_size', 'created_at']
+
+
+@admin.register(TrainingDocument)
+class TrainingDocumentAdmin(admin.ModelAdmin):
+    list_display = ['file_name', 'training_need', 'document_type', 'file_size', 'uploaded_by', 'created_at']
+    list_filter = ['document_type', 'created_at']
+    search_fields = ['file_name', 'training_need__title', 'description']
+    raw_id_fields = ['training_need', 'uploaded_by']
+    readonly_fields = ['file_name', 'file_size', 'mime_type', 'file_checksum', 'created_at']
+
+
+@admin.register(AppraisalDocument)
+class AppraisalDocumentAdmin(admin.ModelAdmin):
+    list_display = ['file_name', 'appraisal', 'document_type', 'file_size', 'uploaded_by', 'created_at']
+    list_filter = ['document_type', 'created_at']
+    search_fields = ['file_name', 'description']
+    raw_id_fields = ['appraisal', 'uploaded_by']
+    readonly_fields = ['file_name', 'file_size', 'mime_type', 'file_checksum', 'created_at']

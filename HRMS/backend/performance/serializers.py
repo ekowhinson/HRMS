@@ -10,7 +10,7 @@ from .models import (
     PeerFeedback, PerformanceImprovementPlan, PIPReview,
     DevelopmentPlan, DevelopmentActivity,
     CoreValue, CoreValueAssessment, ProbationAssessment,
-    TrainingNeed, PerformanceAppeal
+    TrainingNeed, PerformanceAppeal, TrainingDocument, AppraisalDocument
 )
 
 
@@ -462,3 +462,106 @@ class AppraisalDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Appraisal
         fields = '__all__'
+
+
+# Document Serializers
+class TrainingDocumentSerializer(serializers.ModelSerializer):
+    """Serializer for training documents with file support."""
+    file = serializers.FileField(write_only=True, required=False)
+    file_url = serializers.SerializerMethodField()
+    file_info = serializers.SerializerMethodField()
+    document_type_display = serializers.CharField(
+        source='get_document_type_display', read_only=True
+    )
+    uploaded_by_name = serializers.CharField(
+        source='uploaded_by.get_full_name', read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = TrainingDocument
+        fields = [
+            'id', 'training_need', 'document_type', 'document_type_display',
+            'description', 'file', 'file_name', 'file_size', 'mime_type',
+            'file_checksum', 'file_url', 'file_info',
+            'uploaded_by', 'uploaded_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['file_name', 'file_size', 'mime_type', 'file_checksum', 'uploaded_by']
+
+    def get_file_url(self, obj):
+        """Return file as data URI for embedding/download."""
+        if hasattr(obj, 'has_file') and obj.has_file:
+            return obj.get_file_data_uri()
+        return None
+
+    def get_file_info(self, obj):
+        """Return file metadata."""
+        if hasattr(obj, 'has_file') and obj.has_file:
+            return {
+                'name': obj.file_name,
+                'size': obj.file_size,
+                'type': obj.mime_type,
+                'checksum': obj.file_checksum,
+                'is_image': obj.is_image,
+                'is_pdf': obj.is_pdf,
+                'is_document': obj.is_document,
+            }
+        return None
+
+    def create(self, validated_data):
+        file_obj = validated_data.pop('file', None)
+        instance = super().create(validated_data)
+        if file_obj:
+            instance.set_file(file_obj)
+            instance.save()
+        return instance
+
+
+class AppraisalDocumentSerializer(serializers.ModelSerializer):
+    """Serializer for appraisal documents with file support."""
+    file = serializers.FileField(write_only=True, required=False)
+    file_url = serializers.SerializerMethodField()
+    file_info = serializers.SerializerMethodField()
+    document_type_display = serializers.CharField(
+        source='get_document_type_display', read_only=True
+    )
+    uploaded_by_name = serializers.CharField(
+        source='uploaded_by.get_full_name', read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = AppraisalDocument
+        fields = [
+            'id', 'appraisal', 'document_type', 'document_type_display',
+            'description', 'file', 'file_name', 'file_size', 'mime_type',
+            'file_checksum', 'file_url', 'file_info',
+            'uploaded_by', 'uploaded_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['file_name', 'file_size', 'mime_type', 'file_checksum', 'uploaded_by']
+
+    def get_file_url(self, obj):
+        """Return file as data URI for embedding/download."""
+        if hasattr(obj, 'has_file') and obj.has_file:
+            return obj.get_file_data_uri()
+        return None
+
+    def get_file_info(self, obj):
+        """Return file metadata."""
+        if hasattr(obj, 'has_file') and obj.has_file:
+            return {
+                'name': obj.file_name,
+                'size': obj.file_size,
+                'type': obj.mime_type,
+                'checksum': obj.file_checksum,
+                'is_image': obj.is_image,
+                'is_pdf': obj.is_pdf,
+                'is_document': obj.is_document,
+            }
+        return None
+
+    def create(self, validated_data):
+        file_obj = validated_data.pop('file', None)
+        instance = super().create(validated_data)
+        if file_obj:
+            instance.set_file(file_obj)
+            instance.save()
+        return instance

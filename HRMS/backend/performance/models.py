@@ -10,7 +10,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
-from core.models import BaseModel
+from core.models import BaseModel, BinaryFileMixin
 
 
 class AppraisalCycle(BaseModel):
@@ -994,3 +994,66 @@ class PerformanceAppeal(BaseModel):
             else:
                 self.appeal_number = f'PA{year}0001'
         super().save(*args, **kwargs)
+
+
+class TrainingDocument(BaseModel, BinaryFileMixin):
+    """Documents for training needs (certificates, materials, attendance, etc.)"""
+
+    class DocumentType(models.TextChoices):
+        CERTIFICATE = 'CERTIFICATE', 'Certificate'
+        MATERIAL = 'MATERIAL', 'Course Material'
+        ATTENDANCE = 'ATTENDANCE', 'Attendance Record'
+        EVALUATION = 'EVALUATION', 'Evaluation Form'
+        COMPLETION = 'COMPLETION', 'Completion Certificate'
+        INVOICE = 'INVOICE', 'Training Invoice'
+        OTHER = 'OTHER', 'Other'
+
+    training_need = models.ForeignKey(
+        TrainingNeed, on_delete=models.CASCADE, related_name='documents'
+    )
+    document_type = models.CharField(
+        max_length=20, choices=DocumentType.choices, default=DocumentType.OTHER
+    )
+    description = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='uploaded_training_documents'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.training_need.title} - {self.file_name or 'Document'}"
+
+
+class AppraisalDocument(BaseModel, BinaryFileMixin):
+    """Supporting documents for appraisals."""
+
+    class DocumentType(models.TextChoices):
+        SELF_ASSESSMENT = 'SELF_ASSESSMENT', 'Self Assessment'
+        EVIDENCE = 'EVIDENCE', 'Performance Evidence'
+        FEEDBACK = 'FEEDBACK', 'Feedback Document'
+        GOAL_PLAN = 'GOAL_PLAN', 'Goal Plan'
+        PIP = 'PIP', 'Performance Improvement Plan'
+        ACHIEVEMENT = 'ACHIEVEMENT', 'Achievement Certificate'
+        AWARD = 'AWARD', 'Award Document'
+        OTHER = 'OTHER', 'Other'
+
+    appraisal = models.ForeignKey(
+        Appraisal, on_delete=models.CASCADE, related_name='documents'
+    )
+    document_type = models.CharField(
+        max_length=20, choices=DocumentType.choices, default=DocumentType.OTHER
+    )
+    description = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='uploaded_appraisal_documents'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.appraisal} - {self.file_name or 'Document'}"

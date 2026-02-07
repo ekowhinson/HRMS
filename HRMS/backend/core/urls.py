@@ -18,6 +18,7 @@ from .views import (
     AnnouncementViewSet,
     AnnouncementTargetViewSet,
     AnnouncementAttachmentViewSet,
+    AttachmentViewSet,
 )
 
 app_name = 'core'
@@ -27,6 +28,9 @@ router = DefaultRouter()
 router.register(r'announcements', AnnouncementViewSet, basename='announcement')
 router.register(r'announcement-targets', AnnouncementTargetViewSet, basename='announcement-target')
 router.register(r'announcement-attachments', AnnouncementAttachmentViewSet, basename='announcement-attachment')
+
+# Generic attachments
+router.register(r'attachments', AttachmentViewSet, basename='attachment')
 
 
 @api_view(['GET'])

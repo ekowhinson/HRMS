@@ -47,6 +47,48 @@ class LeaveBalanceNestedSerializer(serializers.Serializer):
     available_balance = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
 
 
+class EmployeeSalaryNestedSerializer(serializers.Serializer):
+    """Nested serializer for salary information in employee detail."""
+    basic_salary = serializers.DecimalField(max_digits=12, decimal_places=2)
+    gross_salary = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    total_allowances = serializers.SerializerMethodField()
+    total_deductions = serializers.SerializerMethodField()
+    net_salary = serializers.SerializerMethodField()
+    effective_from = serializers.DateField()
+    salary_structure_name = serializers.CharField(source='salary_structure.name', allow_null=True)
+
+    def get_total_allowances(self, obj):
+        """Calculate total allowances from salary components."""
+        from decimal import Decimal
+        if hasattr(obj, 'components'):
+            allowances = obj.components.filter(
+                pay_component__component_type='EARNING',
+                pay_component__is_part_of_basic=False
+            ).select_related('pay_component')
+            return sum(comp.amount or Decimal('0') for comp in allowances)
+        # If no components, estimate from gross - basic
+        if obj.gross_salary and obj.basic_salary:
+            return obj.gross_salary - obj.basic_salary
+        return Decimal('0')
+
+    def get_total_deductions(self, obj):
+        """Calculate total deductions from salary components."""
+        from decimal import Decimal
+        if hasattr(obj, 'components'):
+            deductions = obj.components.filter(
+                pay_component__component_type='DEDUCTION'
+            ).select_related('pay_component')
+            return sum(comp.amount or Decimal('0') for comp in deductions)
+        return Decimal('0')
+
+    def get_net_salary(self, obj):
+        """Calculate net salary (gross - deductions)."""
+        from decimal import Decimal
+        gross = obj.gross_salary or obj.basic_salary or Decimal('0')
+        deductions = self.get_total_deductions(obj)
+        return gross - deductions
+
+
 class EmployeeSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
     """Full serializer for employee detail."""
     full_name = serializers.ReadOnlyField()
@@ -78,14 +120,25 @@ class EmployeeSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
     region_name = serializers.CharField(source='residential_region.name', read_only=True, allow_null=True)
     district_name = serializers.CharField(source='residential_district.name', read_only=True, allow_null=True)
 
-    # Bank account (primary)
+    # Bank account (primary) - read fields
     bank_name = serializers.SerializerMethodField()
     bank_branch = serializers.SerializerMethodField()
     bank_account_number = serializers.SerializerMethodField()
     bank_accounts_list = serializers.SerializerMethodField()
 
+    # Bank account - write fields (for create/update)
+    bank_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    branch_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    account_number = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+    account_name = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+    account_type = serializers.ChoiceField(
+        write_only=True, required=False, allow_null=True,
+        choices=[('SAVINGS', 'Savings'), ('CURRENT', 'Current'), ('OTHER', 'Other')]
+    )
+
     photo = serializers.SerializerMethodField()
     leave_balances = serializers.SerializerMethodField()
+    salary = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
@@ -138,6 +191,89 @@ class EmployeeSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
         from leave.models import LeaveBalance
         balances = LeaveBalance.objects.filter(employee=obj).select_related('leave_type')
         return LeaveBalanceNestedSerializer(balances, many=True).data
+
+    def get_salary(self, obj):
+        """Get current salary information for the employee."""
+        from payroll.models import EmployeeSalary
+        current_salary = EmployeeSalary.objects.filter(
+            employee=obj,
+            is_current=True
+        ).select_related('salary_structure').prefetch_related('components__pay_component').first()
+        if current_salary:
+            return EmployeeSalaryNestedSerializer(current_salary).data
+        return None
+
+    def update(self, instance, validated_data):
+        # Extract bank account data
+        bank_id = validated_data.pop('bank_id', None)
+        branch_id = validated_data.pop('branch_id', None)
+        account_number = validated_data.pop('account_number', None)
+        account_name = validated_data.pop('account_name', None)
+        account_type = validated_data.pop('account_type', None)
+
+        # Update employee fields
+        instance = super().update(instance, validated_data)
+
+        # Handle bank account update if any bank data provided
+        if any([bank_id, branch_id, account_number, account_name]):
+            self._update_bank_account(
+                instance, bank_id, branch_id, account_number, account_name, account_type
+            )
+
+        return instance
+
+    def _update_bank_account(self, employee, bank_id, branch_id, account_number, account_name, account_type):
+        """Create or update primary bank account for employee."""
+        from payroll.models import Bank, BankBranch
+
+        # Try to get existing primary bank account
+        bank_account = employee.bank_accounts.filter(is_primary=True, is_deleted=False).first()
+
+        # Prepare bank account data
+        bank_data = {}
+
+        if bank_id:
+            try:
+                bank = Bank.objects.get(id=bank_id)
+                bank_data['bank'] = bank
+                bank_data['bank_name'] = bank.name
+                bank_data['bank_code'] = bank.code
+            except Bank.DoesNotExist:
+                pass
+
+        if branch_id:
+            try:
+                branch = BankBranch.objects.get(id=branch_id)
+                bank_data['branch'] = branch
+                bank_data['branch_name'] = branch.name
+                bank_data['branch_code'] = branch.code
+            except BankBranch.DoesNotExist:
+                pass
+
+        if account_number:
+            bank_data['account_number'] = account_number
+
+        if account_name:
+            bank_data['account_name'] = account_name
+
+        if account_type:
+            bank_data['account_type'] = account_type
+
+        if bank_data:
+            if bank_account:
+                # Update existing
+                for key, value in bank_data.items():
+                    setattr(bank_account, key, value)
+                bank_account.save()
+            else:
+                # Create new primary bank account
+                bank_data['employee'] = employee
+                bank_data['is_primary'] = True
+                if 'account_name' not in bank_data:
+                    bank_data['account_name'] = employee.full_name
+                if 'account_type' not in bank_data:
+                    bank_data['account_type'] = 'SAVINGS'
+                BankAccount.objects.create(**bank_data)
 
 
 class EmployeeCreateSerializer(serializers.ModelSerializer):
@@ -240,10 +376,14 @@ class BankAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = BankAccount
         fields = [
-            'id', 'bank_name', 'bank_code', 'branch_name', 'branch_code',
+            'id', 'bank', 'branch', 'bank_name', 'bank_code', 'branch_name', 'branch_code',
             'account_name', 'account_number', 'account_type', 'swift_code',
             'is_primary', 'is_active', 'is_verified', 'notes'
         ]
+        extra_kwargs = {
+            'bank': {'required': False, 'allow_null': True},
+            'branch': {'required': False, 'allow_null': True},
+        }
 
 
 class EmploymentHistorySerializer(serializers.ModelSerializer):
@@ -354,25 +494,41 @@ class MyTeamMemberSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
 # ============================================
 
 class DataUpdateDocumentSerializer(serializers.ModelSerializer):
-    """Serializer for Data Update supporting documents."""
+    """Serializer for Data Update supporting documents with binary file storage."""
     file = serializers.FileField(write_only=True, required=False)
     file_url = serializers.SerializerMethodField()
-    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+    file_info = serializers.SerializerMethodField()
+    document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True, allow_null=True)
 
     class Meta:
         model = DataUpdateDocument
         fields = [
-            'id', 'data_update_request', 'file', 'file_url',
-            'file_name', 'mime_type', 'file_size',
-            'document_type', 'description',
+            'id', 'data_update_request', 'file', 'file_url', 'file_info',
+            'file_name', 'mime_type', 'file_size', 'file_checksum',
+            'document_type', 'document_type_display', 'description',
             'uploaded_by', 'uploaded_by_name', 'created_at'
         ]
-        read_only_fields = ['id', 'file_name', 'mime_type', 'file_size', 'uploaded_by', 'created_at']
+        read_only_fields = ['id', 'file_name', 'mime_type', 'file_size', 'file_checksum', 'uploaded_by', 'created_at']
 
     def get_file_url(self, obj):
-        """Return file as data URI."""
+        """Return file as data URI for embedding/download."""
         if obj.has_file:
             return obj.get_file_data_uri()
+        return None
+
+    def get_file_info(self, obj):
+        """Return file metadata."""
+        if obj.has_file:
+            return {
+                'name': obj.file_name,
+                'size': obj.file_size,
+                'type': obj.mime_type,
+                'checksum': obj.file_checksum,
+                'is_image': obj.is_image,
+                'is_pdf': obj.is_pdf,
+                'is_document': obj.is_document,
+            }
         return None
 
     def create(self, validated_data):

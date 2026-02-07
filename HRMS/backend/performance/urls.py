@@ -10,7 +10,8 @@ from .views import (
     GoalCategoryViewSet, AppraisalViewSet, GoalViewSet,
     PIPViewSet, DevelopmentPlanViewSet, DevelopmentActivityViewSet,
     CoreValueViewSet, CoreValueAssessmentViewSet,
-    ProbationAssessmentViewSet, TrainingNeedViewSet, PerformanceAppealViewSet
+    ProbationAssessmentViewSet, TrainingNeedViewSet, PerformanceAppealViewSet,
+    TrainingDocumentViewSet, AppraisalDocumentViewSet
 )
 
 router = DefaultRouter()
@@ -30,6 +31,10 @@ router.register(r'value-assessments', CoreValueAssessmentViewSet, basename='valu
 router.register(r'probation-assessments', ProbationAssessmentViewSet, basename='probation-assessment')
 router.register(r'training-needs', TrainingNeedViewSet, basename='training-need')
 router.register(r'appeals', PerformanceAppealViewSet, basename='performance-appeal')
+
+# Document endpoints
+router.register(r'training-documents', TrainingDocumentViewSet, basename='training-document')
+router.register(r'appraisal-documents', AppraisalDocumentViewSet, basename='appraisal-document')
 
 urlpatterns = [
     path('', include(router.urls)),

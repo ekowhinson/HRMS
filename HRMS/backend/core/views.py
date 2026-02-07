@@ -20,13 +20,18 @@ from .caching import (
     CACHE_TIMEOUT_MEDIUM,
     CACHE_TIMEOUT_LONG,
 )
+from rest_framework.parsers import MultiPartParser, FormParser
+from django.http import HttpResponse
+
 from .models import (
-    Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment
+    Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment,
+    Attachment
 )
 from .serializers import (
     AnnouncementSerializer, AnnouncementListSerializer, AnnouncementCreateSerializer,
     AnnouncementTargetSerializer, AnnouncementReadSerializer,
-    AnnouncementAttachmentSerializer, DashboardAnnouncementSerializer
+    AnnouncementAttachmentSerializer, DashboardAnnouncementSerializer,
+    AttachmentSerializer, AttachmentListSerializer
 )
 
 
@@ -447,3 +452,163 @@ class AnnouncementAttachmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['announcement']
+
+
+# ============================================
+# Document Handling Mixins and ViewSets
+# ============================================
+
+class DocumentViewSetMixin:
+    """
+    Mixin for ViewSets that handle document operations.
+    Provides upload, download, and delete actions for models using BinaryFileMixin.
+
+    Usage:
+        class MyModelViewSet(DocumentViewSetMixin, viewsets.ModelViewSet):
+            ...
+
+        # Then the model will have:
+        # POST /my-model/{id}/upload_document/
+        # GET /my-model/{id}/download_document/
+        # DELETE /my-model/{id}/delete_document/
+    """
+
+    @action(detail=True, methods=['POST'], parser_classes=[MultiPartParser, FormParser])
+    def upload_document(self, request, pk=None):
+        """Upload a document to the object."""
+        obj = self.get_object()
+        file_obj = request.FILES.get('file')
+
+        if not file_obj:
+            return Response(
+                {'error': 'No file provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if model has set_file method
+        if not hasattr(obj, 'set_file'):
+            return Response(
+                {'error': 'This model does not support document upload'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        obj.set_file(file_obj)
+        obj.save()
+
+        return Response({
+            'message': 'Document uploaded successfully',
+            'file_info': {
+                'name': obj.file_name,
+                'size': obj.file_size,
+                'type': obj.mime_type,
+                'checksum': obj.file_checksum,
+            }
+        })
+
+    @action(detail=True, methods=['GET'])
+    def download_document(self, request, pk=None):
+        """Download document as file attachment."""
+        obj = self.get_object()
+
+        if not hasattr(obj, 'has_file') or not obj.has_file:
+            return Response(
+                {'error': 'No document attached'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        response = HttpResponse(
+            obj.file_data,
+            content_type=obj.mime_type or 'application/octet-stream'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{obj.file_name}"'
+        response['Content-Length'] = obj.file_size
+
+        return response
+
+    @action(detail=True, methods=['DELETE'])
+    def delete_document(self, request, pk=None):
+        """Remove document from the object."""
+        obj = self.get_object()
+
+        if not hasattr(obj, 'set_file'):
+            return Response(
+                {'error': 'This model does not support document operations'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        obj.set_file(None)
+        obj.save()
+
+        return Response({'message': 'Document deleted successfully'})
+
+
+class AttachmentViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for generic attachments.
+    Supports file upload with base64 binary storage.
+
+    Endpoints:
+    - GET /attachments/ - List attachments (filter by content_type_name and object_id)
+    - POST /attachments/ - Upload new attachment
+    - GET /attachments/{id}/ - Get attachment details with file data
+    - GET /attachments/{id}/download/ - Download file as attachment
+    - DELETE /attachments/{id}/ - Delete attachment
+    """
+    queryset = Attachment.objects.all()
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['content_type_name', 'object_id', 'attachment_type']
+    search_fields = ['file_name', 'description']
+    ordering = ['-created_at']
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AttachmentListSerializer
+        return AttachmentSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=['GET'])
+    def download(self, request, pk=None):
+        """Download attachment file."""
+        attachment = self.get_object()
+
+        if not attachment.has_file:
+            return Response(
+                {'error': 'No file attached'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        response = HttpResponse(
+            attachment.file_data,
+            content_type=attachment.mime_type or 'application/octet-stream'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{attachment.file_name}"'
+        response['Content-Length'] = attachment.file_size
+
+        return response
+
+    @action(detail=False, methods=['GET'])
+    def for_object(self, request):
+        """
+        Get all attachments for a specific object.
+        Query params: content_type_name, object_id
+        """
+        content_type_name = request.query_params.get('content_type_name')
+        object_id = request.query_params.get('object_id')
+
+        if not content_type_name or not object_id:
+            return Response(
+                {'error': 'content_type_name and object_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        queryset = self.queryset.filter(
+            content_type_name=content_type_name,
+            object_id=object_id
+        )
+
+        serializer = AttachmentListSerializer(queryset, many=True)
+        return Response(serializer.data)
