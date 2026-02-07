@@ -3159,12 +3159,16 @@ class SalaryReconciliationView(APIView):
         ).prefetch_related('details__pay_component'):
             current_items[item.employee_id] = item
             for detail in item.details.all():
-                current_details[item.employee_id][detail.pay_component.code] = {
-                    'amount': safe_decimal(detail.amount),
-                    'name': detail.pay_component.name,
-                    'is_recurring': detail.pay_component.is_recurring,
-                    'component_type': detail.pay_component.component_type,
-                }
+                code = detail.pay_component.code
+                if code in current_details[item.employee_id]:
+                    current_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
+                else:
+                    current_details[item.employee_id][code] = {
+                        'amount': safe_decimal(detail.amount),
+                        'name': detail.pay_component.name,
+                        'is_recurring': detail.pay_component.is_recurring,
+                        'component_type': detail.pay_component.component_type,
+                    }
 
         # Get previous period items
         previous_items = {}
@@ -3174,12 +3178,16 @@ class SalaryReconciliationView(APIView):
         ).prefetch_related('details__pay_component'):
             previous_items[item.employee_id] = item
             for detail in item.details.all():
-                previous_details[item.employee_id][detail.pay_component.code] = {
-                    'amount': safe_decimal(detail.amount),
-                    'name': detail.pay_component.name,
-                    'is_recurring': detail.pay_component.is_recurring,
-                    'component_type': detail.pay_component.component_type,
-                }
+                code = detail.pay_component.code
+                if code in previous_details[item.employee_id]:
+                    previous_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
+                else:
+                    previous_details[item.employee_id][code] = {
+                        'amount': safe_decimal(detail.amount),
+                        'name': detail.pay_component.name,
+                        'is_recurring': detail.pay_component.is_recurring,
+                        'component_type': detail.pay_component.component_type,
+                    }
 
         all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
 
@@ -3393,12 +3401,16 @@ class ExportSalaryReconciliationView(APIView):
         ).prefetch_related('details__pay_component'):
             current_items[item.employee_id] = item
             for detail in item.details.all():
-                current_details[item.employee_id][detail.pay_component.code] = {
-                    'amount': safe_decimal(detail.amount),
-                    'name': detail.pay_component.name,
-                    'is_recurring': detail.pay_component.is_recurring,
-                    'component_type': detail.pay_component.component_type,
-                }
+                code = detail.pay_component.code
+                if code in current_details[item.employee_id]:
+                    current_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
+                else:
+                    current_details[item.employee_id][code] = {
+                        'amount': safe_decimal(detail.amount),
+                        'name': detail.pay_component.name,
+                        'is_recurring': detail.pay_component.is_recurring,
+                        'component_type': detail.pay_component.component_type,
+                    }
 
         previous_items = {}
         previous_details = defaultdict(dict)
@@ -3407,12 +3419,16 @@ class ExportSalaryReconciliationView(APIView):
         ).prefetch_related('details__pay_component'):
             previous_items[item.employee_id] = item
             for detail in item.details.all():
-                previous_details[item.employee_id][detail.pay_component.code] = {
-                    'amount': safe_decimal(detail.amount),
-                    'name': detail.pay_component.name,
-                    'is_recurring': detail.pay_component.is_recurring,
-                    'component_type': detail.pay_component.component_type,
-                }
+                code = detail.pay_component.code
+                if code in previous_details[item.employee_id]:
+                    previous_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
+                else:
+                    previous_details[item.employee_id][code] = {
+                        'amount': safe_decimal(detail.amount),
+                        'name': detail.pay_component.name,
+                        'is_recurring': detail.pay_component.is_recurring,
+                        'component_type': detail.pay_component.component_type,
+                    }
 
         all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
 
