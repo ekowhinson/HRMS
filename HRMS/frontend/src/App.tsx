@@ -33,6 +33,7 @@ import LeaveTypeSetupPage from './pages/admin/LeaveTypeSetupPage'
 import DataImportPage from './pages/admin/DataImportPage'
 import DataAnalyzerPage from './pages/admin/DataAnalyzerPage'
 import PayrollSetupPage from './pages/admin/PayrollSetupPage'
+import PayrollImplementationPage from './pages/admin/PayrollImplementationPage'
 // Performance pages
 import CoreValuesPage from './pages/admin/CoreValuesPage'
 import ProbationAssessmentsPage from './pages/admin/ProbationAssessmentsPage'
@@ -193,6 +194,7 @@ function App() {
                 <Route path="/admin/leave-calendar" element={<AdminRoute><MyLeaveCalendarPage /></AdminRoute>} />
                 <Route path="/admin/data-import" element={<AdminRoute><DataImportPage /></AdminRoute>} />
                 <Route path="/admin/data-analyzer" element={<AdminRoute><DataAnalyzerPage /></AdminRoute>} />
+                <Route path="/admin/payroll-implementation" element={<AdminRoute><PayrollImplementationPage /></AdminRoute>} />
 
                 {/* Performance Management Routes */}
                 <Route path="/admin/appraisal-cycles" element={<AdminRoute><AppraisalCyclesPage /></AdminRoute>} />

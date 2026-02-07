@@ -39,6 +39,7 @@ import {
   MegaphoneIcon,
   KeyIcon,
   LockClosedIcon,
+  CpuChipIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
@@ -159,6 +160,7 @@ const adminNavigation: NavItem[] = [
   { name: 'Announcements', href: '/admin/announcements', icon: MegaphoneIcon },
   { name: 'Data Import', href: '/admin/data-import', icon: DocumentArrowUpIcon },
   { name: 'Data Analyzer', href: '/admin/data-analyzer', icon: SparklesIcon },
+  { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
