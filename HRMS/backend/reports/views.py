@@ -173,6 +173,84 @@ class PayrollDashboardView(APIView):
         })
 
 
+class LeaveDashboardView(APIView):
+    """Leave-specific dashboard."""
+
+    def get(self, request):
+        today = timezone.now().date()
+        current_month = today.month
+        current_year = today.year
+
+        # Pending leave requests
+        pending_requests = LeaveRequest.objects.filter(
+            status='PENDING'
+        ).count()
+
+        # Approved today
+        approved_today = LeaveRequest.objects.filter(
+            status='APPROVED',
+            updated_at__date=today
+        ).count()
+
+        # On leave today
+        on_leave_today = LeaveRequest.objects.filter(
+            status='APPROVED',
+            start_date__lte=today,
+            end_date__gte=today
+        ).count()
+
+        # Upcoming leave (next 7 days)
+        from datetime import timedelta
+        upcoming_leave = LeaveRequest.objects.filter(
+            status='APPROVED',
+            start_date__gt=today,
+            start_date__lte=today + timedelta(days=7)
+        ).count()
+
+        # Leave by type
+        leave_by_type = LeaveRequest.objects.filter(
+            status='APPROVED',
+            start_date__year=current_year
+        ).values(
+            leave_type_name=F('leave_type__name')
+        ).annotate(count=Count('id')).order_by('-count')
+
+        # Monthly trend (last 6 months)
+        monthly_trend = LeaveRequest.objects.filter(
+            start_date__year=current_year
+        ).annotate(
+            month=TruncMonth('start_date')
+        ).values('month').annotate(
+            approved=Count('id', filter=Q(status='APPROVED')),
+            rejected=Count('id', filter=Q(status='REJECTED'))
+        ).order_by('month')[:6]
+
+        return Response({
+            'pending_requests': pending_requests,
+            'approved_today': approved_today,
+            'on_leave_today': on_leave_today,
+            'upcoming_leave': upcoming_leave,
+            'leave_by_type': [{'leave_type': r['leave_type_name'], 'count': r['count']} for r in leave_by_type],
+            'monthly_trend': list(monthly_trend),
+            'generated_at': timezone.now()
+        })
+
+
+class PerformanceDashboardView(APIView):
+    """Performance/appraisal dashboard."""
+
+    def get(self, request):
+        return Response({
+            'active_appraisals': 0,
+            'pending_reviews': 0,
+            'completed_this_cycle': 0,
+            'average_rating': 0,
+            'rating_distribution': [],
+            'completion_rate': 0,
+            'generated_at': timezone.now()
+        })
+
+
 class EmployeeMasterReportView(APIView):
     """Employee master report."""
 

@@ -128,7 +128,12 @@ export default function LoginPage() {
       toast.success('Welcome!')
       navigate('/dashboard', { replace: true })
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Azure login failed')
+      const errData = error.response?.data
+      const message = errData?.error?.details?.non_field_errors?.[0]
+        || errData?.error?.message
+        || errData?.detail
+        || 'Azure login failed'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -143,7 +148,12 @@ export default function LoginPage() {
       toast.success('Welcome back!')
       navigate('/dashboard', { replace: true })
     } catch (error: any) {
-      toast.error(error.response?.data?.error || error.response?.data?.detail || 'Invalid credentials')
+      const errData = error.response?.data
+      const message = errData?.error?.details?.non_field_errors?.[0]
+        || errData?.error?.message
+        || errData?.detail
+        || 'Invalid credentials'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -158,7 +168,12 @@ export default function LoginPage() {
       toast.success('Welcome!')
       navigate('/dashboard', { replace: true })
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Invalid LDAP credentials')
+      const errData = error.response?.data
+      const message = errData?.error?.details?.non_field_errors?.[0]
+        || errData?.error?.message
+        || errData?.detail
+        || 'Invalid LDAP credentials'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -171,7 +186,8 @@ export default function LoginPage() {
       const { auth_url } = await authProviderService.getAzureAuthUrl()
       window.location.href = auth_url
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to initiate Azure login')
+      const errData = error.response?.data
+      toast.error(errData?.error?.message || errData?.detail || 'Failed to initiate Azure login')
       setIsLoading(false)
     }
   }

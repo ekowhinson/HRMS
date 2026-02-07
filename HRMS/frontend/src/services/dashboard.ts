@@ -92,8 +92,19 @@ export const dashboardService = {
   },
 
   getLeaveDashboard: async (): Promise<LeaveDashboard> => {
-    const response = await api.get('/reports/dashboard/leave/')
-    return response.data
+    try {
+      const response = await api.get('/reports/dashboard/leave/')
+      return response.data
+    } catch {
+      return {
+        pending_requests: 0,
+        approved_today: 0,
+        on_leave_today: 0,
+        upcoming_leave: 0,
+        leave_by_type: [],
+        monthly_trend: [],
+      }
+    }
   },
 
   getPerformanceDashboard: async (): Promise<PerformanceDashboard> => {

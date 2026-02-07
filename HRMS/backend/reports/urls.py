@@ -13,6 +13,8 @@ urlpatterns = [
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
     path('dashboard/hr/', views.HRDashboardView.as_view(), name='hr-dashboard'),
     path('dashboard/payroll/', views.PayrollDashboardView.as_view(), name='payroll-dashboard'),
+    path('dashboard/leave/', views.LeaveDashboardView.as_view(), name='leave-dashboard'),
+    path('dashboard/performance/', views.PerformanceDashboardView.as_view(), name='performance-dashboard'),
 
     # Employee reports
     path('employees/master/', views.EmployeeMasterReportView.as_view(), name='employee-master'),
