@@ -162,14 +162,15 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class AuditLogSerializer(serializers.ModelSerializer):
     """Serializer for AuditLog model."""
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True, allow_null=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True, allow_null=True)
 
     class Meta:
         model = AuditLog
         fields = [
-            'id', 'user', 'user_name', 'action', 'model_name',
-            'object_id', 'object_repr', 'changes', 'ip_address',
-            'user_agent', 'created_at'
+            'id', 'user', 'user_name', 'user_email', 'action', 'model_name',
+            'object_id', 'object_repr', 'changes', 'old_values', 'new_values',
+            'ip_address', 'user_agent', 'timestamp', 'extra_data'
         ]
 
 

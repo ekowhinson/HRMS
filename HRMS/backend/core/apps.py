@@ -15,3 +15,12 @@ class CoreConfig(AppConfig):
             import logging
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to setup cache invalidation: {e}")
+
+        # Connect audit trail signals to all models
+        try:
+            from .audit import connect_audit_signals
+            connect_audit_signals()
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to setup audit signals: {e}")

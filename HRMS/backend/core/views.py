@@ -25,13 +25,14 @@ from django.http import HttpResponse
 
 from .models import (
     Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment,
-    Attachment
+    Attachment, AuditLog
 )
 from .serializers import (
     AnnouncementSerializer, AnnouncementListSerializer, AnnouncementCreateSerializer,
     AnnouncementTargetSerializer, AnnouncementReadSerializer,
     AnnouncementAttachmentSerializer, DashboardAnnouncementSerializer,
-    AttachmentSerializer, AttachmentListSerializer
+    AttachmentSerializer, AttachmentListSerializer,
+    AuditLogSerializer
 )
 
 
@@ -692,3 +693,38 @@ class AttachmentViewSet(viewsets.ModelViewSet):
 
         serializer = AttachmentListSerializer(queryset, many=True)
         return Response(serializer.data)
+
+
+# ============================================
+# Audit Log ViewSet
+# ============================================
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only ViewSet for querying the system audit trail.
+    Shows all data change events (CREATE, UPDATE, DELETE) across all models.
+    """
+    queryset = AuditLog.objects.select_related('user').order_by('-timestamp')
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        'action': ['exact'],
+        'model_name': ['exact'],
+        'user': ['exact'],
+        'timestamp': ['gte', 'lte'],
+    }
+    search_fields = ['object_repr', 'model_name']
+    ordering_fields = ['timestamp', 'action', 'model_name']
+    ordering = ['-timestamp']
+
+    @action(detail=False, methods=['get'])
+    def model_names(self, request):
+        """Return distinct model names for the filter dropdown."""
+        names = (
+            AuditLog.objects
+            .values_list('model_name', flat=True)
+            .distinct()
+            .order_by('model_name')
+        )
+        return Response(list(names))

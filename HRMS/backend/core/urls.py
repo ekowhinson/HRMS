@@ -20,6 +20,7 @@ from .views import (
     AnnouncementTargetViewSet,
     AnnouncementAttachmentViewSet,
     AttachmentViewSet,
+    AuditLogViewSet,
 )
 
 app_name = 'core'
@@ -32,6 +33,9 @@ router.register(r'announcement-attachments', AnnouncementAttachmentViewSet, base
 
 # Generic attachments
 router.register(r'attachments', AttachmentViewSet, basename='attachment')
+
+# Audit logs
+router.register(r'audit-logs', AuditLogViewSet, basename='audit-log')
 
 
 @api_view(['GET'])

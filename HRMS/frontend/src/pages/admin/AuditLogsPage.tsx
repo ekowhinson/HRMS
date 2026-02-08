@@ -7,12 +7,17 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ExclamationTriangleIcon,
+  ClipboardDocumentListIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { userService, type AuthenticationLog } from '@/services/users'
+import { auditService, type AuditLogEntry, type AuditLogParams } from '@/services/audit'
 
 function formatDateTime(dateStr: string) {
   return new Date(dateStr).toLocaleString('en-GB', {
@@ -23,6 +28,14 @@ function formatDateTime(dateStr: string) {
     minute: '2-digit',
     second: '2-digit',
   })
+}
+
+// ==================== Action badge config ====================
+
+const actionBadgeConfig: Record<string, { variant: 'success' | 'danger' | 'warning' | 'info' | 'default' }> = {
+  CREATE: { variant: 'success' },
+  UPDATE: { variant: 'info' },
+  DELETE: { variant: 'danger' },
 }
 
 const eventTypeConfig: Record<string, { variant: 'success' | 'danger' | 'warning' | 'info' | 'default'; icon: typeof CheckCircleIcon }> = {
@@ -39,7 +52,256 @@ const eventTypeConfig: Record<string, { variant: 'success' | 'danger' | 'warning
   TWO_FACTOR_FAILED: { variant: 'danger', icon: XCircleIcon },
 }
 
-export default function AuditLogsPage() {
+// ==================== Changes Diff Component ====================
+
+function ChangesDiff({ changes }: { changes: Record<string, { old: unknown; new: unknown }> }) {
+  return (
+    <div className="mt-2 bg-gray-50 rounded-lg p-3 text-xs space-y-1.5">
+      {Object.entries(changes).map(([field, diff]) => (
+        <div key={field} className="flex items-start gap-2">
+          <span className="font-medium text-gray-700 min-w-[120px]">{field}:</span>
+          <span className="text-red-600 line-through">{String(diff.old ?? '—')}</span>
+          <span className="text-gray-400">&rarr;</span>
+          <span className="text-green-600">{String(diff.new ?? '—')}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ==================== Activity Logs Tab ====================
+
+function ActivityLogsTab() {
+  const [filters, setFilters] = useState<AuditLogParams>({ page: 1 })
+  const [showFilters, setShowFilters] = useState(false)
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const pageSize = 20
+
+  const { data: modelNames = [] } = useQuery({
+    queryKey: ['audit-model-names'],
+    queryFn: () => auditService.getModelNames(),
+  })
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['audit-logs', filters],
+    queryFn: () => auditService.getAuditLogs(filters),
+  })
+
+  const logs = data?.results ?? []
+  const totalItems = data?.count ?? 0
+  const totalPages = Math.ceil(totalItems / pageSize)
+
+  return (
+    <div className="space-y-4">
+      {/* Filters toggle */}
+      <div className="flex justify-end">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setShowFilters(!showFilters)}
+          leftIcon={<FunnelIcon className="h-4 w-4" />}
+        >
+          Filters
+        </Button>
+      </div>
+
+      {/* Filters */}
+      {showFilters && (
+        <Card>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
+                <select
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  value={filters.action || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, action: e.target.value || undefined, page: 1 })
+                  }
+                >
+                  <option value="">All Actions</option>
+                  <option value="CREATE">Create</option>
+                  <option value="UPDATE">Update</option>
+                  <option value="DELETE">Delete</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Module</label>
+                <select
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  value={filters.model_name || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, model_name: e.target.value || undefined, page: 1 })
+                  }
+                >
+                  <option value="">All Modules</option>
+                  {modelNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input
+                  type="text"
+                  placeholder="Search records..."
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  value={filters.search || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, search: e.target.value || undefined, page: 1 })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  value={filters.timestamp__gte || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, timestamp__gte: e.target.value || undefined, page: 1 })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  value={filters.timestamp__lte || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, timestamp__lte: e.target.value || undefined, page: 1 })
+                  }
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFilters({ page: 1 })}
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Activity Logs Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <ClipboardDocumentListIcon className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Activity Logs</h2>
+              <p className="text-sm text-gray-500">
+                {totalItems} event{totalItems !== 1 ? 's' : ''} found
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-6 text-center text-sm text-gray-500">Loading logs...</div>
+          ) : logs.length === 0 ? (
+            <div className="p-8 text-center">
+              <InformationCircleIcon className="mx-auto h-10 w-10 text-gray-300" />
+              <p className="mt-2 text-sm text-gray-500">No activity log entries found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500 bg-gray-50 border-b border-gray-200">
+                    <th className="px-6 py-3 w-8" />
+                    <th className="px-6 py-3">Timestamp</th>
+                    <th className="px-6 py-3">User</th>
+                    <th className="px-6 py-3">Action</th>
+                    <th className="px-6 py-3">Module</th>
+                    <th className="px-6 py-3">Record</th>
+                    <th className="px-6 py-3 hidden lg:table-cell">IP Address</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {logs.map((log: AuditLogEntry) => {
+                    const config = actionBadgeConfig[log.action] || { variant: 'default' as const }
+                    const isExpanded = expandedRow === log.id
+                    const hasChanges = log.action === 'UPDATE' && log.changes && Object.keys(log.changes).length > 0
+
+                    return (
+                      <tr key={log.id} className="group">
+                        <td colSpan={7} className="p-0">
+                          <div
+                            className={`flex items-center hover:bg-gray-50 cursor-pointer ${hasChanges ? '' : 'cursor-default'}`}
+                            onClick={() => hasChanges && setExpandedRow(isExpanded ? null : log.id)}
+                          >
+                            <div className="px-6 py-3 w-8">
+                              {hasChanges && (
+                                isExpanded
+                                  ? <ChevronDownIcon className="h-4 w-4 text-gray-400" />
+                                  : <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                              )}
+                            </div>
+                            <div className="px-6 py-3 text-xs text-gray-600 whitespace-nowrap">
+                              {formatDateTime(log.timestamp)}
+                            </div>
+                            <div className="px-6 py-3 text-gray-900 font-medium">
+                              {log.user_name || log.user_email || 'System'}
+                            </div>
+                            <div className="px-6 py-3">
+                              <Badge variant={config.variant} size="xs">
+                                {log.action}
+                              </Badge>
+                            </div>
+                            <div className="px-6 py-3 text-gray-700">
+                              {log.model_name}
+                            </div>
+                            <div className="px-6 py-3 text-gray-500 max-w-xs truncate">
+                              {log.object_repr || log.object_id || '—'}
+                            </div>
+                            <div className="px-6 py-3 text-gray-600 font-mono text-xs hidden lg:block">
+                              {log.ip_address || '—'}
+                            </div>
+                          </div>
+                          {/* Expanded row detail */}
+                          {isExpanded && log.changes && (
+                            <div className="px-14 pb-4">
+                              <ChangesDiff changes={log.changes} />
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Pagination */}
+      {totalItems > 0 && (
+        <TablePagination
+          currentPage={filters.page || 1}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={(page) => setFilters({ ...filters, page })}
+        />
+      )}
+    </div>
+  )
+}
+
+// ==================== Security Logs Tab ====================
+
+function SecurityLogsTab() {
   const [filters, setFilters] = useState<{
     event_type?: string
     start_date?: string
@@ -55,15 +317,9 @@ export default function AuditLogsPage() {
   })
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Authentication events and security activity
-          </p>
-        </div>
+    <div className="space-y-4">
+      {/* Filters toggle */}
+      <div className="flex justify-end">
         <Button
           variant="secondary"
           size="sm"
@@ -139,7 +395,7 @@ export default function AuditLogsPage() {
         </Card>
       )}
 
-      {/* Logs Table */}
+      {/* Security Logs Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -160,7 +416,7 @@ export default function AuditLogsPage() {
           ) : logs.length === 0 ? (
             <div className="p-8 text-center">
               <InformationCircleIcon className="mx-auto h-10 w-10 text-gray-300" />
-              <p className="mt-2 text-sm text-gray-500">No audit log entries found</p>
+              <p className="mt-2 text-sm text-gray-500">No security log entries found</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -226,6 +482,48 @@ export default function AuditLogsPage() {
           onPageChange={(page) => setFilters({ ...filters, page })}
         />
       )}
+    </div>
+  )
+}
+
+// ==================== Main Page ====================
+
+export default function AuditLogsPage() {
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          System-wide activity trail and authentication events
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="activity">
+        <TabsList>
+          <TabsTrigger
+            value="activity"
+            icon={<ClipboardDocumentListIcon className="h-4 w-4" />}
+          >
+            Activity Logs
+          </TabsTrigger>
+          <TabsTrigger
+            value="security"
+            icon={<ShieldCheckIcon className="h-4 w-4" />}
+          >
+            Security Logs
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="activity">
+          <ActivityLogsTab />
+        </TabsContent>
+
+        <TabsContent value="security">
+          <SecurityLogsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
