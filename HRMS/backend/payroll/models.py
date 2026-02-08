@@ -393,6 +393,16 @@ class EmployeeSalary(BaseModel):
     reason = models.TextField(null=True, blank=True)
     reference_number = models.CharField(max_length=50, null=True, blank=True)
 
+    # Track which payroll processing window was active when this record was created
+    processing_period = models.ForeignKey(
+        'PayrollPeriod',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='salary_changes_during',
+        help_text='The active payroll period when this salary record was created'
+    )
+
     class Meta:
         db_table = 'employee_salaries'
         ordering = ['-effective_from']
@@ -1659,6 +1669,16 @@ class EmployeeTransaction(BaseModel):
     )
     approved_at = models.DateTimeField(null=True, blank=True)
     approval_notes = models.TextField(null=True, blank=True)
+
+    # Track which payroll processing window was active when this record was created
+    processing_period = models.ForeignKey(
+        'PayrollPeriod',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transaction_changes_during',
+        help_text='The active payroll period when this transaction was created'
+    )
 
     # Documentation
     description = models.TextField(null=True, blank=True)

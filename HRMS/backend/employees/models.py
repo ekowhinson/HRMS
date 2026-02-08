@@ -731,6 +731,16 @@ class EmploymentHistory(BaseModel):
     approved_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
 
+    # Track which payroll processing window was active when this record was created
+    processing_period = models.ForeignKey(
+        'payroll.PayrollPeriod',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employment_changes_during',
+        help_text='The active payroll period when this history record was created'
+    )
+
     class Meta:
         db_table = 'employment_history'
         ordering = ['-effective_date']

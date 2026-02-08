@@ -1,6 +1,7 @@
 """
 Signals for employee model changes.
 Auto-tracks grade changes in EmploymentHistory for backpay/retroactive pay support.
+Auto-populates processing_period on EmploymentHistory records.
 """
 
 from datetime import date
@@ -9,6 +10,24 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 
 from .models import Employee, EmploymentHistory
+
+
+def _get_active_period():
+    """Get the current active payroll period (lazy import to avoid circular deps)."""
+    try:
+        from payroll.models import PayrollSettings
+        return PayrollSettings.get_active_period()
+    except Exception:
+        return None
+
+
+@receiver(pre_save, sender=EmploymentHistory)
+def set_employment_history_processing_period(sender, instance, **kwargs):
+    """Auto-set processing_period to the current active period on new records."""
+    if not instance.pk and not instance.processing_period_id:
+        period = _get_active_period()
+        if period:
+            instance.processing_period = period
 
 
 @receiver(pre_save, sender=Employee)
@@ -42,4 +61,5 @@ def track_grade_change(sender, instance, **kwargs):
             new_department=old.department,
             previous_position=old.position,
             new_position=old.position,
+            # processing_period is auto-set by the pre_save signal above
         )

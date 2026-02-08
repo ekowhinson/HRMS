@@ -640,12 +640,14 @@ class RetropayDetectionService:
     def detect(self):
         """
         Scan for backdated changes affecting PAID/CLOSED periods.
-        Only detects records created/updated during the current active period.
+        Only detects records whose processing_period matches the current active period.
         Returns list of detected implications grouped by employee.
         """
         active_period = PayrollSettings.get_active_period()
         if not active_period:
             return []
+
+        self._active_period = active_period
 
         paid_periods = PayrollPeriod.objects.filter(
             status__in=['PAID', 'CLOSED'],
@@ -654,10 +656,6 @@ class RetropayDetectionService:
 
         if not paid_periods.exists():
             return []
-
-        # Only detect records created during the current active period
-        self._active_period_start = active_period.start_date
-        self._active_period_end = active_period.end_date
 
         covered = self._get_covered_employees()
         detections = {}
@@ -676,7 +674,7 @@ class RetropayDetectionService:
         ).values_list('employee_id', flat=True))
 
     def _detect_salary_changes(self, period, covered, detections):
-        """Find salary records created during the active period but effective in a past period.
+        """Find salary records tagged with the current processing window but effective in a past period.
 
         A salary change with no end date is effective from its effective_from
         through the current active period, so it affects every PAID/CLOSED
@@ -684,9 +682,7 @@ class RetropayDetectionService:
         """
         salaries = EmployeeSalary.objects.filter(
             effective_from__lte=period.end_date,  # Started on or before this period
-            created_at__date__gt=period.end_date,  # Created after this period ended
-            created_at__date__gte=self._active_period_start,  # Created during active period
-            created_at__date__lte=self._active_period_end,
+            processing_period=self._active_period,  # Created during current processing window
         ).select_related('employee')
 
         for sal in salaries:
@@ -700,7 +696,7 @@ class RetropayDetectionService:
             )
 
     def _detect_grade_changes(self, period, covered, detections):
-        """Find grade/promotion changes created during the active period but effective in a past period.
+        """Find grade/promotion changes tagged with the current processing window but effective in a past period.
 
         Grade changes have no end date — they are effective from their
         effective_date onward, affecting all subsequent periods.
@@ -708,9 +704,7 @@ class RetropayDetectionService:
         changes = EmploymentHistory.objects.filter(
             change_type__in=['PROMOTION', 'GRADE_CHANGE', 'SALARY_REVISION', 'DEMOTION'],
             effective_date__lte=period.end_date,  # Effective on or before this period
-            created_at__date__gt=period.end_date,  # Created after this period ended
-            created_at__date__gte=self._active_period_start,  # Created during active period
-            created_at__date__lte=self._active_period_end,
+            processing_period=self._active_period,  # Created during current processing window
         ).select_related('employee', 'new_grade', 'previous_grade')
 
         for ch in changes:
@@ -726,16 +720,14 @@ class RetropayDetectionService:
             )
 
     def _detect_transaction_changes(self, period, covered, detections):
-        """Find transactions created during the active period but effective in a past period.
+        """Find transactions tagged with the current processing window but effective in a past period.
 
         Transactions have effective_from and optional effective_to. If effective_to
         is null, the transaction is ongoing from effective_from.
         """
         txns = EmployeeTransaction.objects.filter(
             effective_from__lte=period.end_date,  # Started on or before this period
-            created_at__date__gt=period.end_date,  # Created after this period ended
-            created_at__date__gte=self._active_period_start,  # Created during active period
-            created_at__date__lte=self._active_period_end,
+            processing_period=self._active_period,  # Created during current processing window
             is_current_version=True,
             status__in=['ACTIVE', 'APPROVED'],
             target_type='INDIVIDUAL',
