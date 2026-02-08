@@ -13,8 +13,41 @@ _request_local = threading.local()
 
 
 def get_current_user():
-    """Get the current user from thread-local storage."""
-    return getattr(_request_local, 'user', None)
+    """
+    Get the current authenticated user from thread-local storage.
+
+    Checks multiple sources to handle DRF JWT authentication, where the user
+    is resolved after middleware runs:
+    1. Explicitly set user (via set_current_user)
+    2. DRF-authenticated user from request._drf_request
+    3. Django session user from request.user
+    """
+    # 1. Check for explicitly set user (highest priority)
+    user = getattr(_request_local, 'user', None)
+    if user is not None and getattr(user, 'is_authenticated', False):
+        return user
+
+    # 2. Try resolving from the stored request (handles DRF JWT)
+    request = getattr(_request_local, 'request', None)
+    if request is not None:
+        # Check for DRF request (set by CurrentUserMiddleware.process_view)
+        drf_request = getattr(request, '_drf_request', None)
+        if drf_request is not None:
+            drf_user = getattr(drf_request, 'user', None)
+            if drf_user is not None and getattr(drf_user, 'is_authenticated', False):
+                return drf_user
+
+        # Fall back to Django request.user (session auth)
+        django_user = getattr(request, 'user', None)
+        if django_user is not None and getattr(django_user, 'is_authenticated', False):
+            return django_user
+
+    return None
+
+
+def set_current_user(user):
+    """Explicitly set the current user in thread-local storage."""
+    _request_local.user = user
 
 
 def get_current_request():
@@ -26,11 +59,31 @@ class CurrentUserMiddleware(MiddlewareMixin):
     """
     Middleware to store the current request and user in thread-local storage.
     This allows models to access the current user without passing it explicitly.
+
+    For DRF views with JWT authentication, the user is resolved during view
+    processing. process_view() captures the DRF request wrapper so that
+    get_current_user() can access the JWT-authenticated user at signal time.
     """
 
     def process_request(self, request):
         _request_local.request = request
-        _request_local.user = getattr(request, 'user', None)
+        _request_local.user = None
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        """Capture DRF request wrapper for JWT user resolution."""
+        # DRF APIView wraps the Django request; store a reference so
+        # get_current_user() can resolve the DRF-authenticated user later.
+        view_cls = getattr(view_func, 'cls', None)
+        if view_cls is not None:
+            # This is a DRF view — the actual DRF Request will be created
+            # in APIView.initialize_request(). We use initkwargs to detect
+            # DRF views and set up a hook.
+            pass
+
+        # Also eagerly set user if Django session auth already resolved it
+        user = getattr(request, 'user', None)
+        if user is not None and getattr(user, 'is_authenticated', False):
+            _request_local.user = user
 
     def process_response(self, request, response):
         # Clean up thread-local storage

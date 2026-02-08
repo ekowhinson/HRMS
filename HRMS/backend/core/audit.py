@@ -78,9 +78,7 @@ def audit_post_save(sender, instance, created, **kwargs):
     from .models import AuditLog
     from .middleware import get_current_user, get_current_request
 
-    user = get_current_user()
-    if user and not getattr(user, 'is_authenticated', False):
-        user = None
+    user = get_current_user()  # Handles JWT + session auth via thread-local
 
     request = get_current_request()
     ip_address = None
@@ -145,9 +143,7 @@ def audit_post_delete(sender, instance, **kwargs):
     from .models import AuditLog
     from .middleware import get_current_user, get_current_request
 
-    user = get_current_user()
-    if user and not getattr(user, 'is_authenticated', False):
-        user = None
+    user = get_current_user()  # Handles JWT + session auth via thread-local
 
     request = get_current_request()
     ip_address = None
