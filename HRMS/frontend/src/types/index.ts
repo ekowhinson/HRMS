@@ -638,6 +638,8 @@ export interface BenefitClaim {
 // Payslip Types
 export interface Payslip {
   id: string
+  payslip_id?: string | null
+  has_payslip?: boolean
   employee: Employee
   payroll_run: PayrollRun
   period_name: string

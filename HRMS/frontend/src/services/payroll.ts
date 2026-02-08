@@ -113,7 +113,7 @@ export const payrollService = {
     return response.data.results || response.data || []
   },
 
-  // Download a payslip as PDF
+  // Download a payslip as PDF (admin - uses Payslip model ID)
   downloadPayslip: async (payslipId: string): Promise<void> => {
     const response = await api.get(`/payroll/payslips/${payslipId}/download/`, {
       responseType: 'blob',
@@ -123,6 +123,22 @@ export const payrollService = {
     const link = document.createElement('a')
     link.href = url
     link.download = `payslip-${payslipId}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  },
+
+  // Download own payslip as PDF (self-service - uses PayrollItem ID)
+  downloadMyPayslip: async (itemId: string): Promise<void> => {
+    const response = await api.get(`/payroll/my-payslips/${itemId}/download/`, {
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `payslip-${itemId}.pdf`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

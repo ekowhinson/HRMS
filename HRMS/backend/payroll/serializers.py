@@ -219,13 +219,15 @@ class MyPayslipSerializer(serializers.ModelSerializer):
     paye_tax = serializers.DecimalField(source='paye', max_digits=12, decimal_places=2, read_only=True)
     allowances = serializers.SerializerMethodField()
     other_deductions = serializers.SerializerMethodField()
+    payslip_id = serializers.SerializerMethodField()
+    has_payslip = serializers.SerializerMethodField()
 
     class Meta:
         model = PayrollItem
         fields = [
-            'id', 'period_name', 'payment_date', 'basic_salary',
-            'gross_pay', 'net_pay', 'paye_tax', 'total_deductions',
-            'ssnit_employee', 'ssnit_employer',
+            'id', 'payslip_id', 'has_payslip', 'period_name', 'payment_date',
+            'basic_salary', 'gross_pay', 'net_pay', 'paye_tax',
+            'total_deductions', 'ssnit_employee', 'ssnit_employer',
             'allowances', 'other_deductions',
         ]
 
@@ -244,6 +246,13 @@ class MyPayslipSerializer(serializers.ModelSerializer):
             {'name': d.pay_component.name, 'amount': float(d.amount)}
             for d in obj.details.filter(pay_component__component_type='DEDUCTION')
         ]
+
+    def get_payslip_id(self, obj):
+        payslip = getattr(obj, 'payslip', None)
+        return str(payslip.id) if payslip else None
+
+    def get_has_payslip(self, obj):
+        return hasattr(obj, 'payslip') and obj.payslip is not None
 
 
 class PayrollRunSerializer(serializers.ModelSerializer):

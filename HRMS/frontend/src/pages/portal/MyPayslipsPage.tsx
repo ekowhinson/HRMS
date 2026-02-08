@@ -39,7 +39,7 @@ export default function MyPayslipsPage() {
   const handleDownload = async (payslip: Payslip) => {
     setDownloading(payslip.id)
     try {
-      await payrollService.downloadPayslip(payslip.id)
+      await payrollService.downloadMyPayslip(payslip.id)
     } catch {
       // silently fail
     } finally {

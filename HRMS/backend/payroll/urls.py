@@ -38,6 +38,7 @@ urlpatterns = [
 
     # Self-service payslips
     path('my-payslips/', views.MyPayslipsView.as_view(), name='my-payslips'),
+    path('my-payslips/<uuid:item_id>/download/', views.MyPayslipDownloadView.as_view(), name='my-payslip-download'),
 
     # Employee salary
     path('employee/<uuid:employee_id>/salary/', views.EmployeeSalaryView.as_view(), name='employee-salary'),

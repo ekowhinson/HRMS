@@ -860,10 +860,71 @@ class MyPayslipsView(generics.ListAPIView):
             employee=employee,
             status__in=[PayrollItem.Status.PAID, PayrollItem.Status.APPROVED, PayrollItem.Status.COMPUTED]
         ).select_related(
-            'payroll_run', 'payroll_run__payroll_period', 'employee'
+            'payroll_run', 'payroll_run__payroll_period', 'employee', 'payslip'
         ).prefetch_related(
             'details', 'details__pay_component'
         ).order_by('-payroll_run__payroll_period__start_date')
+
+
+class MyPayslipDownloadView(APIView):
+    """Download a payslip PDF for the current employee (self-service).
+
+    Accepts a PayrollItem ID, verifies ownership, and returns the PDF.
+    If no pre-generated Payslip record exists, generates the PDF on-the-fly.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, item_id):
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response(
+                {'error': 'No employee profile linked to your account'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            payroll_item = PayrollItem.objects.select_related(
+                'payroll_run', 'payroll_run__payroll_period',
+                'employee', 'employee__department', 'employee__position',
+                'employee__division', 'employee__directorate', 'employee__grade',
+                'employee__salary_notch', 'employee__salary_notch__level',
+                'employee__salary_notch__level__band', 'employee__work_location',
+            ).prefetch_related(
+                'details', 'details__pay_component'
+            ).get(pk=item_id, employee=employee)
+        except PayrollItem.DoesNotExist:
+            return Response(
+                {'error': 'Payslip not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if a pre-generated payslip exists
+        try:
+            existing_payslip = payroll_item.payslip
+            if existing_payslip and existing_payslip.file_data:
+                existing_payslip.downloaded_at = timezone.now()
+                existing_payslip.save(update_fields=['downloaded_at'])
+                response = HttpResponse(
+                    existing_payslip.file_data,
+                    content_type=existing_payslip.mime_type or 'application/pdf'
+                )
+                response['Content-Disposition'] = f'attachment; filename="{existing_payslip.file_name or existing_payslip.payslip_number + ".pdf"}"'
+                response['Content-Length'] = existing_payslip.file_size or len(existing_payslip.file_data)
+                return response
+        except Payslip.DoesNotExist:
+            pass
+
+        # Generate PDF on-the-fly
+        from .generators import PayslipGenerator
+        period = payroll_item.payroll_run.payroll_period
+        generator = PayslipGenerator(payroll_item, period)
+        pdf_bytes = generator.generate_pdf()
+
+        filename = f'Payslip-{period.name}-{employee.employee_number}.pdf'
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = len(pdf_bytes)
+        return response
 
 
 class ComputePayrollView(APIView):
