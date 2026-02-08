@@ -41,7 +41,7 @@ export default function PayrollProcessingPage() {
   const [newRunPeriod, setNewRunPeriod] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState<{
-    action: 'compute' | 'approve' | 'pay' | 'cancel' | 'bank_files' | 'payslips' | 'reset_draft' | 'reopen_period' | 'delete' | 'close_period'
+    action: 'compute' | 'approve' | 'pay' | 'cancel' | 'bank_files' | 'payslips' | 'reset_draft' | 'delete' | 'close_period'
     runId?: string
     periodId?: string
     title?: string
@@ -202,19 +202,6 @@ export default function PayrollProcessingPage() {
     },
   })
 
-  const reopenPeriodMutation = useMutation({
-    mutationFn: (periodId: string) => payrollService.reopenPeriod(periodId),
-    onSuccess: (data) => {
-      toast.success(data.message || 'Period reopened successfully')
-      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
-      queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
-      setShowConfirmModal(null)
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to reopen period')
-    },
-  })
-
   const deleteMutation = useMutation({
     mutationFn: (runId: string) => payrollService.deletePayrollRun(runId),
     onSuccess: () => {
@@ -262,9 +249,6 @@ export default function PayrollProcessingPage() {
       case 'reset_draft':
         if (showConfirmModal.runId) resetToDraftMutation.mutate(showConfirmModal.runId)
         break
-      case 'reopen_period':
-        if (showConfirmModal.periodId) reopenPeriodMutation.mutate(showConfirmModal.periodId)
-        break
       case 'delete':
         if (showConfirmModal.runId) deleteMutation.mutate(showConfirmModal.runId)
         break
@@ -288,7 +272,6 @@ export default function PayrollProcessingPage() {
     generateBankFilesMutation.isPending ||
     generatePayslipsMutation.isPending ||
     resetToDraftMutation.isPending ||
-    reopenPeriodMutation.isPending ||
     deleteMutation.isPending ||
     closePeriodMutation.isPending
 
@@ -595,7 +578,7 @@ export default function PayrollProcessingPage() {
                             action: 'close_period',
                             periodId: typeof run.payroll_period === 'object' ? run.payroll_period.id : run.payroll_period,
                             title: 'Close Payroll Period',
-                            message: `This will close the period "${run.period_name}". Closed periods cannot be modified without reopening. Are you sure?`
+                            message: `This will close the period "${run.period_name}". Closed periods can only be reopened from Payroll Setup. Are you sure?`
                           })
                         }
                       >

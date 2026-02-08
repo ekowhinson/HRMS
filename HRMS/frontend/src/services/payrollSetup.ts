@@ -342,4 +342,9 @@ export const payrollSetupService = {
     const response = await api.post(`/payroll/periods/${periodId}/close/`)
     return response.data
   },
+
+  async reopenPeriod(periodId: string, force?: boolean, reason?: string): Promise<any> {
+    const response = await api.post(`/payroll/periods/${periodId}/reopen/`, { force, reason })
+    return response.data
+  },
 }

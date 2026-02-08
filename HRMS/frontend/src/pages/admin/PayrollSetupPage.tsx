@@ -17,6 +17,7 @@ import {
   ChevronRightIcon,
   CheckCircleIcon,
   LockClosedIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import {
   payrollSetupService,
@@ -356,6 +357,16 @@ export default function PayrollSetupPage() {
       queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
     },
     onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to close period'),
+  })
+
+  const reopenPeriodMutation = useMutation({
+    mutationFn: (periodId: string) => payrollSetupService.reopenPeriod(periodId, true, 'Reopened from Payroll Setup'),
+    onSuccess: (data: any) => {
+      toast.success(data.message || 'Period reopened successfully')
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to reopen period'),
   })
 
   const createYearPeriodsMutation = useMutation({
@@ -1189,6 +1200,7 @@ export default function PayrollSetupPage() {
                             CLOSED: 'bg-gray-200 text-gray-600',
                           }
                           const canClose = period.status === 'PAID' || period.status === 'APPROVED'
+                          const canReopen = period.status === 'CLOSED' || period.status === 'PAID'
                           return (
                             <tr key={period.id} className="hover:bg-gray-50">
                               <td className="px-4 py-2">
@@ -1206,19 +1218,34 @@ export default function PayrollSetupPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-2 text-right">
-                                {canClose && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-orange-600 border-orange-300 hover:bg-orange-50"
-                                    onClick={() => closePeriodMutation.mutate(period.id)}
-                                    disabled={closePeriodMutation.isPending}
-                                    isLoading={closePeriodMutation.isPending && closePeriodMutation.variables === period.id}
-                                  >
-                                    <LockClosedIcon className="h-3.5 w-3.5 mr-1" />
-                                    Close
-                                  </Button>
-                                )}
+                                <div className="flex justify-end gap-2">
+                                  {canClose && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                                      onClick={() => closePeriodMutation.mutate(period.id)}
+                                      disabled={closePeriodMutation.isPending}
+                                      isLoading={closePeriodMutation.isPending && closePeriodMutation.variables === period.id}
+                                    >
+                                      <LockClosedIcon className="h-3.5 w-3.5 mr-1" />
+                                      Close
+                                    </Button>
+                                  )}
+                                  {canReopen && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                      onClick={() => reopenPeriodMutation.mutate(period.id)}
+                                      disabled={reopenPeriodMutation.isPending}
+                                      isLoading={reopenPeriodMutation.isPending && reopenPeriodMutation.variables === period.id}
+                                    >
+                                      <ArrowPathIcon className="h-3.5 w-3.5 mr-1" />
+                                      Reopen
+                                    </Button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           )

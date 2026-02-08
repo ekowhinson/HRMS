@@ -908,6 +908,11 @@ class PayrollService:
         self.payroll_run.computed_at = timezone.now()
         self.payroll_run.save()
 
+        # Update period status to COMPUTED
+        if self.period.status in [PayrollPeriod.Status.OPEN, PayrollPeriod.Status.PROCESSING]:
+            self.period.status = PayrollPeriod.Status.COMPUTED
+            self.period.save(update_fields=['status', 'updated_at'])
+
         # Mark progress as complete
         cache.set(progress_key, {
             'status': 'completed',
@@ -965,6 +970,11 @@ class PayrollService:
         self.payroll_run.approved_at = timezone.now()
         self.payroll_run.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
 
+        # Update period status to APPROVED
+        if self.period.status in [PayrollPeriod.Status.OPEN, PayrollPeriod.Status.PROCESSING, PayrollPeriod.Status.COMPUTED]:
+            self.period.status = PayrollPeriod.Status.APPROVED
+            self.period.save(update_fields=['status', 'updated_at'])
+
         return {
             'status': 'approved',
             'approved_by': user.email,
@@ -987,6 +997,11 @@ class PayrollService:
 
         self.payroll_run.status = PayrollRun.Status.REJECTED
         self.payroll_run.save(update_fields=['status', 'updated_at'])
+
+        # Revert period status to OPEN since run was rejected
+        if self.period.status in [PayrollPeriod.Status.COMPUTED, PayrollPeriod.Status.APPROVED]:
+            self.period.status = PayrollPeriod.Status.OPEN
+            self.period.save(update_fields=['status', 'updated_at'])
 
         return {
             'status': 'rejected',
