@@ -142,6 +142,20 @@ class WorkflowTransition(BaseModel):
         return f"{self.from_state.name} -> {self.to_state.name} ({self.name})"
 
 
+class ApproverType(models.TextChoices):
+    ROLE = 'ROLE', 'By Role'
+    USER = 'USER', 'Specific User'
+    SUPERVISOR = 'SUPERVISOR', 'Direct Supervisor'
+    DEPARTMENT_HEAD = 'DEPARTMENT_HEAD', 'Department Head'
+    DISTRICT_HEAD = 'DISTRICT_HEAD', 'District Head'
+    REGIONAL_DIRECTOR = 'REGIONAL_DIRECTOR', 'Regional Director'
+    DIRECTORATE_HEAD = 'DIRECTORATE_HEAD', 'Directorate Head'
+    DIVISION_HEAD = 'DIVISION_HEAD', 'Division Head'
+    DCE = 'DCE', 'Deputy Chief Executive'
+    CEO = 'CEO', 'Chief Executive Officer'
+    DYNAMIC = 'DYNAMIC', 'Dynamic (Field-based)'
+
+
 class ApprovalLevel(BaseModel):
     """Approval levels for approval workflows."""
 
@@ -149,21 +163,17 @@ class ApprovalLevel(BaseModel):
         WorkflowDefinition, on_delete=models.CASCADE, related_name='approval_levels'
     )
     state = models.ForeignKey(
-        WorkflowState, on_delete=models.CASCADE, related_name='approval_levels'
+        WorkflowState, on_delete=models.CASCADE, related_name='approval_levels',
+        null=True, blank=True
     )
     level = models.PositiveIntegerField()
     name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, help_text='Description of this approval level for admin clarity')
 
     # Who can approve
     approver_type = models.CharField(
         max_length=20,
-        choices=[
-            ('ROLE', 'By Role'),
-            ('USER', 'Specific User'),
-            ('SUPERVISOR', 'Direct Supervisor'),
-            ('DEPARTMENT_HEAD', 'Department Head'),
-            ('DYNAMIC', 'Dynamic (Field-based)'),
-        ]
+        choices=ApproverType.choices
     )
     approver_role = models.ForeignKey(
         'accounts.Role', on_delete=models.SET_NULL, null=True, blank=True

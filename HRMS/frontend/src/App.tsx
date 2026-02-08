@@ -81,6 +81,9 @@ import RoleManagementPage from './pages/admin/RoleManagementPage'
 import AuthProvidersPage from './pages/admin/AuthProvidersPage'
 // Audit Logs
 import AuditLogsPage from './pages/admin/AuditLogsPage'
+// Approval Workflow
+import ApprovalInboxPage from './pages/ApprovalInboxPage'
+import ApprovalWorkflowPage from './pages/admin/ApprovalWorkflowPage'
 
 // Roles that grant access to HR/Admin features
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
@@ -185,6 +188,7 @@ function App() {
                 <Route path="/my-loans" element={<MyLoansPage />} />
                 <Route path="/my-disciplinary" element={<MyDisciplinaryPage />} />
                 <Route path="/my-grievances" element={<MyGrievancesPage />} />
+                <Route path="/my-approvals" element={<ApprovalInboxPage />} />
 
                 {/* Leave Management - Admin only */}
                 <Route path="/leave" element={<AdminRoute><LeavePage /></AdminRoute>} />
@@ -248,6 +252,9 @@ function App() {
                 {/* Discipline & Grievance Routes */}
                 <Route path="/admin/disciplinary" element={<AdminRoute><DisciplinaryPage /></AdminRoute>} />
                 <Route path="/admin/grievances" element={<AdminRoute><GrievancePage /></AdminRoute>} />
+
+                {/* Approval Workflow Routes */}
+                <Route path="/admin/approval-workflows" element={<AdminRoute><ApprovalWorkflowPage /></AdminRoute>} />
 
                 {/* Announcements Routes */}
                 <Route path="/admin/announcements" element={<AdminRoute><AnnouncementsPage /></AdminRoute>} />

@@ -43,6 +43,7 @@ import {
   CpuChipIcon,
   ExclamationTriangleIcon,
   ChatBubbleLeftRightIcon,
+  InboxStackIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
@@ -75,6 +76,7 @@ const selfServiceNavigation: NavItem[] = [
   { name: 'My Appraisal', href: '/my-appraisal', icon: ChartBarIcon },
   { name: 'My Disciplinary', href: '/my-disciplinary', icon: ExclamationTriangleIcon },
   { name: 'My Grievances', href: '/my-grievances', icon: ChatBubbleLeftRightIcon },
+  { name: 'My Approvals', href: '/my-approvals', icon: InboxStackIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
@@ -165,6 +167,7 @@ const payrollSections: NavSection[] = [
 
 // Administration Section - Top level items
 const adminNavigation: NavItem[] = [
+  { name: 'Approval Workflows', href: '/admin/approval-workflows', icon: ClipboardDocumentCheckIcon },
   { name: 'Company Policies', href: '/admin/policies', icon: DocumentTextIcon },
   { name: 'Announcements', href: '/admin/announcements', icon: MegaphoneIcon },
 ];
