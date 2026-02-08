@@ -74,11 +74,8 @@ const selfServiceNavigation: NavItem[] = [
 const hrNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Employees', href: '/employees', icon: UsersIcon },
-  { name: 'Leave Management', href: '/leave', icon: CalendarIcon },
-  { name: 'Leave Approvals', href: '/admin/leave-approvals', icon: ClipboardDocumentCheckIcon },
   { name: 'Recruitment', href: '/admin/recruitment', icon: BriefcaseIcon },
   { name: 'Exit Management', href: '/admin/exits', icon: ArrowRightStartOnRectangleIcon },
-  { name: 'Appraisals', href: '/admin/appraisals', icon: FlagIcon },
 ];
 
 // HR Section - Collapsible sub-sections
@@ -95,17 +92,20 @@ const hrSections: NavSection[] = [
     ],
   },
   {
-    name: 'Leave Setup',
-    icon: CalendarDaysIcon,
+    name: 'Leave Management',
+    icon: CalendarIcon,
     items: [
+      { name: 'Leave Overview', href: '/leave', icon: CalendarIcon },
+      { name: 'Leave Approvals', href: '/admin/leave-approvals', icon: ClipboardDocumentCheckIcon },
       { name: 'Leave Types', href: '/admin/leave-types', icon: CalendarDaysIcon },
-      { name: 'Leave Plan Calendar', href: '/admin/leave-calendar', icon: CalendarIcon },
+      { name: 'Leave Calendar', href: '/admin/leave-calendar', icon: CalendarIcon },
     ],
   },
   {
     name: 'Performance',
     icon: ChartBarIcon,
     items: [
+      { name: 'Appraisals', href: '/admin/appraisals', icon: FlagIcon },
       { name: 'Appraisal Cycles', href: '/admin/appraisal-cycles', icon: CalendarDaysIcon },
       { name: 'Competencies', href: '/admin/competencies', icon: AcademicCapIcon },
       { name: 'Core Values', href: '/admin/core-values', icon: StarIcon },
@@ -120,6 +120,7 @@ const hrSections: NavSection[] = [
 const payrollNavigation: NavItem[] = [
   { name: 'Payroll Overview', href: '/payroll', icon: BanknotesIcon },
   { name: 'Process Payroll', href: '/admin/payroll', icon: CalculatorIcon },
+  { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
   { name: 'Employee Transactions', href: '/admin/employee-transactions', icon: DocumentPlusIcon },
   { name: 'Benefits', href: '/benefits', icon: GiftIcon },
   { name: 'Loan Management', href: '/admin/loans', icon: CreditCardIcon },
@@ -142,31 +143,24 @@ const payrollSections: NavSection[] = [
       { name: 'Tax Configuration', href: '/admin/tax-configuration', icon: AdjustmentsHorizontalIcon },
     ],
   },
-  {
-    name: 'Payroll Reports',
-    icon: ChartBarIcon,
-    items: [
-      { name: 'All Reports', href: '/reports', icon: ChartBarIcon },
-      { name: 'Payroll Journal', href: '/reports/journal', icon: DocumentTextIcon },
-      { name: 'Salary Reconciliation', href: '/reports/salary-reconciliation', icon: ScaleIcon },
-      { name: 'Period Reconciliation', href: '/reports/reconciliation', icon: ScaleIcon },
-      { name: 'Payroll Master', href: '/reports/payroll-master', icon: DocumentTextIcon },
-    ],
-  },
 ];
 
 // Administration Section - Top level items
 const adminNavigation: NavItem[] = [
   { name: 'Company Policies', href: '/admin/policies', icon: DocumentTextIcon },
   { name: 'Announcements', href: '/admin/announcements', icon: MegaphoneIcon },
-  { name: 'Data Import', href: '/admin/data-import', icon: DocumentArrowUpIcon },
-  { name: 'Data Analyzer', href: '/admin/data-analyzer', icon: SparklesIcon },
-  { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
-  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
 // Administration Section - Collapsible sub-sections
 const adminSections: NavSection[] = [
+  {
+    name: 'Data Tools',
+    icon: DocumentArrowUpIcon,
+    items: [
+      { name: 'Data Import', href: '/admin/data-import', icon: DocumentArrowUpIcon },
+      { name: 'Data Analyzer', href: '/admin/data-analyzer', icon: SparklesIcon },
+    ],
+  },
   {
     name: 'Security',
     icon: LockClosedIcon,
