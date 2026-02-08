@@ -86,28 +86,28 @@ export default function AnnouncementsPage() {
     }
   }
 
-  const handlePublish = async (id: string) => {
+  const handlePublish = async (slug: string) => {
     try {
-      await announcementsService.publishAnnouncement(id)
+      await announcementsService.publishAnnouncement(slug)
       loadAnnouncements()
     } catch (error) {
       console.error('Error publishing announcement:', error)
     }
   }
 
-  const handleArchive = async (id: string) => {
+  const handleArchive = async (slug: string) => {
     try {
-      await announcementsService.archiveAnnouncement(id)
+      await announcementsService.archiveAnnouncement(slug)
       loadAnnouncements()
     } catch (error) {
       console.error('Error archiving announcement:', error)
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (slug: string) => {
     if (!window.confirm('Are you sure you want to delete this announcement?')) return
     try {
-      await announcementsService.deleteAnnouncement(id)
+      await announcementsService.deleteAnnouncement(slug)
       loadAnnouncements()
     } catch (error) {
       console.error('Error deleting announcement:', error)
@@ -170,12 +170,12 @@ export default function AnnouncementsPage() {
           </Card>
         ) : (
           announcements.map((announcement) => (
-            <Card key={announcement.id} className={announcement.is_pinned ? 'border-l-4 border-l-primary-500' : ''}>
+            <Card key={announcement.id} className={announcement.pin_to_top ? 'border-l-4 border-l-primary-500' : ''}>
               <CardContent className="py-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      {announcement.is_pinned && (
+                      {announcement.pin_to_top && (
                         <span className="text-primary-500" title="Pinned">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M5 5a2 2 0 012-2h6a2 2 0 012 2v2a2 2 0 01-2 2H7a2 2 0 01-2-2V5zm2 10h6v4a1 1 0 01-1 1H8a1 1 0 01-1-1v-4zm0-8h6V5H7v2z" />
@@ -189,23 +189,20 @@ export default function AnnouncementsPage() {
                         {announcement.title}
                       </h3>
                       <Badge variant={priorityColors[announcement.priority]}>
-                        {announcement.priority_display || announcement.priority}
+                        {announcement.priority}
                       </Badge>
                       <Badge variant={statusColors[announcement.status]}>
-                        {announcement.status_display || announcement.status}
+                        {announcement.status}
                       </Badge>
                     </div>
                     <p className="text-gray-600 text-sm mb-2">
-                      {announcement.summary || announcement.content.substring(0, 150)}
-                      {announcement.content.length > 150 && '...'}
+                      {announcement.summary || (announcement.content ? announcement.content.substring(0, 150) : '')}
+                      {announcement.content && announcement.content.length > 150 && '...'}
                     </p>
                     <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span>By {announcement.author_name}</span>
+                      <span>By {announcement.created_by_name}</span>
                       <span>{new Date(announcement.created_at).toLocaleDateString()}</span>
-                      <span>{announcement.views_count} views</span>
-                      {announcement.requires_acknowledgement && (
-                        <span>{announcement.acknowledgements_count} acknowledged</span>
-                      )}
+                      <span>{announcement.read_count ?? 0} views</span>
                     </div>
                   </div>
                   <div className="flex gap-2 ml-4">
@@ -213,7 +210,7 @@ export default function AnnouncementsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handlePublish(announcement.id)}
+                        onClick={() => handlePublish(announcement.slug)}
                       >
                         Publish
                       </Button>
@@ -222,7 +219,7 @@ export default function AnnouncementsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleArchive(announcement.id)}
+                        onClick={() => handleArchive(announcement.slug)}
                       >
                         Archive
                       </Button>
@@ -230,7 +227,7 @@ export default function AnnouncementsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(announcement.id)}
+                      onClick={() => handleDelete(announcement.slug)}
                     >
                       Delete
                     </Button>
@@ -348,17 +345,17 @@ export default function AnnouncementsPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Badge variant={priorityColors[selectedAnnouncement.priority]}>
-                {selectedAnnouncement.priority_display}
+                {selectedAnnouncement.priority}
               </Badge>
               <Badge variant={statusColors[selectedAnnouncement.status]}>
-                {selectedAnnouncement.status_display}
+                {selectedAnnouncement.status}
               </Badge>
-              {selectedAnnouncement.is_pinned && (
+              {selectedAnnouncement.pin_to_top && (
                 <Badge variant="info">Pinned</Badge>
               )}
             </div>
             <div className="text-sm text-gray-500">
-              Posted by {selectedAnnouncement.author_name} on{' '}
+              Posted by {selectedAnnouncement.created_by_name} on{' '}
               {new Date(selectedAnnouncement.created_at).toLocaleString()}
             </div>
             <div className="prose max-w-none">

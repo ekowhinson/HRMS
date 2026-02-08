@@ -9,26 +9,36 @@ export type AnnouncementStatus = 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'ARCHIVED
 export interface Announcement {
   id: string
   title: string
+  slug: string
   content: string
   summary: string
   priority: AnnouncementPriority
-  priority_display: string
   status: AnnouncementStatus
-  status_display: string
   category: string
-  author: string | null
-  author_name: string
-  publish_at: string | null
-  expires_at: string | null
-  is_pinned: boolean
+  is_company_wide: boolean
+  publish_date: string | null
+  expiry_date: string | null
+  pin_to_top: boolean
+  show_on_dashboard: boolean
   requires_acknowledgement: boolean
   allow_comments: boolean
-  views_count: number
-  acknowledgements_count: number
+  published_at: string | null
+  published_by: string | null
+  published_by_name: string
+  banner_url: string | null
+  read_count: number
+  read_stats: {
+    total_read: number
+    acknowledged: number
+    target_count: number
+    read_percentage: number
+  }
   targets: AnnouncementTarget[]
   attachments: AnnouncementAttachment[]
   is_read: boolean
   is_acknowledged: boolean
+  created_by: string | null
+  created_by_name: string
   created_at: string
   updated_at: string
 }
@@ -78,8 +88,8 @@ export const announcementsService = {
     return response.data
   },
 
-  getAnnouncement: async (id: string): Promise<Announcement> => {
-    const response = await api.get(`/core/announcements/${id}/`)
+  getAnnouncement: async (slug: string): Promise<Announcement> => {
+    const response = await api.get(`/core/announcements/${slug}/`)
     return response.data
   },
 
@@ -99,13 +109,13 @@ export const announcementsService = {
     return response.data
   },
 
-  updateAnnouncement: async (id: string, data: Partial<Announcement>): Promise<Announcement> => {
-    const response = await api.patch(`/core/announcements/${id}/`, data)
+  updateAnnouncement: async (slug: string, data: Partial<Announcement>): Promise<Announcement> => {
+    const response = await api.patch(`/core/announcements/${slug}/`, data)
     return response.data
   },
 
-  deleteAnnouncement: async (id: string): Promise<void> => {
-    await api.delete(`/core/announcements/${id}/`)
+  deleteAnnouncement: async (slug: string): Promise<void> => {
+    await api.delete(`/core/announcements/${slug}/`)
   },
 
   // Get announcements for current user
@@ -121,25 +131,25 @@ export const announcementsService = {
   },
 
   // Publish announcement
-  publishAnnouncement: async (id: string): Promise<Announcement> => {
-    const response = await api.post(`/core/announcements/${id}/publish/`)
+  publishAnnouncement: async (slug: string): Promise<Announcement> => {
+    const response = await api.post(`/core/announcements/${slug}/publish/`)
     return response.data
   },
 
   // Archive announcement
-  archiveAnnouncement: async (id: string): Promise<Announcement> => {
-    const response = await api.post(`/core/announcements/${id}/archive/`)
+  archiveAnnouncement: async (slug: string): Promise<Announcement> => {
+    const response = await api.post(`/core/announcements/${slug}/archive/`)
     return response.data
   },
 
   // Mark as read
-  markAsRead: async (id: string): Promise<void> => {
-    await api.post(`/core/announcements/${id}/mark_read/`)
+  markAsRead: async (slug: string): Promise<void> => {
+    await api.post(`/core/announcements/${slug}/mark_read/`)
   },
 
   // Acknowledge announcement
-  acknowledge: async (id: string): Promise<void> => {
-    await api.post(`/core/announcements/${id}/acknowledge/`)
+  acknowledge: async (slug: string): Promise<void> => {
+    await api.post(`/core/announcements/${slug}/acknowledge/`)
   },
 
   // Get unread count

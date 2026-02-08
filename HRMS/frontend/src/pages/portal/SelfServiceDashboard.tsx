@@ -126,14 +126,14 @@ export default function SelfServiceDashboard() {
   const handleOpenAnnouncement = (announcement: Announcement) => {
     setSelectedAnnouncement(announcement)
     if (!announcement.is_read) {
-      markReadMutation.mutate(announcement.id)
+      markReadMutation.mutate(announcement.slug)
     }
   }
 
   // Sort announcements: pinned first, then by date
   const sortedAnnouncements = [...announcements].sort((a, b) => {
-    if (a.is_pinned && !b.is_pinned) return -1
-    if (!a.is_pinned && b.is_pinned) return 1
+    if (a.pin_to_top && !b.pin_to_top) return -1
+    if (!a.pin_to_top && b.pin_to_top) return 1
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   })
 
@@ -201,7 +201,7 @@ export default function SelfServiceDashboard() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          {announcement.is_pinned && (
+                          {announcement.pin_to_top && (
                             <span className="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-0.5 rounded">
                               Pinned
                             </span>
@@ -382,9 +382,9 @@ export default function SelfServiceDashboard() {
               <span className="text-xs text-gray-400">
                 {formatDate(selectedAnnouncement.created_at)}
               </span>
-              {selectedAnnouncement.author_name && (
+              {selectedAnnouncement.created_by_name && (
                 <span className="text-xs text-gray-400">
-                  by {selectedAnnouncement.author_name}
+                  by {selectedAnnouncement.created_by_name}
                 </span>
               )}
             </div>
