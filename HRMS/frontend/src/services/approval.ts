@@ -169,10 +169,17 @@ export interface ContentTypeOption {
 
 const BASE = '/workflow'
 
+// Helper to unwrap paginated or flat responses
+function unwrapResults<T>(data: any): T[] {
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray(data.results)) return data.results
+  return []
+}
+
 // Workflow Definitions
 export const getWorkflows = async (params?: Record<string, string>) => {
   const { data } = await api.get(`${BASE}/definitions/`, { params })
-  return data as ApprovalWorkflow[]
+  return unwrapResults<ApprovalWorkflow>(data)
 }
 
 export const getWorkflow = async (id: string) => {
@@ -219,7 +226,7 @@ export const getContentTypes = async () => {
 // Pending Approvals (Inbox)
 export const getMyPendingApprovals = async (params?: Record<string, string>) => {
   const { data } = await api.get(`${BASE}/my-approvals/`, { params })
-  return data as PendingApproval[]
+  return unwrapResults<PendingApproval>(data)
 }
 
 // Approval Actions

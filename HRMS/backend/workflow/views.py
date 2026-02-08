@@ -238,7 +238,6 @@ class ApprovalStatsView(APIView):
 
     def get(self, request):
         user = request.user
-        today = timezone.now().date()
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         pending = ApprovalEngine.get_pending_for_user(user)
