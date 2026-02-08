@@ -25,6 +25,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       showPasswordToggle,
       type,
       id,
+      required,
       ...props
     },
     ref
@@ -63,6 +64,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             className="block text-sm font-medium text-gray-700 mb-2"
           >
             {label}
+            {required && <span className="text-red-500 ml-0.5">*</span>}
           </label>
         )}
         <div className="relative group">
@@ -85,6 +87,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               (rightIcon || (isPassword && showPasswordToggle)) && 'pr-11',
               className
             )}
+            required={required}
             {...props}
           />
           {(isPassword && showPasswordToggle) && (

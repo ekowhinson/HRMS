@@ -38,6 +38,7 @@ const LinkedSelect = forwardRef<HTMLSelectElement, LinkedSelectProps>(
       showAddNew = false,
       isLoading = false,
       id,
+      required,
       ...props
     },
     ref
@@ -52,6 +53,7 @@ const LinkedSelect = forwardRef<HTMLSelectElement, LinkedSelectProps>(
           <div className="flex items-center justify-between mb-1.5">
             <label htmlFor={selectId} className="block text-sm font-medium text-gray-700">
               {label}
+              {required && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             {showSetupLink && config && (
               <Tooltip content={config.setupLabel} position="left">
@@ -91,6 +93,7 @@ const LinkedSelect = forwardRef<HTMLSelectElement, LinkedSelectProps>(
               className
             )}
             disabled={isLoading || props.disabled}
+            required={required}
             {...props}
           >
             {placeholder && (
