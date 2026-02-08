@@ -539,7 +539,7 @@ export const disciplineService = {
 
   getMyCases: async (): Promise<DisciplinaryCase[]> => {
     const response = await api.get('/discipline/my-cases/')
-    return response.data
+    return Array.isArray(response.data) ? response.data : response.data.results || []
   },
 
   respondToShowCause: async (caseId: string, data: { show_cause_response: string }): Promise<DisciplinaryCase> => {
@@ -561,7 +561,7 @@ export const disciplineService = {
 
   getMyGrievances: async (): Promise<Grievance[]> => {
     const response = await api.get('/discipline/my-grievances/')
-    return response.data
+    return Array.isArray(response.data) ? response.data : response.data.results || []
   },
 
   fileGrievance: async (data: Partial<Grievance>): Promise<Grievance> => {
