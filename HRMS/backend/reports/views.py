@@ -3220,7 +3220,7 @@ class SalaryReconciliationView(APIView):
             prev_comps = previous_details.get(emp_id, {})
 
             if curr_item and not prev_item:
-                # New employee - Addition
+                # New employee - Addition: basic under additions, recurring earnings under recurring changes
                 emp = curr_item.employee
                 basic = safe_decimal(curr_item.basic_salary)
                 additions.append({
@@ -3229,8 +3229,24 @@ class SalaryReconciliationView(APIView):
                 })
                 total_additions += basic
 
+                # New employee's recurring earnings (excl basic, already in additions) appear as recurring changes
+                for code, detail in curr_comps.items():
+                    if code == 'BASIC':
+                        continue
+                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
+                        amt = detail['amount']
+                        if amt != Decimal('0'):
+                            recurring_changes.append({
+                                'employee_name': emp.full_name,
+                                'component_name': detail['name'],
+                                'previous_amount': 0.0,
+                                'current_amount': float(amt),
+                                'change': float(amt),
+                            })
+                            total_recurring_changes += amt
+
             elif prev_item and not curr_item:
-                # Removed employee - Deletion
+                # Removed employee - Deletion: basic under deletions, recurring earnings under recurring changes
                 emp = prev_item.employee
                 basic = safe_decimal(prev_item.basic_salary)
                 deletions.append({
@@ -3238,6 +3254,22 @@ class SalaryReconciliationView(APIView):
                     'amount': float(basic),
                 })
                 total_deletions += basic
+
+                # Removed employee's recurring earnings (excl basic, already in deletions) appear as negative recurring changes
+                for code, detail in prev_comps.items():
+                    if code == 'BASIC':
+                        continue
+                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
+                        amt = detail['amount']
+                        if amt != Decimal('0'):
+                            recurring_changes.append({
+                                'employee_name': emp.full_name,
+                                'component_name': detail['name'],
+                                'previous_amount': float(amt),
+                                'current_amount': 0.0,
+                                'change': float(-amt),
+                            })
+                            total_recurring_changes -= amt
 
             elif curr_item and prev_item:
                 # Existing employee - check for changes
