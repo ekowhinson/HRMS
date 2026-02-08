@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BanknotesIcon,
   ArrowDownTrayIcon,
   DocumentTextIcon,
   InformationCircleIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -30,6 +31,7 @@ function formatDate(dateStr: string) {
 export default function MyPayslipsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   const { data: payslips = [], isLoading } = useQuery({
     queryKey: ['my-payslips'],
@@ -47,10 +49,18 @@ export default function MyPayslipsPage() {
     }
   }
 
-  // Sort by payment date descending
-  const sortedPayslips = [...payslips].sort(
-    (a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
-  )
+  // Sort all payslips by payment date descending
+  const sortedPayslips = useMemo(() =>
+    [...payslips].sort(
+      (a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+    ), [payslips])
+
+  // Filter by period search
+  const filteredPayslips = useMemo(() => {
+    if (!search.trim()) return sortedPayslips
+    const q = search.toLowerCase()
+    return sortedPayslips.filter((p) => p.period_name?.toLowerCase().includes(q))
+  }, [sortedPayslips, search])
 
   return (
     <div className="space-y-6">
@@ -89,27 +99,41 @@ export default function MyPayslipsPage() {
       {/* Payslips List */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
-              <BanknotesIcon className="h-5 w-5 text-primary-600" />
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary-100 rounded-lg">
+                <BanknotesIcon className="h-5 w-5 text-primary-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Payslip History</h2>
+                <p className="text-sm text-gray-500">Click on a payslip to view details</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Payslip History</h2>
-              <p className="text-sm text-gray-500">Click on a payslip to view details</p>
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search period..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 w-52"
+              />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-6 text-center text-sm text-gray-500">Loading payslips...</div>
-          ) : sortedPayslips.length === 0 ? (
+          ) : filteredPayslips.length === 0 ? (
             <div className="p-8 text-center">
               <InformationCircleIcon className="mx-auto h-10 w-10 text-gray-300" />
-              <p className="mt-2 text-sm text-gray-500">No payslips available yet</p>
+              <p className="mt-2 text-sm text-gray-500">
+                {search.trim() ? `No payslips matching "${search}"` : 'No payslips available yet'}
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {sortedPayslips.map((payslip) => {
+              {filteredPayslips.map((payslip) => {
                 const isExpanded = expandedId === payslip.id
                 return (
                   <div key={payslip.id}>
