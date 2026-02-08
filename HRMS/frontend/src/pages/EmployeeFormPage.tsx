@@ -230,9 +230,11 @@ export default function EmployeeFormPage() {
   })
 
   const { data: districts } = useQuery({
-    queryKey: ['districts'],
+    queryKey: ['districts', formData.residential_region],
     queryFn: async () => {
-      const res = await api.get('/organization/districts/')
+      const params: Record<string, string> = { page_size: '100' }
+      if (formData.residential_region) params.region = formData.residential_region
+      const res = await api.get('/organization/districts/', { params })
       return res.data.results || res.data || []
     },
   })
@@ -824,7 +826,13 @@ export default function EmployeeFormPage() {
                   fieldKey="region"
                   label="Region"
                   value={formData.residential_region}
-                  onChange={(e) => handleChange('residential_region', e.target.value)}
+                  onChange={(e) => {
+                    const newRegion = e.target.value
+                    handleChange('residential_region', newRegion)
+                    if (newRegion !== formData.residential_region) {
+                      handleChange('residential_district', '')
+                    }
+                  }}
                   placeholder="Select Region"
                   options={(regions || []).map((r: any) => ({ value: r.id, label: r.name }))}
                 />
@@ -833,10 +841,8 @@ export default function EmployeeFormPage() {
                   label="District"
                   value={formData.residential_district}
                   onChange={(e) => handleChange('residential_district', e.target.value)}
-                  placeholder="Select District"
-                  options={(districts || [])
-                    .filter((d: any) => !formData.residential_region || d.region === formData.residential_region)
-                    .map((d: any) => ({ value: d.id, label: d.name }))}
+                  placeholder={formData.residential_region ? 'Select District' : 'Select Region first'}
+                  options={(districts || []).map((d: any) => ({ value: d.id, label: d.name }))}
                 />
                 <Input
                   label="Digital Address (GPS)"

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ShieldCheckIcon,
@@ -8,8 +8,6 @@ import {
   XCircleIcon,
   ExclamationTriangleIcon,
   ClipboardDocumentListIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import { TablePagination } from '@/components/ui/Table'
@@ -52,19 +50,45 @@ const eventTypeConfig: Record<string, { variant: 'success' | 'danger' | 'warning
   TWO_FACTOR_FAILED: { variant: 'danger', icon: XCircleIcon },
 }
 
-// ==================== Changes Diff Component ====================
+// ==================== Changes Diff Component (mini-table) ====================
 
 function ChangesDiff({ changes }: { changes: Record<string, { old: unknown; new: unknown }> }) {
   return (
-    <div className="mt-2 bg-gray-50 rounded-lg p-3 text-xs space-y-1.5">
-      {Object.entries(changes).map(([field, diff]) => (
-        <div key={field} className="flex items-start gap-2">
-          <span className="font-medium text-gray-700 min-w-[120px]">{field}:</span>
-          <span className="text-red-600 line-through">{String(diff.old ?? '—')}</span>
-          <span className="text-gray-400">&rarr;</span>
-          <span className="text-green-600">{String(diff.new ?? '—')}</span>
-        </div>
-      ))}
+    <table className="text-xs w-full">
+      <thead>
+        <tr className="text-left text-gray-500">
+          <th className="py-1 pr-4 font-medium">Field</th>
+          <th className="py-1 pr-4 font-medium">Old Value</th>
+          <th className="py-1 font-medium">New Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Object.entries(changes).map(([field, diff]) => (
+          <tr key={field} className="border-t border-gray-100">
+            <td className="py-1 pr-4 font-medium text-gray-700">{field}</td>
+            <td className="py-1 pr-4 text-red-600 line-through">{String(diff.old ?? '—')}</td>
+            <td className="py-1 text-green-600">{String(diff.new ?? '—')}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+// ==================== Values Summary Component ====================
+
+function ValuesSummary({ values, label }: { values: Record<string, unknown>; label: string }) {
+  return (
+    <div className="text-xs">
+      <span className="font-medium text-gray-500">{label}:</span>
+      <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
+        {Object.entries(values).map(([field, value]) => (
+          <div key={field} className="flex gap-1">
+            <span className="font-medium text-gray-700">{field}:</span>
+            <span className="text-gray-600 truncate">{String(value ?? '—')}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -74,7 +98,6 @@ function ChangesDiff({ changes }: { changes: Record<string, { old: unknown; new:
 function ActivityLogsTab() {
   const [filters, setFilters] = useState<AuditLogParams>({ page: 1 })
   const [showFilters, setShowFilters] = useState(false)
-  const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const pageSize = 20
 
   const { data: modelNames = [] } = useQuery({
@@ -218,7 +241,6 @@ function ActivityLogsTab() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-500 bg-gray-50 border-b border-gray-200">
-                    <th className="px-6 py-3 w-8" />
                     <th className="px-6 py-3">Timestamp</th>
                     <th className="px-6 py-3">User</th>
                     <th className="px-6 py-3">Action</th>
@@ -231,23 +253,14 @@ function ActivityLogsTab() {
                 <tbody className="divide-y divide-gray-100">
                   {logs.map((log: AuditLogEntry) => {
                     const config = actionBadgeConfig[log.action] || { variant: 'default' as const }
-                    const isExpanded = expandedRow === log.id
-                    const hasChanges = log.action === 'UPDATE' && log.changes && Object.keys(log.changes).length > 0
+                    const hasUpdateChanges = log.action === 'UPDATE' && log.changes && Object.keys(log.changes).length > 0
+                    const hasNewValues = log.action === 'CREATE' && log.new_values && Object.keys(log.new_values).length > 0
+                    const hasOldValues = log.action === 'DELETE' && log.old_values && Object.keys(log.old_values).length > 0
+                    const hasChangeData = hasUpdateChanges || hasNewValues || hasOldValues
 
                     return (
-                      <>
-                        <tr
-                          key={log.id}
-                          className={`hover:bg-gray-50 ${hasChanges ? 'cursor-pointer' : ''}`}
-                          onClick={() => hasChanges && setExpandedRow(isExpanded ? null : log.id)}
-                        >
-                          <td className="px-6 py-3 w-8">
-                            {hasChanges && (
-                              isExpanded
-                                ? <ChevronDownIcon className="h-4 w-4 text-gray-400" />
-                                : <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                            )}
-                          </td>
+                      <Fragment key={log.id}>
+                        <tr className={`hover:bg-gray-50 ${hasChangeData ? 'border-b-0' : ''}`}>
                           <td className="px-6 py-3 text-xs text-gray-600 whitespace-nowrap">
                             {formatDateTime(log.timestamp)}
                           </td>
@@ -275,15 +288,18 @@ function ActivityLogsTab() {
                               : '—'}
                           </td>
                         </tr>
-                        {/* Expanded row detail */}
-                        {isExpanded && log.changes && (
-                          <tr key={`${log.id}-detail`}>
-                            <td colSpan={8} className="px-14 pb-4 pt-0 bg-gray-50/50">
-                              <ChangesDiff changes={log.changes} />
+                        {hasChangeData && (
+                          <tr className="bg-gray-50/50">
+                            <td colSpan={7} className="px-6 pb-3 pt-0">
+                              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                                {hasUpdateChanges && <ChangesDiff changes={log.changes!} />}
+                                {hasNewValues && <ValuesSummary values={log.new_values!} label="New values" />}
+                                {hasOldValues && <ValuesSummary values={log.old_values!} label="Previous values" />}
+                              </div>
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     )
                   })}
                 </tbody>
