@@ -136,6 +136,7 @@ export default function PayrollProcessingPage() {
     onSuccess: (data) => {
       toast.success(`Payroll computed: ${data.data?.total_employees || 0} employees processed`)
       queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to compute payroll')
@@ -147,6 +148,7 @@ export default function PayrollProcessingPage() {
     onSuccess: () => {
       toast.success('Payroll approved')
       queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
       setShowConfirmModal(null)
     },
     onError: (error: any) => {
@@ -159,6 +161,7 @@ export default function PayrollProcessingPage() {
     onSuccess: (data) => {
       toast.success(`Payment processed: ${data.data?.employees_paid || 0} employees paid`)
       queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
       setShowConfirmModal(null)
     },
     onError: (error: any) => {
@@ -195,6 +198,7 @@ export default function PayrollProcessingPage() {
     onSuccess: () => {
       toast.success('Payroll run reset to draft')
       queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
       setShowConfirmModal(null)
     },
     onError: (error: any) => {
