@@ -868,7 +868,7 @@ export default function EmployeeDetailPage() {
                   {employee.salary_notch_amount && (
                     <div>
                       <span className="text-gray-500">Notch Amount: </span>
-                      <span className="font-medium text-gray-900">{formatCurrency(employee.salary_notch_amount)}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(parseFloat(employee.salary_notch_amount))}</span>
                     </div>
                   )}
                   {employee.bank_name && (
