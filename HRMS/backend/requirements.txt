@@ -44,6 +44,10 @@ anthropic>=0.39.0
 pandas>=2.0.0
 openpyxl>=3.1.0
 
+# Two-Factor Authentication
+pyotp>=2.9.0
+qrcode[pil]>=8.0
+
 # Multi-provider authentication
 django-auth-ldap>=4.6.0
 python-ldap>=3.4.4

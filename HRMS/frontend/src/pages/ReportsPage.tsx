@@ -532,26 +532,56 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-xl p-4 border border-primary-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
-              <ArrowsRightLeftIcon className="h-5 w-5 text-primary-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Payroll Reconciliation</h3>
-              <p className="text-sm text-gray-500">Compare payroll between periods to identify changes</p>
-            </div>
+      {/* Quick Access - Dedicated Report Pages */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <Link
+          to="/reports/journal"
+          className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 hover:border-blue-300 transition-colors group"
+        >
+          <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+            <DocumentTextIcon className="h-5 w-5 text-blue-600" />
           </div>
-          <Link
-            to="/reports/reconciliation"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            Open Reconciliation
-            <ArrowsRightLeftIcon className="h-4 w-4" />
-          </Link>
-        </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Payroll Journal</h3>
+            <p className="text-xs text-gray-500">View journal entries</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/salary-reconciliation"
+          className="flex items-center gap-3 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-100 hover:border-amber-300 transition-colors group"
+        >
+          <div className="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
+            <ArrowsRightLeftIcon className="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Salary Reconciliation</h3>
+            <p className="text-xs text-gray-500">Compare salary changes</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/reconciliation"
+          className="flex items-center gap-3 p-4 bg-gradient-to-r from-primary-50 to-emerald-50 rounded-xl border border-primary-100 hover:border-primary-300 transition-colors group"
+        >
+          <div className="p-2 bg-primary-100 rounded-lg group-hover:bg-primary-200 transition-colors">
+            <ArrowsRightLeftIcon className="h-5 w-5 text-primary-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Period Reconciliation</h3>
+            <p className="text-xs text-gray-500">Compare between periods</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/payroll-master"
+          className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100 hover:border-purple-300 transition-colors group"
+        >
+          <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+            <ClipboardDocumentListIcon className="h-5 w-5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Payroll Master</h3>
+            <p className="text-xs text-gray-500">Detailed payroll breakdown</p>
+          </div>
+        </Link>
       </div>
 
       {/* Category Filter */}

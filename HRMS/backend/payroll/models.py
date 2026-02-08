@@ -1232,6 +1232,13 @@ class PayrollItemDetail(BaseModel):
     rate = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     is_arrear = models.BooleanField(default=False)
     arrear_months = models.PositiveSmallIntegerField(null=True, blank=True)
+    backpay_request = models.ForeignKey(
+        'BackpayRequest',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='payroll_item_details'
+    )
     notes = models.TextField(null=True, blank=True)
 
     class Meta:
@@ -1630,6 +1637,18 @@ class EmployeeTransaction(BaseModel):
         db_index=True
     )
 
+    # Versioning — links updated transactions to their predecessor
+    parent_transaction = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='child_versions',
+        help_text='Original transaction this version was created from'
+    )
+    version = models.PositiveSmallIntegerField(default=1)
+    is_current_version = models.BooleanField(default=True, db_index=True)
+
     # Approval workflow
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1867,3 +1886,170 @@ class EmployeeTransaction(BaseModel):
                 self.calendar = active_calendar
 
         super().save(*args, **kwargs)
+
+
+class BackpayRequest(BaseModel):
+    """
+    Backpay/retroactive pay request for an employee.
+    Tracks the calculation, approval, and application of arrears.
+    """
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        PREVIEWED = 'PREVIEWED', 'Previewed'
+        APPROVED = 'APPROVED', 'Approved'
+        APPLIED = 'APPLIED', 'Applied to Payroll'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    class Reason(models.TextChoices):
+        PROMOTION = 'PROMOTION', 'Promotion'
+        UPGRADE = 'UPGRADE', 'Grade/Level Upgrade'
+        SALARY_REVISION = 'SALARY_REVISION', 'Salary Revision'
+        CORRECTION = 'CORRECTION', 'Payroll Correction'
+        DELAYED_INCREMENT = 'DELAYED_INCREMENT', 'Delayed Increment'
+        BACKDATED_JOINING = 'BACKDATED_JOINING', 'Backdated Joining Date'
+        OTHER = 'OTHER', 'Other'
+
+    reference_number = models.CharField(max_length=50, unique=True, db_index=True)
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.CASCADE,
+        related_name='backpay_requests'
+    )
+    new_salary = models.ForeignKey(
+        EmployeeSalary,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backpay_as_new',
+        help_text='Optional reference to the triggering salary change'
+    )
+    old_salary = models.ForeignKey(
+        EmployeeSalary,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backpay_as_old'
+    )
+    reason = models.CharField(max_length=30, choices=Reason.choices)
+    description = models.TextField(null=True, blank=True)
+    effective_from = models.DateField()
+    effective_to = models.DateField()
+
+    # Computed totals
+    total_arrears_earnings = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_arrears_deductions = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    net_arrears = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    periods_covered = models.PositiveSmallIntegerField(default=0)
+
+    # Status workflow
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True
+    )
+    applied_to_run = models.ForeignKey(
+        PayrollRun,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backpay_requests'
+    )
+    payroll_period = models.ForeignKey(
+        'PayrollPeriod',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backpay_requests_created',
+        help_text='Active payroll period when this backpay was created'
+    )
+    reference_period = models.ForeignKey(
+        'PayrollPeriod',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backpay_requests_referenced',
+        help_text='Payroll period whose salary/transaction data to use for new figures'
+    )
+
+    # Approval
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_backpay_requests'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'backpay_requests'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['employee', 'status']),
+            models.Index(fields=['status', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.reference_number} - {self.employee.employee_number}"
+
+    def save(self, *args, **kwargs):
+        if not self.reference_number:
+            self.reference_number = self.generate_reference_number()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generate_reference_number(cls) -> str:
+        import uuid
+        from datetime import datetime
+        prefix = datetime.now().strftime('%Y%m')
+        suffix = uuid.uuid4().hex[:8].upper()
+        return f"BP-{prefix}-{suffix}"
+
+
+class BackpayDetail(BaseModel):
+    """
+    Per-period, per-component breakdown of a backpay calculation.
+    """
+    backpay_request = models.ForeignKey(
+        BackpayRequest,
+        on_delete=models.CASCADE,
+        related_name='details'
+    )
+    payroll_period = models.ForeignKey(
+        PayrollPeriod,
+        on_delete=models.PROTECT,
+        related_name='backpay_details'
+    )
+    original_payroll_item = models.ForeignKey(
+        PayrollItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backpay_details'
+    )
+    applicable_salary = models.ForeignKey(
+        EmployeeSalary,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backpay_details',
+        help_text='The salary that was effective for this period'
+    )
+    pay_component = models.ForeignKey(
+        PayComponent,
+        on_delete=models.PROTECT,
+        related_name='backpay_details'
+    )
+    old_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    new_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    difference = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        db_table = 'backpay_details'
+        ordering = ['payroll_period__start_date', 'pay_component__display_order']
+        unique_together = ['backpay_request', 'payroll_period', 'pay_component']
+
+    def __str__(self):
+        return f"{self.backpay_request.reference_number} - {self.payroll_period.name} - {self.pay_component.code}"

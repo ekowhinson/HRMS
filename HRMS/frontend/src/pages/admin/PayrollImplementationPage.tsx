@@ -469,7 +469,6 @@ function ProcessingStep({ progress }: { progress: PayrollProgress | null }) {
               const phaseNum = idx + 1
               const isCurrent = progress?.phase === phaseNum
               const isComplete = (progress?.phase || 0) > phaseNum
-              const isFuture = (progress?.phase || 0) < phaseNum
 
               return (
                 <div key={idx} className={`flex items-start gap-4 p-3 rounded-lg ${

@@ -27,6 +27,7 @@ export interface AuthTokens {
 export interface LoginCredentials {
   email: string
   password: string
+  two_factor_code?: string
 }
 
 // Employee Types
@@ -533,6 +534,65 @@ export interface PayrollItem {
   net_salary: number
   paye: number
   ssnit_employee: number
+}
+
+// Backpay Types
+export type BackpayStatus = 'DRAFT' | 'PREVIEWED' | 'APPROVED' | 'APPLIED' | 'CANCELLED'
+
+export type BackpayReason =
+  | 'PROMOTION'
+  | 'UPGRADE'
+  | 'SALARY_REVISION'
+  | 'CORRECTION'
+  | 'DELAYED_INCREMENT'
+  | 'BACKDATED_JOINING'
+  | 'OTHER'
+
+export interface BackpayRequest {
+  id: string
+  reference_number: string
+  employee: string
+  employee_name: string
+  employee_number: string
+  reason: string
+  reason_display: string
+  description?: string
+  effective_from: string
+  effective_to: string
+  total_arrears_earnings: number
+  total_arrears_deductions: number
+  net_arrears: number
+  periods_covered: number
+  status: BackpayStatus
+  status_display: string
+  applied_to_run?: string
+  applied_at?: string
+  payroll_period?: string
+  payroll_period_name?: string
+  reference_period?: string
+  reference_period_name?: string
+  created_by?: string
+  created_by_name?: string
+  approved_by?: string
+  approved_by_name?: string
+  approved_at?: string
+  details?: BackpayDetail[]
+  created_at: string
+  updated_at?: string
+}
+
+export interface BackpayDetail {
+  id: string
+  backpay_request: string
+  payroll_period: string
+  period_name: string
+  pay_component: string
+  component_code: string
+  component_name: string
+  component_type: string
+  old_amount: number
+  new_amount: number
+  difference: number
 }
 
 // Benefits Types

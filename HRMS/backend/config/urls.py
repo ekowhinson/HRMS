@@ -39,7 +39,7 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     # Health check
-    path('health/', include('core.urls')),
+    path('health/', include('core.urls', namespace='core-health')),
 ]
 
 # Serve media files in development

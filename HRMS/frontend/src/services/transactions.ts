@@ -315,4 +315,18 @@ export const transactionsService = {
     const response = await api.post('/payroll/paye-brackets/calculate_cumulative/')
     return response.data
   },
+
+  // ==================== SSNIT Rates ====================
+
+  getSSNITRates: async (): Promise<any[]> => {
+    const response = await api.get('/payroll/ssnit-rates/')
+    return response.data.results || response.data
+  },
+
+  // ==================== Tax Reliefs ====================
+
+  getTaxReliefs: async (): Promise<any[]> => {
+    const response = await api.get('/payroll/tax-reliefs/')
+    return response.data.results || response.data
+  },
 }

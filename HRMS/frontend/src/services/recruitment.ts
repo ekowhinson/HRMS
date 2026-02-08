@@ -725,6 +725,18 @@ export const recruitmentService = {
     return response.data
   },
 
+  // ==================== Applicant Portal ====================
+
+  portalLogin: async (data: { email: string; application_number: string }): Promise<any> => {
+    const response = await api.post('/recruitment/portal/login/', data)
+    return response.data
+  },
+
+  getPortalStatus: async (params?: { application_number?: string }): Promise<any> => {
+    const response = await api.get('/recruitment/portal/status/', { params })
+    return response.data
+  },
+
   // ==================== Public Careers ====================
 
   getPublicVacancies: async (): Promise<Vacancy[]> => {

@@ -11,6 +11,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
+  ArrowPathIcon,
   BuildingOfficeIcon,
   ClipboardDocumentCheckIcon,
   CalculatorIcon,
@@ -120,6 +121,7 @@ const hrSections: NavSection[] = [
 const payrollNavigation: NavItem[] = [
   { name: 'Payroll Overview', href: '/payroll', icon: BanknotesIcon },
   { name: 'Process Payroll', href: '/admin/payroll', icon: CalculatorIcon },
+  { name: 'Backpay', href: '/admin/backpay', icon: ArrowPathIcon },
   { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
   { name: 'Employee Transactions', href: '/admin/employee-transactions', icon: DocumentPlusIcon },
   { name: 'Benefits', href: '/benefits', icon: GiftIcon },

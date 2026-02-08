@@ -61,7 +61,7 @@ app.conf.update(
 )
 
 # Auto-discover tasks from all installed apps
-app.autodiscover_tasks(['imports', 'core'])
+app.autodiscover_tasks(['imports', 'core', 'payroll'])
 
 
 @app.task(bind=True, ignore_result=True)

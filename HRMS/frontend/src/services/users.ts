@@ -59,6 +59,9 @@ export interface User {
   is_verified: boolean
   must_change_password: boolean
   two_factor_enabled: boolean
+  two_factor_method?: string
+  failed_login_attempts: number
+  lockout_until: string | null
   last_login_at: string | null
   last_login_ip: string | null
   employee?: {

@@ -17,8 +17,10 @@ import {
   XMarkIcon,
   PauseIcon,
   PlayIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline'
 import { employeeService } from '@/services/employees'
+import { payrollService } from '@/services/payroll'
 import { transactionsService } from '@/services/transactions'
 import { leaveService } from '@/services/leave'
 import type { PayComponent, EmployeeTransaction, LeaveRequest } from '@/types'
@@ -45,6 +47,7 @@ const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'info' | '
 export default function EmployeeDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<TabType>('personal')
+  const [expandedPayslips, setExpandedPayslips] = useState<Record<string, boolean>>({})
 
   const { data: employee, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['employee', id],
@@ -81,6 +84,13 @@ export default function EmployeeDetailPage() {
     queryKey: ['employee-leave-requests', id],
     queryFn: () => leaveService.getLeaveRequests({ employee: id }),
     enabled: !!id,
+  })
+
+  // Payslip query for the employee
+  const { data: employeePayslips, isLoading: isLoadingPayslips } = useQuery({
+    queryKey: ['employee-payslips', id],
+    queryFn: () => payrollService.getEmployeePayslips(id!),
+    enabled: !!id && activeTab === 'salary',
   })
 
   const createTransactionMutation = useMutation({
@@ -831,37 +841,203 @@ export default function EmployeeDetailPage() {
       )}
 
       {activeTab === 'salary' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Salary Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {employee.salary ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <p className="text-sm text-green-600">Basic Salary</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    {formatCurrency(employee.salary.basic_salary)}
-                  </p>
+        <div className="space-y-4">
+          {isLoadingPayslips ? (
+            <Card>
+              <CardContent>
+                <div className="flex items-center justify-center py-12">
+                  <svg className="animate-spin h-8 w-8 text-primary-600" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span className="ml-3 text-gray-500">Loading payslip data...</span>
                 </div>
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-600">Total Allowances</p>
-                  <p className="text-2xl font-bold text-blue-700">
-                    {formatCurrency(employee.salary.total_allowances || 0)}
-                  </p>
-                </div>
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <p className="text-sm text-purple-600">Gross Salary</p>
-                  <p className="text-2xl font-bold text-purple-700">
-                    {formatCurrency(employee.salary.gross_salary || 0)}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-8">No salary information available</p>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          ) : employeePayslips && employeePayslips.length > 0 ? (
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle>Payroll History</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-gray-100">
+                    {employeePayslips.map((payslip: any) => {
+                      const isExpanded = expandedPayslips[payslip.id] || false
+                      const details = payslip.details || []
+                      const earnings = details.filter((d: any) => d.component_type === 'EARNING')
+                      const deductions = details.filter((d: any) => d.component_type === 'DEDUCTION')
+                      const employerContributions = details.filter((d: any) => d.component_type === 'EMPLOYER')
+                      const totalEmployer = employerContributions.reduce((sum: number, d: any) => sum + parseFloat(d.amount || 0), 0)
+
+                      return (
+                        <div key={payslip.id}>
+                          {/* Collapsible Header */}
+                          <button
+                            type="button"
+                            onClick={() => setExpandedPayslips(prev => ({ ...prev, [payslip.id]: !prev[payslip.id] }))}
+                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <ChevronRightIcon className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                              <div>
+                                <p className="text-sm font-semibold text-gray-900">{payslip.period_name || 'Payroll Period'}</p>
+                                <Badge variant={payslip.status === 'PAID' ? 'success' : payslip.status === 'APPROVED' ? 'info' : 'warning'} className="mt-1">
+                                  {payslip.status}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-6 text-right">
+                              <div>
+                                <p className="text-xs text-gray-500">Gross</p>
+                                <p className="text-sm font-semibold text-green-700">{formatCurrency(payslip.gross_earnings)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">Deductions</p>
+                                <p className="text-sm font-semibold text-red-700">{formatCurrency(payslip.total_deductions)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">Net</p>
+                                <p className="text-sm font-bold text-blue-700">{formatCurrency(payslip.net_salary)}</p>
+                              </div>
+                            </div>
+                          </button>
+
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className="px-6 pb-6 pt-2 bg-gray-50/50 border-t border-gray-100">
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                {/* Earnings */}
+                                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                  <h4 className="text-sm font-semibold text-green-700 mb-3">Earnings</h4>
+                                  <div className="divide-y divide-gray-100">
+                                    {earnings.map((item: any, idx: number) => (
+                                      <div key={idx} className="flex items-center justify-between py-2">
+                                        <span className="text-sm text-gray-700">{item.component_name}</span>
+                                        <span className="text-sm font-medium text-gray-900">{formatCurrency(item.amount)}</span>
+                                      </div>
+                                    ))}
+                                    <div className="flex items-center justify-between py-2 font-semibold">
+                                      <span className="text-sm text-green-700">Gross Salary</span>
+                                      <span className="text-sm text-green-700">{formatCurrency(payslip.gross_earnings)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Deductions */}
+                                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                  <h4 className="text-sm font-semibold text-red-700 mb-3">Deductions</h4>
+                                  <div className="divide-y divide-gray-100">
+                                    {deductions.map((item: any, idx: number) => (
+                                      <div key={idx} className="flex items-center justify-between py-2">
+                                        <span className="text-sm text-gray-700">{item.component_name}</span>
+                                        <span className="text-sm font-medium text-gray-900">-{formatCurrency(item.amount)}</span>
+                                      </div>
+                                    ))}
+                                    <div className="flex items-center justify-between py-2 font-semibold">
+                                      <span className="text-sm text-red-700">Total Deductions</span>
+                                      <span className="text-sm text-red-700">-{formatCurrency(payslip.total_deductions)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 pt-3 border-t-2 border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-bold text-gray-900">NET SALARY</span>
+                                      <span className="text-sm font-bold text-blue-700">{formatCurrency(payslip.net_salary)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Employer Contributions */}
+                              {employerContributions.length > 0 && (
+                                <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                                  <h4 className="text-sm font-semibold text-purple-700 mb-3">Employer Contributions</h4>
+                                  <div className="divide-y divide-gray-100 max-w-lg">
+                                    {employerContributions.map((item: any, idx: number) => (
+                                      <div key={idx} className="flex items-center justify-between py-2">
+                                        <span className="text-sm text-gray-700">{item.component_name}</span>
+                                        <span className="text-sm font-medium text-gray-900">{formatCurrency(item.amount)}</span>
+                                      </div>
+                                    ))}
+                                    <div className="flex items-center justify-between py-2 font-semibold">
+                                      <span className="text-sm text-purple-700">Total Contributions</span>
+                                      <span className="text-sm text-purple-700">{formatCurrency(totalEmployer)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 pt-3 border-t-2 border-gray-200 max-w-lg">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-bold text-gray-900">EMPLOYER COST</span>
+                                      <span className="text-sm font-bold text-purple-700">
+                                        {formatCurrency(payslip.employer_cost || (parseFloat(payslip.gross_earnings || 0) + totalEmployer))}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">(Gross + Employer Contributions)</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Bank Details */}
+                              {(payslip.bank_name || payslip.bank_account_number) && (
+                                <div className="mt-4 flex items-center gap-6 text-sm text-gray-600">
+                                  <div>
+                                    <span className="text-gray-500">Bank: </span>
+                                    <span className="font-medium text-gray-900">{payslip.bank_name || 'N/A'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Account: </span>
+                                    <span className="font-medium text-gray-900">{payslip.bank_account_number || 'N/A'}</span>
+                                  </div>
+                                  {payslip.bank_branch && (
+                                    <div>
+                                      <span className="text-gray-500">Branch: </span>
+                                      <span className="font-medium text-gray-900">{payslip.bank_branch}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <Card>
+              <CardContent>
+                {employee.salary ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-5 bg-green-50 rounded-xl border border-green-100">
+                        <p className="text-sm text-green-600 font-medium">Basic Salary</p>
+                        <p className="text-2xl font-bold text-green-700 mt-1">
+                          {formatCurrency(employee.salary.basic_salary)}
+                        </p>
+                      </div>
+                      <div className="p-5 bg-blue-50 rounded-xl border border-blue-100">
+                        <p className="text-sm text-blue-600 font-medium">Total Allowances</p>
+                        <p className="text-2xl font-bold text-blue-700 mt-1">
+                          {formatCurrency(employee.salary.total_allowances || 0)}
+                        </p>
+                      </div>
+                      <div className="p-5 bg-purple-50 rounded-xl border border-purple-100">
+                        <p className="text-sm text-purple-600 font-medium">Gross Salary</p>
+                        <p className="text-2xl font-bold text-purple-700 mt-1">
+                          {formatCurrency(employee.salary.gross_salary || 0)}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 text-center">No payslip data available yet. Salary breakdown will appear after payroll is processed.</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No salary information available</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {activeTab === 'leave' && (

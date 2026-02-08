@@ -181,6 +181,129 @@ export const employeeService = {
     await api.delete(`/organization/grades/${id}/`)
   },
 
+  // ==================== Units ====================
+
+  getUnits: async (params?: Record<string, any>) => {
+    const response = await api.get('/organization/units/', { params })
+    return response.data.results || response.data
+  },
+
+  createUnit: async (data: any) => {
+    const response = await api.post('/organization/units/', data)
+    return response.data
+  },
+
+  updateUnit: async (id: string, data: any) => {
+    const response = await api.patch(`/organization/units/${id}/`, data)
+    return response.data
+  },
+
+  deleteUnit: async (id: string) => {
+    await api.delete(`/organization/units/${id}/`)
+  },
+
+  // ==================== Categories ====================
+
+  getCategories: async (params?: Record<string, any>) => {
+    const response = await api.get('/organization/categories/', { params })
+    return response.data.results || response.data
+  },
+
+  createCategory: async (data: any) => {
+    const response = await api.post('/organization/categories/', data)
+    return response.data
+  },
+
+  updateCategory: async (id: string, data: any) => {
+    const response = await api.patch(`/organization/categories/${id}/`, data)
+    return response.data
+  },
+
+  deleteCategory: async (id: string) => {
+    await api.delete(`/organization/categories/${id}/`)
+  },
+
+  // ==================== Cost Centers ====================
+
+  getCostCenters: async (params?: Record<string, any>) => {
+    const response = await api.get('/organization/cost-centers/', { params })
+    return response.data.results || response.data
+  },
+
+  createCostCenter: async (data: any) => {
+    const response = await api.post('/organization/cost-centers/', data)
+    return response.data
+  },
+
+  updateCostCenter: async (id: string, data: any) => {
+    const response = await api.patch(`/organization/cost-centers/${id}/`, data)
+    return response.data
+  },
+
+  deleteCostCenter: async (id: string) => {
+    await api.delete(`/organization/cost-centers/${id}/`)
+  },
+
+  // ==================== Locations ====================
+
+  getLocations: async (params?: Record<string, any>) => {
+    const response = await api.get('/organization/locations/', { params })
+    return response.data.results || response.data
+  },
+
+  createLocation: async (data: any) => {
+    const response = await api.post('/organization/locations/', data)
+    return response.data
+  },
+
+  updateLocation: async (id: string, data: any) => {
+    const response = await api.patch(`/organization/locations/${id}/`, data)
+    return response.data
+  },
+
+  deleteLocation: async (id: string) => {
+    await api.delete(`/organization/locations/${id}/`)
+  },
+
+  // ==================== Holidays ====================
+
+  getHolidays: async (params?: Record<string, any>) => {
+    const response = await api.get('/organization/holidays/', { params })
+    return response.data.results || response.data
+  },
+
+  createHoliday: async (data: any) => {
+    const response = await api.post('/organization/holidays/', data)
+    return response.data
+  },
+
+  updateHoliday: async (id: string, data: any) => {
+    const response = await api.patch(`/organization/holidays/${id}/`, data)
+    return response.data
+  },
+
+  deleteHoliday: async (id: string) => {
+    await api.delete(`/organization/holidays/${id}/`)
+  },
+
+  // ==================== Read-only: Chart, Regions, Districts ====================
+
+  getOrgChart: async () => {
+    const response = await api.get('/organization/chart/')
+    return response.data
+  },
+
+  getRegions: async () => {
+    const response = await api.get('/organization/regions/')
+    return response.data.results || response.data
+  },
+
+  getDistricts: async (regionId?: string) => {
+    const params = regionId ? { region: regionId } : {}
+    const response = await api.get('/organization/districts/', { params })
+    return response.data.results || response.data
+  },
+
   // Upload employee photo
   uploadPhoto: async (id: string, file: File): Promise<{ message: string; photo_url: string }> => {
     const formData = new FormData()

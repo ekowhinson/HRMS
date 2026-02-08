@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
-import { CloudArrowUpIcon, XMarkIcon, DocumentIcon, PhotoIcon } from '@heroicons/react/24/outline'
+import { CloudArrowUpIcon, XMarkIcon, DocumentIcon } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
 export interface DocumentInfo {

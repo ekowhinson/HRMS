@@ -343,6 +343,136 @@ export const leaveService = {
     return response.data
   },
 
+  // ==================== Workflow Templates ====================
+
+  getWorkflowTemplates: async (params?: Record<string, any>) => {
+    const response = await api.get('/leave/workflow-templates/', { params })
+    return Array.isArray(response.data) ? response.data : (response.data?.results || [])
+  },
+
+  getWorkflowTemplate: async (id: string) => {
+    const response = await api.get(`/leave/workflow-templates/${id}/`)
+    return response.data
+  },
+
+  createWorkflowTemplate: async (data: any) => {
+    const response = await api.post('/leave/workflow-templates/', data)
+    return response.data
+  },
+
+  updateWorkflowTemplate: async (id: string, data: any) => {
+    const response = await api.patch(`/leave/workflow-templates/${id}/`, data)
+    return response.data
+  },
+
+  deleteWorkflowTemplate: async (id: string) => {
+    await api.delete(`/leave/workflow-templates/${id}/`)
+  },
+
+  // ==================== Workflow Levels ====================
+
+  getWorkflowLevels: async (params?: Record<string, any>) => {
+    const response = await api.get('/leave/workflow-levels/', { params })
+    return Array.isArray(response.data) ? response.data : (response.data?.results || [])
+  },
+
+  getWorkflowLevel: async (id: string) => {
+    const response = await api.get(`/leave/workflow-levels/${id}/`)
+    return response.data
+  },
+
+  createWorkflowLevel: async (data: any) => {
+    const response = await api.post('/leave/workflow-levels/', data)
+    return response.data
+  },
+
+  updateWorkflowLevel: async (id: string, data: any) => {
+    const response = await api.patch(`/leave/workflow-levels/${id}/`, data)
+    return response.data
+  },
+
+  deleteWorkflowLevel: async (id: string) => {
+    await api.delete(`/leave/workflow-levels/${id}/`)
+  },
+
+  // ==================== Location Mappings ====================
+
+  getLocationMappings: async (params?: Record<string, any>) => {
+    const response = await api.get('/leave/location-mappings/', { params })
+    return Array.isArray(response.data) ? response.data : (response.data?.results || [])
+  },
+
+  getLocationMapping: async (id: string) => {
+    const response = await api.get(`/leave/location-mappings/${id}/`)
+    return response.data
+  },
+
+  createLocationMapping: async (data: any) => {
+    const response = await api.post('/leave/location-mappings/', data)
+    return response.data
+  },
+
+  updateLocationMapping: async (id: string, data: any) => {
+    const response = await api.patch(`/leave/location-mappings/${id}/`, data)
+    return response.data
+  },
+
+  deleteLocationMapping: async (id: string) => {
+    await api.delete(`/leave/location-mappings/${id}/`)
+  },
+
+  // ==================== Workflow Status ====================
+
+  getWorkflowStatuses: async (params?: Record<string, any>) => {
+    const response = await api.get('/leave/workflow-status/', { params })
+    return Array.isArray(response.data) ? response.data : (response.data?.results || [])
+  },
+
+  getWorkflowStatus: async (id: string) => {
+    const response = await api.get(`/leave/workflow-status/${id}/`)
+    return response.data
+  },
+
+  createWorkflowStatus: async (data: any) => {
+    const response = await api.post('/leave/workflow-status/', data)
+    return response.data
+  },
+
+  updateWorkflowStatus: async (id: string, data: any) => {
+    const response = await api.patch(`/leave/workflow-status/${id}/`, data)
+    return response.data
+  },
+
+  deleteWorkflowStatus: async (id: string) => {
+    await api.delete(`/leave/workflow-status/${id}/`)
+  },
+
+  // ==================== Reliever Validations ====================
+
+  getRelieverValidations: async (params?: Record<string, any>) => {
+    const response = await api.get('/leave/reliever-validations/', { params })
+    return Array.isArray(response.data) ? response.data : (response.data?.results || [])
+  },
+
+  getRelieverValidation: async (id: string) => {
+    const response = await api.get(`/leave/reliever-validations/${id}/`)
+    return response.data
+  },
+
+  createRelieverValidation: async (data: any) => {
+    const response = await api.post('/leave/reliever-validations/', data)
+    return response.data
+  },
+
+  updateRelieverValidation: async (id: string, data: any) => {
+    const response = await api.patch(`/leave/reliever-validations/${id}/`, data)
+    return response.data
+  },
+
+  deleteRelieverValidation: async (id: string) => {
+    await api.delete(`/leave/reliever-validations/${id}/`)
+  },
+
   // ==================== Year-End Processing ====================
 
   processYearEnd: async (year: number) => {

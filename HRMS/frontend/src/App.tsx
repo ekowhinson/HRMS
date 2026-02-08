@@ -36,6 +36,7 @@ import DataImportPage from './pages/admin/DataImportPage'
 import DataAnalyzerPage from './pages/admin/DataAnalyzerPage'
 import PayrollSetupPage from './pages/admin/PayrollSetupPage'
 import PayrollImplementationPage from './pages/admin/PayrollImplementationPage'
+import BackpayPage from './pages/admin/BackpayPage'
 // Performance pages
 import CoreValuesPage from './pages/admin/CoreValuesPage'
 import ProbationAssessmentsPage from './pages/admin/ProbationAssessmentsPage'
@@ -200,6 +201,7 @@ function App() {
                 <Route path="/admin/data-import" element={<AdminRoute><DataImportPage /></AdminRoute>} />
                 <Route path="/admin/data-analyzer" element={<AdminRoute><DataAnalyzerPage /></AdminRoute>} />
                 <Route path="/admin/payroll-implementation" element={<AdminRoute><PayrollImplementationPage /></AdminRoute>} />
+                <Route path="/admin/backpay" element={<AdminRoute><BackpayPage /></AdminRoute>} />
 
                 {/* Performance Management Routes */}
                 <Route path="/admin/appraisal-cycles" element={<AdminRoute><AppraisalCyclesPage /></AdminRoute>} />

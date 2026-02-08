@@ -23,7 +23,7 @@ from .models import (
     PayrollRun, PayrollPeriod, PayrollItem, PayrollItemDetail, PayrollApproval,
     EmployeeSalary, EmployeeSalaryComponent, PayComponent, AdHocPayment,
     TaxBracket, TaxRelief, SSNITRate, BankFile, Payslip, EmployeeTransaction,
-    OvertimeBonusTaxConfig
+    OvertimeBonusTaxConfig, BackpayRequest
 )
 
 
@@ -863,6 +863,34 @@ class PayrollService:
                     'employee_number': employee.employee_number,
                     'error': computation.error_message
                 })
+
+        # Apply approved backpay requests
+        from .backpay_service import BackpayService
+        approved_backpays = BackpayRequest.objects.filter(
+            status='APPROVED',
+            applied_to_run__isnull=True
+        ).select_related('employee', 'new_salary', 'old_salary')
+
+        for bp in approved_backpays:
+            payroll_item = PayrollItem.objects.filter(
+                payroll_run=self.payroll_run,
+                employee=bp.employee
+            ).first()
+            if payroll_item:
+                try:
+                    service = BackpayService(bp.employee, bp.reason)
+                    service.apply_to_payroll(bp, self.payroll_run)
+                    # Update payroll item totals in running totals
+                    payroll_item.refresh_from_db()
+                    total_gross = total_gross + bp.total_arrears_earnings
+                    total_deductions = total_deductions + bp.total_arrears_deductions
+                    total_net = total_net + bp.net_arrears
+                except Exception as e:
+                    errors.append({
+                        'employee_id': bp.employee.id,
+                        'employee_number': bp.employee.employee_number,
+                        'error': f'Backpay application failed: {str(e)}'
+                    })
 
         self.payroll_run.status = PayrollRun.Status.COMPUTED
         self.payroll_run.total_employees = total_employees

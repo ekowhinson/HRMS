@@ -5,13 +5,16 @@ Serializers for payroll app.
 from decimal import Decimal
 from rest_framework import serializers
 
+from datetime import timedelta
+
 from .models import (
     PayComponent, SalaryStructure, SalaryStructureComponent,
     EmployeeSalary, EmployeeSalaryComponent,
     PayrollPeriod, PayrollRun, PayrollItem, PayrollItemDetail,
     AdHocPayment, TaxBracket, TaxRelief, SSNITRate, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
-    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings
+    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings,
+    BackpayRequest, BackpayDetail,
 )
 
 
@@ -443,6 +446,78 @@ class EmployeeTransactionCreateSerializer(serializers.ModelSerializer):
             instance.save()
         return instance
 
+    def update(self, instance, validated_data):
+        """
+        Version-on-update: when effective_from or value fields change,
+        close out the old record and create a new versioned record.
+        """
+        validated_data.pop('employee_ids', None)
+        supporting_document = validated_data.pop('supporting_document', None)
+
+        new_effective_from = validated_data.get('effective_from')
+        value_fields_changed = any(
+            k in validated_data for k in [
+                'override_type', 'override_amount', 'override_percentage',
+                'override_formula', 'pay_component'
+            ]
+        )
+
+        # Version-on-update if effective_from changed or value fields changed
+        if new_effective_from and (new_effective_from != instance.effective_from or value_fields_changed):
+            # Close out old record
+            instance.effective_to = new_effective_from - timedelta(days=1)
+            instance.is_current_version = False
+            instance.save(update_fields=['effective_to', 'is_current_version', 'updated_at'])
+
+            # Build new record data from existing instance
+            writable_fields = [
+                'target_type', 'employee', 'job_grade', 'salary_band',
+                'pay_component', 'override_type', 'override_amount',
+                'override_percentage', 'override_formula', 'is_recurring',
+                'effective_from', 'effective_to', 'calendar', 'payroll_period',
+                'status', 'description',
+            ]
+            new_data = {}
+            for field in writable_fields:
+                val = getattr(instance, field + '_id', None) if field in [
+                    'employee', 'job_grade', 'salary_band', 'pay_component',
+                    'calendar', 'payroll_period'
+                ] else getattr(instance, field, None)
+                if field in ['employee', 'job_grade', 'salary_band', 'pay_component',
+                             'calendar', 'payroll_period']:
+                    new_data[field + '_id'] = val
+                else:
+                    new_data[field] = val
+
+            # Apply the validated updates
+            for key, val in validated_data.items():
+                if key in ['employee', 'job_grade', 'salary_band', 'pay_component',
+                           'calendar', 'payroll_period']:
+                    new_data[key + '_id'] = val.id if hasattr(val, 'id') else val
+                else:
+                    new_data[key] = val
+
+            new_data['parent_transaction'] = instance
+            new_data['version'] = instance.version + 1
+            new_data['is_current_version'] = True
+            new_data['effective_to'] = None
+            new_data['reference_number'] = EmployeeTransaction.generate_reference_number()
+
+            new_txn = EmployeeTransaction.objects.create(**new_data)
+
+            if supporting_document:
+                new_txn.set_document(supporting_document)
+                new_txn.save()
+
+            return new_txn
+
+        # Simple in-place update (e.g., description change)
+        instance = super().update(instance, validated_data)
+        if supporting_document:
+            instance.set_document(supporting_document)
+            instance.save()
+        return instance
+
 
 class FormulaValidationSerializer(serializers.Serializer):
     """Serializer for testing formula evaluation."""
@@ -665,3 +740,184 @@ class SalaryNotchSerializer(serializers.ModelSerializer):
 
     def get_employee_count(self, obj):
         return obj.employees.count() if hasattr(obj, 'employees') else 0
+
+
+# ============================================
+# Backpay Serializers
+# ============================================
+
+class BackpayDetailSerializer(serializers.ModelSerializer):
+    """Serializer for per-period, per-component backpay detail."""
+    period_name = serializers.CharField(source='payroll_period.name', read_only=True)
+    component_code = serializers.CharField(source='pay_component.code', read_only=True)
+    component_name = serializers.CharField(source='pay_component.name', read_only=True)
+    component_type = serializers.CharField(source='pay_component.component_type', read_only=True)
+
+    class Meta:
+        model = BackpayDetail
+        fields = [
+            'id', 'payroll_period', 'period_name',
+            'original_payroll_item', 'applicable_salary',
+            'pay_component', 'component_code', 'component_name', 'component_type',
+            'old_amount', 'new_amount', 'difference',
+            'created_at',
+        ]
+        read_only_fields = ['created_at']
+
+
+class BackpayRequestSerializer(serializers.ModelSerializer):
+    """Full read serializer for BackpayRequest with nested details."""
+    details = BackpayDetailSerializer(many=True, read_only=True)
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    approved_by_name = serializers.SerializerMethodField()
+    applied_to_run_number = serializers.CharField(
+        source='applied_to_run.run_number', read_only=True, allow_null=True
+    )
+    payroll_period_name = serializers.SerializerMethodField()
+    reference_period_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BackpayRequest
+        fields = [
+            'id', 'reference_number',
+            'employee', 'employee_name', 'employee_number',
+            'new_salary', 'old_salary',
+            'reason', 'reason_display', 'description',
+            'effective_from', 'effective_to',
+            'total_arrears_earnings', 'total_arrears_deductions', 'net_arrears',
+            'periods_covered',
+            'status', 'status_display',
+            'applied_to_run', 'applied_to_run_number',
+            'payroll_period', 'payroll_period_name',
+            'reference_period', 'reference_period_name',
+            'approved_by', 'approved_by_name', 'approved_at', 'applied_at',
+            'details',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'reference_number', 'total_arrears_earnings', 'total_arrears_deductions',
+            'net_arrears', 'periods_covered', 'status',
+            'applied_to_run', 'approved_by', 'approved_at', 'applied_at',
+            'payroll_period',
+            'created_at', 'updated_at',
+        ]
+
+    def get_approved_by_name(self, obj):
+        if obj.approved_by:
+            user = obj.approved_by
+            name = f"{user.first_name} {user.last_name}".strip()
+            return name or user.email
+        return None
+
+    def get_payroll_period_name(self, obj):
+        if obj.payroll_period:
+            return obj.payroll_period.name
+        return None
+
+    def get_reference_period_name(self, obj):
+        if obj.reference_period:
+            return obj.reference_period.name
+        return None
+
+
+class BackpayRequestCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating backpay requests."""
+
+    class Meta:
+        model = BackpayRequest
+        fields = [
+            'employee', 'new_salary', 'old_salary',
+            'reason', 'description',
+            'effective_from', 'effective_to',
+            'reference_period',
+        ]
+        extra_kwargs = {
+            'reference_period': {'required': False, 'allow_null': True},
+        }
+
+    def validate(self, data):
+        effective_from = data.get('effective_from')
+        effective_to = data.get('effective_to')
+
+        if effective_from and effective_to:
+            if effective_to < effective_from:
+                raise serializers.ValidationError({
+                    'effective_to': 'Effective to date must be after effective from date.'
+                })
+
+        # Validate that there are PAID/CLOSED periods in the range
+        periods = PayrollPeriod.objects.filter(
+            status__in=['PAID', 'CLOSED'],
+            start_date__lte=effective_to,
+            end_date__gte=effective_from,
+            is_supplementary=False
+        )
+        if not periods.exists():
+            raise serializers.ValidationError(
+                'No paid/closed payroll periods found in the specified date range.'
+            )
+
+        return data
+
+
+class BackpayPreviewSerializer(serializers.Serializer):
+    """Input serializer for preview endpoint."""
+    employee = serializers.UUIDField()
+    effective_from = serializers.DateField()
+    effective_to = serializers.DateField()
+    reason = serializers.ChoiceField(choices=BackpayRequest.Reason.choices)
+    new_salary = serializers.UUIDField(required=False, allow_null=True)
+    old_salary = serializers.UUIDField(required=False, allow_null=True)
+
+    def validate(self, data):
+        if data['effective_to'] < data['effective_from']:
+            raise serializers.ValidationError({
+                'effective_to': 'Effective to date must be after effective from date.'
+            })
+        return data
+
+
+class BackpayBulkCreateSerializer(serializers.Serializer):
+    """Serializer for bulk-creating backpay requests across multiple employees."""
+    all_active = serializers.BooleanField(default=False)
+    employee_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, allow_empty=True,
+    )
+    # Filter fields (all optional)
+    division = serializers.UUIDField(required=False, allow_null=True)
+    directorate = serializers.UUIDField(required=False, allow_null=True)
+    department = serializers.UUIDField(required=False, allow_null=True)
+    grade = serializers.UUIDField(required=False, allow_null=True)
+    region = serializers.UUIDField(required=False, allow_null=True)
+    district = serializers.UUIDField(required=False, allow_null=True)
+    work_location = serializers.UUIDField(required=False, allow_null=True)
+    staff_category = serializers.UUIDField(required=False, allow_null=True)
+    # Backpay fields
+    reason = serializers.ChoiceField(choices=BackpayRequest.Reason.choices)
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+    effective_from = serializers.DateField()
+    effective_to = serializers.DateField()
+
+    FILTER_FIELDS = [
+        'division', 'directorate', 'department', 'grade',
+        'region', 'district', 'work_location', 'staff_category',
+    ]
+
+    def validate(self, data):
+        if data['effective_to'] < data['effective_from']:
+            raise serializers.ValidationError({
+                'effective_to': 'Effective to date must be after effective from date.'
+            })
+
+        has_employees = bool(data.get('employee_ids'))
+        has_all = data.get('all_active', False)
+        has_filter = any(data.get(f) for f in self.FILTER_FIELDS)
+
+        if not has_employees and not has_all and not has_filter:
+            raise serializers.ValidationError(
+                'Provide all_active, employee_ids, or at least one filter field.'
+            )
+        return data

@@ -81,10 +81,14 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'username', 'first_name', 'middle_name', 'last_name',
             'full_name', 'phone_number', 'profile_photo_url', 'is_active', 'is_verified',
-            'is_staff', 'is_superuser', 'two_factor_enabled', 'must_change_password',
+            'is_staff', 'is_superuser', 'two_factor_enabled', 'two_factor_method',
+            'must_change_password', 'failed_login_attempts', 'lockout_until',
             'last_login_at', 'last_login_ip', 'created_at', 'updated_at', 'roles', 'employee'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'last_login_at', 'last_login_ip']
+        read_only_fields = [
+            'id', 'created_at', 'updated_at', 'last_login_at', 'last_login_ip',
+            'failed_login_attempts', 'lockout_until',
+        ]
 
     def get_roles(self, obj):
         user_roles = obj.user_roles.filter(is_active=True).select_related('role')
@@ -183,11 +187,6 @@ class ChangePasswordSerializer(serializers.Serializer):
 class PasswordResetRequestSerializer(serializers.Serializer):
     """Serializer for password reset request."""
     email = serializers.EmailField()
-
-    def validate_email(self, value):
-        if not User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('No user found with this email address')
-        return value
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
@@ -541,3 +540,27 @@ class UserAuthProviderSerializer(serializers.ModelSerializer):
             'last_login', 'login_count', 'created_at'
         ]
         read_only_fields = ['id', 'external_id', 'external_username', 'last_login', 'login_count', 'created_at']
+
+
+# ============================================
+# Two-Factor Authentication Serializers
+# ============================================
+
+class TwoFactorSetupSerializer(serializers.Serializer):
+    """Serializer for 2FA setup verification."""
+    method = serializers.ChoiceField(
+        choices=['TOTP', 'EMAIL', 'SMS'],
+        required=False,
+        default='EMAIL',
+    )
+    code = serializers.CharField(min_length=6, max_length=6)
+
+    def validate_code(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError('Code must be 6 digits')
+        return value
+
+
+class TwoFactorDisableSerializer(serializers.Serializer):
+    """Serializer for disabling 2FA."""
+    password = serializers.CharField(write_only=True)

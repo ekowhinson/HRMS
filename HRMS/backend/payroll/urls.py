@@ -26,6 +26,7 @@ router.register(r'staff-categories', views.StaffCategoryViewSet, basename='staff
 router.register(r'salary-bands', views.SalaryBandViewSet, basename='salary-band')
 router.register(r'salary-levels', views.SalaryLevelViewSet, basename='salary-level')
 router.register(r'salary-notches', views.SalaryNotchViewSet, basename='salary-notch')
+router.register(r'backpay', views.BackpayRequestViewSet, basename='backpay')
 
 urlpatterns = [
     path('', include(router.urls)),

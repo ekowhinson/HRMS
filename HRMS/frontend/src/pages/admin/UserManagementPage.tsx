@@ -11,6 +11,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   EyeIcon,
+  LockOpenIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -153,6 +154,17 @@ export default function UserManagementPage() {
     },
   })
 
+  const unlockAccountMutation = useMutation({
+    mutationFn: userService.unlockAccount,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success('Account unlocked successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to unlock account')
+    },
+  })
+
   const resetForm = () => {
     setFormData({
       email: '',
@@ -233,6 +245,11 @@ export default function UserManagementPage() {
 
   const getUserStatus = (user: User) => {
     if (!user.is_active) return 'inactive'
+    if (
+      (user.lockout_until && new Date(user.lockout_until) > new Date()) ||
+      user.failed_login_attempts >= 5
+    )
+      return 'locked'
     if (!user.is_verified) return 'unverified'
     return 'active'
   }
@@ -448,6 +465,17 @@ export default function UserManagementPage() {
                           >
                             <KeyIcon className="h-4 w-4" />
                           </Button>
+                          {getUserStatus(user) === 'locked' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-warning-600"
+                              onClick={() => unlockAccountMutation.mutate(user.id)}
+                              title="Unlock account"
+                            >
+                              <LockOpenIcon className="h-4 w-4" />
+                            </Button>
+                          )}
                           {!user.is_superuser && (
                             <Button
                               variant="ghost"

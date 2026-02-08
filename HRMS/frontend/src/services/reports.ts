@@ -307,6 +307,85 @@ export const reportsService = {
     return response.data
   },
 
+  // ==================== Analytics KPI Endpoints ====================
+
+  async getMasterAnalytics(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/analytics/master/?${params.toString()}`)
+    return response.data
+  },
+
+  async getRecruitmentKPIs(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/analytics/recruitment/?${params.toString()}`)
+    return response.data
+  },
+
+  async getDemographicsKPIs(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/analytics/demographics/?${params.toString()}`)
+    return response.data
+  },
+
+  async getTrainingKPIs(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/analytics/training/?${params.toString()}`)
+    return response.data
+  },
+
+  async getPerformanceKPIs(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/analytics/performance/?${params.toString()}`)
+    return response.data
+  },
+
+  async getCompensationKPIs(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/analytics/compensation/?${params.toString()}`)
+    return response.data
+  },
+
+  async getExitKPIs(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/analytics/exit/?${params.toString()}`)
+    return response.data
+  },
+
   // Payroll Reconciliation - supports both run IDs and period IDs
   async getPayrollReconciliation(currentRunId?: string, previousRunId?: string) {
     const params = new URLSearchParams()

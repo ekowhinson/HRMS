@@ -177,7 +177,17 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     must_change_password = models.BooleanField(default=False)
 
     # 2FA fields
+    class TwoFactorMethod(models.TextChoices):
+        TOTP = 'TOTP', 'Authenticator App'
+        EMAIL = 'EMAIL', 'Email OTP'
+        SMS = 'SMS', 'SMS OTP'
+
     two_factor_enabled = models.BooleanField(default=False)
+    two_factor_method = models.CharField(
+        max_length=5,
+        choices=TwoFactorMethod.choices,
+        default=TwoFactorMethod.EMAIL,
+    )
     two_factor_secret = models.CharField(max_length=32, null=True, blank=True)
     backup_codes = models.JSONField(null=True, blank=True)
 
@@ -648,5 +658,23 @@ class EmailVerificationToken(models.Model):
             token=cls.generate_token(),
             token_type=cls.TokenType.SIGNUP,
             employee=employee,
+            expires_at=timezone.now() + timezone.timedelta(hours=expiry_hours)
+        )
+
+    @classmethod
+    def create_password_reset_token(cls, email, expiry_hours=1):
+        """Create a new password reset token."""
+        # Invalidate any existing password reset tokens for this email
+        cls.objects.filter(
+            email=email,
+            token_type=cls.TokenType.PASSWORD_RESET,
+            is_used=False
+        ).update(is_used=True)
+
+        # Create new token
+        return cls.objects.create(
+            email=email,
+            token=cls.generate_token(),
+            token_type=cls.TokenType.PASSWORD_RESET,
             expires_at=timezone.now() + timezone.timedelta(hours=expiry_hours)
         )
