@@ -8,6 +8,7 @@ import {
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import { payrollService } from '@/services/payroll'
 import type { Payslip } from '@/types'
@@ -32,6 +33,8 @@ export default function MyPayslipsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: payslips = [], isLoading } = useQuery({
     queryKey: ['my-payslips'],
@@ -115,7 +118,7 @@ export default function MyPayslipsPage() {
                 type="text"
                 placeholder="Search period..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
                 className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 w-52"
               />
             </div>
@@ -133,7 +136,7 @@ export default function MyPayslipsPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {filteredPayslips.map((payslip) => {
+              {filteredPayslips.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((payslip) => {
                 const isExpanded = expandedId === payslip.id
                 return (
                   <div key={payslip.id}>
@@ -279,6 +282,15 @@ export default function MyPayslipsPage() {
                 )
               })}
             </div>
+          )}
+          {filteredPayslips.length > pageSize && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredPayslips.length / pageSize)}
+              totalItems={filteredPayslips.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
           )}
         </CardContent>
       </Card>

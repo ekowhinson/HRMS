@@ -12,6 +12,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, StatCard } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -49,6 +50,8 @@ const formatStatus = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, c => c
 export default function MyGrievancesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showFileModal, setShowFileModal] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: grievances = [], isLoading } = useQuery({
     queryKey: ['my-grievances'],
@@ -103,7 +106,7 @@ export default function MyGrievancesPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {grievances.map((g: Grievance) => (
+          {grievances.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((g: Grievance) => (
             <GrievanceCard
               key={g.id}
               g={g}
@@ -111,6 +114,15 @@ export default function MyGrievancesPage() {
               onToggle={() => setExpandedId(expandedId === g.id ? null : g.id)}
             />
           ))}
+          {grievances.length > pageSize && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(grievances.length / pageSize)}
+              totalItems={grievances.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
       )}
 

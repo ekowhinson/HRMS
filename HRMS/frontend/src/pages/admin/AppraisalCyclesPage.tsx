@@ -14,7 +14,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import Modal from '@/components/ui/Modal'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 
@@ -61,6 +61,8 @@ export default function AppraisalCyclesPage() {
   const [activeTab, setActiveTab] = useState('basic')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingCycle, setDeletingCycle] = useState<AppraisalCycle | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: cycles, isLoading } = useQuery({
     queryKey: ['appraisal-cycles'],
@@ -314,10 +316,19 @@ export default function AppraisalCyclesPage() {
           </CardTitle>
         </CardHeader>
         <Table
-          data={cycles || []}
+          data={(cycles || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
           columns={columns}
           isLoading={isLoading}
         />
+        {(cycles || []).length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil((cycles || []).length / pageSize)}
+            totalItems={(cycles || []).length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       {/* Create/Edit Modal */}

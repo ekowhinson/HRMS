@@ -12,6 +12,7 @@ import {
   ScaleIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, StatCard } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -80,6 +81,8 @@ function GrievanceListTab({ statusFilter }: { statusFilter: 'active' | 'resolved
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [actionModal, setActionModal] = useState<{ type: string; grievanceId: string } | null>(null)
@@ -219,13 +222,13 @@ function GrievanceListTab({ statusFilter }: { statusFilter: 'active' | 'resolved
                   type="text"
                   placeholder="Search by number, subject, or employee..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
                   className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
             </div>
-            <Select options={priorityOptions} value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} />
-            <Select options={categoryOptions} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} />
+            <Select options={priorityOptions} value={priorityFilter} onChange={(e) => { setPriorityFilter(e.target.value); setCurrentPage(1) }} />
+            <Select options={categoryOptions} value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1) }} />
             {statusFilter === 'active' && (
               <Button onClick={() => setShowCreateModal(true)}>
                 <PlusIcon className="h-4 w-4 mr-1" /> New Grievance
@@ -255,7 +258,7 @@ function GrievanceListTab({ statusFilter }: { statusFilter: 'active' | 'resolved
                 <tr><td colSpan={8} className="px-6 py-8 text-center text-sm text-gray-500">Loading...</td></tr>
               ) : grievances.length === 0 ? (
                 <tr><td colSpan={8} className="px-6 py-8 text-center text-sm text-gray-500">No grievances found</td></tr>
-              ) : grievances.map((g: Grievance) => (
+              ) : grievances.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((g: Grievance) => (
                 <GrievanceRow
                   key={g.id}
                   g={g}
@@ -270,6 +273,15 @@ function GrievanceListTab({ statusFilter }: { statusFilter: 'active' | 'resolved
             </tbody>
           </table>
         </div>
+        {grievances.length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(grievances.length / pageSize)}
+            totalItems={grievances.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       <CreateGrievanceModal
@@ -640,6 +652,8 @@ function GrievanceCategoriesTab() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<GrievanceCategory | null>(null)
   const [form, setForm] = useState({ code: '', name: '', description: '', is_active: true })
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: categories, isLoading } = useQuery({ queryKey: ['grievance-categories'], queryFn: disciplineService.getGrievanceCategories })
 
@@ -689,7 +703,7 @@ function GrievanceCategoriesTab() {
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr><td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">Loading...</td></tr>
-              ) : (categories || []).map((cat) => (
+              ) : (categories || []).slice((currentPage - 1) * pageSize, currentPage * pageSize).map((cat) => (
                 <tr key={cat.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{cat.code}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cat.name}</td>
@@ -705,6 +719,15 @@ function GrievanceCategoriesTab() {
             </tbody>
           </table>
         </div>
+        {(categories || []).length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil((categories || []).length / pageSize)}
+            totalItems={(categories || []).length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       <Modal isOpen={showModal} onClose={closeModal} title={editing ? 'Edit Category' : 'New Grievance Category'}>

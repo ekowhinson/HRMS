@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
@@ -42,6 +43,8 @@ export default function RecruitmentPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [summary, setSummary] = useState<any>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   useEffect(() => {
     loadData()
@@ -72,6 +75,7 @@ export default function RecruitmentPage() {
 
   const handleTabChange = (tab: string) => {
     setSearchParams({ tab })
+    setCurrentPage(1)
   }
 
   return (
@@ -126,7 +130,7 @@ export default function RecruitmentPage() {
                 <Input
                   placeholder="Search vacancies..."
                   value={search}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setCurrentPage(1) }}
                   className="w-64"
                 />
               </div>
@@ -159,7 +163,7 @@ export default function RecruitmentPage() {
                         </td>
                       </tr>
                     ) : (
-                      vacancies.map((vacancy) => (
+                      vacancies.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((vacancy) => (
                         <tr key={vacancy.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium">{vacancy.reference_number}</td>
                           <td className="px-4 py-3">
@@ -195,6 +199,15 @@ export default function RecruitmentPage() {
                   </tbody>
                 </table>
               </div>
+              {vacancies.length > pageSize && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(vacancies.length / pageSize)}
+                  totalItems={vacancies.length}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -207,7 +220,7 @@ export default function RecruitmentPage() {
                 <Input
                   placeholder="Search applicants..."
                   value={search}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setCurrentPage(1) }}
                   className="w-64"
                 />
               </div>
@@ -240,7 +253,7 @@ export default function RecruitmentPage() {
                         </td>
                       </tr>
                     ) : (
-                      applicants.map((applicant) => (
+                      applicants.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((applicant) => (
                         <tr key={applicant.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium">{applicant.application_number}</td>
                           <td className="px-4 py-3">
@@ -277,6 +290,15 @@ export default function RecruitmentPage() {
                   </tbody>
                 </table>
               </div>
+              {applicants.length > pageSize && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(applicants.length / pageSize)}
+                  totalItems={applicants.length}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -314,7 +336,7 @@ export default function RecruitmentPage() {
                         </td>
                       </tr>
                     ) : (
-                      interviews.map((interview) => (
+                      interviews.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((interview) => (
                         <tr key={interview.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium">{interview.applicant_name}</td>
                           <td className="px-4 py-3">{interview.vacancy_title}</td>
@@ -343,6 +365,15 @@ export default function RecruitmentPage() {
                   </tbody>
                 </table>
               </div>
+              {interviews.length > pageSize && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(interviews.length / pageSize)}
+                  totalItems={interviews.length}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

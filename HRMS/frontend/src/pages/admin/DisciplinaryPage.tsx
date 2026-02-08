@@ -11,6 +11,7 @@ import {
   ScaleIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, StatCard } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -84,6 +85,8 @@ function CasesTab() {
   const [severityFilter, setSeverityFilter] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   const [actionModal, setActionModal] = useState<{ type: string; caseId: string } | null>(null)
   const [actionText, setActionText] = useState('')
 
@@ -206,13 +209,13 @@ function CasesTab() {
                   type="text"
                   placeholder="Search by case number or employee..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
                   className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
             </div>
-            <Select options={statusOptions} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} />
-            <Select options={severityOptions} value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} />
+            <Select options={statusOptions} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }} />
+            <Select options={severityOptions} value={severityFilter} onChange={(e) => { setSeverityFilter(e.target.value); setCurrentPage(1) }} />
             <Button onClick={() => setShowCreateModal(true)}>
               <PlusIcon className="h-4 w-4 mr-1" /> New Case
             </Button>
@@ -240,7 +243,7 @@ function CasesTab() {
                 <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">Loading...</td></tr>
               ) : cases.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">No cases found</td></tr>
-              ) : cases.map((c: DisciplinaryCase) => (
+              ) : cases.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((c: DisciplinaryCase) => (
                 <CaseRow
                   key={c.id}
                   c={c}
@@ -253,6 +256,15 @@ function CasesTab() {
             </tbody>
           </table>
         </div>
+        {cases.length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(cases.length / pageSize)}
+            totalItems={cases.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       {/* Create Case Modal */}
@@ -488,6 +500,9 @@ function CreateCaseModal({ isOpen, onClose, categories, employees }: {
 // ── Hearings Tab ──────────────────────────────────────────────
 
 function HearingsTab() {
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+
   const { data: hearingsData, isLoading } = useQuery({
     queryKey: ['disciplinary-hearings'],
     queryFn: async () => {
@@ -518,7 +533,7 @@ function HearingsTab() {
               <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">Loading...</td></tr>
             ) : hearings.length === 0 ? (
               <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">No hearings found</td></tr>
-            ) : hearings.map((h: DisciplinaryHearing) => (
+            ) : hearings.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((h: DisciplinaryHearing) => (
               <tr key={h.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">#{h.hearing_number}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{h.case}</td>
@@ -536,6 +551,15 @@ function HearingsTab() {
           </tbody>
         </table>
       </div>
+      {hearings.length > pageSize && (
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(hearings.length / pageSize)}
+          totalItems={hearings.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </Card>
   )
 }
@@ -547,6 +571,8 @@ function CategoriesTab() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<MisconductCategory | null>(null)
   const [form, setForm] = useState({ code: '', name: '', description: '', severity: 'MINOR', recommended_action: '', is_active: true })
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: categories, isLoading } = useQuery({ queryKey: ['misconduct-categories'], queryFn: disciplineService.getMisconductCategories })
 
@@ -597,7 +623,7 @@ function CategoriesTab() {
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">Loading...</td></tr>
-              ) : (categories || []).map((cat) => (
+              ) : (categories || []).slice((currentPage - 1) * pageSize, currentPage * pageSize).map((cat) => (
                 <tr key={cat.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{cat.code}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cat.name}</td>
@@ -614,6 +640,15 @@ function CategoriesTab() {
             </tbody>
           </table>
         </div>
+        {(categories || []).length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil((categories || []).length / pageSize)}
+            totalItems={(categories || []).length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       <Modal isOpen={showModal} onClose={closeModal} title={editing ? 'Edit Category' : 'New Misconduct Category'}>

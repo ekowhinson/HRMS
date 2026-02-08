@@ -9,6 +9,7 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { userService, type AuthenticationLog } from '@/services/users'
@@ -46,6 +47,7 @@ export default function AuditLogsPage() {
     page: number
   }>({ page: 1 })
   const [showFilters, setShowFilters] = useState(false)
+  const pageSize = 20
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['auth-logs', filters],
@@ -216,25 +218,13 @@ export default function AuditLogsPage() {
 
       {/* Pagination */}
       {logs.length > 0 && (
-        <div className="flex justify-between items-center">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={filters.page <= 1}
-            onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-gray-500">Page {filters.page}</span>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={logs.length < 20}
-            onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
-          >
-            Next
-          </Button>
-        </div>
+        <TablePagination
+          currentPage={filters.page}
+          totalPages={logs.length < pageSize ? filters.page : filters.page + 1}
+          totalItems={logs.length < pageSize ? (filters.page - 1) * pageSize + logs.length : (filters.page) * pageSize + 1}
+          pageSize={pageSize}
+          onPageChange={(page) => setFilters({ ...filters, page })}
+        />
       )}
     </div>
   )

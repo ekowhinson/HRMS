@@ -9,6 +9,7 @@ import {
   CheckIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, StatCard } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -34,6 +35,8 @@ const formatStatus = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, c => c
 
 export default function MyDisciplinaryPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: cases = [], isLoading } = useQuery({
     queryKey: ['my-disciplinary-cases'],
@@ -73,7 +76,7 @@ export default function MyDisciplinaryPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {cases.map((c: DisciplinaryCase) => (
+          {cases.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((c: DisciplinaryCase) => (
             <CaseCard
               key={c.id}
               c={c}
@@ -81,6 +84,15 @@ export default function MyDisciplinaryPage() {
               onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)}
             />
           ))}
+          {cases.length > pageSize && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(cases.length / pageSize)}
+              totalItems={cases.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
       )}
     </div>

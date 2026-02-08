@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { performanceService, type Competency } from '@/services/performance'
 import { Card, CardContent } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
@@ -50,6 +51,8 @@ export default function CompetenciesPage() {
     TECHNICAL: true,
   })
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: competencies, isLoading } = useQuery({
     queryKey: ['competencies', categoryFilter],
@@ -149,13 +152,14 @@ export default function CompetenciesPage() {
     }))
   }
 
-  // Group competencies by category
-  const groupedCompetencies = competencies?.reduce((acc: Record<string, Competency[]>, comp) => {
+  // Paginate then group by category
+  const paginatedCompetencies = (competencies || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const groupedCompetencies = paginatedCompetencies.reduce((acc: Record<string, Competency[]>, comp) => {
     const cat = comp.category || 'OTHER'
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(comp)
     return acc
-  }, {}) || {}
+  }, {})
 
   const getCategoryLabel = (cat: string) => {
     return categoryOptions.find((o) => o.value === cat)?.label || cat
@@ -183,7 +187,7 @@ export default function CompetenciesPage() {
         <div className="flex gap-3">
           <Select
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1) }}
             options={[{ value: '', label: 'All Categories' }, ...categoryOptions.slice(1)]}
           />
           <Button onClick={handleOpenCreate}>
@@ -288,6 +292,15 @@ export default function CompetenciesPage() {
               )}
             </Card>
           ))}
+          {competencies && competencies.length > pageSize && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(competencies.length / pageSize)}
+              totalItems={competencies.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
       ) : (
         <Card>

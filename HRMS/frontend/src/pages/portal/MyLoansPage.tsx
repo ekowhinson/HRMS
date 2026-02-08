@@ -7,6 +7,7 @@ import {
   ChevronUpIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { benefitsService, type LoanAccount, type LoanSchedule, type LoanTransaction } from '@/services/benefits'
@@ -43,6 +44,8 @@ function formatDate(dateStr: string | null) {
 
 export default function MyLoansPage() {
   const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const { data: loans = [], isLoading } = useQuery({
     queryKey: ['my-loans'],
@@ -107,7 +110,7 @@ export default function MyLoansPage() {
           ) : (
             <div className="divide-y divide-gray-100">
               {/* Active loans first, then others */}
-              {[...activeLoans, ...otherLoans].map((loan) => (
+              {[...activeLoans, ...otherLoans].slice((currentPage - 1) * pageSize, currentPage * pageSize).map((loan) => (
                 <LoanRow
                   key={loan.id}
                   loan={loan}
@@ -118,6 +121,15 @@ export default function MyLoansPage() {
                 />
               ))}
             </div>
+          )}
+          {loans.length > pageSize && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(loans.length / pageSize)}
+              totalItems={loans.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
           )}
         </CardContent>
       </Card>

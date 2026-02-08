@@ -17,6 +17,7 @@ import {
   UserIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, StatCard } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -48,6 +49,8 @@ export default function ApprovalInboxPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [moduleFilter, setModuleFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [actionModal, setActionModal] = useState<{
     id: string
@@ -204,14 +207,14 @@ export default function ApprovalInboxPage() {
               <Input
                 placeholder="Search workflows..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
                 leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
               />
             </div>
             <div className="w-full sm:w-48">
               <Select
                 value={moduleFilter}
-                onChange={(e) => setModuleFilter(e.target.value)}
+                onChange={(e) => { setModuleFilter(e.target.value); setCurrentPage(1) }}
                 placeholder="All Modules"
                 options={[
                   { value: 'leave.leaverequest', label: 'Leave' },
@@ -273,7 +276,7 @@ export default function ApprovalInboxPage() {
                   </td>
                 </tr>
               ) : (
-                approvals.map((a) => (
+                approvals.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((a) => (
                   <>
                     <tr
                       key={a.id}
@@ -343,6 +346,15 @@ export default function ApprovalInboxPage() {
             </tbody>
           </table>
         </div>
+        {approvals.length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(approvals.length / pageSize)}
+            totalItems={approvals.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       {/* Action Modal */}

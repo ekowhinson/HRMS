@@ -13,6 +13,7 @@ import {
 import { exitService, type ExitRequest } from '@/services/exits'
 import { employeeService } from '@/services/employees'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
@@ -39,6 +40,8 @@ export default function ExitsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   // Fetch exit requests
   const { data: exitRequests, isLoading } = useQuery({
@@ -211,13 +214,13 @@ export default function ExitsPage() {
             <Select
               label="Status"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
               options={statusOptions}
             />
             <Select
               label="Exit Type"
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1) }}
               options={typeOptions}
             />
           </div>
@@ -263,7 +266,7 @@ export default function ExitsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {exitRequests.results.map((request: ExitRequest) => (
+                  {exitRequests.results.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((request: ExitRequest) => (
                     <tr key={request.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="font-medium text-primary-600">{request.request_number}</span>
@@ -320,6 +323,15 @@ export default function ExitsPage() {
               <ArrowRightStartOnRectangleIcon className="h-12 w-12 mb-2" />
               <p>No exit requests found</p>
             </div>
+          )}
+          {exitRequests?.results && exitRequests.results.length > pageSize && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(exitRequests.results.length / pageSize)}
+              totalItems={exitRequests.results.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
           )}
         </CardContent>
       </Card>

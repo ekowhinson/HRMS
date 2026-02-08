@@ -15,6 +15,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { Card } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -51,6 +52,8 @@ export default function ApprovalWorkflowPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   // Form state
   const [formData, setFormData] = useState<WorkflowCreateInput>({
@@ -348,7 +351,7 @@ export default function ApprovalWorkflowPage() {
                   </td>
                 </tr>
               ) : (
-                workflows.map((wf) => (
+                workflows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((wf) => (
                   <>
                     <tr
                       key={wf.id}
@@ -389,6 +392,15 @@ export default function ApprovalWorkflowPage() {
             </tbody>
           </table>
         </div>
+        {workflows.length > pageSize && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(workflows.length / pageSize)}
+            totalItems={workflows.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </Card>
 
       {/* Create/Edit Modal */}

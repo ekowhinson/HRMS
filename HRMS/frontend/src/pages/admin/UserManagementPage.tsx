@@ -14,6 +14,7 @@ import {
   LockOpenIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
@@ -35,6 +36,8 @@ export default function UserManagementPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -81,7 +84,8 @@ export default function UserManagementPage() {
     queryFn: () => roleService.getRoles({ is_active: true }),
   })
 
-  const users = usersData?.results || usersData || []
+  const users: User[] = usersData?.results || usersData || []
+  const paginatedUsers = users.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   // Mutations
   const createMutation = useMutation({
@@ -329,12 +333,12 @@ export default function UserManagementPage() {
             <Input
               placeholder="Search users..."
               value={search}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setCurrentPage(1) }}
               className="w-64"
             />
             <Select
               value={statusFilter}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
               options={[
                 { value: '', label: 'All Status' },
                 { value: 'active', label: 'Active' },
@@ -344,7 +348,7 @@ export default function UserManagementPage() {
             />
             <Select
               value={roleFilter}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRoleFilter(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setRoleFilter(e.target.value); setCurrentPage(1) }}
               options={[
                 { value: '', label: 'All Roles' },
                 ...roles.map((r: Role) => ({ value: r.id, label: r.name })),
@@ -379,7 +383,7 @@ export default function UserManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((user: User) => (
+                  {paginatedUsers.map((user: User) => (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -493,6 +497,15 @@ export default function UserManagementPage() {
                 </tbody>
               </table>
             </div>
+          )}
+          {users.length > pageSize && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(users.length / pageSize)}
+              totalItems={users.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
           )}
         </CardContent>
       </Card>
