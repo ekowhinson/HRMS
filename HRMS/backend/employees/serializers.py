@@ -278,6 +278,7 @@ class EmployeeSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
 
 class EmployeeCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating employees."""
+    employee_number = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Employee
@@ -292,7 +293,30 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+        from .models import generate_employee_number
+        import json as _json
+
         validated_data['created_by'] = self.context['request'].user
+
+        # Auto-generate employee_number if not provided
+        emp_number = validated_data.get('employee_number', '').strip() if validated_data.get('employee_number') else ''
+        if not emp_number:
+            # Check if auto_generate is enabled
+            try:
+                from core.models import SystemConfiguration
+                config_obj = SystemConfiguration.objects.get(key='employee_id_config')
+                config = _json.loads(config_obj.value)
+                auto_generate = config.get('auto_generate', True)
+            except SystemConfiguration.DoesNotExist:
+                auto_generate = True
+
+            if auto_generate:
+                validated_data['employee_number'] = generate_employee_number()
+            else:
+                raise serializers.ValidationError(
+                    {'employee_number': 'Employee number is required when auto-generation is disabled.'}
+                )
+
         return super().create(validated_data)
 
 

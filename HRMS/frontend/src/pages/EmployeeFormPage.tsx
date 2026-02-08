@@ -13,6 +13,9 @@ import LinkedSelect from '@/components/ui/LinkedSelect'
 import api from '@/lib/api'
 
 interface EmployeeFormData {
+  // Employee ID
+  employee_number: string
+
   // Personal Information
   title: string
   first_name: string
@@ -94,6 +97,7 @@ interface EmployeeFormData {
 }
 
 const initialFormData: EmployeeFormData = {
+  employee_number: '',
   title: '',
   first_name: '',
   middle_name: '',
@@ -166,6 +170,29 @@ export default function EmployeeFormPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  const [useManualId, setUseManualId] = useState(false)
+
+  // Fetch employee ID config for auto-generation
+  const { data: empIdConfig } = useQuery({
+    queryKey: ['employee-id-config'],
+    queryFn: async () => {
+      const res = await api.get('/core/employee-id-config/')
+      return res.data as {
+        prefix: string
+        suffix: string
+        next_number: number
+        increment: number
+        padding: number
+        auto_generate: boolean
+      }
+    },
+    enabled: !isEdit,
+  })
+
+  const nextIdPreview = empIdConfig
+    ? `${empIdConfig.prefix}${String(empIdConfig.next_number).padStart(empIdConfig.padding, '0')}${empIdConfig.suffix}`
+    : ''
 
   const { data: employee, isLoading: loadingEmployee } = useQuery({
     queryKey: ['employee', id],
@@ -297,6 +324,7 @@ export default function EmployeeFormPage() {
     if (employee) {
       const emp = employee as any
       setFormData({
+        employee_number: emp.employee_number || '',
         title: emp.title || '',
         first_name: emp.first_name || '',
         middle_name: emp.middle_name || '',
@@ -405,6 +433,10 @@ export default function EmployeeFormPage() {
     const cleanedData = Object.fromEntries(
       Object.entries(formData).map(([key, value]) => [key, value === '' ? null : value])
     )
+    // For create mode with auto-generate: omit employee_number so backend generates it
+    if (!isEdit && empIdConfig?.auto_generate && !useManualId) {
+      delete (cleanedData as any).employee_number
+    }
     if (isEdit) {
       updateMutation.mutate(cleanedData as any)
     } else {
@@ -873,6 +905,55 @@ export default function EmployeeFormPage() {
               <CardTitle>Employment Details</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Employee Number */}
+              <div className="mb-6 pb-4 border-b">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employee Number
+                </label>
+                {isEdit ? (
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 font-mono max-w-xs">
+                    {formData.employee_number || '—'}
+                  </div>
+                ) : empIdConfig?.auto_generate && !useManualId ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="px-3 py-2 bg-primary-50 border border-primary-200 rounded-lg text-sm font-mono text-primary-700">
+                        {nextIdPreview || 'Loading...'}
+                      </div>
+                      <span className="text-xs text-gray-500">Auto-generated</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setUseManualId(true)}
+                      className="text-xs text-primary-600 hover:text-primary-800 underline"
+                    >
+                      Enter manually instead
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      value={formData.employee_number}
+                      onChange={(e) => handleChange('employee_number', e.target.value)}
+                      placeholder="Enter employee number"
+                      required={!empIdConfig?.auto_generate}
+                    />
+                    {empIdConfig?.auto_generate && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUseManualId(false)
+                          handleChange('employee_number', '')
+                        }}
+                        className="text-xs text-primary-600 hover:text-primary-800 underline"
+                      >
+                        Use auto-generated ID
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Select
                   label="Employment Type"

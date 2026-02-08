@@ -12,6 +12,7 @@ import {
   CheckIcon,
   InformationCircleIcon,
 } from '@heroicons/react/24/outline'
+import api from '@/lib/api'
 import { useAuthStore } from '@/features/auth/store'
 import { authService, type TwoFactorSetupResponse } from '@/services/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -91,6 +92,57 @@ export default function SettingsPage() {
     }
     return false
   })()
+  // Employee ID config state
+  const [empIdForm, setEmpIdForm] = useState({
+    prefix: 'EMP',
+    suffix: '',
+    next_number: 1,
+    increment: 1,
+    padding: 4,
+    auto_generate: true,
+  })
+
+  const empIdConfigQuery = useQuery({
+    queryKey: ['employee-id-config'],
+    queryFn: async () => {
+      const res = await api.get('/core/employee-id-config/')
+      return res.data
+    },
+    enabled: isAdmin && activeTab === 'organization',
+  })
+
+  useEffect(() => {
+    if (empIdConfigQuery.data) {
+      setEmpIdForm({
+        prefix: empIdConfigQuery.data.prefix ?? 'EMP',
+        suffix: empIdConfigQuery.data.suffix ?? '',
+        next_number: empIdConfigQuery.data.next_number ?? 1,
+        increment: empIdConfigQuery.data.increment ?? 1,
+        padding: empIdConfigQuery.data.padding ?? 4,
+        auto_generate: empIdConfigQuery.data.auto_generate ?? true,
+      })
+    }
+  }, [empIdConfigQuery.data])
+
+  const saveEmpIdConfigMutation = useMutation({
+    mutationFn: async (data: typeof empIdForm) => {
+      const res = await api.put('/core/employee-id-config/', data)
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Employee ID configuration saved')
+      empIdConfigQuery.refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to save Employee ID configuration')
+    },
+  })
+
+  const empIdPreview = (() => {
+    const padded = String(empIdForm.next_number).padStart(empIdForm.padding, '0')
+    return `${empIdForm.prefix}${padded}${empIdForm.suffix}`
+  })()
+
   const admin2FAPolicyQuery = useQuery({
     queryKey: ['admin-2fa-policy'],
     queryFn: () => authService.getAdmin2FAPolicy(),
@@ -874,6 +926,81 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input label="Organization Name" value="Your Organization" disabled />
                     <Input label="Country" value="Ghana" disabled />
+                  </div>
+
+                  {/* Employee ID Format */}
+                  <div className="border-t pt-6">
+                    <h4 className="text-sm font-medium text-gray-900 mb-1">
+                      Employee ID Format
+                    </h4>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Configure how employee numbers are automatically generated.
+                    </p>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="emp_id_auto_generate"
+                          checked={empIdForm.auto_generate}
+                          onChange={(e) => setEmpIdForm({ ...empIdForm, auto_generate: e.target.checked })}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="emp_id_auto_generate" className="text-sm font-medium text-gray-700">
+                          Auto-generate employee numbers
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Input
+                          label="Prefix"
+                          value={empIdForm.prefix}
+                          onChange={(e) => setEmpIdForm({ ...empIdForm, prefix: e.target.value })}
+                          placeholder="e.g. EMP"
+                        />
+                        <Input
+                          label="Suffix"
+                          value={empIdForm.suffix}
+                          onChange={(e) => setEmpIdForm({ ...empIdForm, suffix: e.target.value })}
+                          placeholder="e.g. -GH (optional)"
+                        />
+                        <Input
+                          label="Next Number"
+                          type="number"
+                          value={empIdForm.next_number}
+                          onChange={(e) => setEmpIdForm({ ...empIdForm, next_number: parseInt(e.target.value) || 1 })}
+                        />
+                        <Input
+                          label="Increment"
+                          type="number"
+                          value={empIdForm.increment}
+                          onChange={(e) => setEmpIdForm({ ...empIdForm, increment: parseInt(e.target.value) || 1 })}
+                        />
+                        <Input
+                          label="Padding (digits)"
+                          type="number"
+                          value={empIdForm.padding}
+                          onChange={(e) => setEmpIdForm({ ...empIdForm, padding: parseInt(e.target.value) || 4 })}
+                        />
+                      </div>
+
+                      {/* Live Preview */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p className="text-xs text-gray-500 mb-1">Preview of next employee ID:</p>
+                        <p className="text-lg font-mono font-semibold text-primary-700">
+                          {empIdPreview}
+                        </p>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={() => saveEmpIdConfigMutation.mutate(empIdForm)}
+                          isLoading={saveEmpIdConfigMutation.isPending}
+                        >
+                          Save Employee ID Format
+                        </Button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="border-t pt-6">

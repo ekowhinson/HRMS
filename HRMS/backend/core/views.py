@@ -36,6 +36,98 @@ from .serializers import (
 )
 
 
+class EmployeeIDConfigView(APIView):
+    """
+    Admin endpoint to get/update employee ID generation configuration.
+    GET: Return current config (with defaults if none set).
+    PUT: Validate and save config.
+    """
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    DEFAULT_CONFIG = {
+        'prefix': 'EMP',
+        'suffix': '',
+        'next_number': 1,
+        'increment': 1,
+        'padding': 4,
+        'auto_generate': True,
+    }
+
+    def get(self, request):
+        import json as _json
+        from .models import SystemConfiguration
+
+        try:
+            config_obj = SystemConfiguration.objects.get(key='employee_id_config')
+            config = _json.loads(config_obj.value)
+        except SystemConfiguration.DoesNotExist:
+            config = self.DEFAULT_CONFIG.copy()
+
+        # Ensure all keys are present (fill in defaults for any missing keys)
+        for key, default in self.DEFAULT_CONFIG.items():
+            config.setdefault(key, default)
+
+        return Response(config)
+
+    def put(self, request):
+        import json as _json
+        from .models import SystemConfiguration
+
+        data = request.data
+
+        # Validate fields
+        config = {}
+        config['prefix'] = str(data.get('prefix', '')).strip()
+        config['suffix'] = str(data.get('suffix', '')).strip()
+
+        try:
+            config['next_number'] = int(data.get('next_number', 1))
+            if config['next_number'] < 1:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'next_number must be a positive integer'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            config['increment'] = int(data.get('increment', 1))
+            if config['increment'] < 1:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'increment must be a positive integer'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            config['padding'] = int(data.get('padding', 4))
+            if config['padding'] < 1 or config['padding'] > 10:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'padding must be an integer between 1 and 10'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        config['auto_generate'] = bool(data.get('auto_generate', True))
+
+        SystemConfiguration.objects.update_or_create(
+            key='employee_id_config',
+            defaults={
+                'value': _json.dumps(config),
+                'value_type': 'json',
+                'category': 'employees',
+                'description': 'Employee ID auto-generation configuration',
+            },
+        )
+
+        return Response({
+            'message': 'Employee ID configuration saved',
+            **config,
+        })
+
+
 class TwoFactorPolicyView(APIView):
     """
     Admin endpoint to get/update org-wide 2FA policy.

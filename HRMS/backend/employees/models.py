@@ -12,6 +12,69 @@ from django.utils import timezone
 from core.models import BaseModel, Region, District
 
 
+def generate_employee_number():
+    """
+    Generate the next employee number based on SystemConfiguration.
+    Uses select_for_update() to prevent race conditions.
+    Returns a string like 'EMP0001'.
+    """
+    import json as _json
+    from django.db import transaction
+    from core.models import SystemConfiguration
+
+    default_config = {
+        'prefix': 'EMP',
+        'suffix': '',
+        'next_number': 1,
+        'increment': 1,
+        'padding': 4,
+        'auto_generate': True,
+    }
+
+    with transaction.atomic():
+        try:
+            config_obj = SystemConfiguration.objects.select_for_update().get(
+                key='employee_id_config'
+            )
+            config = _json.loads(config_obj.value)
+        except SystemConfiguration.DoesNotExist:
+            # Create a default config entry
+            config = default_config.copy()
+            config_obj = SystemConfiguration.objects.create(
+                key='employee_id_config',
+                value=_json.dumps(config),
+                value_type='json',
+                category='employees',
+                description='Employee ID auto-generation configuration',
+            )
+            # Re-fetch with lock
+            config_obj = SystemConfiguration.objects.select_for_update().get(
+                key='employee_id_config'
+            )
+            config = _json.loads(config_obj.value)
+
+        # Fill defaults for any missing keys
+        for key, default in default_config.items():
+            config.setdefault(key, default)
+
+        # Build the employee number
+        prefix = config.get('prefix', '')
+        suffix = config.get('suffix', '')
+        next_num = config.get('next_number', 1)
+        padding = config.get('padding', 4)
+        increment = config.get('increment', 1)
+
+        padded = str(next_num).zfill(padding)
+        employee_number = f"{prefix}{padded}{suffix}"
+
+        # Increment and save back
+        config['next_number'] = next_num + increment
+        config_obj.value = _json.dumps(config)
+        config_obj.save(update_fields=['value'])
+
+    return employee_number
+
+
 class Employee(BaseModel):
     """
     Core employee record containing all biographical and employment data.
