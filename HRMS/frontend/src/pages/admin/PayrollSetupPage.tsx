@@ -355,6 +355,7 @@ export default function PayrollSetupPage() {
       toast.success('Period closed successfully')
       queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
       queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
     },
     onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to close period'),
   })
@@ -365,6 +366,7 @@ export default function PayrollSetupPage() {
       toast.success(data.message || 'Period reopened successfully')
       queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
       queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
     },
     onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to reopen period'),
   })
