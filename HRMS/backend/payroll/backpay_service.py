@@ -667,11 +667,15 @@ class RetropayDetectionService:
         ).values_list('employee_id', flat=True))
 
     def _detect_salary_changes(self, period, covered, detections):
-        """Find salary records created after a period ended but effective within it."""
+        """Find salary records created after a period ended but effective during it.
+
+        A salary change with no end date is effective from its effective_from
+        through the current active period, so it affects every PAID/CLOSED
+        period from effective_from onward.
+        """
         salaries = EmployeeSalary.objects.filter(
-            effective_from__lte=period.end_date,
-            effective_from__gte=period.start_date,
-            created_at__date__gt=period.end_date,
+            effective_from__lte=period.end_date,  # Started on or before this period
+            created_at__date__gt=period.end_date,  # Created after this period ended
         ).select_related('employee')
 
         for sal in salaries:
@@ -685,12 +689,15 @@ class RetropayDetectionService:
             )
 
     def _detect_grade_changes(self, period, covered, detections):
-        """Find grade/promotion changes created after a period ended."""
+        """Find grade/promotion changes created after a period ended.
+
+        Grade changes have no end date — they are effective from their
+        effective_date onward, affecting all subsequent periods.
+        """
         changes = EmploymentHistory.objects.filter(
             change_type__in=['PROMOTION', 'GRADE_CHANGE', 'SALARY_REVISION', 'DEMOTION'],
-            effective_date__lte=period.end_date,
-            effective_date__gte=period.start_date,
-            created_at__date__gt=period.end_date,
+            effective_date__lte=period.end_date,  # Effective on or before this period
+            created_at__date__gt=period.end_date,  # Created after this period ended
         ).select_related('employee', 'new_grade', 'previous_grade')
 
         for ch in changes:
@@ -706,14 +713,21 @@ class RetropayDetectionService:
             )
 
     def _detect_transaction_changes(self, period, covered, detections):
-        """Find transactions created after a period ended but effective within it."""
+        """Find transactions created after a period ended but effective during it.
+
+        Transactions have effective_from and optional effective_to. If effective_to
+        is null, the transaction is ongoing from effective_from.
+        """
+        from django.db.models import Q
+
         txns = EmployeeTransaction.objects.filter(
-            effective_from__lte=period.end_date,
-            effective_from__gte=period.start_date,
-            created_at__date__gt=period.end_date,
+            effective_from__lte=period.end_date,  # Started on or before this period
+            created_at__date__gt=period.end_date,  # Created after this period ended
             is_current_version=True,
             status__in=['ACTIVE', 'APPROVED'],
             target_type='INDIVIDUAL',
+        ).filter(
+            Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date)
         ).select_related('employee', 'pay_component')
 
         for txn in txns:
