@@ -14,6 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
+from core.pagination import LargeResultsSetPagination
 
 from django.http import HttpResponse
 from .models import (
@@ -1435,6 +1436,7 @@ class SalaryNotchViewSet(viewsets.ModelViewSet):
     """ViewSet for Salary Notches."""
     queryset = SalaryNotch.objects.select_related('level', 'level__band')
     serializer_class = SalaryNotchSerializer
+    pagination_class = LargeResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['level', 'level__band', 'is_active']
     search_fields = ['code', 'name', 'level__code', 'level__band__code']

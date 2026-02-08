@@ -332,14 +332,11 @@ class PayrollService:
 
     def get_employee_salary(self, employee: Employee) -> Optional[EmployeeSalary]:
         """Get the current salary for an employee."""
-        try:
-            return EmployeeSalary.objects.get(
-                employee=employee,
-                is_current=True,
-                effective_from__lte=self.period.end_date
-            )
-        except EmployeeSalary.DoesNotExist:
-            return None
+        return EmployeeSalary.objects.filter(
+            employee=employee,
+            is_current=True,
+            effective_from__lte=self.period.end_date
+        ).order_by('-effective_from').first()
 
     def get_adhoc_payments(self, employee: Employee) -> list[AdHocPayment]:
         """Get approved ad-hoc payments for the employee in this period."""

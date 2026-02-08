@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Count, Q
@@ -39,7 +39,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         'department', 'position', 'grade', 'supervisor'
     ).prefetch_related('dependents', 'emergency_contacts')
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'department', 'grade', 'employment_type']
     search_fields = ['employee_number', 'first_name', 'last_name', 'work_email']
