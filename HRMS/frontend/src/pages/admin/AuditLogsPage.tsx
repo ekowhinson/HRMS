@@ -225,6 +225,7 @@ function ActivityLogsTab() {
                     <th className="px-6 py-3">Module</th>
                     <th className="px-6 py-3">Record</th>
                     <th className="px-6 py-3 hidden lg:table-cell">IP Address</th>
+                    <th className="px-6 py-3 hidden xl:table-cell">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -267,11 +268,17 @@ function ActivityLogsTab() {
                           <td className="px-6 py-3 text-gray-600 font-mono text-xs hidden lg:table-cell">
                             {log.ip_address || '—'}
                           </td>
+                          <td className="px-6 py-3 text-xs text-gray-400 hidden xl:table-cell max-w-xs truncate">
+                            {log.user_agent
+                              ? log.user_agent.substring(0, 60) +
+                                (log.user_agent.length > 60 ? '...' : '')
+                              : '—'}
+                          </td>
                         </tr>
                         {/* Expanded row detail */}
                         {isExpanded && log.changes && (
                           <tr key={`${log.id}-detail`}>
-                            <td colSpan={7} className="px-14 pb-4 pt-0 bg-gray-50/50">
+                            <td colSpan={8} className="px-14 pb-4 pt-0 bg-gray-50/50">
                               <ChangesDiff changes={log.changes} />
                             </td>
                           </tr>
