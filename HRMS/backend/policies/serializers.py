@@ -46,6 +46,7 @@ class PolicyListSerializer(serializers.ModelSerializer):
     pending_acknowledgement_count = serializers.IntegerField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
     has_attachment = serializers.SerializerMethodField()
+    user_acknowledged = serializers.SerializerMethodField()
 
     class Meta:
         model = Policy
@@ -55,11 +56,20 @@ class PolicyListSerializer(serializers.ModelSerializer):
             'status', 'status_display', 'effective_date', 'review_date',
             'expiry_date', 'published_at', 'requires_acknowledgement',
             'acknowledgement_count', 'pending_acknowledgement_count',
-            'is_active', 'has_attachment', 'created_at', 'updated_at'
+            'is_active', 'has_attachment', 'attachment_name', 'attachment_type',
+            'user_acknowledged', 'created_at', 'updated_at'
         ]
 
     def get_has_attachment(self, obj):
         return bool(obj.attachment)
+
+    def get_user_acknowledged(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            employee = getattr(request.user, 'employee', None)
+            if employee:
+                return obj.acknowledgements.filter(employee=employee).exists()
+        return False
 
 
 class PolicyDetailSerializer(serializers.ModelSerializer):
