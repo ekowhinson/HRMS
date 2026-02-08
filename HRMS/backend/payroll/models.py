@@ -1181,6 +1181,14 @@ class PayrollItem(BaseModel):
     days_absent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     leave_without_pay_days = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
+    # Proration
+    proration_factor = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=1.0,
+        help_text='Proration factor applied (1.0 = full salary, <1.0 = prorated for mid-period join/exit)'
+    )
+
     # Bank details snapshot
     bank_name = models.CharField(max_length=100, null=True, blank=True)
     bank_account_number = models.CharField(max_length=50, null=True, blank=True)

@@ -7,7 +7,7 @@ import csv
 import io
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 from dataclasses import dataclass
 
@@ -46,6 +46,9 @@ class PayrollComputationResult:
     ssnit_employer: Decimal = Decimal('0')
     tier2_employer: Decimal = Decimal('0')
     employer_cost: Decimal = Decimal('0')
+    proration_factor: Decimal = Decimal('1')
+    days_payable: int = 0
+    total_days: int = 0
     error_message: Optional[str] = None
 
 
@@ -408,6 +411,46 @@ class PayrollService:
 
         return total_relief.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+    def calculate_proration_factor(self, employee: Employee) -> tuple[Decimal, int, int]:
+        """
+        Calculate proration factor for mid-period joiners/exiters.
+
+        Returns: (factor, days_payable, total_days)
+        - factor=1.0 means full salary (no proration needed)
+        - Uses calendar days (holidays are paid per SRS)
+        """
+        period_start = self.period.start_date
+        period_end = self.period.end_date
+        total_days = (period_end - period_start).days + 1
+
+        effective_start = period_start
+        effective_end = period_end
+
+        # New hire joining mid-period
+        if employee.date_of_joining and employee.date_of_joining > period_start:
+            # Find the first working day of the period (skip Sat/Sun)
+            first_working_day = period_start
+            while first_working_day.weekday() >= 5:  # 5=Saturday, 6=Sunday
+                first_working_day += timedelta(days=1)
+
+            if employee.date_of_joining <= first_working_day:
+                pass  # No proration — joined on or before first working day
+            else:
+                effective_start = employee.date_of_joining
+
+        # Employee exiting mid-period
+        if employee.date_of_exit and employee.date_of_exit < period_end:
+            effective_end = employee.date_of_exit
+
+        days_payable = (effective_end - effective_start).days + 1
+        days_payable = max(0, days_payable)
+
+        if days_payable >= total_days:
+            return Decimal('1'), total_days, total_days
+
+        factor = Decimal(str(days_payable)) / Decimal(str(total_days))
+        return factor, days_payable, total_days
+
     def compute_employee_payroll(self, employee: Employee) -> PayrollComputationResult:
         """
         Compute payroll for a single employee.
@@ -430,6 +473,9 @@ class PayrollService:
 
         basic_salary = salary.basic_salary
         annual_basic_salary = basic_salary * Decimal('12')
+
+        # Calculate proration factor for mid-period joiners/exiters
+        proration_factor, days_payable, total_days = self.calculate_proration_factor(employee)
 
         # Determine if employee is a tax resident (default to True if not specified)
         is_resident = getattr(employee, 'is_tax_resident', True)
@@ -466,15 +512,20 @@ class PayrollService:
             else:
                 other_deductions += amount
 
-        # Process basic salary
+        # Process basic salary (apply proration if component is prorated)
         basic_component = PayComponent.objects.filter(code='BASIC', is_active=True).first()
+        prorated_basic = basic_salary  # default if no basic component found
         if basic_component:
+            if basic_component.is_prorated and proration_factor < Decimal('1'):
+                prorated_basic = (basic_salary * proration_factor).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            else:
+                prorated_basic = basic_salary
             details.append({
                 'pay_component': basic_component,
-                'amount': basic_salary,
+                'amount': prorated_basic,
                 'quantity': Decimal('1'),
             })
-            add_earning(basic_component, basic_salary)
+            add_earning(basic_component, prorated_basic)
 
         # Process salary components
         salary_components = EmployeeSalaryComponent.objects.filter(
@@ -487,6 +538,10 @@ class PayrollService:
                 continue
 
             amount = comp.amount
+            # Apply proration to components flagged as prorated
+            if comp.pay_component.is_prorated and proration_factor < Decimal('1'):
+                amount = (amount * proration_factor).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
             details.append({
                 'pay_component': comp.pay_component,
                 'amount': amount,
@@ -540,6 +595,10 @@ class PayrollService:
             # Calculate the transaction amount
             txn_amount = txn.calculate_amount(basic_salary, earnings)
 
+            # Prorate recurring transactions with prorated components
+            if txn.is_recurring and txn.pay_component.is_prorated and proration_factor < Decimal('1'):
+                txn_amount = (txn_amount * proration_factor).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
             if txn_amount > 0:
                 details.append({
                     'pay_component': txn.pay_component,
@@ -558,8 +617,9 @@ class PayrollService:
 
         gross_earnings = earnings
 
-        # Calculate SSNIT contributions
-        ssnit_employee, ssnit_employer, tier2_employer = self.calculate_ssnit(basic_salary)
+        # Calculate SSNIT contributions (on prorated basic if applicable)
+        ssnit_base = prorated_basic if basic_component and basic_component.is_prorated else basic_salary
+        ssnit_employee, ssnit_employer, tier2_employer = self.calculate_ssnit(ssnit_base)
 
         # Calculate tax relief
         tax_relief = self.calculate_tax_relief(gross_earnings)
@@ -646,7 +706,7 @@ class PayrollService:
         return PayrollComputationResult(
             success=True,
             employee_id=employee.id,
-            basic_salary=basic_salary,
+            basic_salary=prorated_basic if basic_component else basic_salary,
             gross_earnings=gross_earnings,
             total_deductions=total_deductions,
             net_salary=net_salary,
@@ -660,6 +720,9 @@ class PayrollService:
             ssnit_employer=ssnit_employer,
             tier2_employer=tier2_employer,
             employer_cost=employer_cost,
+            proration_factor=proration_factor,
+            days_payable=days_payable,
+            total_days=total_days,
         ), details
 
     @transaction.atomic
@@ -768,6 +831,8 @@ class PayrollService:
                 ssnit_employee=computation.ssnit_employee,
                 ssnit_employer=computation.ssnit_employer,
                 tier2_employer=computation.tier2_employer,
+                days_worked=computation.days_payable,
+                proration_factor=computation.proration_factor,
                 bank_name=bank_account.bank_name if bank_account else None,
                 bank_account_number=bank_account.account_number if bank_account else None,
                 bank_branch=bank_account.branch_name if bank_account else None,
