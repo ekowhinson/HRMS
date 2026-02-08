@@ -36,6 +36,9 @@ urlpatterns = [
     path('settings/set-active-period/', views.SetActivePeriodView.as_view(), name='set-active-period'),
     path('settings/advance-period/', views.AdvancePeriodView.as_view(), name='advance-period'),
 
+    # Self-service payslips
+    path('my-payslips/', views.MyPayslipsView.as_view(), name='my-payslips'),
+
     # Employee salary
     path('employee/<uuid:employee_id>/salary/', views.EmployeeSalaryView.as_view(), name='employee-salary'),
     path('employee/<uuid:employee_id>/salary/history/', views.EmployeeSalaryHistoryView.as_view(), name='salary-history'),

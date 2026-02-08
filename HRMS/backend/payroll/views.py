@@ -41,6 +41,7 @@ from .serializers import (
     BackpayRequestSerializer, BackpayRequestCreateSerializer,
     BackpayPreviewSerializer, BackpayDetailSerializer,
     BackpayBulkCreateSerializer,
+    MyPayslipSerializer,
 )
 from .services import PayrollService
 
@@ -838,6 +839,25 @@ class EmployeePayslipsView(generics.ListAPIView):
     def get_queryset(self):
         return PayrollItem.objects.filter(
             employee_id=self.kwargs['employee_id'],
+            status__in=[PayrollItem.Status.PAID, PayrollItem.Status.APPROVED, PayrollItem.Status.COMPUTED]
+        ).select_related(
+            'payroll_run', 'payroll_run__payroll_period', 'employee'
+        ).prefetch_related(
+            'details', 'details__pay_component'
+        ).order_by('-payroll_run__payroll_period__start_date')
+
+
+class MyPayslipsView(generics.ListAPIView):
+    """Get current employee's payslips (self-service)."""
+    serializer_class = MyPayslipSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        employee = getattr(self.request.user, 'employee', None)
+        if not employee:
+            return PayrollItem.objects.none()
+        return PayrollItem.objects.filter(
+            employee=employee,
             status__in=[PayrollItem.Status.PAID, PayrollItem.Status.APPROVED, PayrollItem.Status.COMPUTED]
         ).select_related(
             'payroll_run', 'payroll_run__payroll_period', 'employee'

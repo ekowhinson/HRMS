@@ -210,6 +210,42 @@ class PayrollItemSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class MyPayslipSerializer(serializers.ModelSerializer):
+    """Serializer for employee self-service payslip view."""
+    period_name = serializers.CharField(source='payroll_run.payroll_period.name', read_only=True)
+    payment_date = serializers.SerializerMethodField()
+    gross_pay = serializers.DecimalField(source='gross_earnings', max_digits=12, decimal_places=2, read_only=True)
+    net_pay = serializers.DecimalField(source='net_salary', max_digits=12, decimal_places=2, read_only=True)
+    paye_tax = serializers.DecimalField(source='paye', max_digits=12, decimal_places=2, read_only=True)
+    allowances = serializers.SerializerMethodField()
+    other_deductions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PayrollItem
+        fields = [
+            'id', 'period_name', 'payment_date', 'basic_salary',
+            'gross_pay', 'net_pay', 'paye_tax', 'total_deductions',
+            'ssnit_employee', 'ssnit_employer',
+            'allowances', 'other_deductions',
+        ]
+
+    def get_payment_date(self, obj):
+        return obj.payment_date or obj.payroll_run.payroll_period.end_date
+
+    def get_allowances(self, obj):
+        return [
+            {'name': d.pay_component.name, 'amount': float(d.amount)}
+            for d in obj.details.filter(pay_component__component_type='EARNING')
+            if d.pay_component.name.upper() != 'BASIC SALARY'
+        ]
+
+    def get_other_deductions(self, obj):
+        return [
+            {'name': d.pay_component.name, 'amount': float(d.amount)}
+            for d in obj.details.filter(pay_component__component_type='DEDUCTION')
+        ]
+
+
 class PayrollRunSerializer(serializers.ModelSerializer):
     """Serializer for PayrollRun model."""
     period_name = serializers.CharField(source='payroll_period.name', read_only=True)
