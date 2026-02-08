@@ -31,6 +31,7 @@ urlpatterns = [
         path('policies/', include('policies.urls')),  # Company policies & SOPs
         path('exits/', include('exits.urls')),  # Exit/Offboarding management
         path('recruitment/', include('recruitment.urls')),  # Recruitment & interview scoring
+        path('discipline/', include('discipline.urls')),  # Discipline & Grievance management
     ])),
 
     # API Documentation

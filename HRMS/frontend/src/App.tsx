@@ -67,6 +67,12 @@ import ExitDetailPage from './pages/admin/ExitDetailPage'
 import RecruitmentPage from './pages/admin/RecruitmentPage'
 import VacancyFormPage from './pages/admin/VacancyFormPage'
 import VacancyDetailPage from './pages/admin/VacancyDetailPage'
+// Discipline & Grievance pages
+import DisciplinaryPage from './pages/admin/DisciplinaryPage'
+import GrievancePage from './pages/admin/GrievancePage'
+// Portal - Discipline & Grievance
+import MyDisciplinaryPage from './pages/portal/MyDisciplinaryPage'
+import MyGrievancesPage from './pages/portal/MyGrievancesPage'
 // Announcements pages
 import AnnouncementsPage from './pages/admin/AnnouncementsPage'
 // User & Role Management pages
@@ -177,6 +183,8 @@ function App() {
                 <Route path="/my-appraisal" element={<MyAppraisalPage />} />
                 <Route path="/my-payslips" element={<MyPayslipsPage />} />
                 <Route path="/my-loans" element={<MyLoansPage />} />
+                <Route path="/my-disciplinary" element={<MyDisciplinaryPage />} />
+                <Route path="/my-grievances" element={<MyGrievancesPage />} />
 
                 {/* Leave Management - Admin only */}
                 <Route path="/leave" element={<AdminRoute><LeavePage /></AdminRoute>} />
@@ -236,6 +244,10 @@ function App() {
                 <Route path="/admin/recruitment/vacancies/new" element={<AdminRoute><VacancyFormPage /></AdminRoute>} />
                 <Route path="/admin/recruitment/vacancies/:id" element={<AdminRoute><VacancyDetailPage /></AdminRoute>} />
                 <Route path="/admin/recruitment/vacancies/:id/edit" element={<AdminRoute><VacancyFormPage /></AdminRoute>} />
+
+                {/* Discipline & Grievance Routes */}
+                <Route path="/admin/disciplinary" element={<AdminRoute><DisciplinaryPage /></AdminRoute>} />
+                <Route path="/admin/grievances" element={<AdminRoute><GrievancePage /></AdminRoute>} />
 
                 {/* Announcements Routes */}
                 <Route path="/admin/announcements" element={<AdminRoute><AnnouncementsPage /></AdminRoute>} />

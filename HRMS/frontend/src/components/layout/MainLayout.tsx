@@ -41,6 +41,8 @@ import {
   KeyIcon,
   LockClosedIcon,
   CpuChipIcon,
+  ExclamationTriangleIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
@@ -71,6 +73,8 @@ const selfServiceNavigation: NavItem[] = [
   { name: 'My Payslips', href: '/my-payslips', icon: BanknotesIcon },
   { name: 'My Loans', href: '/my-loans', icon: CreditCardIcon },
   { name: 'My Appraisal', href: '/my-appraisal', icon: ChartBarIcon },
+  { name: 'My Disciplinary', href: '/my-disciplinary', icon: ExclamationTriangleIcon },
+  { name: 'My Grievances', href: '/my-grievances', icon: ChatBubbleLeftRightIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
@@ -116,6 +120,14 @@ const hrSections: NavSection[] = [
       { name: 'Probation Assessments', href: '/admin/probation-assessments', icon: ShieldCheckIcon },
       { name: 'Training Needs', href: '/admin/training-needs', icon: AcademicCapIcon },
       { name: 'Performance Appeals', href: '/admin/performance-appeals', icon: ScaleIcon },
+    ],
+  },
+  {
+    name: 'Discipline & Grievance',
+    icon: ScaleIcon,
+    items: [
+      { name: 'Disciplinary Cases', href: '/admin/disciplinary', icon: ExclamationTriangleIcon },
+      { name: 'Grievances', href: '/admin/grievances', icon: ChatBubbleLeftRightIcon },
     ],
   },
 ];
