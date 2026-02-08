@@ -220,8 +220,8 @@ class DisciplinaryCaseCreateSerializer(serializers.ModelSerializer):
 
         # Set reported_by from request user's employee profile
         request = self.context.get('request')
-        if request and hasattr(request.user, 'employee_profile'):
-            validated_data['reported_by'] = request.user.employee_profile
+        if request and hasattr(request.user, 'employee'):
+            validated_data['reported_by'] = request.user.employee
 
         if 'reported_date' not in validated_data or not validated_data['reported_date']:
             validated_data['reported_date'] = today
@@ -376,7 +376,7 @@ class GrievanceCreateSerializer(serializers.ModelSerializer):
         # Set employee from request user if not provided
         request = self.context.get('request')
         if 'employee' not in validated_data or not validated_data.get('employee'):
-            if request and hasattr(request.user, 'employee_profile'):
-                validated_data['employee'] = request.user.employee_profile
+            if request and hasattr(request.user, 'employee'):
+                validated_data['employee'] = request.user.employee
 
         return super().create(validated_data)

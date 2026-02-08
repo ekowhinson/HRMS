@@ -486,10 +486,10 @@ class MyDisciplinaryCasesView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if hasattr(user, 'employee_profile') and user.employee_profile:
+        if hasattr(user, 'employee') and user.employee:
             return (
                 DisciplinaryCase.objects
-                .filter(employee=user.employee_profile)
+                .filter(employee=user.employee)
                 .select_related('employee', 'misconduct_category', 'reported_by',
                                 'assigned_investigator', 'hr_representative', 'decision_by')
                 .prefetch_related('actions', 'hearings', 'evidence', 'appeals')
@@ -502,7 +502,7 @@ class RespondToShowCauseView(APIView):
 
     def post(self, request, pk):
         try:
-            employee = request.user.employee_profile
+            employee = request.user.employee
             case = DisciplinaryCase.objects.get(pk=pk, employee=employee)
         except (AttributeError, DisciplinaryCase.DoesNotExist):
             return Response({'detail': 'Case not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -527,7 +527,7 @@ class AcknowledgeActionView(APIView):
 
     def post(self, request, pk):
         try:
-            employee = request.user.employee_profile
+            employee = request.user.employee
         except AttributeError:
             return Response({'detail': 'No employee profile.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -552,7 +552,7 @@ class FileAppealView(generics.CreateAPIView):
 
     def create(self, request, pk, *args, **kwargs):
         try:
-            employee = request.user.employee_profile
+            employee = request.user.employee
             case = DisciplinaryCase.objects.get(pk=pk, employee=employee)
         except (AttributeError, DisciplinaryCase.DoesNotExist):
             return Response({'detail': 'Case not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -584,10 +584,10 @@ class MyGrievancesView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if hasattr(user, 'employee_profile') and user.employee_profile:
+        if hasattr(user, 'employee') and user.employee:
             return (
                 Grievance.objects
-                .filter(employee=user.employee_profile)
+                .filter(employee=user.employee)
                 .select_related(
                     'employee', 'category', 'assigned_to',
                     'against_employee', 'against_department',
