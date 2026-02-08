@@ -565,21 +565,29 @@ class PayrollRunViewSet(viewsets.ModelViewSet):
     def reset_to_draft(self, request, pk=None):
         """
         Reset a payroll run back to DRAFT status for reprocessing.
-        Only allowed for COMPUTED or REJECTED statuses.
+        Allowed for COMPUTED/REJECTED runs, or PAID/APPROVED runs
+        when the period has been reopened (status is OPEN).
         """
         payroll_run = self.get_object()
+        period = payroll_run.payroll_period
 
-        allowed_statuses = ['COMPUTED', 'REJECTED']
+        # Check if period is closed - block all resets
+        if period.status in ['PAID', 'CLOSED']:
+            return Response({
+                'error': 'Cannot reset payroll for a closed or paid period. '
+                         'Reopen the period from Payroll Setup first.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # For reopened periods (OPEN), allow resetting PAID/APPROVED runs too
+        if period.status == 'OPEN':
+            allowed_statuses = ['COMPUTED', 'REJECTED', 'APPROVED', 'PAID']
+        else:
+            allowed_statuses = ['COMPUTED', 'REJECTED']
+
         if payroll_run.status not in allowed_statuses:
             return Response({
                 'error': f'Cannot reset payroll in status: {payroll_run.status}. '
                          f'Only {", ".join(allowed_statuses)} can be reset.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if period is still open
-        if payroll_run.payroll_period.status in ['PAID', 'CLOSED']:
-            return Response({
-                'error': 'Cannot reset payroll for a closed or paid period.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Clear existing items and reset status

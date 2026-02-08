@@ -581,6 +581,23 @@ export default function PayrollProcessingPage() {
                         </Button>
                       </>
                     )}
+                    {status === 'PAID' && periodStatus === 'OPEN' && (
+                      <Button
+                        variant="outline"
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                        onClick={() =>
+                          setShowConfirmModal({
+                            action: 'reset_draft',
+                            runId: run.id,
+                            title: 'Reset to Draft',
+                            message: 'This period has been reopened. Resetting will clear all computed data so you can rerun payroll for this period.'
+                          })
+                        }
+                      >
+                        <XMarkIcon className="h-4 w-4 mr-2" />
+                        Reset to Draft
+                      </Button>
+                    )}
                     {status === 'PAID' && periodStatus !== 'CLOSED' && (
                       <Button
                         variant="outline"
