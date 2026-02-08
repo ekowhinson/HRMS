@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -13,9 +13,8 @@ import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
-  EyeIcon,
-  XMarkIcon,
 } from '@heroicons/react/24/outline'
+import ReactMarkdown from 'react-markdown'
 import { useAuthStore } from '@/features/auth/store'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import Badge, { CountBadge } from '@/components/ui/Badge'
@@ -65,6 +64,15 @@ export default function SelfServiceDashboard() {
   const [loadingPolicyContent, setLoadingPolicyContent] = useState(false)
   const [policyViewerUrl, setPolicyViewerUrl] = useState<string | null>(null)
   const [policyViewerLoading, setPolicyViewerLoading] = useState(false)
+
+  // Clean up blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (policyViewerUrl) {
+        URL.revokeObjectURL(policyViewerUrl)
+      }
+    }
+  }, [policyViewerUrl])
 
   // Fetch announcements
   const { data: announcements = [], isLoading: loadingAnnouncements } = useQuery({
@@ -117,9 +125,10 @@ export default function SelfServiceDashboard() {
     },
   })
 
-  // Open policy detail
+  // Open policy detail — fetch full content and auto-load viewable attachments
   const handleOpenPolicy = async (policy: Policy) => {
     setSelectedPolicy(policy)
+    // Fetch full policy content
     if (policy.content) {
       setPolicyContent(policy.content)
     } else {
@@ -131,6 +140,18 @@ export default function SelfServiceDashboard() {
         setPolicyContent('')
       } finally {
         setLoadingPolicyContent(false)
+      }
+    }
+    // Auto-load viewable attachments inline (PDF, images)
+    if (policy.has_attachment && isViewableType(policy.attachment_type)) {
+      setPolicyViewerLoading(true)
+      try {
+        const url = await policyService.getAttachmentBlobUrl(policy.id)
+        setPolicyViewerUrl(url)
+      } catch {
+        // fall back to download
+      } finally {
+        setPolicyViewerLoading(false)
       }
     }
   }
@@ -523,69 +544,31 @@ export default function SelfServiceDashboard() {
               </div>
             )}
 
-            <div className="prose prose-sm max-w-none text-gray-700">
-              {loadingPolicyContent ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
-                </div>
-              ) : (
-                <div className="whitespace-pre-wrap">{policyContent}</div>
-              )}
-            </div>
+            {loadingPolicyContent ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+              </div>
+            ) : policyContent ? (
+              <div className="prose prose-sm max-w-none text-gray-700">
+                <ReactMarkdown>{policyContent}</ReactMarkdown>
+              </div>
+            ) : null}
 
             {selectedPolicy.has_attachment && (
               <div className="border-t border-gray-200 pt-4">
-                <div className="flex items-center gap-2">
-                  {isViewableType(selectedPolicy.attachment_type) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      isLoading={policyViewerLoading}
-                      onClick={async () => {
-                        if (policyViewerUrl) {
-                          URL.revokeObjectURL(policyViewerUrl)
-                          setPolicyViewerUrl(null)
-                          return
-                        }
-                        setPolicyViewerLoading(true)
-                        try {
-                          const url = await policyService.getAttachmentBlobUrl(selectedPolicy.id)
-                          setPolicyViewerUrl(url)
-                        } catch {
-                          // silently fail
-                        } finally {
-                          setPolicyViewerLoading(false)
-                        }
-                      }}
-                      leftIcon={<EyeIcon className="h-4 w-4" />}
-                    >
-                      {policyViewerUrl ? 'Hide' : 'View'} Attachment
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownloadAttachment(selectedPolicy)}
-                    leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
-                  >
-                    Download Attachment
-                  </Button>
-                </div>
+                {/* Inline viewer — auto-loaded for PDFs and images */}
+                {policyViewerLoading && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                    <span className="ml-2 text-sm text-gray-500">Loading document...</span>
+                  </div>
+                )}
                 {policyViewerUrl && (
-                  <div className="mt-3 border rounded-lg overflow-hidden relative">
-                    <button
-                      onClick={() => {
-                        URL.revokeObjectURL(policyViewerUrl)
-                        setPolicyViewerUrl(null)
-                      }}
-                      className="absolute top-2 right-2 z-10 p-1 bg-white rounded-full shadow hover:bg-gray-100"
-                    >
-                      <XMarkIcon className="h-4 w-4 text-gray-500" />
-                    </button>
+                  <div className="border rounded-lg overflow-hidden mb-3">
                     {selectedPolicy.attachment_type === 'application/pdf' ? (
                       <iframe
                         src={policyViewerUrl}
-                        className="w-full h-[500px]"
+                        className="w-full h-[600px]"
                         title="Policy attachment"
                       />
                     ) : (
@@ -597,6 +580,17 @@ export default function SelfServiceDashboard() {
                     )}
                   </div>
                 )}
+                {/* Download button as secondary option */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadAttachment(selectedPolicy)}
+                    leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+                  >
+                    Download {selectedPolicy.attachment_name || 'Attachment'}
+                  </Button>
+                </div>
               </div>
             )}
 

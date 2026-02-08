@@ -102,8 +102,9 @@ export interface PaginatedResponse<T> {
 export const policyService = {
   // Categories
   getCategories: async (params?: { active_only?: boolean }) => {
-    const response = await api.get<PolicyCategory[]>('/policies/categories/', { params })
-    return response.data
+    const response = await api.get<PolicyCategory[] | { results: PolicyCategory[] }>('/policies/categories/', { params })
+    const data = response.data
+    return Array.isArray(data) ? data : data.results
   },
 
   createCategory: async (data: Partial<PolicyCategory>) => {
