@@ -842,6 +842,58 @@ export default function EmployeeDetailPage() {
 
       {activeTab === 'salary' && (
         <div className="space-y-4">
+          {/* Bank & Level Summary */}
+          {(employee.bank_name || employee.salary_band_name || employee.salary_level_name) && (
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex flex-wrap gap-6 text-sm">
+                  {employee.salary_band_name && (
+                    <div>
+                      <span className="text-gray-500">Band: </span>
+                      <span className="font-medium text-gray-900">{employee.salary_band_name}</span>
+                    </div>
+                  )}
+                  {employee.salary_level_name && (
+                    <div>
+                      <span className="text-gray-500">Level: </span>
+                      <span className="font-medium text-gray-900">{employee.salary_level_name}</span>
+                    </div>
+                  )}
+                  {employee.salary_notch_name && (
+                    <div>
+                      <span className="text-gray-500">Notch: </span>
+                      <span className="font-medium text-gray-900">{employee.salary_notch_name}</span>
+                    </div>
+                  )}
+                  {employee.salary_notch_amount && (
+                    <div>
+                      <span className="text-gray-500">Notch Amount: </span>
+                      <span className="font-medium text-gray-900">{formatCurrency(employee.salary_notch_amount)}</span>
+                    </div>
+                  )}
+                  {employee.bank_name && (
+                    <div>
+                      <span className="text-gray-500">Bank: </span>
+                      <span className="font-medium text-gray-900">{employee.bank_name}</span>
+                    </div>
+                  )}
+                  {employee.bank_account_number && (
+                    <div>
+                      <span className="text-gray-500">Account: </span>
+                      <span className="font-medium text-gray-900">{employee.bank_account_number}</span>
+                    </div>
+                  )}
+                  {employee.bank_branch && (
+                    <div>
+                      <span className="text-gray-500">Branch: </span>
+                      <span className="font-medium text-gray-900">{employee.bank_branch}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {isLoadingPayslips ? (
             <Card>
               <CardContent>
