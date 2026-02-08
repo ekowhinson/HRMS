@@ -234,48 +234,49 @@ function ActivityLogsTab() {
                     const hasChanges = log.action === 'UPDATE' && log.changes && Object.keys(log.changes).length > 0
 
                     return (
-                      <tr key={log.id} className="group">
-                        <td colSpan={7} className="p-0">
-                          <div
-                            className={`flex items-center hover:bg-gray-50 cursor-pointer ${hasChanges ? '' : 'cursor-default'}`}
-                            onClick={() => hasChanges && setExpandedRow(isExpanded ? null : log.id)}
-                          >
-                            <div className="px-6 py-3 w-8">
-                              {hasChanges && (
-                                isExpanded
-                                  ? <ChevronDownIcon className="h-4 w-4 text-gray-400" />
-                                  : <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                              )}
-                            </div>
-                            <div className="px-6 py-3 text-xs text-gray-600 whitespace-nowrap">
-                              {formatDateTime(log.timestamp)}
-                            </div>
-                            <div className="px-6 py-3 text-gray-900 font-medium">
-                              {log.user_name || log.user_email || 'System'}
-                            </div>
-                            <div className="px-6 py-3">
-                              <Badge variant={config.variant} size="xs">
-                                {log.action}
-                              </Badge>
-                            </div>
-                            <div className="px-6 py-3 text-gray-700">
-                              {log.model_name}
-                            </div>
-                            <div className="px-6 py-3 text-gray-500 max-w-xs truncate">
-                              {log.object_repr || log.object_id || '—'}
-                            </div>
-                            <div className="px-6 py-3 text-gray-600 font-mono text-xs hidden lg:block">
-                              {log.ip_address || '—'}
-                            </div>
-                          </div>
-                          {/* Expanded row detail */}
-                          {isExpanded && log.changes && (
-                            <div className="px-14 pb-4">
+                      <>
+                        <tr
+                          key={log.id}
+                          className={`hover:bg-gray-50 ${hasChanges ? 'cursor-pointer' : ''}`}
+                          onClick={() => hasChanges && setExpandedRow(isExpanded ? null : log.id)}
+                        >
+                          <td className="px-6 py-3 w-8">
+                            {hasChanges && (
+                              isExpanded
+                                ? <ChevronDownIcon className="h-4 w-4 text-gray-400" />
+                                : <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                            )}
+                          </td>
+                          <td className="px-6 py-3 text-xs text-gray-600 whitespace-nowrap">
+                            {formatDateTime(log.timestamp)}
+                          </td>
+                          <td className="px-6 py-3 text-gray-900 font-medium">
+                            {log.user_name || log.user_email || 'System'}
+                          </td>
+                          <td className="px-6 py-3">
+                            <Badge variant={config.variant} size="xs">
+                              {log.action}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-3 text-gray-700">
+                            {log.model_name}
+                          </td>
+                          <td className="px-6 py-3 text-gray-500 max-w-xs truncate">
+                            {log.object_repr || log.object_id || '—'}
+                          </td>
+                          <td className="px-6 py-3 text-gray-600 font-mono text-xs hidden lg:table-cell">
+                            {log.ip_address || '—'}
+                          </td>
+                        </tr>
+                        {/* Expanded row detail */}
+                        {isExpanded && log.changes && (
+                          <tr key={`${log.id}-detail`}>
+                            <td colSpan={7} className="px-14 pb-4 pt-0 bg-gray-50/50">
                               <ChangesDiff changes={log.changes} />
-                            </div>
-                          )}
-                        </td>
-                      </tr>
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     )
                   })}
                 </tbody>
