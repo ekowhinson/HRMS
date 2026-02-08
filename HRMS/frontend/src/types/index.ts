@@ -500,6 +500,7 @@ export interface PayrollRun {
   run_number: string
   payroll_period: PayrollPeriod
   period_name: string
+  period_status?: string
   run_date: string
   status: string
   total_employees: number

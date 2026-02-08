@@ -320,6 +320,7 @@ export default function PayrollProcessingPage() {
         ) : runs && runs.length > 0 ? (
           runs.map((run: PayrollRun) => {
             const status = normalizeStatus(run.status)
+            const periodStatus = run.period_status?.toUpperCase()
             return (
               <Card key={run.id}>
                 <CardHeader>
@@ -333,9 +334,16 @@ export default function PayrollProcessingPage() {
                         Run #{run.run_number} - {new Date(run.run_date).toLocaleDateString()}
                       </p>
                     </div>
-                    <Badge variant={statusColors[status] || 'default'}>
-                      {status.replace(/_/g, ' ')}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={statusColors[status] || 'default'}>
+                        {status.replace(/_/g, ' ')}
+                      </Badge>
+                      {periodStatus === 'CLOSED' && (
+                        <Badge variant="default">
+                          PERIOD CLOSED
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -573,7 +581,7 @@ export default function PayrollProcessingPage() {
                         </Button>
                       </>
                     )}
-                    {status === 'PAID' && (
+                    {status === 'PAID' && periodStatus !== 'CLOSED' && (
                       <Button
                         variant="outline"
                         className="text-orange-600 border-orange-300 hover:bg-orange-50"

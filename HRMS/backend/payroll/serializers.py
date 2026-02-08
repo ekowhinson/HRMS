@@ -213,6 +213,7 @@ class PayrollItemSerializer(serializers.ModelSerializer):
 class PayrollRunSerializer(serializers.ModelSerializer):
     """Serializer for PayrollRun model."""
     period_name = serializers.CharField(source='payroll_period.name', read_only=True)
+    period_status = serializers.CharField(source='payroll_period.status', read_only=True)
 
     class Meta:
         model = PayrollRun
