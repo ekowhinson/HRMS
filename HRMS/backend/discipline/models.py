@@ -73,6 +73,10 @@ class DisciplinaryCase(BaseModel):
         'employees.Employee', on_delete=models.SET_NULL,
         null=True, related_name='reported_cases'
     )
+    source_grievance = models.ForeignKey(
+        'Grievance', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='resulting_cases',
+    )
 
     # Status and Assignment
     status = models.CharField(

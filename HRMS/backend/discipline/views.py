@@ -66,7 +66,8 @@ class DisciplinaryCaseViewSet(viewsets.ModelViewSet):
         return (
             DisciplinaryCase.objects
             .select_related('employee', 'misconduct_category', 'reported_by',
-                            'assigned_investigator', 'hr_representative', 'decision_by')
+                            'assigned_investigator', 'hr_representative', 'decision_by',
+                            'source_grievance')
             .prefetch_related('actions', 'hearings', 'hearings__committee_members', 'evidence', 'appeals')
         )
 
@@ -307,7 +308,7 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 'against_employee', 'against_department',
                 'against_manager', 'escalated_to', 'hr_representative',
             )
-            .prefetch_related('notes', 'attachments')
+            .prefetch_related('notes', 'attachments', 'resulting_cases')
         )
 
     def get_serializer_class(self):
@@ -438,6 +439,117 @@ class GrievanceViewSet(viewsets.ModelViewSet):
         grievance.status = Grievance.Status.SUBMITTED  # Re-open
         grievance.save(update_fields=['resolution_accepted', 'resolution_feedback', 'status', 'updated_at'])
         return Response(GrievanceDetailSerializer(grievance).data)
+
+    @action(detail=True, methods=['post'])
+    def convert_to_disciplinary(self, request, pk=None):
+        grievance = self.get_object()
+
+        # Validate grievance is not already closed/withdrawn/resolved
+        if grievance.status in [Grievance.Status.CLOSED, Grievance.Status.WITHDRAWN, Grievance.Status.RESOLVED]:
+            return Response(
+                {'detail': 'Cannot convert a closed, withdrawn, or resolved grievance.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        misconduct_category_id = request.data.get('misconduct_category')
+        if not misconduct_category_id:
+            return Response({'detail': 'misconduct_category is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            misconduct_category = MisconductCategory.objects.get(pk=misconduct_category_id)
+        except MisconductCategory.DoesNotExist:
+            return Response({'detail': 'Invalid misconduct category.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Collect involved employees (deduplicate)
+        involved = {}
+        if grievance.against_employee_id:
+            involved[grievance.against_employee_id] = grievance.against_employee
+        if grievance.against_manager_id and grievance.against_manager_id not in involved:
+            involved[grievance.against_manager_id] = grievance.against_manager
+
+        if not involved:
+            return Response(
+                {'detail': 'Grievance has no involved employees (against_employee or against_manager).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        today = date.today()
+        prefix = f"DC-{today.strftime('%Y%m')}"
+        last = (
+            DisciplinaryCase.objects
+            .filter(case_number__startswith=prefix)
+            .order_by('-case_number')
+            .first()
+        )
+        seq = int(last.case_number.split('-')[-1]) + 1 if last else 1
+
+        created_cases = []
+        for emp in involved.values():
+            case_number = f"{prefix}-{seq:04d}"
+            seq += 1
+
+            case = DisciplinaryCase.objects.create(
+                case_number=case_number,
+                employee=emp,
+                misconduct_category=misconduct_category,
+                incident_date=grievance.incident_date or today,
+                incident_description=f"Converted from Grievance {grievance.grievance_number}: {grievance.description}",
+                reported_date=today,
+                reported_by=grievance.employee,
+                status=DisciplinaryCase.Status.REPORTED,
+                source_grievance=grievance,
+            )
+
+            # Copy notes as STATEMENT evidence
+            for note in grievance.notes.all():
+                added_by_name = note.added_by.get_full_name() if note.added_by else 'Unknown'
+                DisciplinaryEvidence.objects.create(
+                    case=case,
+                    evidence_type='STATEMENT',
+                    title=f"Grievance Note by {added_by_name}",
+                    description=note.note,
+                    submitted_by=grievance.employee,
+                )
+
+            # Copy attachments as DOCUMENT evidence
+            for att in grievance.attachments.all():
+                DisciplinaryEvidence.objects.create(
+                    case=case,
+                    evidence_type='DOCUMENT',
+                    title=att.title,
+                    description=att.description,
+                    file_data=att.file_data,
+                    file_name=att.file_name,
+                    file_size=att.file_size,
+                    mime_type=att.mime_type,
+                    file_checksum=att.file_checksum,
+                    submitted_by=grievance.employee,
+                )
+
+            created_cases.append(case)
+
+        # Close the grievance and add a note
+        case_numbers = ', '.join(c.case_number for c in created_cases)
+        grievance.status = Grievance.Status.CLOSED
+        grievance.save(update_fields=['status', 'updated_at'])
+
+        GrievanceNote.objects.create(
+            grievance=grievance,
+            note=f"Converted to disciplinary case(s): {case_numbers}",
+            is_internal=True,
+            added_by=request.user,
+        )
+
+        return Response({
+            'cases': [
+                {
+                    'id': str(c.id),
+                    'case_number': c.case_number,
+                    'employee_name': c.employee.full_name,
+                }
+                for c in created_cases
+            ]
+        }, status=status.HTTP_201_CREATED)
 
 
 class GrievanceNoteViewSet(viewsets.ModelViewSet):
@@ -593,7 +705,7 @@ class MyGrievancesView(generics.ListAPIView):
                     'against_employee', 'against_department',
                     'against_manager', 'escalated_to', 'hr_representative',
                 )
-                .prefetch_related('notes', 'attachments')
+                .prefetch_related('notes', 'attachments', 'resulting_cases')
             )
         return Grievance.objects.none()
 

@@ -149,6 +149,8 @@ export interface DisciplinaryCase {
   decision_by_name: string
   closure_date: string | null
   closure_notes: string
+  source_grievance?: string | null
+  source_grievance_number?: string | null
   actions?: DisciplinaryAction[]
   hearings?: DisciplinaryHearing[]
   evidence?: DisciplinaryEvidence[]
@@ -229,6 +231,7 @@ export interface Grievance {
   escalated_date: string | null
   notes?: GrievanceNote[]
   attachments?: GrievanceAttachment[]
+  resulting_cases?: { id: string; case_number: string }[]
   created_at?: string
   updated_at?: string
 }
@@ -516,6 +519,14 @@ export const disciplineService = {
 
   rejectResolution: async (id: string, data?: { feedback?: string }): Promise<Grievance> => {
     const response = await api.post(`/discipline/grievances/${id}/reject_resolution/`, data)
+    return response.data
+  },
+
+  convertToDisciplinary: async (
+    grievanceId: string,
+    data: { misconduct_category: string }
+  ): Promise<{ cases: { id: string; case_number: string; employee_name: string }[] }> => {
+    const response = await api.post(`/discipline/grievances/${grievanceId}/convert_to_disciplinary/`, data)
     return response.data
   },
 

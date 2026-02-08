@@ -39,6 +39,7 @@ class DisciplinaryCaseListSerializer(serializers.ModelSerializer):
     employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
     category_name = serializers.CharField(source='misconduct_category.name', read_only=True)
     severity = serializers.CharField(source='misconduct_category.severity', read_only=True)
+    source_grievance_number = serializers.SerializerMethodField()
 
     class Meta:
         model = DisciplinaryCase
@@ -46,10 +47,14 @@ class DisciplinaryCaseListSerializer(serializers.ModelSerializer):
             'id', 'case_number', 'employee', 'employee_name', 'employee_number',
             'misconduct_category', 'category_name', 'severity',
             'status', 'reported_date', 'incident_date',
+            'source_grievance_number',
         ]
 
     def get_employee_name(self, obj):
         return obj.employee.full_name if obj.employee else ''
+
+    def get_source_grievance_number(self, obj):
+        return obj.source_grievance.grievance_number if obj.source_grievance else None
 
 
 class DisciplinaryActionSerializer(serializers.ModelSerializer):
@@ -163,6 +168,7 @@ class DisciplinaryCaseDetailSerializer(serializers.ModelSerializer):
     hearings = DisciplinaryHearingSerializer(many=True, read_only=True)
     evidence = DisciplinaryEvidenceSerializer(many=True, read_only=True)
     appeals = DisciplinaryAppealSerializer(many=True, read_only=True)
+    source_grievance_number = serializers.SerializerMethodField()
 
     class Meta:
         model = DisciplinaryCase
@@ -180,6 +186,7 @@ class DisciplinaryCaseDetailSerializer(serializers.ModelSerializer):
             'final_decision', 'decision_date', 'decision_by', 'decision_by_name',
             'closure_date', 'closure_notes',
             'actions', 'hearings', 'evidence', 'appeals',
+            'source_grievance', 'source_grievance_number',
             'created_at', 'updated_at',
         ]
 
@@ -191,6 +198,9 @@ class DisciplinaryCaseDetailSerializer(serializers.ModelSerializer):
 
     def get_investigator_name(self, obj):
         return obj.assigned_investigator.full_name if obj.assigned_investigator else ''
+
+    def get_source_grievance_number(self, obj):
+        return obj.source_grievance.grievance_number if obj.source_grievance else None
 
 
 class DisciplinaryCaseCreateSerializer(serializers.ModelSerializer):
@@ -307,6 +317,7 @@ class GrievanceDetailSerializer(serializers.ModelSerializer):
     )
     notes = GrievanceNoteSerializer(many=True, read_only=True)
     attachments = GrievanceAttachmentSerializer(many=True, read_only=True)
+    resulting_cases = serializers.SerializerMethodField()
 
     class Meta:
         model = Grievance
@@ -325,7 +336,7 @@ class GrievanceDetailSerializer(serializers.ModelSerializer):
             'resolution', 'resolution_accepted', 'resolution_feedback',
             'escalation_level', 'escalated_to', 'escalated_to_name',
             'escalation_reason', 'escalated_date',
-            'notes', 'attachments',
+            'notes', 'attachments', 'resulting_cases',
             'created_at', 'updated_at',
         ]
 
@@ -346,6 +357,10 @@ class GrievanceDetailSerializer(serializers.ModelSerializer):
 
     def get_escalated_to_name(self, obj):
         return obj.escalated_to.full_name if obj.escalated_to else ''
+
+    def get_resulting_cases(self, obj):
+        cases = obj.resulting_cases.all()
+        return [{'id': str(c.id), 'case_number': c.case_number} for c in cases]
 
 
 class GrievanceCreateSerializer(serializers.ModelSerializer):

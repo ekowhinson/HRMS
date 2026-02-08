@@ -9,6 +9,7 @@ import {
   ChevronUpIcon,
   PaperClipIcon,
   ArrowUpIcon,
+  ScaleIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, StatCard } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
@@ -24,6 +25,7 @@ import {
   type Grievance,
   type GrievanceCategory,
   type GrievanceNote,
+  type MisconductCategory,
 } from '@/services/discipline'
 
 const statusVariant = (s: string): 'default' | 'info' | 'warning' | 'danger' | 'success' => {
@@ -82,6 +84,7 @@ function GrievanceListTab({ statusFilter }: { statusFilter: 'active' | 'resolved
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [actionModal, setActionModal] = useState<{ type: string; grievanceId: string } | null>(null)
   const [actionText, setActionText] = useState('')
+  const [convertModal, setConvertModal] = useState<Grievance | null>(null)
 
   const closedStatuses = ['RESOLVED', 'CLOSED', 'WITHDRAWN']
 
@@ -261,6 +264,7 @@ function GrievanceListTab({ statusFilter }: { statusFilter: 'active' | 'resolved
                   onAction={(type) => handleAction(type, g.id)}
                   getActions={getActions}
                   onAddNote={(note, internal) => noteMutation.mutate({ id: g.id, note, is_internal: internal })}
+                  onConvert={() => setConvertModal(g)}
                 />
               ))}
             </tbody>
@@ -289,17 +293,26 @@ function GrievanceListTab({ statusFilter }: { statusFilter: 'active' | 'resolved
           </div>
         </div>
       </Modal>
+
+      {convertModal && (
+        <ConvertToDisciplinaryModal
+          grievance={convertModal}
+          isOpen={!!convertModal}
+          onClose={() => setConvertModal(null)}
+        />
+      )}
     </div>
   )
 }
 
-function GrievanceRow({ g, expanded, onToggle, onAction, getActions, onAddNote }: {
+function GrievanceRow({ g, expanded, onToggle, onAction, getActions, onAddNote, onConvert }: {
   g: Grievance
   expanded: boolean
   onToggle: () => void
   onAction: (type: string) => void
   getActions: (g: Grievance) => { label: string; type: string }[]
   onAddNote: (note: string, internal: boolean) => void
+  onConvert: () => void
 }) {
   const { data: detail } = useQuery({
     queryKey: ['grievance-detail', g.id],
@@ -376,6 +389,30 @@ function GrievanceRow({ g, expanded, onToggle, onAction, getActions, onAddNote }
                     )}
                   </div>
                 )}
+
+                {/* Resulting Cases */}
+                {detail.resulting_cases && detail.resulting_cases.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-semibold text-gray-900">Resulting Disciplinary Cases</h4>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {detail.resulting_cases.map((rc) => (
+                        <Badge key={rc.id} variant="danger" size="xs">
+                          {rc.case_number}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Convert to Disciplinary */}
+                {!['CLOSED', 'WITHDRAWN', 'RESOLVED'].includes(detail.status) &&
+                  (detail.against_employee || detail.against_manager) && (
+                  <div className="mt-4" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="danger" size="sm" onClick={onConvert}>
+                      <ScaleIcon className="h-4 w-4 mr-1" /> Convert to Disciplinary
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -443,6 +480,86 @@ function GrievanceRow({ g, expanded, onToggle, onAction, getActions, onAddNote }
         </tr>
       )}
     </>
+  )
+}
+
+function ConvertToDisciplinaryModal({ grievance, isOpen, onClose }: {
+  grievance: Grievance
+  isOpen: boolean
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [selectedCategory, setSelectedCategory] = useState('')
+
+  const { data: misconductCategories } = useQuery({
+    queryKey: ['misconduct-categories'],
+    queryFn: disciplineService.getMisconductCategories,
+  })
+
+  const involvedEmployees: string[] = []
+  if (grievance.against_employee_name) involvedEmployees.push(grievance.against_employee_name)
+  if (grievance.against_manager_name &&
+      grievance.against_manager_name !== grievance.against_employee_name) {
+    involvedEmployees.push(grievance.against_manager_name)
+  }
+
+  const mutation = useMutation({
+    mutationFn: () => disciplineService.convertToDisciplinary(grievance.id, { misconduct_category: selectedCategory }),
+    onSuccess: (data) => {
+      const caseNumbers = data.cases.map(c => c.case_number).join(', ')
+      toast.success(`Created disciplinary case(s): ${caseNumbers}`)
+      queryClient.invalidateQueries({ queryKey: ['grievances'] })
+      queryClient.invalidateQueries({ queryKey: ['grievance-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['grievance-detail'] })
+      queryClient.invalidateQueries({ queryKey: ['discipline-cases'] })
+      onClose()
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Failed to convert'),
+  })
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Convert to Disciplinary Case">
+      <div className="space-y-4">
+        <div className="bg-warning-50 border border-warning-200 rounded-md p-3">
+          <p className="text-sm text-warning-800 font-medium">
+            This will create a separate disciplinary case for each involved employee and close this grievance.
+          </p>
+        </div>
+
+        <div>
+          <h4 className="text-sm font-medium text-gray-700 mb-2">Employees involved:</h4>
+          <div className="flex flex-wrap gap-2">
+            {involvedEmployees.map((name) => (
+              <Badge key={name} variant="info" size="xs">{name}</Badge>
+            ))}
+          </div>
+        </div>
+
+        <Select
+          label="Misconduct Category"
+          options={[
+            { value: '', label: 'Select misconduct category...' },
+            ...(misconductCategories || []).filter((c: MisconductCategory) => c.is_active).map((c: MisconductCategory) => ({
+              value: c.id,
+              label: `${c.name} (${c.severity})`,
+            })),
+          ]}
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+        />
+
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="danger"
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || !selectedCategory}
+          >
+            {mutation.isPending ? 'Converting...' : 'Convert'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
