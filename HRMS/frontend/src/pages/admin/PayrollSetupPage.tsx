@@ -16,6 +16,7 @@ import {
   CalendarDaysIcon,
   ChevronRightIcon,
   CheckCircleIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline'
 import {
   payrollSetupService,
@@ -25,6 +26,7 @@ import {
   SalaryBand,
   SalaryLevel,
   SalaryNotch,
+  type PayrollPeriod,
 } from '@/services/payrollSetup'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -72,6 +74,10 @@ export default function PayrollSetupPage() {
   const [selectedBand, setSelectedBand] = useState<string>('')
   const [selectedLevel, setSelectedLevel] = useState<string>('')
 
+  // Create Year state
+  const [createYearValue, setCreateYearValue] = useState(new Date().getFullYear())
+  const [showCreateYearConfirm, setShowCreateYearConfirm] = useState(false)
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
@@ -118,6 +124,13 @@ export default function PayrollSetupPage() {
   const { data: settingsData, isLoading: loadingSettings } = useQuery({
     queryKey: ['payroll-settings'],
     queryFn: payrollSetupService.getPayrollSettings,
+  })
+
+  // Payroll Periods Query
+  const { data: periods = [], isLoading: loadingPeriods } = useQuery({
+    queryKey: ['payroll-periods'],
+    queryFn: payrollSetupService.getPayrollPeriods,
+    enabled: activeTab === 'settings',
   })
 
   // Mutations
@@ -333,6 +346,36 @@ export default function PayrollSetupPage() {
       queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
     },
     onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to update settings'),
+  })
+
+  const closePeriodMutation = useMutation({
+    mutationFn: payrollSetupService.closePeriod,
+    onSuccess: () => {
+      toast.success('Period closed successfully')
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to close period'),
+  })
+
+  const createYearPeriodsMutation = useMutation({
+    mutationFn: payrollSetupService.createYearPeriods,
+    onSuccess: (data) => {
+      toast.success(data.message || `Created ${data.created} periods`)
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+      setShowCreateYearConfirm(false)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to create year periods'),
+  })
+
+  const createYearCalendarsMutation = useMutation({
+    mutationFn: payrollSetupService.createYearCalendars,
+    onSuccess: (data) => {
+      toast.success(data.message || `Created ${data.created} calendar months`)
+      queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to create calendar months'),
   })
 
   const openModal = (item?: any) => {
@@ -1076,6 +1119,148 @@ export default function PayrollSetupPage() {
               </div>
             </Card>
           )}
+
+          {/* Payroll Periods Management */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between w-full">
+                <CardTitle className="flex items-center text-base">
+                  <CalendarDaysIcon className="h-5 w-5 mr-2 text-gray-500" />
+                  Payroll Periods
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={createYearValue}
+                    onChange={(e) => setCreateYearValue(parseInt(e.target.value) || new Date().getFullYear())}
+                    className="w-24 text-sm"
+                    min={2020}
+                    max={2030}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => setShowCreateYearConfirm(true)}
+                    disabled={createYearPeriodsMutation.isPending || createYearCalendarsMutation.isPending}
+                  >
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Create Year
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <div className="p-4">
+              {loadingPeriods ? (
+                <div className="animate-pulse space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-10 bg-gray-200 rounded" />
+                  ))}
+                </div>
+              ) : periods.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <CalendarDaysIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No payroll periods found</p>
+                  <p className="text-sm mt-1">Use "Create Year" to generate periods for a year</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date Range</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {[...periods]
+                        .sort((a, b) => {
+                          if (a.year !== b.year) return b.year - a.year
+                          return b.month - a.month
+                        })
+                        .map((period: PayrollPeriod) => {
+                          const statusColors: Record<string, string> = {
+                            DRAFT: 'bg-gray-100 text-gray-800',
+                            OPEN: 'bg-blue-100 text-blue-800',
+                            PROCESSING: 'bg-yellow-100 text-yellow-800',
+                            COMPUTED: 'bg-indigo-100 text-indigo-800',
+                            APPROVED: 'bg-purple-100 text-purple-800',
+                            PAID: 'bg-green-100 text-green-800',
+                            CLOSED: 'bg-gray-200 text-gray-600',
+                          }
+                          const canClose = period.status === 'PAID' || period.status === 'APPROVED'
+                          return (
+                            <tr key={period.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-2">
+                                <span className="font-medium text-sm">{period.name}</span>
+                                {period.is_supplementary && (
+                                  <span className="ml-2 text-xs text-orange-600 font-medium">(Supplementary)</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-600">
+                                {period.start_date} to {period.end_date}
+                              </td>
+                              <td className="px-4 py-2">
+                                <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[period.status] || 'bg-gray-100 text-gray-800'}`}>
+                                  {period.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {canClose && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                                    onClick={() => closePeriodMutation.mutate(period.id)}
+                                    disabled={closePeriodMutation.isPending}
+                                    isLoading={closePeriodMutation.isPending && closePeriodMutation.variables === period.id}
+                                  >
+                                    <LockClosedIcon className="h-3.5 w-3.5 mr-1" />
+                                    Close
+                                  </Button>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Create Year Confirmation Modal */}
+          <Modal
+            isOpen={showCreateYearConfirm}
+            onClose={() => setShowCreateYearConfirm(false)}
+            title={`Create Periods for ${createYearValue}`}
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                This will create 12 calendar months and 12 payroll periods for the year <strong>{createYearValue}</strong>.
+                Existing months/periods will be skipped.
+              </p>
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={() => setShowCreateYearConfirm(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    createYearCalendarsMutation.mutate(createYearValue, {
+                      onSuccess: () => {
+                        createYearPeriodsMutation.mutate(createYearValue)
+                      },
+                    })
+                  }}
+                  isLoading={createYearCalendarsMutation.isPending || createYearPeriodsMutation.isPending}
+                >
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Create Year {createYearValue}
+                </Button>
+              </div>
+            </div>
+          </Modal>
         </div>
       )}
 

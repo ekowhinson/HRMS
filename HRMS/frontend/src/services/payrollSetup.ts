@@ -100,7 +100,7 @@ export interface PayrollPeriod {
   month: number
   start_date: string
   end_date: string
-  status: 'DRAFT' | 'OPEN' | 'PROCESSING' | 'APPROVED' | 'CLOSED'
+  status: 'DRAFT' | 'OPEN' | 'PROCESSING' | 'COMPUTED' | 'APPROVED' | 'PAID' | 'CLOSED'
   is_supplementary: boolean
   calendar?: string
   calendar_name?: string
@@ -335,6 +335,11 @@ export const payrollSetupService = {
 
   async createYearPeriods(year: number): Promise<{ message: string; created: number }> {
     const response = await api.post<{ message: string; created: number }>('/payroll/periods/create-year/', { year })
+    return response.data
+  },
+
+  async closePeriod(periodId: string): Promise<any> {
+    const response = await api.post(`/payroll/periods/${periodId}/close/`)
     return response.data
   },
 }
