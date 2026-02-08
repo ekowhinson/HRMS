@@ -137,7 +137,7 @@ interface PaginatedResponse<T> {
 export const payrollSetupService = {
   // Banks
   async getBanks(): Promise<Bank[]> {
-    const response = await api.get<PaginatedResponse<Bank> | Bank[]>('/payroll/banks/')
+    const response = await api.get<PaginatedResponse<Bank> | Bank[]>('/payroll/banks/', { params: { page_size: 100 } })
     return Array.isArray(response.data) ? response.data : response.data.results
   },
 
@@ -162,7 +162,8 @@ export const payrollSetupService = {
 
   // Bank Branches
   async getBankBranches(bankId?: string): Promise<BankBranch[]> {
-    const params = bankId ? { bank: bankId } : {}
+    const params: Record<string, any> = { page_size: 100 }
+    if (bankId) params.bank = bankId
     const response = await api.get<PaginatedResponse<BankBranch> | BankBranch[]>('/payroll/bank-branches/', { params })
     return Array.isArray(response.data) ? response.data : response.data.results
   },
@@ -188,7 +189,7 @@ export const payrollSetupService = {
 
   // Staff Categories
   async getStaffCategories(): Promise<StaffCategory[]> {
-    const response = await api.get<PaginatedResponse<StaffCategory> | StaffCategory[]>('/payroll/staff-categories/')
+    const response = await api.get<PaginatedResponse<StaffCategory> | StaffCategory[]>('/payroll/staff-categories/', { params: { page_size: 100 } })
     return Array.isArray(response.data) ? response.data : response.data.results
   },
 
@@ -318,7 +319,7 @@ export const payrollSetupService = {
 
   // Payroll Calendars
   async getPayrollCalendars(): Promise<PayrollCalendar[]> {
-    const response = await api.get<PaginatedResponse<PayrollCalendar> | PayrollCalendar[]>('/payroll/calendar/')
+    const response = await api.get<PaginatedResponse<PayrollCalendar> | PayrollCalendar[]>('/payroll/calendar/', { params: { page_size: 100 } })
     return Array.isArray(response.data) ? response.data : response.data.results
   },
 
@@ -329,7 +330,7 @@ export const payrollSetupService = {
 
   // Payroll Periods
   async getPayrollPeriods(): Promise<PayrollPeriod[]> {
-    const response = await api.get<PaginatedResponse<PayrollPeriod> | PayrollPeriod[]>('/payroll/periods/')
+    const response = await api.get<PaginatedResponse<PayrollPeriod> | PayrollPeriod[]>('/payroll/periods/', { params: { page_size: 100 } })
     return Array.isArray(response.data) ? response.data : response.data.results
   },
 

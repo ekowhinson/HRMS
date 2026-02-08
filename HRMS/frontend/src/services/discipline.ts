@@ -261,7 +261,7 @@ export const disciplineService = {
   // ── Misconduct Categories ──
 
   getMisconductCategories: async (): Promise<MisconductCategory[]> => {
-    const response = await api.get('/discipline/misconduct-categories/')
+    const response = await api.get('/discipline/misconduct-categories/', { params: { page_size: 100 } })
     return Array.isArray(response.data) ? response.data : response.data.results || []
   },
 
@@ -282,7 +282,7 @@ export const disciplineService = {
   // ── Grievance Categories ──
 
   getGrievanceCategories: async (): Promise<GrievanceCategory[]> => {
-    const response = await api.get('/discipline/grievance-categories/')
+    const response = await api.get('/discipline/grievance-categories/', { params: { page_size: 100 } })
     return Array.isArray(response.data) ? response.data : response.data.results || []
   },
 

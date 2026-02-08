@@ -221,7 +221,7 @@ export const roleService = {
     is_system_role?: boolean
     search?: string
   }): Promise<Role[]> => {
-    const response = await api.get('/auth/roles/', { params })
+    const response = await api.get('/auth/roles/', { params: { page_size: 100, ...params } })
     return response.data.results || response.data
   },
 
@@ -277,13 +277,13 @@ export const permissionService = {
     module?: string
     is_active?: boolean
   }): Promise<Permission[]> => {
-    const response = await api.get('/auth/permissions/', { params })
+    const response = await api.get('/auth/permissions/', { params: { page_size: 100, ...params } })
     return response.data.results || response.data
   },
 
   // Get permissions grouped by module
   getPermissionsByModule: async (): Promise<Record<string, Permission[]>> => {
-    const response = await api.get('/auth/permissions/')
+    const response = await api.get('/auth/permissions/', { params: { page_size: 100 } })
     const permissions = response.data.results || response.data
 
     // Group by module

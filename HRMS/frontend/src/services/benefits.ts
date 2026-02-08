@@ -140,7 +140,7 @@ export interface BenefitClaim {
 export const benefitsService = {
   // Loan Types
   getLoanTypes: async (): Promise<LoanType[]> => {
-    const response = await api.get('/benefits/loan-types/')
+    const response = await api.get('/benefits/loan-types/', { params: { page_size: 100 } })
     return response.data.results || response.data
   },
 

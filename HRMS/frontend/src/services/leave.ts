@@ -19,7 +19,7 @@ export const leaveService = {
 
   // Get all leave types with optional filters
   getLeaveTypes: async (filters?: LeaveTypeFilters): Promise<LeaveType[]> => {
-    const response = await api.get('/leave/types/', { params: filters })
+    const response = await api.get('/leave/types/', { params: { page_size: 100, ...filters } })
     const data = response.data
     if (data?.success === false) throw new Error(data.error?.message || 'Failed to load leave types')
     return Array.isArray(data) ? data : (data?.results || [])

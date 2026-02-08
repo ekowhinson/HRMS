@@ -65,7 +65,7 @@ export const employeeService = {
 
   // Get all divisions
   getDivisions: async () => {
-    const response = await api.get('/organization/divisions/')
+    const response = await api.get('/organization/divisions/', { params: { page_size: 100 } })
     return response.data.results || response.data
   },
 
@@ -88,7 +88,8 @@ export const employeeService = {
 
   // Get all directorates
   getDirectorates: async (divisionId?: string) => {
-    const params = divisionId ? { division: divisionId } : {}
+    const params: Record<string, any> = { page_size: 100 }
+    if (divisionId) params.division = divisionId
     const response = await api.get('/organization/directorates/', { params })
     return response.data.results || response.data
   },
@@ -112,7 +113,8 @@ export const employeeService = {
 
   // Get all departments
   getDepartments: async (directorateId?: string) => {
-    const params = directorateId ? { directorate: directorateId } : {}
+    const params: Record<string, any> = { page_size: 100 }
+    if (directorateId) params.directorate = directorateId
     const response = await api.get('/organization/departments/', { params })
     // Handle both paginated and non-paginated responses
     return response.data.results || response.data
@@ -137,7 +139,7 @@ export const employeeService = {
 
   // Get all positions
   getPositions: async () => {
-    const response = await api.get('/organization/positions/')
+    const response = await api.get('/organization/positions/', { params: { page_size: 100 } })
     return response.data.results || response.data
   },
 
@@ -160,7 +162,7 @@ export const employeeService = {
 
   // Get all grades
   getGrades: async () => {
-    const response = await api.get('/organization/grades/')
+    const response = await api.get('/organization/grades/', { params: { page_size: 100 } })
     return response.data.results || response.data
   },
 
@@ -184,7 +186,7 @@ export const employeeService = {
   // ==================== Units ====================
 
   getUnits: async (params?: Record<string, any>) => {
-    const response = await api.get('/organization/units/', { params })
+    const response = await api.get('/organization/units/', { params: { page_size: 100, ...params } })
     return response.data.results || response.data
   },
 
@@ -205,7 +207,7 @@ export const employeeService = {
   // ==================== Categories ====================
 
   getCategories: async (params?: Record<string, any>) => {
-    const response = await api.get('/organization/categories/', { params })
+    const response = await api.get('/organization/categories/', { params: { page_size: 100, ...params } })
     return response.data.results || response.data
   },
 
@@ -226,7 +228,7 @@ export const employeeService = {
   // ==================== Cost Centers ====================
 
   getCostCenters: async (params?: Record<string, any>) => {
-    const response = await api.get('/organization/cost-centers/', { params })
+    const response = await api.get('/organization/cost-centers/', { params: { page_size: 100, ...params } })
     return response.data.results || response.data
   },
 
@@ -247,7 +249,7 @@ export const employeeService = {
   // ==================== Locations ====================
 
   getLocations: async (params?: Record<string, any>) => {
-    const response = await api.get('/organization/locations/', { params })
+    const response = await api.get('/organization/locations/', { params: { page_size: 100, ...params } })
     return response.data.results || response.data
   },
 
@@ -268,7 +270,7 @@ export const employeeService = {
   // ==================== Holidays ====================
 
   getHolidays: async (params?: Record<string, any>) => {
-    const response = await api.get('/organization/holidays/', { params })
+    const response = await api.get('/organization/holidays/', { params: { page_size: 100, ...params } })
     return response.data.results || response.data
   },
 
@@ -294,12 +296,13 @@ export const employeeService = {
   },
 
   getRegions: async () => {
-    const response = await api.get('/organization/regions/')
+    const response = await api.get('/organization/regions/', { params: { page_size: 100 } })
     return response.data.results || response.data
   },
 
   getDistricts: async (regionId?: string) => {
-    const params = regionId ? { region: regionId } : {}
+    const params: Record<string, any> = { page_size: 100 }
+    if (regionId) params.region = regionId
     const response = await api.get('/organization/districts/', { params })
     return response.data.results || response.data
   },
