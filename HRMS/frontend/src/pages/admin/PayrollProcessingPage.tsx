@@ -11,6 +11,7 @@ import {
   ClockIcon,
   ArrowPathIcon,
   TrashIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline'
 import { payrollService } from '@/services/payroll'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -40,7 +41,7 @@ export default function PayrollProcessingPage() {
   const [newRunPeriod, setNewRunPeriod] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState<{
-    action: 'compute' | 'approve' | 'pay' | 'cancel' | 'bank_files' | 'payslips' | 'reset_draft' | 'reopen_period' | 'delete'
+    action: 'compute' | 'approve' | 'pay' | 'cancel' | 'bank_files' | 'payslips' | 'reset_draft' | 'reopen_period' | 'delete' | 'close_period'
     runId?: string
     periodId?: string
     title?: string
@@ -226,6 +227,19 @@ export default function PayrollProcessingPage() {
     },
   })
 
+  const closePeriodMutation = useMutation({
+    mutationFn: (periodId: string) => payrollService.closePeriod(periodId),
+    onSuccess: (data) => {
+      toast.success(data.message || 'Period closed successfully')
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
+      queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
+      setShowConfirmModal(null)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to close period')
+    },
+  })
+
   const handleAction = () => {
     if (!showConfirmModal) return
 
@@ -254,6 +268,9 @@ export default function PayrollProcessingPage() {
       case 'delete':
         if (showConfirmModal.runId) deleteMutation.mutate(showConfirmModal.runId)
         break
+      case 'close_period':
+        if (showConfirmModal.periodId) closePeriodMutation.mutate(showConfirmModal.periodId)
+        break
     }
   }
 
@@ -272,7 +289,8 @@ export default function PayrollProcessingPage() {
     generatePayslipsMutation.isPending ||
     resetToDraftMutation.isPending ||
     reopenPeriodMutation.isPending ||
-    deleteMutation.isPending
+    deleteMutation.isPending ||
+    closePeriodMutation.isPending
 
   return (
     <div className="space-y-6">
@@ -567,6 +585,23 @@ export default function PayrollProcessingPage() {
                           Payslips
                         </Button>
                       </>
+                    )}
+                    {status === 'PAID' && (
+                      <Button
+                        variant="outline"
+                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                        onClick={() =>
+                          setShowConfirmModal({
+                            action: 'close_period',
+                            periodId: typeof run.payroll_period === 'object' ? run.payroll_period.id : run.payroll_period,
+                            title: 'Close Payroll Period',
+                            message: `This will close the period "${run.period_name}". Closed periods cannot be modified without reopening. Are you sure?`
+                          })
+                        }
+                      >
+                        <LockClosedIcon className="h-4 w-4 mr-2" />
+                        Close Period
+                      </Button>
                     )}
                   </div>
 

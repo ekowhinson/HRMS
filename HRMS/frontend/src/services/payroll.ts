@@ -101,6 +101,12 @@ export const payrollService = {
     return response.data.results || response.data
   },
 
+  // Get payslips for a specific employee (admin view with full breakdown)
+  getEmployeePayslips: async (employeeId: string): Promise<any[]> => {
+    const response = await api.get(`/payroll/employee/${employeeId}/payslips/`)
+    return response.data.results || response.data || []
+  },
+
   // Get my payslips
   getMyPayslips: async (): Promise<Payslip[]> => {
     const response = await api.get('/payroll/my-payslips/')
@@ -149,6 +155,12 @@ export const payrollService = {
   // Generate payslips
   async generatePayslips(runId: string): Promise<any> {
     const response = await api.post(`/payroll/runs/${runId}/generate-payslips/`)
+    return response.data
+  },
+
+  // Close a payroll period (PAID -> CLOSED)
+  async closePeriod(periodId: string): Promise<any> {
+    const response = await api.post(`/payroll/periods/${periodId}/close/`)
     return response.data
   },
 

@@ -2,9 +2,11 @@
 Payroll management views.
 """
 
+import uuid
 from decimal import Decimal
 from django.utils import timezone
 from django.db.models import Q
+from django.core.cache import cache
 from rest_framework import viewsets, generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -19,7 +21,8 @@ from .models import (
     PayrollItem, EmployeeSalary, AdHocPayment,
     TaxBracket, TaxRelief, SSNITRate, BankFile, Payslip, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
-    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings
+    SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings,
+    BackpayRequest, BackpayDetail,
 )
 from .serializers import (
     PayComponentSerializer, SalaryStructureSerializer,
@@ -33,7 +36,10 @@ from .serializers import (
     OvertimeBonusTaxConfigSerializer, BankSerializer, BankBranchSerializer,
     StaffCategorySerializer, SalaryBandSerializer, SalaryLevelSerializer,
     SalaryNotchSerializer, PayrollCalendarSerializer,
-    PayrollSettingsSerializer, SetActivePeriodSerializer
+    PayrollSettingsSerializer, SetActivePeriodSerializer,
+    BackpayRequestSerializer, BackpayRequestCreateSerializer,
+    BackpayPreviewSerializer, BackpayDetailSerializer,
+    BackpayBulkCreateSerializer,
 )
 from .services import PayrollService
 
@@ -818,8 +824,12 @@ class EmployeePayslipsView(generics.ListAPIView):
     def get_queryset(self):
         return PayrollItem.objects.filter(
             employee_id=self.kwargs['employee_id'],
-            status=PayrollItem.Status.PAID
-        ).select_related('payroll_run', 'payroll_run__payroll_period')
+            status__in=[PayrollItem.Status.PAID, PayrollItem.Status.APPROVED, PayrollItem.Status.COMPUTED]
+        ).select_related(
+            'payroll_run', 'payroll_run__payroll_period', 'employee'
+        ).prefetch_related(
+            'details', 'details__pay_component'
+        ).order_by('-payroll_run__payroll_period__start_date')
 
 
 class ComputePayrollView(APIView):
@@ -1417,6 +1427,469 @@ class SalaryNotchViewSet(viewsets.ModelViewSet):
     search_fields = ['code', 'name', 'level__code', 'level__band__code']
     ordering_fields = ['sort_order', 'code', 'name', 'amount', 'created_at']
     ordering = ['level__band__sort_order', 'level__sort_order', 'sort_order', 'code']
+
+
+# ============================================
+# Backpay ViewSet
+# ============================================
+
+class BackpayRequestViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Backpay/Retroactive Pay Requests.
+
+    Endpoints:
+    - GET    /backpay/          - List all backpay requests
+    - POST   /backpay/          - Create a new backpay request (DRAFT)
+    - GET    /backpay/{id}/     - Get request with details
+    - POST   /backpay/{id}/calculate/  - Calculate arrears, save details -> PREVIEWED
+    - POST   /backpay/{id}/approve/    - Approve -> APPROVED
+    - POST   /backpay/{id}/cancel/     - Cancel -> CANCELLED
+    - POST   /backpay/preview/         - Preview arrears without saving
+    """
+    queryset = BackpayRequest.objects.select_related(
+        'employee', 'new_salary', 'old_salary',
+        'applied_to_run', 'approved_by',
+        'payroll_period', 'reference_period'
+    ).prefetch_related(
+        'details', 'details__pay_component', 'details__payroll_period'
+    )
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'reason', 'employee', 'payroll_period']
+    search_fields = ['reference_number', 'employee__employee_number',
+                     'employee__first_name', 'employee__last_name']
+    ordering_fields = ['created_at', 'effective_from', 'net_arrears']
+    ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return BackpayRequestCreateSerializer
+        if self.action == 'preview_calculation':
+            return BackpayPreviewSerializer
+        if self.action == 'bulk_create_requests':
+            return BackpayBulkCreateSerializer
+        return BackpayRequestSerializer
+
+    def perform_create(self, serializer):
+        active_period = PayrollSettings.get_active_period()
+        serializer.save(payroll_period=active_period)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a backpay request. Only DRAFT and CANCELLED requests can be deleted."""
+        bp_request = self.get_object()
+        if bp_request.status not in [BackpayRequest.Status.DRAFT, BackpayRequest.Status.CANCELLED]:
+            return Response(
+                {'error': f'Cannot delete request in status: {bp_request.get_status_display()}. Only DRAFT and CANCELLED requests can be deleted.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        bp_request.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'])
+    def calculate(self, request, pk=None):
+        """Calculate arrears and save BackpayDetail records. Status -> PREVIEWED."""
+        bp_request = self.get_object()
+
+        if bp_request.status not in ['DRAFT', 'PREVIEWED']:
+            return Response(
+                {'error': f'Cannot calculate for request in status: {bp_request.get_status_display()}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            from .backpay_service import BackpayService
+
+            service = BackpayService(
+                employee=bp_request.employee,
+                reason=bp_request.reason,
+                new_salary=bp_request.new_salary,
+                old_salary=bp_request.old_salary,
+                reference_period=bp_request.reference_period,
+            )
+
+            # Clear existing details if recalculating
+            bp_request.details.all().delete()
+
+            result = service.calculate(bp_request.effective_from, bp_request.effective_to)
+            totals = result['totals']
+
+            # Save details
+            for period_data in result['periods']:
+                for detail in period_data['details']:
+                    BackpayDetail.objects.create(
+                        backpay_request=bp_request,
+                        payroll_period=period_data['period'],
+                        original_payroll_item=period_data['payroll_item'],
+                        applicable_salary=period_data['applicable_salary'],
+                        pay_component=detail['pay_component'],
+                        old_amount=detail['old_amount'],
+                        new_amount=detail['new_amount'],
+                        difference=detail['difference'],
+                    )
+
+            # Update totals and status
+            bp_request.total_arrears_earnings = totals['total_arrears_earnings']
+            bp_request.total_arrears_deductions = totals['total_arrears_deductions']
+            bp_request.net_arrears = totals['net_arrears']
+            bp_request.periods_covered = totals['periods_covered']
+            bp_request.status = BackpayRequest.Status.PREVIEWED
+            bp_request.save()
+
+            return Response(BackpayRequestSerializer(bp_request).data)
+
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to calculate backpay: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Approve backpay request for inclusion in next payroll. Status -> APPROVED."""
+        bp_request = self.get_object()
+
+        if bp_request.status != BackpayRequest.Status.PREVIEWED:
+            return Response(
+                {'error': 'Only previewed requests can be approved. Calculate arrears first.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if bp_request.net_arrears == 0 and bp_request.periods_covered == 0:
+            return Response(
+                {'error': 'Cannot approve a request with no calculated arrears.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        bp_request.status = BackpayRequest.Status.APPROVED
+        bp_request.approved_by = request.user
+        bp_request.approved_at = timezone.now()
+        bp_request.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
+
+        return Response({
+            'message': 'Backpay request approved successfully',
+            'data': BackpayRequestSerializer(bp_request).data
+        })
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Cancel the backpay request. Status -> CANCELLED."""
+        bp_request = self.get_object()
+
+        if bp_request.status == BackpayRequest.Status.APPLIED:
+            return Response(
+                {'error': 'Cannot cancel a request that has already been applied to payroll.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        bp_request.status = BackpayRequest.Status.CANCELLED
+        bp_request.save(update_fields=['status', 'updated_at'])
+
+        return Response({
+            'message': 'Backpay request cancelled',
+            'data': BackpayRequestSerializer(bp_request).data
+        })
+
+    @action(detail=False, methods=['post'], url_path='preview')
+    def preview_calculation(self, request):
+        """Preview backpay calculation without saving anything."""
+        serializer = BackpayPreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            from employees.models import Employee
+            from .backpay_service import BackpayService
+
+            employee = Employee.objects.get(pk=serializer.validated_data['employee'])
+
+            new_salary = None
+            old_salary = None
+            if serializer.validated_data.get('new_salary'):
+                new_salary = EmployeeSalary.objects.get(pk=serializer.validated_data['new_salary'])
+            if serializer.validated_data.get('old_salary'):
+                old_salary = EmployeeSalary.objects.get(pk=serializer.validated_data['old_salary'])
+
+            service = BackpayService(
+                employee=employee,
+                reason=serializer.validated_data['reason'],
+                new_salary=new_salary,
+                old_salary=old_salary,
+            )
+
+            preview = service.preview(
+                serializer.validated_data['effective_from'],
+                serializer.validated_data['effective_to'],
+            )
+
+            return Response(preview)
+
+        except Employee.DoesNotExist:
+            return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+        except EmployeeSalary.DoesNotExist:
+            return Response({'error': 'Salary record not found'}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to preview backpay: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'], url_path='bulk-create')
+    def bulk_create_requests(self, request):
+        """Create backpay requests for multiple employees at once."""
+        serializer = BackpayBulkCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        from employees.models import Employee
+
+        # Build employee queryset
+        employee_ids = data.get('employee_ids')
+        if employee_ids:
+            employees = Employee.objects.filter(pk__in=employee_ids, status='ACTIVE')
+        else:
+            employees = Employee.objects.filter(status='ACTIVE')
+
+        # Apply optional filters
+        filter_map = {
+            'division': 'division_id',
+            'directorate': 'directorate_id',
+            'department': 'department_id',
+            'grade': 'grade_id',
+            'region': 'residential_region_id',
+            'district': 'residential_district_id',
+            'work_location': 'work_location_id',
+            'staff_category': 'staff_category_id',
+        }
+        if not employee_ids:
+            for field, lookup in filter_map.items():
+                value = data.get(field)
+                if value:
+                    employees = employees.filter(**{lookup: value})
+
+        # Skip employees who already have an overlapping non-cancelled backpay
+        skipped_employees = []
+        to_create = []
+
+        for emp in employees.iterator():
+            overlap = BackpayRequest.objects.filter(
+                employee=emp,
+                status__in=['DRAFT', 'PREVIEWED', 'APPROVED', 'APPLIED'],
+                effective_from__lte=data['effective_to'],
+                effective_to__gte=data['effective_from'],
+            ).exists()
+
+            if overlap:
+                skipped_employees.append({
+                    'id': str(emp.id),
+                    'employee_number': emp.employee_number,
+                    'name': emp.full_name,
+                })
+                continue
+
+            to_create.append(BackpayRequest(
+                employee=emp,
+                reason=data['reason'],
+                description=data.get('description', ''),
+                effective_from=data['effective_from'],
+                effective_to=data['effective_to'],
+                reference_number=BackpayRequest.generate_reference_number(),
+                status=BackpayRequest.Status.DRAFT,
+                payroll_period=PayrollSettings.get_active_period(),
+            ))
+
+        created = BackpayRequest.objects.bulk_create(to_create)
+
+        return Response({
+            'count': len(created),
+            'skipped': len(skipped_employees),
+            'skipped_employees': skipped_employees,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='bulk-process')
+    def bulk_process(self, request):
+        """
+        Start bulk processing of all eligible backpay requests (DRAFT + PREVIEWED).
+        Launches a Celery task and returns a batch_id for progress polling.
+        """
+        eligible = BackpayRequest.objects.filter(
+            status__in=['DRAFT', 'PREVIEWED']
+        ).values_list('id', flat=True)
+
+        request_ids = [str(pk) for pk in eligible]
+        total = len(request_ids)
+
+        if total == 0:
+            return Response({
+                'error': 'No eligible backpay requests to process (need DRAFT or PREVIEWED status).'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        batch_id = uuid.uuid4().hex[:12]
+
+        # Initialize progress in cache
+        progress = {
+            'processed': 0,
+            'total': total,
+            'percentage': 0,
+            'calculated': 0,
+            'approved': 0,
+            'zero_arrears': 0,
+            'errors': [],
+            'status': 'processing',
+            'current_employee': '',
+        }
+        cache.set(f'backpay_bulk_progress_{batch_id}', progress, timeout=3600)
+
+        # Launch Celery task
+        from .tasks import bulk_process_backpay
+        bulk_process_backpay.delay(batch_id, request_ids, str(request.user.id))
+
+        return Response({
+            'batch_id': batch_id,
+            'total': total,
+        })
+
+    @action(detail=False, methods=['get'], url_path='bulk-process-progress')
+    def bulk_process_progress(self, request):
+        """Poll progress for a bulk backpay processing batch."""
+        batch_id = request.query_params.get('batch_id')
+        if not batch_id:
+            return Response(
+                {'error': 'batch_id query parameter is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        cache_key = f'backpay_bulk_progress_{batch_id}'
+        progress = cache.get(cache_key)
+
+        if progress is None:
+            return Response(
+                {'error': 'Batch not found or expired.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(progress)
+
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        """Delete all DRAFT/CANCELLED backpay requests for a given payroll period."""
+        payroll_period = request.data.get('payroll_period')
+        if not payroll_period:
+            return Response(
+                {'error': 'payroll_period is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        qs = BackpayRequest.objects.filter(
+            payroll_period_id=payroll_period,
+            status__in=['DRAFT', 'CANCELLED']
+        )
+        count = qs.count()
+        qs.delete()
+        return Response({'deleted': count})
+
+    @action(detail=False, methods=['post'], url_path='bulk-approve')
+    def bulk_approve(self, request):
+        """Approve all PREVIEWED backpay requests with net_arrears > 0."""
+        qs = BackpayRequest.objects.filter(
+            status='PREVIEWED',
+            net_arrears__gt=0
+        )
+        count = 0
+        for bp in qs:
+            bp.status = BackpayRequest.Status.APPROVED
+            bp.approved_by = request.user
+            bp.approved_at = timezone.now()
+            bp.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
+            count += 1
+        return Response({'approved': count})
+
+    @action(detail=False, methods=['get'], url_path='detect-retropay')
+    def detect_retropay(self, request):
+        """Detect records with retroactive pay implications."""
+        from .backpay_service import RetropayDetectionService
+        service = RetropayDetectionService()
+        detections = service.detect()
+
+        # Convert dates to strings for JSON serialization
+        for det in detections:
+            det['earliest_from'] = str(det['earliest_from'])
+            det['latest_to'] = str(det['latest_to'])
+
+        return Response({
+            'count': len(detections),
+            'detections': detections,
+        })
+
+    @action(detail=False, methods=['post'], url_path='auto-create-retropay')
+    def auto_create_retropay(self, request):
+        """Auto-create backpay requests for all detected retropay implications."""
+        from .backpay_service import RetropayDetectionService
+
+        service = RetropayDetectionService()
+        detections = service.detect()
+
+        if not detections:
+            return Response({'count': 0, 'skipped': 0, 'skipped_employees': [],
+                             'message': 'No retropay implications detected.'})
+
+        active_period = PayrollSettings.get_active_period()
+        created = []
+        skipped = []
+
+        reason_map = {
+            'SALARY_CHANGE': 'SALARY_REVISION',
+            'PROMOTION': 'PROMOTION',
+            'GRADE_CHANGE': 'UPGRADE',
+            'SALARY_REVISION': 'SALARY_REVISION',
+            'DEMOTION': 'CORRECTION',
+            'TRANSACTION_CHANGE': 'CORRECTION',
+        }
+
+        for det in detections:
+            employee_id = det['employee_id']
+            first_change_type = det['changes'][0]['type']
+            reason = reason_map.get(first_change_type, 'OTHER')
+
+            change_descriptions = [c['description'] for c in det['changes']]
+            description = 'Auto-detected retropay: ' + '; '.join(change_descriptions)
+
+            overlap = BackpayRequest.objects.filter(
+                employee_id=employee_id,
+                status__in=['DRAFT', 'PREVIEWED', 'APPROVED', 'APPLIED'],
+                effective_from__lte=det['latest_to'],
+                effective_to__gte=det['earliest_from'],
+            ).exists()
+
+            if overlap:
+                skipped.append({
+                    'employee_id': employee_id,
+                    'employee_number': det['employee_number'],
+                    'name': det['employee_name'],
+                    'reason': 'Existing backpay request overlaps',
+                })
+                continue
+
+            bp = BackpayRequest(
+                employee_id=employee_id,
+                reason=reason,
+                description=description,
+                effective_from=det['earliest_from'],
+                effective_to=det['latest_to'],
+                reference_number=BackpayRequest.generate_reference_number(),
+                status=BackpayRequest.Status.DRAFT,
+                payroll_period=active_period,
+            )
+            created.append(bp)
+
+        if created:
+            BackpayRequest.objects.bulk_create(created)
+
+        return Response({
+            'count': len(created),
+            'skipped': len(skipped),
+            'skipped_employees': skipped,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 # ============================================
