@@ -437,20 +437,31 @@ export const reportsService = {
   },
 
   // Payroll Journal
-  async getPayrollJournal(runId?: string) {
+  async getPayrollJournal(runId?: string, filters?: Record<string, string>) {
     const params = new URLSearchParams()
     if (runId) params.append('run_id', runId)
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value)
+      })
+    }
     const response = await api.get(`/reports/payroll/journal/?${params.toString()}`)
     return response.data
   },
 
   async exportPayrollJournal(
     runId?: string,
-    format: ExportFormat = 'csv'
+    format: ExportFormat = 'csv',
+    filters?: Record<string, string>
   ): Promise<void> {
     const params = new URLSearchParams()
     if (runId) params.append('run_id', runId)
     params.append('file_format', format)
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value)
+      })
+    }
 
     const response = await api.get(`/reports/export/journal/?${params.toString()}`, {
       responseType: 'blob',

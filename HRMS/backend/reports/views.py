@@ -2748,7 +2748,64 @@ class PayrollJournalReportView(APIView):
     Format matches standard payroll journal:
     - Credits: Deductions, liabilities (Tax, SSF, Loans, Net Pay)
     - Debits: Earnings, expenses (Salaries, Allowances, Employer Contributions)
+
+    Supports filtering by: division, directorate, department, grade, work_location
     """
+
+    @staticmethod
+    def _build_employee_filter(request):
+        """Build Q filter for employee-related query params."""
+        from django.db.models import Q
+        filters = Q()
+        param_map = {
+            'division': 'payroll_item__employee__division_id',
+            'directorate': 'payroll_item__employee__directorate_id',
+            'department': 'payroll_item__employee__department_id',
+            'grade': 'payroll_item__employee__grade_id',
+            'work_location': 'payroll_item__employee__work_location_id',
+        }
+        for param, field in param_map.items():
+            value = request.query_params.get(param)
+            if value:
+                filters &= Q(**{field: value})
+        return filters
+
+    @staticmethod
+    def _build_item_filter(request):
+        """Build Q filter for PayrollItem-level queries."""
+        from django.db.models import Q
+        filters = Q()
+        param_map = {
+            'division': 'employee__division_id',
+            'directorate': 'employee__directorate_id',
+            'department': 'employee__department_id',
+            'grade': 'employee__grade_id',
+            'work_location': 'employee__work_location_id',
+        }
+        for param, field in param_map.items():
+            value = request.query_params.get(param)
+            if value:
+                filters &= Q(**{field: value})
+        return filters
+
+    @staticmethod
+    def _get_active_filters(request):
+        """Return dict of active filter labels for display."""
+        from organization.models import Division, Directorate, Department, JobGrade, WorkLocation
+        active = {}
+        model_map = {
+            'division': Division,
+            'directorate': Directorate,
+            'department': Department,
+            'grade': JobGrade,
+            'work_location': WorkLocation,
+        }
+        for param, model in model_map.items():
+            value = request.query_params.get(param)
+            if value:
+                obj = model.objects.filter(id=value).first()
+                active[param] = obj.name if obj else value
+        return active
 
     def get(self, request):
         from payroll.models import PayComponent, PayrollItemDetail, PayrollItem
@@ -2768,8 +2825,12 @@ class PayrollJournalReportView(APIView):
         if not run:
             return Response({'message': 'No payroll run found'}, status=404)
 
+        emp_filter = self._build_employee_filter(request)
+        item_filter = self._build_item_filter(request)
+
         # Get aggregated amounts by component
         details = PayrollItemDetail.objects.filter(
+            emp_filter,
             payroll_item__payroll_run=run,
             amount__gt=0
         ).exclude(
@@ -2787,6 +2848,7 @@ class PayrollJournalReportView(APIView):
 
         # Get aggregates from PayrollItem (includes net pay, employee SSF, and employer contributions)
         item_totals = PayrollItem.objects.filter(
+            item_filter,
             payroll_run=run
         ).aggregate(
             net_pay=Sum('net_salary'),
@@ -2931,7 +2993,8 @@ class PayrollJournalReportView(APIView):
                     'credit_count': len(credit_entries),
                     'debit_count': len(debit_entries),
                     'total_entries': len(all_entries),
-                }
+                },
+                'filters': self._get_active_filters(request),
             }
         })
 
@@ -2960,9 +3023,13 @@ class ExportPayrollJournalView(APIView):
         if not run:
             return Response({'message': 'No payroll run found'}, status=404)
 
+        emp_filter = PayrollJournalReportView._build_employee_filter(request)
+        item_filter = PayrollJournalReportView._build_item_filter(request)
+
         # Get aggregated amounts by component
         # Exclude SSNIT_EMP as it's handled via PayrollItem.ssnit_employee aggregate below
         details = PayrollItemDetail.objects.filter(
+            emp_filter,
             payroll_item__payroll_run=run,
             amount__gt=0
         ).exclude(
@@ -2980,6 +3047,7 @@ class ExportPayrollJournalView(APIView):
 
         # Get aggregates from PayrollItem (includes net pay, employee SSF, and employer contributions)
         item_totals = PayrollItem.objects.filter(
+            item_filter,
             payroll_run=run
         ).aggregate(
             net_pay=Sum('net_salary'),

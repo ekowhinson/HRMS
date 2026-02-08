@@ -815,7 +815,7 @@ export default function PayrollReconciliationPage() {
       ) : reconciliation?.summary ? (
         <>
           {/* Period Header */}
-          <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-xl p-6 text-white print:bg-gray-100 print:text-gray-900">
+          <div className="bg-primary-700 rounded-lg p-6 text-white print:bg-gray-100 print:text-gray-900">
             <div className="flex justify-between items-center flex-wrap gap-4">
               <div>
                 <p className="text-sm opacity-80 print:opacity-100">Comparing</p>

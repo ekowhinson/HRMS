@@ -536,7 +536,7 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Link
           to="/reports/journal"
-          className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 hover:border-blue-300 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
         >
           <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
             <DocumentTextIcon className="h-5 w-5 text-blue-600" />
@@ -548,7 +548,7 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/salary-reconciliation"
-          className="flex items-center gap-3 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-100 hover:border-amber-300 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors group"
         >
           <div className="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
             <ArrowsRightLeftIcon className="h-5 w-5 text-amber-600" />
@@ -560,7 +560,7 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/reconciliation"
-          className="flex items-center gap-3 p-4 bg-gradient-to-r from-primary-50 to-emerald-50 rounded-xl border border-primary-100 hover:border-primary-300 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors group"
         >
           <div className="p-2 bg-primary-100 rounded-lg group-hover:bg-primary-200 transition-colors">
             <ArrowsRightLeftIcon className="h-5 w-5 text-primary-600" />
@@ -572,7 +572,7 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/payroll-master"
-          className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100 hover:border-purple-300 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors group"
         >
           <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
             <ClipboardDocumentListIcon className="h-5 w-5 text-purple-600" />

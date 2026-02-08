@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import { reportsService, ExportFormat } from '@/services/reports'
+import api from '@/lib/api'
 import {
   DocumentArrowDownIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  FunnelIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
@@ -41,6 +44,7 @@ interface JournalData {
     debit_count: number
     total_entries: number
   }
+  filters?: Record<string, string>
 }
 
 const formatCurrency = (amount: number | null): string => {
@@ -53,10 +57,61 @@ const formatCurrency = (amount: number | null): string => {
 
 export default function PayrollJournalPage() {
   const [exporting, setExporting] = useState<ExportFormat | null>(null)
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string>>({
+    division: '',
+    directorate: '',
+    department: '',
+    grade: '',
+  })
+
+  // Build active filters for API calls
+  const activeFilters = useMemo(() => {
+    const active: Record<string, string> = {}
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) active[key] = value
+    })
+    return active
+  }, [filters])
+
+  const hasActiveFilters = Object.keys(activeFilters).length > 0
+
+  // Fetch filter options
+  const { data: divisions } = useQuery({
+    queryKey: ['divisions'],
+    queryFn: async () => {
+      const res = await api.get('/organization/divisions/')
+      return res.data.results || res.data || []
+    },
+  })
+
+  const { data: directorates } = useQuery({
+    queryKey: ['directorates'],
+    queryFn: async () => {
+      const res = await api.get('/organization/directorates/')
+      return res.data.results || res.data || []
+    },
+  })
+
+  const { data: departments } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
+      const res = await api.get('/organization/departments/')
+      return res.data.results || res.data || []
+    },
+  })
+
+  const { data: grades } = useQuery({
+    queryKey: ['grades'],
+    queryFn: async () => {
+      const res = await api.get('/organization/grades/')
+      return res.data.results || res.data || []
+    },
+  })
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['payroll-journal'],
-    queryFn: () => reportsService.getPayrollJournal(),
+    queryKey: ['payroll-journal', activeFilters],
+    queryFn: () => reportsService.getPayrollJournal(undefined, hasActiveFilters ? activeFilters : undefined),
   })
 
   const journalData: JournalData | null = data?.data || null
@@ -64,13 +119,29 @@ export default function PayrollJournalPage() {
   const handleExport = async (format: ExportFormat) => {
     setExporting(format)
     try {
-      await reportsService.exportPayrollJournal(undefined, format)
+      await reportsService.exportPayrollJournal(undefined, format, hasActiveFilters ? activeFilters : undefined)
       toast.success(`Journal exported as ${format.toUpperCase()}`)
     } catch (err) {
       toast.error('Failed to export journal')
     } finally {
       setExporting(null)
     }
+  }
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  const clearFilters = () => {
+    setFilters({ division: '', directorate: '', department: '', grade: '' })
+  }
+
+  // Get filter label for active filter badges
+  const getFilterLabel = (key: string, value: string) => {
+    const lists: Record<string, any[]> = { division: divisions, directorate: directorates, department: departments, grade: grades }
+    const list = lists[key] || []
+    const item = list.find((i: any) => i.id === value)
+    return item?.name || value
   }
 
   if (isLoading) {
@@ -86,12 +157,75 @@ export default function PayrollJournalPage() {
 
   if (error || !journalData) {
     return (
-      <div className="p-6">
+      <div className="p-6 space-y-6">
+        {/* Still show filters when no data */}
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Payroll Journal</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className={hasActiveFilters ? 'border-blue-500 text-blue-600' : ''}
+            >
+              <FunnelIcon className="h-4 w-4 mr-1" />
+              Filters {hasActiveFilters && `(${Object.keys(activeFilters).length})`}
+            </Button>
+          </div>
+        </div>
+
+        {showFilters && (
+          <Card className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Division</label>
+                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.division} onChange={e => handleFilterChange('division', e.target.value)}>
+                  <option value="">All Divisions</option>
+                  {(divisions || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Directorate</label>
+                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.directorate} onChange={e => handleFilterChange('directorate', e.target.value)}>
+                  <option value="">All Directorates</option>
+                  {(directorates || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
+                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.department} onChange={e => handleFilterChange('department', e.target.value)}>
+                  <option value="">All Departments</option>
+                  {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Job Grade</label>
+                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.grade} onChange={e => handleFilterChange('grade', e.target.value)}>
+                  <option value="">All Grades</option>
+                  {(grades || []).map((g: any) => <option key={g.id} value={g.id}>{g.name} ({g.code})</option>)}
+                </select>
+              </div>
+            </div>
+            {hasActiveFilters && (
+              <div className="mt-3 flex justify-end">
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <XMarkIcon className="h-4 w-4 mr-1" />
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </Card>
+        )}
+
         <Card className="p-6">
           <div className="text-center text-gray-500">
             <ExclamationTriangleIcon className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <p>No payroll journal data available.</p>
-            <p className="text-sm mt-2">Please ensure a payroll run has been computed.</p>
+            <p>No payroll journal data available{hasActiveFilters ? ' for the selected filters' : ''}.</p>
+            <p className="text-sm mt-2">
+              {hasActiveFilters ? 'Try adjusting or clearing your filters.' : 'Please ensure a payroll run has been computed.'}
+            </p>
           </div>
         </Card>
       </div>
@@ -112,6 +246,15 @@ export default function PayrollJournalPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className={hasActiveFilters ? 'border-blue-500 text-blue-600' : ''}
+          >
+            <FunnelIcon className="h-4 w-4 mr-1" />
+            Filters {hasActiveFilters && `(${Object.keys(activeFilters).length})`}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -141,6 +284,68 @@ export default function PayrollJournalPage() {
           </Button>
         </div>
       </div>
+
+      {/* Filters Panel */}
+      {showFilters && (
+        <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Division</label>
+              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.division} onChange={e => handleFilterChange('division', e.target.value)}>
+                <option value="">All Divisions</option>
+                {(divisions || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Directorate</label>
+              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.directorate} onChange={e => handleFilterChange('directorate', e.target.value)}>
+                <option value="">All Directorates</option>
+                {(directorates || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
+              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.department} onChange={e => handleFilterChange('department', e.target.value)}>
+                <option value="">All Departments</option>
+                {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Job Grade</label>
+              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.grade} onChange={e => handleFilterChange('grade', e.target.value)}>
+                <option value="">All Grades</option>
+                {(grades || []).map((g: any) => <option key={g.id} value={g.id}>{g.name} ({g.code})</option>)}
+              </select>
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <div className="mt-3 flex justify-end">
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <XMarkIcon className="h-4 w-4 mr-1" />
+                Clear Filters
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Active Filter Badges */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm text-gray-500">Filtered by:</span>
+          {Object.entries(activeFilters).map(([key, value]) => (
+            <Badge key={key} variant="info" className="text-xs">
+              {key.charAt(0).toUpperCase() + key.slice(1)}: {getFilterLabel(key, value)}
+              <button
+                className="ml-1 hover:text-blue-800"
+                onClick={() => handleFilterChange(key, '')}
+              >
+                &times;
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {/* Balance Status */}
       <Card className="p-4">

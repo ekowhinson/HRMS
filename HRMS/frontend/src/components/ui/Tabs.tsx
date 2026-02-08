@@ -163,7 +163,7 @@ export function TabsContent({
       hidden={!isActive}
       className={cn(
         'mt-4 focus:outline-none',
-        isActive ? 'animate-fade-in' : 'hidden',
+        !isActive && 'hidden',
         className
       )}
       tabIndex={0}

@@ -26,16 +26,15 @@
 @layer components {
   /* Button Base Styles */
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg
-           transition-all duration-200 ease-smooth
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md
+           transition-colors duration-150
            focus:outline-none focus:ring-2 focus:ring-offset-2
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
-           active:scale-[0.98];
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none;
   }
 
   .btn-primary {
     @apply btn bg-primary-600 text-white
-           hover:bg-primary-700 hover:shadow-primary
+           hover:bg-primary-700
            focus:ring-primary-500;
   }
 
@@ -47,13 +46,13 @@
 
   .btn-danger {
     @apply btn bg-danger-600 text-white
-           hover:bg-danger-700 hover:shadow-danger
+           hover:bg-danger-700
            focus:ring-danger-500;
   }
 
   .btn-success {
     @apply btn bg-success-600 text-white
-           hover:bg-success-700 hover:shadow-success
+           hover:bg-success-700
            focus:ring-success-500;
   }
 
@@ -71,16 +70,16 @@
 
   /* Input Styles */
   .input {
-    @apply block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm
+    @apply block w-full px-3 py-2.5 border border-gray-300 rounded-md
            placeholder-gray-400
-           transition-all duration-200
-           focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
+           transition-colors duration-150
+           focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500
            hover:border-gray-400
            sm:text-sm;
   }
 
   .input-error {
-    @apply border-danger-500 focus:ring-danger-500/20 focus:border-danger-500;
+    @apply border-danger-500 focus:ring-danger-500 focus:border-danger-500;
   }
 
   .label {
@@ -89,16 +88,15 @@
 
   /* Card Styles */
   .card {
-    @apply bg-white rounded-xl shadow-card border border-gray-200/60 overflow-hidden
-           transition-all duration-200;
+    @apply bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden;
   }
 
   .card-hoverable {
-    @apply card hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer;
+    @apply card hover:shadow-sm cursor-pointer;
   }
 
   .card-header {
-    @apply px-6 py-4 border-b border-gray-200/60;
+    @apply px-6 py-4 border-b border-gray-200;
   }
 
   .card-body {
@@ -106,7 +104,7 @@
   }
 
   .card-footer {
-    @apply px-6 py-4 border-t border-gray-200/60 bg-gray-50/50;
+    @apply px-6 py-4 border-t border-gray-200 bg-gray-50;
   }
 
   /* Card with colored top border */
@@ -128,8 +126,8 @@
 
   /* Badge Styles */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-           transition-colors duration-200;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium
+           transition-colors duration-150;
   }
 
   .badge-dot {
@@ -151,7 +149,7 @@
   }
 
   .stats-card-icon {
-    @apply w-12 h-12 rounded-xl flex items-center justify-center;
+    @apply w-12 h-12 rounded-lg flex items-center justify-center;
   }
 
   /* Page Header */
@@ -173,7 +171,7 @@
   }
 
   .table-header {
-    @apply bg-gray-50/80 border-b border-gray-200;
+    @apply bg-gray-50 border-b border-gray-200;
   }
 
   .table-header-cell {
@@ -185,11 +183,11 @@
   }
 
   .table-row-hover {
-    @apply hover:bg-gray-50/50;
+    @apply hover:bg-gray-50;
   }
 
   .table-row-striped:nth-child(even) {
-    @apply bg-gray-50/30;
+    @apply bg-gray-50;
   }
 
   .table-cell {
@@ -203,7 +201,8 @@
 
   .skeleton::after {
     content: '';
-    @apply absolute inset-0 bg-shimmer;
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
     background-size: 200% 100%;
     animation: shimmer 2s infinite linear;
   }
@@ -221,7 +220,7 @@
   }
 
   .skeleton-card {
-    @apply skeleton rounded-xl;
+    @apply skeleton rounded-lg;
   }
 
   /* Empty State */
@@ -243,8 +242,8 @@
 
   /* Sidebar Active State */
   .sidebar-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-           transition-all duration-200
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium
+           transition-colors duration-150
            text-gray-600 hover:bg-gray-100 hover:text-gray-900;
   }
 
@@ -303,7 +302,7 @@
   .tab {
     @apply px-4 py-2.5 text-sm font-medium border-b-2 border-transparent
            text-gray-500 hover:text-gray-700 hover:border-gray-300
-           transition-all duration-200 -mb-px;
+           transition-colors duration-150 -mb-px;
   }
 
   .tab-active {
@@ -360,40 +359,6 @@
     display: none;
   }
 
-  /* Gradient text */
-  .text-gradient {
-    @apply bg-gradient-to-r from-primary-600 to-accent-500 bg-clip-text text-transparent;
-  }
-
-  /* Glass effect */
-  .glass {
-    @apply bg-white/80 backdrop-blur-sm;
-  }
-
-  /* Focus glow for form fields */
-  .focus-glow:focus {
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
-  }
-
-  /* Hover lift effect */
-  .hover-lift {
-    @apply transition-transform duration-200 hover:-translate-y-0.5;
-  }
-
-  /* Press effect */
-  .press-effect {
-    @apply active:scale-[0.98] transition-transform duration-100;
-  }
-
-  /* Animate on scroll (for use with Intersection Observer) */
-  .animate-on-scroll {
-    @apply opacity-0 translate-y-4 transition-all duration-500;
-  }
-
-  .animate-on-scroll.visible {
-    @apply opacity-100 translate-y-0;
-  }
-
   /* Truncate multiple lines */
   .line-clamp-2 {
     display: -webkit-box;
@@ -438,23 +403,5 @@
   }
   100% {
     transform: translateX(100%);
-  }
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes glow {
-  0%, 100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
   }
 }

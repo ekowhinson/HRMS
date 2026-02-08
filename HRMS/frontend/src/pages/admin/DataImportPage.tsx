@@ -587,7 +587,7 @@ export default function DataImportPage() {
                   {/* AI feature highlight */}
                   <div className={`p-4 rounded-lg border ${
                     aiStatus?.ai_available
-                      ? 'bg-gradient-to-r from-primary-50 to-blue-50 border-primary-100'
+                      ? 'bg-primary-50 border-primary-200'
                       : 'bg-yellow-50 border-yellow-200'
                   }`}>
                     <div className="flex items-start gap-3">

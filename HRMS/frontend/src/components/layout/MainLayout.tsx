@@ -62,11 +62,14 @@ interface NavSection {
 
 // Self-Service Navigation - Available to all users
 const selfServiceNavigation: NavItem[] = [
+  { name: 'Home', href: '/self-service', icon: HomeIcon },
   { name: 'My Profile', href: '/my-profile', icon: UserCircleIcon },
   { name: 'My Leave', href: '/my-leave', icon: ClockIcon },
   { name: 'Leave Planning', href: '/my-leave/planning', icon: CalendarDaysIcon },
   { name: 'Data Updates', href: '/my-data-updates', icon: DocumentPlusIcon },
   { name: 'Service Requests', href: '/my-service-requests', icon: ClipboardDocumentCheckIcon },
+  { name: 'My Payslips', href: '/my-payslips', icon: BanknotesIcon },
+  { name: 'My Loans', href: '/my-loans', icon: CreditCardIcon },
   { name: 'My Appraisal', href: '/my-appraisal', icon: ChartBarIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
@@ -171,6 +174,7 @@ const adminSections: NavSection[] = [
       { name: 'User Management', href: '/admin/users', icon: UsersIcon },
       { name: 'Roles & Permissions', href: '/admin/roles', icon: KeyIcon },
       { name: 'Auth Providers', href: '/admin/auth-providers', icon: ShieldCheckIcon },
+      { name: 'Audit Logs', href: '/admin/audit-logs', icon: ClipboardDocumentCheckIcon },
     ],
   },
 ];
@@ -179,22 +183,19 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-// Stunning HRMS Logo Component with gradient
+// Clean HRMS Logo Component
 function HRMSLogo({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="relative group">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-xl blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
-        <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-purple-500 flex items-center justify-center shadow-lg">
-          <span className="text-white font-bold text-sm">HR</span>
-        </div>
+      <div className="w-10 h-10 rounded-lg bg-primary-600 flex items-center justify-center">
+        <span className="text-white font-bold text-sm">HR</span>
       </div>
       {!collapsed && (
         <div className="flex flex-col">
-          <span className="text-lg font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+          <span className="text-lg font-bold text-gray-900">
             HRMS
           </span>
-          <span className="text-[10px] text-gray-400 -mt-1 tracking-wider uppercase">
+          <span className="text-[10px] text-gray-500 -mt-1 tracking-wider uppercase">
             Management
           </span>
         </div>
@@ -216,38 +217,29 @@ function NavLink({
     <Link
       to={item.href}
       className={cn(
-        'group relative flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300',
+        'group relative flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors duration-150',
         isActive
-          ? 'text-white'
-          : 'text-gray-400 hover:text-white'
+          ? 'bg-primary-50 text-primary-700'
+          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
       )}
       onClick={onClick}
     >
-      {/* Active background with gradient */}
+      {/* Active indicator - left side solid bar */}
       {isActive && (
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-purple-500/20 border border-white/10" />
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary-600 rounded-r-full" />
       )}
-      {/* Hover background */}
-      <div className={cn(
-        'absolute inset-0 rounded-xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity',
-        isActive && 'hidden'
-      )} />
 
       <item.icon
         className={cn(
-          'relative mr-3 h-5 w-5 flex-shrink-0 transition-all duration-300',
+          'mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150',
           isActive
-            ? 'text-emerald-400'
-            : 'text-gray-500 group-hover:text-emerald-400'
+            ? 'text-primary-600'
+            : 'text-gray-400 group-hover:text-gray-600'
         )}
       />
-      <span className="relative flex-1">{item.name}</span>
+      <span className="flex-1">{item.name}</span>
       {item.badge !== undefined && item.badge > 0 && (
         <CountBadge count={item.badge} variant="warning" />
-      )}
-      {/* Active indicator */}
-      {isActive && (
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-emerald-400 to-cyan-400 rounded-l-full" />
       )}
     </Link>
   );
@@ -266,17 +258,17 @@ function SubNavLink({
     <Link
       to={item.href}
       className={cn(
-        'group flex items-center pl-11 pr-3 py-2 text-sm font-medium rounded-lg transition-all duration-200',
+        'group flex items-center pl-11 pr-3 py-2 text-sm font-medium rounded-md transition-colors duration-150',
         isActive
-          ? 'text-emerald-400 bg-white/5'
-          : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+          ? 'text-primary-700 bg-primary-50'
+          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
       )}
       onClick={onClick}
     >
       <item.icon
         className={cn(
           'mr-3 h-4 w-4 flex-shrink-0 transition-colors',
-          isActive ? 'text-emerald-400' : 'text-gray-600 group-hover:text-gray-400'
+          isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-600'
         )}
       />
       {item.name}
@@ -287,11 +279,11 @@ function SubNavLink({
 function SectionDivider({ label, icon }: { label: string; icon?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 px-3 pt-6 pb-2">
-      {icon && <span className="text-gray-600">{icon}</span>}
-      <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+      {icon && <span className="text-gray-400">{icon}</span>}
+      <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
         {label}
       </span>
-      <div className="flex-1 h-px bg-gradient-to-r from-gray-700 to-transparent" />
+      <div className="flex-1 h-px bg-gray-200" />
     </div>
   );
 }
@@ -318,17 +310,17 @@ function CollapsibleSection({
       <button
         onClick={onToggle}
         className={cn(
-          'group flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200',
+          'group flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-md transition-colors duration-150',
           hasActiveItem
-            ? 'text-emerald-400 bg-white/5'
-            : 'text-gray-400 hover:text-white hover:bg-white/5'
+            ? 'text-primary-700 bg-primary-50'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
         )}
       >
         <div className="flex items-center">
           <section.icon
             className={cn(
               'mr-3 h-5 w-5 transition-colors',
-              hasActiveItem ? 'text-emerald-400' : 'text-gray-500 group-hover:text-emerald-400'
+              hasActiveItem ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-600'
             )}
           />
           {section.name}
@@ -339,12 +331,12 @@ function CollapsibleSection({
             isOpen && 'rotate-90'
           )}
         >
-          <ChevronRightIcon className="h-4 w-4 text-gray-500" />
+          <ChevronRightIcon className="h-4 w-4 text-gray-400" />
         </span>
       </button>
       <div
         className={cn(
-          'overflow-hidden transition-all duration-300',
+          'overflow-hidden transition-all duration-200',
           isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
@@ -536,7 +528,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div
         className={cn(
@@ -545,47 +537,40 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
       >
         <div
-          className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/40"
           onClick={() => setSidebarOpen(false)}
         />
         <div
           className={cn(
-            'fixed inset-y-0 left-0 flex w-72 flex-col transition-transform duration-300',
+            'fixed inset-y-0 left-0 flex w-72 flex-col bg-white transition-transform duration-300',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
-          {/* Sidebar gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800" />
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5" />
-
-          <div className="relative flex-shrink-0 flex h-16 items-center justify-between px-4 border-b border-white/10">
+          <div className="flex-shrink-0 flex h-16 items-center justify-between px-4 border-b border-gray-200">
             <HRMSLogo />
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
-          <nav className="relative flex-1 min-h-0">
+          <nav className="flex-1 min-h-0">
             <SidebarContent onLinkClick={() => setSidebarOpen(false)} />
           </nav>
           {/* Mobile user section */}
-          <div className="relative flex-shrink-0 border-t border-white/10 p-4">
+          <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full blur opacity-50" />
-                <Avatar firstName={user?.first_name} lastName={user?.last_name} size="sm" className="relative" />
-              </div>
+              <Avatar firstName={user?.first_name} lastName={user?.last_name} size="sm" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
+                <p className="text-sm font-medium text-gray-900 truncate">
                   {user?.first_name} {user?.last_name}
                 </p>
-                <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="p-2 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                className="p-2 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                 title="Logout"
               >
                 <ArrowRightOnRectangleIcon className="h-5 w-5" />
@@ -596,36 +581,26 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        {/* Sidebar gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800" />
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5" />
-
-        {/* Decorative glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl" />
-
-        <div className="relative flex flex-col h-full">
-          <div className="flex-shrink-0 flex h-16 items-center px-5 border-b border-white/10">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col bg-white border-r border-gray-200">
+        <div className="flex flex-col h-full">
+          <div className="flex-shrink-0 flex h-16 items-center px-5 border-b border-gray-200">
             <HRMSLogo />
           </div>
           <nav className="flex-1 min-h-0">
             <SidebarContent />
           </nav>
-          <div className="flex-shrink-0 border-t border-white/10 p-4">
-            <div className="flex items-center gap-3 p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full blur opacity-50" />
-                <Avatar firstName={user?.first_name} lastName={user?.last_name} size="sm" className="relative" />
-              </div>
+          <div className="flex-shrink-0 border-t border-gray-200 p-4">
+            <div className="flex items-center gap-3 p-2 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors">
+              <Avatar firstName={user?.first_name} lastName={user?.last_name} size="sm" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
+                <p className="text-sm font-medium text-gray-900 truncate">
                   {user?.first_name} {user?.last_name}
                 </p>
-                <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                className="p-2 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                 title="Logout"
               >
                 <ArrowRightOnRectangleIcon className="h-5 w-5" />
@@ -637,36 +612,33 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* Main content */}
       <div className="lg:pl-64">
-        {/* Top bar with glassmorphism */}
-        <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-gray-200/50 bg-white/70 backdrop-blur-xl px-4 lg:px-8">
+        {/* Top bar */}
+        <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 lg:px-8">
           <button
             type="button"
-            className="lg:hidden -m-2 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all"
+            className="lg:hidden -m-2 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
             onClick={() => setSidebarOpen(true)}
           >
             <Bars3Icon className="h-6 w-6" />
           </button>
 
-          {/* Search with modern styling */}
+          {/* Search */}
           <div className="hidden sm:flex flex-1 max-w-md">
-            <div className="relative w-full group">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 rounded-xl blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
+            <div className="relative w-full">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="search"
                 placeholder="Search employees, records..."
-                className="relative w-full pl-10 pr-4 py-2.5 text-sm bg-gray-100/80 border-0 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/50 focus:shadow-lg transition-all"
+                className="w-full pl-10 pr-4 py-2 text-sm bg-gray-100 border border-gray-200 rounded-md focus:bg-white focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none transition-colors"
               />
             </div>
           </div>
 
           <div className="flex flex-1 justify-end gap-2">
-            {/* Notification button with glow */}
-            <button className="relative p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all group">
+            {/* Notification button */}
+            <button className="relative p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
               <BellIcon className="h-5 w-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-gradient-to-r from-red-500 to-pink-500 rounded-full">
-                <span className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
-              </span>
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
             </button>
 
             {/* Mobile avatar */}
@@ -676,11 +648,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
         </header>
 
-        {/* Page content with subtle gradient background */}
+        {/* Page content */}
         <main className="p-4 lg:p-8 min-h-[calc(100vh-4rem)]">
-          <div className="animate-fade-in">
-            {children}
-          </div>
+          {children}
         </main>
       </div>
     </div>

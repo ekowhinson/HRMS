@@ -138,28 +138,21 @@ export const shadows = {
   lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
   xl: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
   '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
-  card: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-  cardHover: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+  card: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+  cardHover: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
   dropdown: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
   modal: '0 25px 50px -12px rgb(0 0 0 / 0.25)',
-  // Colored shadows
-  primary: '0 4px 14px 0 rgb(22 163 74 / 0.3)',
-  primaryLg: '0 10px 25px -5px rgb(22 163 74 / 0.4)',
-  success: '0 4px 14px 0 rgb(34 197 94 / 0.3)',
-  warning: '0 4px 14px 0 rgb(245 158 11 / 0.3)',
-  danger: '0 4px 14px 0 rgb(239 68 68 / 0.3)',
-  accent: '0 4px 14px 0 rgb(234 179 8 / 0.3)',
 } as const;
 
 export const borderRadius = {
   none: '0',
-  sm: '4px',
-  default: '8px',
-  md: '10px',
-  lg: '12px',
-  xl: '16px',
-  '2xl': '20px',
-  '3xl': '24px',
+  sm: '2px',
+  default: '6px',
+  md: '6px',
+  lg: '8px',
+  xl: '8px',
+  '2xl': '8px',
+  '3xl': '8px',
   full: '9999px',
 } as const;
 
@@ -221,7 +214,7 @@ export const avatarSizes = {
 // Chart colors palette
 export const chartColors = {
   primary: colors.primary[500],
-  secondary: colors.accent[500],
+  secondary: colors.info[500],
   tertiary: colors.info[500],
   quaternary: '#8b5cf6', // purple
   quinary: '#ec4899',    // pink

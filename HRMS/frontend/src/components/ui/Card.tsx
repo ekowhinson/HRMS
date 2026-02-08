@@ -16,9 +16,9 @@ export function Card({
   className,
   hoverable = false,
   accentColor,
-  gradient = false,
-  glass = false,
-  glow = false,
+  gradient: _gradient = false,
+  glass: _glass = false,
+  glow: _glow = false,
   onClick,
 }: CardProps) {
   const accentClasses = {
@@ -29,32 +29,12 @@ export function Card({
     info: 'border-t-4 border-t-info-500',
   };
 
-  const gradientClasses = {
-    primary: 'bg-gradient-to-br from-primary-50 to-white',
-    success: 'bg-gradient-to-br from-success-50 to-white',
-    warning: 'bg-gradient-to-br from-warning-50 to-white',
-    danger: 'bg-gradient-to-br from-danger-50 to-white',
-    info: 'bg-gradient-to-br from-info-50 to-white',
-  };
-
-  const glowClasses = {
-    primary: 'shadow-lg shadow-primary-500/10 hover:shadow-xl hover:shadow-primary-500/20',
-    success: 'shadow-lg shadow-success-500/10 hover:shadow-xl hover:shadow-success-500/20',
-    warning: 'shadow-lg shadow-warning-500/10 hover:shadow-xl hover:shadow-warning-500/20',
-    danger: 'shadow-lg shadow-danger-500/10 hover:shadow-xl hover:shadow-danger-500/20',
-    info: 'shadow-lg shadow-info-500/10 hover:shadow-xl hover:shadow-info-500/20',
-  };
-
   return (
     <div
       className={cn(
-        'rounded-xl border border-gray-200/60 overflow-hidden',
-        'transition-all duration-300',
-        glass ? 'bg-white/80 backdrop-blur-sm shadow-glass' : 'bg-white shadow-card',
-        gradient && accentColor ? gradientClasses[accentColor] : '',
-        accentColor && !gradient && accentClasses[accentColor],
-        glow && accentColor && glowClasses[accentColor],
-        hoverable && 'hover:shadow-card-hover hover:-translate-y-1 cursor-pointer',
+        'bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs',
+        accentColor && accentClasses[accentColor],
+        hoverable && 'hover:shadow-sm cursor-pointer',
         onClick && 'cursor-pointer',
         className
       )}
@@ -72,7 +52,7 @@ interface CardSectionProps {
 
 export function CardHeader({ children, className }: CardSectionProps) {
   return (
-    <div className={cn('px-6 py-4 border-b border-gray-100', className)}>
+    <div className={cn('px-6 py-4 border-b border-gray-200', className)}>
       {children}
     </div>
   );
@@ -100,7 +80,7 @@ export function CardFooter({ children, className }: CardSectionProps) {
   return (
     <div
       className={cn(
-        'px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-50/50 border-t border-gray-100',
+        'px-6 py-4 bg-gray-50 border-t border-gray-200',
         className
       )}
     >
@@ -122,9 +102,8 @@ export function CompactCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-xl shadow-sm border border-gray-100 p-4',
-        'transition-all duration-300',
-        onClick && 'cursor-pointer hover:shadow-lg hover:-translate-y-1',
+        'bg-white rounded-lg shadow-xs border border-gray-200 p-4',
+        onClick && 'cursor-pointer hover:shadow-sm',
         className
       )}
       onClick={onClick}
@@ -134,11 +113,11 @@ export function CompactCard({
   );
 }
 
-// Glass card variant for modern look
+// Glass card variant — now renders as standard Card
 export function GlassCard({
   children,
   className,
-  dark = false,
+  dark: _dark = false,
   onClick,
 }: {
   children: React.ReactNode;
@@ -149,12 +128,8 @@ export function GlassCard({
   return (
     <div
       className={cn(
-        'rounded-2xl backdrop-blur-xl overflow-hidden',
-        'transition-all duration-300',
-        dark
-          ? 'bg-white/10 border border-white/20 shadow-xl'
-          : 'bg-white/80 border border-gray-100 shadow-glass',
-        onClick && 'cursor-pointer hover:shadow-lg hover:-translate-y-1',
+        'bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs',
+        onClick && 'cursor-pointer hover:shadow-sm',
         className
       )}
       onClick={onClick}
@@ -164,7 +139,7 @@ export function GlassCard({
   );
 }
 
-// Stat card variant for KPI displays with stunning gradient
+// Stat card variant — clean white card with colored left border and icon badge
 export function StatCard({
   title,
   value,
@@ -182,91 +157,65 @@ export function StatCard({
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
   className?: string;
 }) {
-  const variantClasses = {
-    default: 'bg-white',
-    primary: 'bg-gradient-to-br from-primary-500 to-primary-600 text-white',
-    success: 'bg-gradient-to-br from-success-500 to-success-600 text-white',
-    warning: 'bg-gradient-to-br from-warning-500 to-warning-600 text-white',
-    danger: 'bg-gradient-to-br from-danger-500 to-danger-600 text-white',
-    info: 'bg-gradient-to-br from-info-500 to-info-600 text-white',
+  const borderClasses = {
+    default: 'border-l-4 border-l-primary-500',
+    primary: 'border-l-4 border-l-primary-500',
+    success: 'border-l-4 border-l-success-500',
+    warning: 'border-l-4 border-l-warning-500',
+    danger: 'border-l-4 border-l-danger-500',
+    info: 'border-l-4 border-l-info-500',
   };
 
   const iconClasses = {
     default: 'bg-primary-100 text-primary-600',
-    primary: 'bg-white/20 text-white',
-    success: 'bg-white/20 text-white',
-    warning: 'bg-white/20 text-white',
-    danger: 'bg-white/20 text-white',
-    info: 'bg-white/20 text-white',
+    primary: 'bg-primary-100 text-primary-600',
+    success: 'bg-success-100 text-success-600',
+    warning: 'bg-warning-100 text-warning-600',
+    danger: 'bg-danger-100 text-danger-600',
+    info: 'bg-info-100 text-info-600',
   };
-
-  const isColored = variant !== 'default';
 
   return (
     <div
       className={cn(
-        'relative p-6 rounded-2xl overflow-hidden shadow-lg',
-        'transition-all duration-300 hover:shadow-xl hover:-translate-y-1',
-        variantClasses[variant],
+        'bg-white p-6 rounded-lg border border-gray-200 shadow-xs',
+        borderClasses[variant],
         className
       )}
     >
-      {/* Background glow for colored variants */}
-      {isColored && (
-        <>
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-white/5 rounded-full blur-xl" />
-        </>
-      )}
-
-      <div className="relative z-10">
-        <div className="flex items-start justify-between">
-          {icon && (
-            <div className={cn('p-3 rounded-xl', iconClasses[variant])}>
-              {icon}
-            </div>
-          )}
-          {trend && (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold',
-                isColored
-                  ? 'bg-white/20 text-white'
-                  : cn(
-                      trend.direction === 'up' && 'bg-success-100 text-success-700',
-                      trend.direction === 'down' && 'bg-danger-100 text-danger-700',
-                      trend.direction === 'neutral' && 'bg-gray-100 text-gray-700'
-                    )
-              )}
-            >
-              {trend.direction === 'up' && '↑'}
-              {trend.direction === 'down' && '↓'}
-              {trend.value}%
-            </span>
-          )}
-        </div>
-        <div className="mt-4">
-          <p className={cn(
-            'text-sm font-medium',
-            isColored ? 'text-white/80' : 'text-gray-500'
-          )}>
-            {title}
+      <div className="flex items-start justify-between">
+        {icon && (
+          <div className={cn('p-3 rounded-lg', iconClasses[variant])}>
+            {icon}
+          </div>
+        )}
+        {trend && (
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold',
+              trend.direction === 'up' && 'bg-success-100 text-success-700',
+              trend.direction === 'down' && 'bg-danger-100 text-danger-700',
+              trend.direction === 'neutral' && 'bg-gray-100 text-gray-700'
+            )}
+          >
+            {trend.direction === 'up' && '↑'}
+            {trend.direction === 'down' && '↓'}
+            {trend.value}%
+          </span>
+        )}
+      </div>
+      <div className="mt-4">
+        <p className="text-sm font-medium text-gray-500">
+          {title}
+        </p>
+        <p className="mt-1 text-3xl font-bold text-gray-900">
+          {value}
+        </p>
+        {subtitle && (
+          <p className="mt-1 text-xs text-gray-400">
+            {subtitle}
           </p>
-          <p className={cn(
-            'mt-1 text-3xl font-bold',
-            isColored ? 'text-white' : 'text-gray-900'
-          )}>
-            {value}
-          </p>
-          {subtitle && (
-            <p className={cn(
-              'mt-1 text-xs',
-              isColored ? 'text-white/60' : 'text-gray-400'
-            )}>
-              {subtitle}
-            </p>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
@@ -277,7 +226,7 @@ export function FeatureCard({
   title,
   description,
   icon,
-  gradient,
+  gradient: _gradient,
   onClick,
   className,
 }: {
@@ -288,27 +237,27 @@ export function FeatureCard({
   onClick?: () => void;
   className?: string;
 }) {
-  const gradientClasses = {
-    primary: 'from-primary-500 to-primary-600',
-    accent: 'from-accent-500 to-accent-600',
-    info: 'from-blue-500 to-blue-600',
-    warning: 'from-amber-500 to-amber-600',
+  const colorClasses = {
+    primary: 'bg-primary-600',
+    accent: 'bg-primary-600',
+    info: 'bg-info-600',
+    warning: 'bg-warning-600',
   };
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        'group relative p-6 rounded-2xl bg-white border border-gray-100',
-        'transition-all duration-300 hover:shadow-lg hover:-translate-y-1',
+        'group relative p-6 rounded-lg bg-white border border-gray-200',
+        'hover:shadow-sm',
         onClick && 'cursor-pointer',
         className
       )}
     >
       <div
         className={cn(
-          'inline-flex p-3 rounded-xl text-white',
-          gradient ? `bg-gradient-to-br ${gradientClasses[gradient]}` : 'bg-gray-900'
+          'inline-flex p-3 rounded-lg text-white',
+          _gradient ? colorClasses[_gradient] : 'bg-gray-900'
         )}
       >
         {icon}

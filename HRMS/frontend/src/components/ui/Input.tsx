@@ -36,16 +36,16 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
     const variantStyles = {
       default: cn(
-        'border border-gray-200 bg-white rounded-xl shadow-sm',
+        'border border-gray-200 bg-white rounded-md',
         'hover:border-gray-300',
-        'focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20',
-        error && 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
+        'focus:border-primary-500 focus:ring-1 focus:ring-primary-500',
+        error && 'border-danger-500 focus:border-danger-500 focus:ring-danger-500'
       ),
       filled: cn(
-        'border-0 bg-gray-100 rounded-xl',
+        'border-0 bg-gray-100 rounded-md',
         'hover:bg-gray-200/70',
-        'focus:bg-white focus:ring-2 focus:ring-primary-500/20',
-        error && 'bg-danger-50 focus:ring-danger-500/20'
+        'focus:bg-white focus:ring-1 focus:ring-primary-500',
+        error && 'bg-danger-50 focus:ring-danger-500'
       ),
       underline: cn(
         'border-0 border-b-2 border-gray-200 rounded-none bg-transparent px-0',
@@ -77,7 +77,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             type={inputType}
             className={cn(
               'block w-full px-4 py-3 placeholder-gray-400',
-              'transition-all duration-300',
+              'transition-colors duration-150',
               'focus:outline-none',
               'text-sm',
               variantStyles[variant],
@@ -145,10 +145,10 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           type="search"
           value={value}
           className={cn(
-            'block w-full pl-11 pr-10 py-2.5 border border-gray-200 rounded-xl shadow-sm',
+            'block w-full pl-11 pr-10 py-2.5 border border-gray-200 rounded-md',
             'placeholder-gray-400 text-sm',
-            'transition-all duration-300',
-            'focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20',
+            'transition-colors duration-150',
+            'focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500',
             'hover:border-gray-300',
             className
           )}

@@ -21,38 +21,28 @@ export interface BadgeProps {
 const variantStyles = {
   default: {
     solid: 'bg-gray-100 text-gray-700',
-    outline: 'border border-gray-200 text-gray-700 bg-gray-50/50',
-    gradient: 'bg-gradient-to-r from-gray-500 to-gray-600 text-white',
+    outline: 'border border-gray-200 text-gray-700 bg-gray-50',
     dot: 'bg-gray-500',
-    glow: 'shadow-gray-500/30',
   },
   success: {
     solid: 'bg-success-100 text-success-700',
-    outline: 'border border-success-200 text-success-700 bg-success-50/50',
-    gradient: 'bg-gradient-to-r from-success-500 to-success-600 text-white',
+    outline: 'border border-success-200 text-success-700 bg-success-50',
     dot: 'bg-success-500',
-    glow: 'shadow-success-500/30',
   },
   warning: {
     solid: 'bg-warning-100 text-warning-700',
-    outline: 'border border-warning-200 text-warning-700 bg-warning-50/50',
-    gradient: 'bg-gradient-to-r from-warning-500 to-warning-600 text-white',
+    outline: 'border border-warning-200 text-warning-700 bg-warning-50',
     dot: 'bg-warning-500',
-    glow: 'shadow-warning-500/30',
   },
   danger: {
     solid: 'bg-danger-100 text-danger-700',
-    outline: 'border border-danger-200 text-danger-700 bg-danger-50/50',
-    gradient: 'bg-gradient-to-r from-danger-500 to-danger-600 text-white',
+    outline: 'border border-danger-200 text-danger-700 bg-danger-50',
     dot: 'bg-danger-500',
-    glow: 'shadow-danger-500/30',
   },
   info: {
     solid: 'bg-info-100 text-info-700',
-    outline: 'border border-info-200 text-info-700 bg-info-50/50',
-    gradient: 'bg-gradient-to-r from-info-500 to-info-600 text-white',
+    outline: 'border border-info-200 text-info-700 bg-info-50',
     dot: 'bg-info-500',
-    glow: 'shadow-info-500/30',
   },
 };
 
@@ -77,22 +67,21 @@ export default function Badge({
   dot = false,
   pulse = false,
   outline = false,
-  gradient = false,
-  glow = false,
+  gradient: _gradient = false,
+  glow: _glow = false,
   className,
 }: BadgeProps) {
   const style = variantStyles[variant];
 
-  const variantClass = gradient ? style.gradient : outline ? style.outline : style.solid;
+  const variantClass = outline ? style.outline : style.solid;
 
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1.5 font-semibold rounded-full',
-        'transition-all duration-300',
+        'transition-colors duration-150',
         variantClass,
         sizeStyles[size],
-        glow && `shadow-md ${style.glow}`,
         className
       )}
     >
@@ -131,8 +120,8 @@ export function StatusBadge({
   dot = false,
   pulse,
   outline = false,
-  gradient = false,
-  glow = false,
+  gradient: _gradient = false,
+  glow: _glow = false,
   className,
 }: StatusBadgeProps) {
   const variant = getStatusVariant(status, category);
@@ -147,8 +136,6 @@ export function StatusBadge({
       dot={dot}
       pulse={shouldPulse}
       outline={outline}
-      gradient={gradient}
-      glow={glow}
       className={className}
     >
       {formatStatus(status)}
@@ -200,7 +187,7 @@ export function CountBadge({
   max = 99,
   variant = 'danger',
   size = 'sm',
-  glow = false,
+  glow: _glow = false,
   className,
 }: {
   count: number;
@@ -225,9 +212,8 @@ export function CountBadge({
       className={cn(
         'inline-flex items-center justify-center px-1.5',
         'font-bold rounded-full',
-        style.gradient,
+        style.solid,
         sizeClasses[size],
-        glow && `shadow-md ${style.glow}`,
         className
       )}
     >
@@ -278,7 +264,7 @@ export function PillBadge({
     <span
       className={cn(
         'inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium',
-        'transition-colors duration-200',
+        'transition-colors duration-150',
         colorClasses[color],
         className
       )}

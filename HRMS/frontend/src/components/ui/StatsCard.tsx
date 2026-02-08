@@ -162,9 +162,8 @@ export function StatsCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-xl border border-gray-200/60 p-5 relative overflow-hidden',
-        'transition-all duration-200',
-        onClick && 'cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5',
+        'bg-white rounded-lg border border-gray-200 p-5 relative overflow-hidden shadow-xs',
+        onClick && 'cursor-pointer hover:shadow-sm',
         className
       )}
       onClick={onClick}

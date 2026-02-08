@@ -23,6 +23,9 @@ import MyLeaveHistoryPage from './pages/portal/MyLeaveHistoryPage'
 import LeavePlanningPage from './pages/portal/LeavePlanningPage'
 import DataUpdateRequestsPage from './pages/portal/DataUpdateRequestsPage'
 import ServiceRequestsPage from './pages/portal/ServiceRequestsPage'
+import SelfServiceDashboard from './pages/portal/SelfServiceDashboard'
+import MyPayslipsPage from './pages/portal/MyPayslipsPage'
+import MyLoansPage from './pages/portal/MyLoansPage'
 // Admin pages
 import PayrollProcessingPage from './pages/admin/PayrollProcessingPage'
 import LeaveApprovalsPage from './pages/admin/LeaveApprovalsPage'
@@ -70,6 +73,8 @@ import AnnouncementsPage from './pages/admin/AnnouncementsPage'
 import UserManagementPage from './pages/admin/UserManagementPage'
 import RoleManagementPage from './pages/admin/RoleManagementPage'
 import AuthProvidersPage from './pages/admin/AuthProvidersPage'
+// Audit Logs
+import AuditLogsPage from './pages/admin/AuditLogsPage'
 
 // Roles that grant access to HR/Admin features
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
@@ -109,7 +114,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isHROrAdmin) {
-    return <Navigate to="/my-leave" replace />
+    return <Navigate to="/self-service" replace />
   }
 
   return <>{children}</>
@@ -119,13 +124,13 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const isHROrAdmin = useIsHROrAdmin()
   // Redirect to appropriate page based on role
-  const redirectTo = isHROrAdmin ? '/dashboard' : '/my-leave'
+  const redirectTo = isHROrAdmin ? '/dashboard' : '/self-service'
   return isAuthenticated ? <Navigate to={redirectTo} replace /> : <>{children}</>
 }
 
 function DefaultRedirect() {
   const isHROrAdmin = useIsHROrAdmin()
-  return <Navigate to={isHROrAdmin ? '/dashboard' : '/my-leave'} replace />
+  return <Navigate to={isHROrAdmin ? '/dashboard' : '/self-service'} replace />
 }
 
 function App() {
@@ -161,6 +166,7 @@ function App() {
                 <Route path="/employees/:id/edit" element={<AdminRoute><EmployeeFormPage /></AdminRoute>} />
 
                 {/* Self-Service Portal - Available to all authenticated users */}
+                <Route path="/self-service" element={<SelfServiceDashboard />} />
                 <Route path="/my-profile" element={<MyProfilePage />} />
                 <Route path="/my-leave" element={<MyLeaveDashboard />} />
                 <Route path="/my-leave/calendar" element={<MyLeaveCalendarPage />} />
@@ -169,6 +175,8 @@ function App() {
                 <Route path="/my-data-updates" element={<DataUpdateRequestsPage />} />
                 <Route path="/my-service-requests" element={<ServiceRequestsPage />} />
                 <Route path="/my-appraisal" element={<MyAppraisalPage />} />
+                <Route path="/my-payslips" element={<MyPayslipsPage />} />
+                <Route path="/my-loans" element={<MyLoansPage />} />
 
                 {/* Leave Management - Admin only */}
                 <Route path="/leave" element={<AdminRoute><LeavePage /></AdminRoute>} />
@@ -236,6 +244,7 @@ function App() {
                 <Route path="/admin/users" element={<AdminRoute><UserManagementPage /></AdminRoute>} />
                 <Route path="/admin/roles" element={<AdminRoute><RoleManagementPage /></AdminRoute>} />
                 <Route path="/admin/auth-providers" element={<AdminRoute><AuthProvidersPage /></AdminRoute>} />
+                <Route path="/admin/audit-logs" element={<AdminRoute><AuditLogsPage /></AdminRoute>} />
 
                 {/* Catch-all redirect */}
                 <Route path="*" element={<DefaultRedirect />} />

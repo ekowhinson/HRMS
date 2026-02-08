@@ -496,67 +496,59 @@ export default function BackpayPage() {
 
   return (
     <div className="space-y-6">
-      {/* ── Section 1: Gradient Hero Banner ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800">
-        {/* Decorative blur orbs */}
-        <div className="absolute top-0 right-0 w-72 h-72 bg-primary-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-56 h-56 bg-accent-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/3 w-40 h-40 bg-blue-500/5 rounded-full blur-2xl" />
-
-        <div className="relative z-10 p-6 md:p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Backpay Management</h1>
-              <p className="text-sm text-slate-400 mt-1">Manage retroactive pay adjustments and arrears</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="gradient"
-                glow
-                onClick={() => setShowProcessConfirm(true)}
-                disabled={!!processingBatchId || eligibleCount === 0}
-              >
-                <BoltIcon className="h-4 w-4 mr-2" />
-                Process All{eligibleCount > 0 ? ` (${eligibleCount})` : ''}
-              </Button>
-              <button
-                onClick={() => setShowApproveAllConfirm(true)}
-                disabled={approvableCount === 0}
-                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <CheckIcon className="h-4 w-4 mr-2" />
-                Approve All{approvableCount > 0 ? ` (${approvableCount})` : ''}
-              </button>
-              <button
-                onClick={() => setShowBulkDeleteModal(true)}
-                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-xl transition-all duration-300"
-              >
-                <TrashIcon className="h-4 w-4 mr-2" />
-                Delete by Period
-              </button>
-              <button
-                onClick={() => detectMutation.mutate()}
-                disabled={detectMutation.isPending}
-                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <MagnifyingGlassIcon className="h-4 w-4 mr-2" />
-                {detectMutation.isPending ? 'Scanning...' : 'Detect Retropay'}
-              </button>
-              <button
-                onClick={() => setShowBulkModal(true)}
-                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl transition-all duration-300"
-              >
-                <UsersIcon className="h-4 w-4 mr-2" />
-                Bulk / All Staff
-              </button>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl transition-all duration-300"
-              >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                New Request
-              </button>
-            </div>
+      {/* ── Section 1: Hero Banner ── */}
+      <div className="bg-primary-700 rounded-lg p-6 text-white">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Backpay Management</h1>
+            <p className="text-sm text-white/70 mt-1">Manage retroactive pay adjustments and arrears</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="primary"
+              onClick={() => setShowProcessConfirm(true)}
+              disabled={!!processingBatchId || eligibleCount === 0}
+            >
+              <BoltIcon className="h-4 w-4 mr-2" />
+              Process All{eligibleCount > 0 ? ` (${eligibleCount})` : ''}
+            </Button>
+            <button
+              onClick={() => setShowApproveAllConfirm(true)}
+              disabled={approvableCount === 0}
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CheckIcon className="h-4 w-4 mr-2" />
+              Approve All{approvableCount > 0 ? ` (${approvableCount})` : ''}
+            </button>
+            <button
+              onClick={() => setShowBulkDeleteModal(true)}
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+            >
+              <TrashIcon className="h-4 w-4 mr-2" />
+              Delete by Period
+            </button>
+            <button
+              onClick={() => detectMutation.mutate()}
+              disabled={detectMutation.isPending}
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <MagnifyingGlassIcon className="h-4 w-4 mr-2" />
+              {detectMutation.isPending ? 'Scanning...' : 'Detect Retropay'}
+            </button>
+            <button
+              onClick={() => setShowBulkModal(true)}
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+            >
+              <UsersIcon className="h-4 w-4 mr-2" />
+              Bulk / All Staff
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+            >
+              <PlusIcon className="h-4 w-4 mr-2" />
+              New Request
+            </button>
           </div>
         </div>
       </div>
@@ -564,88 +556,68 @@ export default function BackpayPage() {
       {/* ── Section 2: Summary Stats Row ── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {/* Total Requests */}
-        <div className="relative group overflow-hidden rounded-xl bg-gradient-to-br from-slate-600 to-slate-700 p-5 shadow-lg shadow-slate-500/30 hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
-          <div className="absolute -top-8 -right-8 w-28 h-28 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-white/5 rounded-full blur-xl" />
-          <div className="relative z-10">
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 w-fit mb-3">
-              <DocumentTextIcon className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-xl font-bold text-white">{totalItems}</p>
-            <p className="text-xs text-white/70 mt-0.5">Total Requests</p>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-slate-500 p-5">
+          <div className="bg-slate-100 rounded-lg p-2 w-fit mb-3">
+            <DocumentTextIcon className="w-5 h-5 text-slate-600" />
           </div>
+          <p className="text-xl font-bold text-gray-900">{totalItems}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Total Requests</p>
         </div>
 
         {/* Draft */}
-        <div className="relative group overflow-hidden rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 p-5 shadow-lg shadow-amber-500/30 hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
-          <div className="absolute -top-8 -right-8 w-28 h-28 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-white/5 rounded-full blur-xl" />
-          <div className="relative z-10">
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 w-fit mb-3">
-              <ClockIcon className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-xl font-bold text-white">{stats.draftCount}</p>
-            <p className="text-xs text-white/70 mt-0.5">Draft</p>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-amber-500 p-5">
+          <div className="bg-amber-100 rounded-lg p-2 w-fit mb-3">
+            <ClockIcon className="w-5 h-5 text-amber-600" />
           </div>
+          <p className="text-xl font-bold text-gray-900">{stats.draftCount}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Draft</p>
         </div>
 
         {/* Previewed */}
-        <div className="relative group overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-5 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
-          <div className="absolute -top-8 -right-8 w-28 h-28 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-white/5 rounded-full blur-xl" />
-          <div className="relative z-10">
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 w-fit mb-3">
-              <EyeIcon className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-xl font-bold text-white">{stats.previewedCount}</p>
-            <p className="text-xs text-white/70 mt-0.5">Previewed</p>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-blue-500 p-5">
+          <div className="bg-blue-100 rounded-lg p-2 w-fit mb-3">
+            <EyeIcon className="w-5 h-5 text-blue-600" />
           </div>
+          <p className="text-xl font-bold text-gray-900">{stats.previewedCount}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Previewed</p>
         </div>
 
         {/* Approved */}
-        <div className="relative group overflow-hidden rounded-xl bg-gradient-to-br from-green-500 to-green-600 p-5 shadow-lg shadow-green-500/30 hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
-          <div className="absolute -top-8 -right-8 w-28 h-28 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-white/5 rounded-full blur-xl" />
-          <div className="relative z-10">
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 w-fit mb-3">
-              <CheckCircleIcon className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-xl font-bold text-white">{stats.approvedCount}</p>
-            <p className="text-xs text-white/70 mt-0.5">Approved</p>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-green-500 p-5">
+          <div className="bg-green-100 rounded-lg p-2 w-fit mb-3">
+            <CheckCircleIcon className="w-5 h-5 text-green-600" />
           </div>
+          <p className="text-xl font-bold text-gray-900">{stats.approvedCount}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Approved</p>
         </div>
 
         {/* Net Arrears Total */}
-        <div className="relative group overflow-hidden rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 p-5 shadow-lg shadow-primary-500/30 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 col-span-2 md:col-span-1">
-          <div className="absolute -top-8 -right-8 w-28 h-28 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-white/5 rounded-full blur-xl" />
-          <div className="relative z-10">
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 w-fit mb-3">
-              <BanknotesIcon className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-xl font-bold text-white">{formatCurrency(stats.totalNetArrears)}</p>
-            <p className="text-xs text-white/70 mt-0.5">Net Arrears (Total)</p>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-primary-500 p-5 col-span-2 md:col-span-1">
+          <div className="bg-primary-100 rounded-lg p-2 w-fit mb-3">
+            <BanknotesIcon className="w-5 h-5 text-primary-600" />
           </div>
+          <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.totalNetArrears)}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Net Arrears (Total)</p>
         </div>
       </div>
 
       {/* ── Section 4: Bulk Process Progress Bar ── */}
       {processingBatchId && bulkProgress && (
-        <div className="bg-white/90 backdrop-blur-sm border border-primary-200/50 rounded-xl p-5 shadow-md">
+        <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-xs">
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-gray-700">
                 Processing backpay requests... {bulkProgress.processed} / {bulkProgress.total} ({bulkProgress.percentage}%)
               </span>
               {bulkProgress.current_employee && (
-                <span className="text-xs text-gray-500 animate-pulse">
+                <span className="text-xs text-gray-500">
                   Current: {bulkProgress.current_employee}
                 </span>
               )}
             </div>
             <div className="w-full bg-gray-100 rounded-full h-3">
               <div
-                className="bg-gradient-to-r from-primary-500 via-accent-500 to-primary-500 h-3 rounded-full transition-all duration-500 shadow-md shadow-primary-500/40 bg-[length:200%_100%] animate-gradient-shift"
+                className="bg-primary-500 h-3 rounded-full transition-all duration-500"
                 style={{ width: `${bulkProgress.percentage}%` }}
               />
             </div>
@@ -662,7 +634,7 @@ export default function BackpayPage() {
       )}
 
       {/* ── Section 3: Filter Bar — Glass Effect ── */}
-      <Card glass>
+      <Card>
         <CardContent className="py-4">
           <div className="flex items-center gap-2 mb-3">
             <FunnelIcon className="h-4 w-4 text-gray-400" />
@@ -719,7 +691,7 @@ export default function BackpayPage() {
       </Card>
 
       {/* ── Section 5: Requests Table — Refined Corporate Style ── */}
-      <Card glass glow accentColor="primary">
+      <Card>
         <CardHeader>
           <CardTitle>Backpay Requests</CardTitle>
         </CardHeader>
@@ -737,14 +709,14 @@ export default function BackpayPage() {
           ) : requests.length === 0 ? (
             /* ── Section 6: Illustrated Empty State ── */
             <div className="text-center py-16 space-y-4">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-2xl">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-lg">
                 <BanknotesIcon className="h-10 w-10 text-gray-300" />
               </div>
               <div>
                 <p className="text-lg font-medium text-gray-400">No backpay requests found</p>
                 <p className="text-sm text-gray-400 mt-1">Create a new request or use bulk create to get started</p>
               </div>
-              <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
+              <Button variant="primary" onClick={() => setShowCreateModal(true)}>
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Create Request
               </Button>
@@ -753,7 +725,7 @@ export default function BackpayPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
+                  <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reference</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reason</th>
@@ -798,8 +770,6 @@ export default function BackpayPage() {
                         <Badge
                           variant={statusColors[request.status]}
                           size="sm"
-                          glow={request.status === 'APPROVED'}
-                          pulse={request.status === 'DRAFT'}
                         >
                           {request.status_display || request.status}
                         </Badge>
@@ -894,7 +864,7 @@ export default function BackpayPage() {
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
             <Button
-              variant="gradient"
+              variant="primary"
               onClick={() => createMutation.mutate({
                 employee: createForm.employee,
                 reason: createForm.reason,
@@ -942,7 +912,6 @@ export default function BackpayPage() {
                 <Badge
                   variant={statusColors[selectedRequest.status]}
                   size="sm"
-                  glow={selectedRequest.status === 'APPROVED'}
                 >
                   {selectedRequest.status_display || selectedRequest.status}
                 </Badge>
@@ -963,24 +932,24 @@ export default function BackpayPage() {
 
             {/* Financial Summary — Enhanced Cards */}
             <div className="grid grid-cols-3 gap-4">
-              <Card accentColor="success" gradient>
-                <CardContent className="py-4 text-center">
+              <Card>
+                <CardContent className="py-4 text-center border-l-4 border-l-green-500">
                   <p className="text-xs text-gray-500 mb-1">Earnings Arrears</p>
                   <p className="text-2xl font-bold text-green-600">
                     {formatCurrency(selectedRequest.total_arrears_earnings)}
                   </p>
                 </CardContent>
               </Card>
-              <Card accentColor="danger" gradient>
-                <CardContent className="py-4 text-center">
+              <Card>
+                <CardContent className="py-4 text-center border-l-4 border-l-red-500">
                   <p className="text-xs text-gray-500 mb-1">Deductions Arrears</p>
                   <p className="text-2xl font-bold text-red-600">
                     {formatCurrency(selectedRequest.total_arrears_deductions)}
                   </p>
                 </CardContent>
               </Card>
-              <Card accentColor="primary" gradient glow>
-                <CardContent className="py-4 text-center">
+              <Card>
+                <CardContent className="py-4 text-center border-l-4 border-l-primary-500">
                   <p className="text-xs text-gray-500 mb-1">Net Arrears</p>
                   <p className="text-2xl font-bold text-primary-600">
                     {formatCurrency(selectedRequest.net_arrears)}
@@ -1003,7 +972,7 @@ export default function BackpayPage() {
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
+                      <tr className="bg-gray-50 border-b border-gray-200">
                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</th>
                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Component</th>
                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
@@ -1191,7 +1160,7 @@ export default function BackpayPage() {
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="outline" onClick={() => setShowBulkModal(false)}>Cancel</Button>
             <Button
-              variant="gradient"
+              variant="primary"
               onClick={() => {
                 const payload: BackpayBulkCreateData = {
                   reason: bulkForm.reason,
@@ -1304,8 +1273,8 @@ export default function BackpayPage() {
       >
         <div className="space-y-4">
           <div className="flex justify-center mb-2">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg shadow-green-500/30">
-              <CheckIcon className="h-7 w-7 text-white" />
+            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckIcon className="h-7 w-7 text-green-600" />
             </div>
           </div>
           <p className="text-center text-gray-700">
@@ -1338,8 +1307,8 @@ export default function BackpayPage() {
       >
         <div className="space-y-4">
           <div className="flex justify-center mb-2">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center shadow-lg shadow-primary-500/30">
-              <BoltIcon className="h-7 w-7 text-white" />
+            <div className="w-14 h-14 rounded-full bg-primary-100 flex items-center justify-center">
+              <BoltIcon className="h-7 w-7 text-primary-600" />
             </div>
           </div>
           <p className="text-center text-gray-700">
@@ -1352,8 +1321,7 @@ export default function BackpayPage() {
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setShowProcessConfirm(false)}>Cancel</Button>
             <Button
-              variant="gradient"
-              glow
+              variant="primary"
               onClick={() => bulkProcessMutation.mutate()}
               isLoading={bulkProcessMutation.isPending}
             >
@@ -1380,7 +1348,7 @@ export default function BackpayPage() {
             <div className="overflow-x-auto max-h-[60vh] overflow-y-auto rounded-lg border border-gray-200">
               <table className="w-full text-sm">
                 <thead className="sticky top-0">
-                  <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
+                  <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Changes</th>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Affected Periods</th>
@@ -1440,8 +1408,7 @@ export default function BackpayPage() {
                 Close
               </Button>
               <Button
-                variant="gradient"
-                glow
+                variant="primary"
                 onClick={() => autoCreateMutation.mutate()}
                 isLoading={autoCreateMutation.isPending}
               >

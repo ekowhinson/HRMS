@@ -21,7 +21,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       leftIcon,
       rightIcon,
       fullWidth,
-      glow,
+      glow: _glow,
       children,
       disabled,
       ...props
@@ -29,17 +29,16 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles = cn(
-      'inline-flex items-center justify-center font-medium rounded-xl',
-      'transition-all duration-300 ease-smooth',
+      'inline-flex items-center justify-center font-medium rounded-md',
+      'transition-colors duration-150',
       'focus:outline-none focus:ring-2 focus:ring-offset-2',
-      'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none',
-      'active:scale-[0.97]'
+      'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none'
     );
 
     const variants = {
       primary: cn(
-        'bg-gradient-to-r from-primary-500 to-primary-600 text-white',
-        'hover:from-primary-600 hover:to-primary-700 hover:shadow-lg hover:shadow-primary-500/30',
+        'bg-primary-600 text-white',
+        'hover:bg-primary-700',
         'focus:ring-primary-500'
       ),
       secondary: cn(
@@ -48,13 +47,13 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         'focus:ring-gray-300'
       ),
       danger: cn(
-        'bg-gradient-to-r from-danger-500 to-danger-600 text-white',
-        'hover:from-danger-600 hover:to-danger-700 hover:shadow-lg hover:shadow-danger-500/30',
+        'bg-danger-600 text-white',
+        'hover:bg-danger-700',
         'focus:ring-danger-500'
       ),
       success: cn(
-        'bg-gradient-to-r from-success-500 to-success-600 text-white',
-        'hover:from-success-600 hover:to-success-700 hover:shadow-lg hover:shadow-success-500/30',
+        'bg-success-600 text-white',
+        'hover:bg-success-700',
         'focus:ring-success-500'
       ),
       ghost: cn(
@@ -68,10 +67,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         'focus:ring-primary-500'
       ),
       gradient: cn(
-        'bg-gradient-to-r from-primary-500 via-accent-500 to-primary-500 text-white',
-        'bg-[length:200%_100%] animate-gradient-shift',
-        'hover:shadow-lg hover:shadow-accent-500/30',
-        'focus:ring-accent-500'
+        'bg-primary-600 text-white',
+        'hover:bg-primary-700',
+        'focus:ring-primary-500'
       ),
     };
 
@@ -89,14 +87,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       lg: 'w-5 h-5',
     };
 
-    const glowStyles = glow ? cn(
-      'shadow-lg',
-      variant === 'primary' && 'shadow-primary-500/40',
-      variant === 'danger' && 'shadow-danger-500/40',
-      variant === 'success' && 'shadow-success-500/40',
-      variant === 'gradient' && 'shadow-accent-500/40'
-    ) : '';
-
     return (
       <button
         ref={ref}
@@ -105,7 +95,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           variants[variant],
           sizes[size],
           fullWidth && 'w-full',
-          glowStyles,
           className
         )}
         disabled={disabled || isLoading}
@@ -160,10 +149,10 @@ export function ButtonGroup({
   return (
     <div
       className={cn(
-        'inline-flex rounded-xl shadow-sm overflow-hidden',
+        'inline-flex rounded-md shadow-sm overflow-hidden',
         '[&>button]:rounded-none',
-        '[&>button:first-child]:rounded-l-xl',
-        '[&>button:last-child]:rounded-r-xl',
+        '[&>button:first-child]:rounded-l-md',
+        '[&>button:last-child]:rounded-r-md',
         '[&>button:not(:last-child)]:border-r-0',
         className
       )}
@@ -211,7 +200,7 @@ export interface FABProps extends Omit<ButtonProps, 'children' | 'leftIcon' | 'r
 }
 
 export const FAB = forwardRef<HTMLButtonElement, FABProps>(
-  ({ icon, position = 'bottom-right', className, variant = 'gradient', ...props }, ref) => {
+  ({ icon, position = 'bottom-right', className, variant = 'primary', ...props }, ref) => {
     const positionClasses = {
       'bottom-right': 'fixed bottom-6 right-6',
       'bottom-left': 'fixed bottom-6 left-6',
@@ -222,10 +211,8 @@ export const FAB = forwardRef<HTMLButtonElement, FABProps>(
       <Button
         ref={ref}
         variant={variant}
-        glow
         className={cn(
-          'p-4 rounded-full shadow-xl',
-          'hover:scale-110 hover:shadow-2xl',
+          'p-4 rounded-full shadow-lg',
           positionClasses[position],
           className
         )}

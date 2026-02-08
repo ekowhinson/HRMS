@@ -961,7 +961,7 @@ export default function PayrollSetupPage() {
               ) : settingsData?.settings ? (
                 <div className="space-y-6">
                   {/* Current Active Period Display */}
-                  <div className="bg-gradient-to-r from-primary-50 to-primary-100 border border-primary-200 rounded-lg p-6">
+                  <div className="bg-primary-50 border border-primary-200 rounded-lg p-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-primary-600 mb-1">Currently Active Period</p>

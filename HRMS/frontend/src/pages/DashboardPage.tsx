@@ -28,7 +28,7 @@ import { chartColors } from '@/lib/design-tokens'
 // Auto-refresh interval (30 seconds)
 const REFRESH_INTERVAL = 30000
 
-// Stunning Stats Card Component
+// Clean Stats Card Component (SAP-like)
 function StunningStatsCard({
   title,
   value,
@@ -44,53 +44,40 @@ function StunningStatsCard({
   trend?: { value: number; label: string; direction: 'up' | 'down' | 'neutral' }
   onClick?: () => void
 }) {
-  const gradients = {
-    primary: 'from-primary-500 to-primary-600',
-    accent: 'from-accent-500 to-accent-600',
-    info: 'from-blue-500 to-blue-600',
-    warning: 'from-amber-500 to-amber-600',
-  }
-
-  const glowColors = {
-    primary: 'shadow-primary-500/30',
-    accent: 'shadow-accent-500/30',
-    info: 'shadow-blue-500/30',
-    warning: 'shadow-amber-500/30',
+  const iconStyles = {
+    primary: 'bg-primary-50 text-primary-600',
+    accent: 'bg-accent-50 text-accent-600',
+    info: 'bg-blue-50 text-blue-600',
+    warning: 'bg-amber-50 text-amber-600',
   }
 
   return (
     <div
       onClick={onClick}
-      className={`relative group overflow-hidden rounded-2xl bg-gradient-to-br ${gradients[gradient]} p-6 shadow-lg ${glowColors[gradient]} hover:shadow-xl transition-all duration-300 ${onClick ? 'cursor-pointer hover:scale-[1.02]' : ''}`}
+      className={`bg-white rounded-lg border border-gray-200 p-6 shadow-xs hover:border-gray-300 transition-colors ${onClick ? 'cursor-pointer' : ''}`}
     >
-      {/* Background glow */}
-      <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-      <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-white/5 rounded-full blur-xl" />
-
-      <div className="relative z-10">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-white/80 text-sm font-medium">{title}</p>
-            <p className="text-3xl font-bold text-white mt-2">{value}</p>
-            {trend && (
-              <div className="flex items-center gap-1 mt-2">
-                {trend.direction === 'up' && (
-                  <ArrowTrendingUpIcon className="w-4 h-4 text-green-300" />
-                )}
-                <span className="text-sm text-white/70">{trend.label}</span>
-              </div>
-            )}
-          </div>
-          <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-            <Icon className="w-6 h-6 text-white" />
-          </div>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-gray-500 text-sm font-medium">{title}</p>
+          <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+          {trend && (
+            <div className="flex items-center gap-1 mt-2">
+              {trend.direction === 'up' && (
+                <ArrowTrendingUpIcon className="w-4 h-4 text-green-600" />
+              )}
+              <span className="text-sm text-gray-500">{trend.label}</span>
+            </div>
+          )}
+        </div>
+        <div className={`${iconStyles[gradient]} rounded-lg p-3`}>
+          <Icon className="w-6 h-6" />
         </div>
       </div>
     </div>
   )
 }
 
-// Animated Loading Skeleton
+// Loading Skeleton
 function StunningLoadingSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
@@ -103,15 +90,15 @@ function StunningLoadingSkeleton() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-32 bg-gradient-to-br from-gray-200 to-gray-100 rounded-2xl" />
+          <div key={i} className="h-32 bg-gray-100 rounded-lg border border-gray-200" />
         ))}
       </div>
 
-      <div className="h-48 bg-gradient-to-br from-gray-200 to-gray-100 rounded-2xl" />
+      <div className="h-48 bg-gray-100 rounded-lg border border-gray-200" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-64 bg-gradient-to-br from-gray-200 to-gray-100 rounded-2xl" />
+          <div key={i} className="h-64 bg-gray-100 rounded-lg border border-gray-200" />
         ))}
       </div>
     </div>
@@ -184,15 +171,15 @@ export default function DashboardPage() {
   if (isError) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-2xl shadow-lg max-w-md">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-xs max-w-md">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
             <ExclamationTriangleIcon className="w-8 h-8 text-red-500" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Failed to load dashboard</h2>
           <p className="text-gray-500 mb-6">
             {(error as any)?.message || 'Unable to connect to the server'}
           </p>
-          <Button onClick={() => refetch()} className="bg-gradient-to-r from-primary-500 to-accent-500 text-white">
+          <Button onClick={() => refetch()} className="bg-primary-600 text-white hover:bg-primary-700">
             <ArrowPathIcon className="w-4 h-4 mr-2" />
             Try Again
           </Button>
@@ -256,14 +243,21 @@ export default function DashboardPage() {
 
   // Quick links for navigation
   const quickActions = [
-    { label: 'Add Employee', href: '/employees/new', icon: UserPlusIcon, gradient: 'from-primary-500 to-primary-600' },
-    { label: 'Process Payroll', href: '/admin/payroll', icon: BanknotesIcon, gradient: 'from-accent-500 to-accent-600' },
-    { label: 'Leave Approvals', href: '/admin/leave-approvals', icon: CalendarDaysIcon, gradient: 'from-blue-500 to-blue-600' },
-    { label: 'View Reports', href: '/reports', icon: ChartBarIcon, gradient: 'from-amber-500 to-amber-600' },
+    { label: 'Add Employee', href: '/employees/new', icon: UserPlusIcon, color: 'primary' as const },
+    { label: 'Process Payroll', href: '/admin/payroll', icon: BanknotesIcon, color: 'accent' as const },
+    { label: 'Leave Approvals', href: '/admin/leave-approvals', icon: CalendarDaysIcon, color: 'blue' as const },
+    { label: 'View Reports', href: '/reports', icon: ChartBarIcon, color: 'amber' as const },
   ]
 
+  const quickActionIconColors = {
+    primary: 'bg-primary-100 text-primary-600',
+    accent: 'bg-accent-100 text-accent-600',
+    blue: 'bg-blue-100 text-blue-600',
+    amber: 'bg-amber-100 text-amber-600',
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -290,7 +284,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Main Stats Grid - Stunning Cards */}
+      {/* Main Stats Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StunningStatsCard
           title="Total Employees"
@@ -344,72 +338,65 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Payroll Summary - Stunning Banner */}
+      {/* Payroll Summary - Clean Card with Header Strip */}
       {(stats?.latest_payroll || payrollData?.latest_payroll) && (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 p-1">
-          {/* Animated border glow */}
-          <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-accent-500 to-primary-500 opacity-50 blur-xl" />
-
-          <div className="relative bg-slate-900 rounded-xl overflow-hidden">
-            {/* Background effects */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-accent-500/10 rounded-full blur-3xl" />
-
-            <div className="relative p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl shadow-lg shadow-primary-500/30">
-                    <BanknotesIcon className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">
-                      Latest Payroll - {payrollData?.latest_payroll?.period || stats?.latest_payroll?.period}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-300 border border-primary-500/30">
-                        {payrollData?.latest_payroll?.status || 'Processed'}
-                      </span>
-                    </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
+          {/* Primary header strip */}
+          <div className="bg-primary-700 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <BanknotesIcon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    Latest Payroll - {payrollData?.latest_payroll?.period || stats?.latest_payroll?.period}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white/20 text-white">
+                      {payrollData?.latest_payroll?.status || 'Processed'}
+                    </span>
                   </div>
                 </div>
-                <Link to="/admin/payroll">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30"
-                  >
-                    View Details
-                    <ArrowRightIcon className="w-4 h-4 ml-1" />
-                  </Button>
-                </Link>
               </div>
+              <Link to="/admin/payroll">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                >
+                  View Details
+                  <ArrowRightIcon className="w-4 h-4 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
-                  <p className="text-3xl font-bold text-white">
-                    {formatNumber(payrollData?.latest_payroll?.total_employees || stats?.latest_payroll?.total_employees || 0)}
-                  </p>
-                  <p className="text-sm text-white/60 mt-1">Employees Processed</p>
-                </div>
-                <div className="p-4 bg-primary-500/10 backdrop-blur-sm rounded-xl border border-primary-500/20">
-                  <p className="text-3xl font-bold text-primary-400">
-                    {formatCurrency(payrollData?.latest_payroll?.total_gross || stats?.latest_payroll?.total_gross || 0)}
-                  </p>
-                  <p className="text-sm text-white/60 mt-1">Total Gross</p>
-                </div>
-                <div className="p-4 bg-amber-500/10 backdrop-blur-sm rounded-xl border border-amber-500/20">
-                  <p className="text-3xl font-bold text-amber-400">
-                    {formatCurrency(payrollData?.latest_payroll?.total_deductions || 0)}
-                  </p>
-                  <p className="text-sm text-white/60 mt-1">Total Deductions</p>
-                </div>
-                <div className="p-4 bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20">
-                  <p className="text-3xl font-bold text-green-400">
-                    {formatCurrency(payrollData?.latest_payroll?.total_net || stats?.latest_payroll?.total_net || 0)}
-                  </p>
-                  <p className="text-sm text-white/60 mt-1">Total Net Pay</p>
-                </div>
-              </div>
+          {/* Stats grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6">
+            <div className="border-l-4 border-l-gray-500 bg-gray-50 p-4 rounded-r-lg">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatNumber(payrollData?.latest_payroll?.total_employees || stats?.latest_payroll?.total_employees || 0)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">Employees Processed</p>
+            </div>
+            <div className="border-l-4 border-l-primary-500 bg-gray-50 p-4 rounded-r-lg">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(payrollData?.latest_payroll?.total_gross || stats?.latest_payroll?.total_gross || 0)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">Total Gross</p>
+            </div>
+            <div className="border-l-4 border-l-amber-500 bg-gray-50 p-4 rounded-r-lg">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(payrollData?.latest_payroll?.total_deductions || 0)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">Total Deductions</p>
+            </div>
+            <div className="border-l-4 border-l-green-500 bg-gray-50 p-4 rounded-r-lg">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(payrollData?.latest_payroll?.total_net || stats?.latest_payroll?.total_net || 0)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">Total Net Pay</p>
             </div>
           </div>
         </div>
@@ -435,23 +422,23 @@ export default function DashboardPage() {
           height={280}
         />
 
-        <Card className="overflow-hidden border-0 shadow-lg">
-          <div className="h-full bg-gradient-to-br from-slate-50 to-white p-6">
+        <Card className="overflow-hidden border border-gray-200 shadow-xs">
+          <div className="h-full bg-white p-6">
             <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 bg-gradient-to-br from-primary-500 to-accent-500 rounded-lg">
-                <SparklesIcon className="h-5 w-5 text-white" />
+              <div className="p-2 bg-primary-50 rounded-lg">
+                <SparklesIcon className="h-5 w-5 text-primary-600" />
               </div>
               <h3 className="font-semibold text-gray-900">HR Highlights</h3>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="p-4 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl text-white">
-                <p className="text-2xl font-bold">{hrData?.on_probation || 0}</p>
-                <p className="text-sm text-white/80 mt-1">On Probation</p>
+              <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                <p className="text-2xl font-bold text-gray-900">{hrData?.on_probation || 0}</p>
+                <p className="text-sm text-gray-500 mt-1">On Probation</p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl text-white">
-                <p className="text-2xl font-bold">{hrData?.pending_confirmations || 0}</p>
-                <p className="text-sm text-white/80 mt-1">Pending Confirmation</p>
+              <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                <p className="text-2xl font-bold text-gray-900">{hrData?.pending_confirmations || 0}</p>
+                <p className="text-sm text-gray-500 mt-1">Pending Confirmation</p>
               </div>
             </div>
 
@@ -467,7 +454,7 @@ export default function DashboardPage() {
                       <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${percentage}%`, background: `linear-gradient(90deg, ${g.color}, ${g.color}dd)` }}
+                          style={{ width: `${percentage}%`, backgroundColor: g.color }}
                         />
                       </div>
                       <span className="w-12 text-sm font-semibold text-gray-900 text-right">
@@ -486,7 +473,7 @@ export default function DashboardPage() {
                   <CakeIcon className="h-5 w-5 text-pink-500" />
                   <span className="text-sm text-gray-600">Birthdays this month</span>
                 </div>
-                <span className="px-3 py-1 bg-pink-100 text-pink-700 text-sm font-semibold rounded-full">
+                <span className="px-3 py-1 bg-pink-50 text-pink-700 text-sm font-semibold rounded-full border border-pink-200">
                   {hrData?.birthdays_this_month || 0}
                 </span>
               </div>
@@ -536,29 +523,29 @@ export default function DashboardPage() {
             height={300}
           />
         ) : (
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-white">
+          <Card className="overflow-hidden border border-gray-200 shadow-xs">
+            <CardHeader>
               <CardTitle>Leave Overview</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl text-center group hover:shadow-lg transition-all">
-                  <CalendarDaysIcon className="h-8 w-8 text-amber-500 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                  <CalendarDaysIcon className="h-8 w-8 text-amber-500 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-amber-700">{pendingLeave}</p>
                   <p className="text-sm text-gray-500">Pending Approval</p>
                 </div>
-                <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl text-center group hover:shadow-lg transition-all">
-                  <CheckCircleIcon className="h-8 w-8 text-green-500 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                  <CheckCircleIcon className="h-8 w-8 text-green-500 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-green-700">{leaveData?.approved_today || 0}</p>
                   <p className="text-sm text-gray-500">Approved Today</p>
                 </div>
-                <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl text-center group hover:shadow-lg transition-all">
-                  <UserGroupIcon className="h-8 w-8 text-blue-500 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                  <UserGroupIcon className="h-8 w-8 text-blue-500 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-blue-700">{leaveData?.on_leave_today || 0}</p>
                   <p className="text-sm text-gray-500">On Leave Today</p>
                 </div>
-                <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl text-center group hover:shadow-lg transition-all">
-                  <ClockIcon className="h-8 w-8 text-purple-500 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg text-center">
+                  <ClockIcon className="h-8 w-8 text-purple-500 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-purple-700">{leaveData?.upcoming_leave || 0}</p>
                   <p className="text-sm text-gray-500">Upcoming</p>
                 </div>
@@ -604,9 +591,9 @@ export default function DashboardPage() {
 
       {/* Quick Actions & Alerts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Quick Actions - Stunning Grid */}
-        <Card className="overflow-hidden border-0 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-white">
+        {/* Quick Actions */}
+        <Card className="overflow-hidden border border-gray-200 shadow-xs">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BoltIcon className="w-5 h-5 text-amber-500" />
               Quick Actions
@@ -618,12 +605,12 @@ export default function DashboardPage() {
                 <Link
                   key={action.label}
                   to={action.href}
-                  className={`flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r ${action.gradient} text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group`}
+                  className="flex items-center gap-3 p-4 rounded-lg bg-white border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors group"
                 >
-                  <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg group-hover:bg-white/30 transition-colors">
+                  <div className={`p-2 ${quickActionIconColors[action.color]} rounded-lg`}>
                     <action.icon className="h-5 w-5" />
                   </div>
-                  <span className="text-sm font-medium">
+                  <span className="text-sm font-medium text-gray-900">
                     {action.label}
                   </span>
                 </Link>
@@ -633,8 +620,8 @@ export default function DashboardPage() {
         </Card>
 
         {/* Alerts & Notifications */}
-        <Card className="overflow-hidden border-0 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-white">
+        <Card className="overflow-hidden border border-gray-200 shadow-xs">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5 text-amber-500" />
               Attention Required
@@ -645,7 +632,7 @@ export default function DashboardPage() {
               {pendingLeave > 0 && (
                 <Link
                   to="/admin/leave-approvals"
-                  className="flex items-center justify-between p-4 bg-gradient-to-r from-amber-50 to-amber-100/50 rounded-xl hover:shadow-md transition-all group border border-amber-200/50"
+                  className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-amber-500 rounded-lg text-white">
@@ -665,7 +652,7 @@ export default function DashboardPage() {
               {(hrData?.pending_confirmations || 0) > 0 && (
                 <Link
                   to="/employees?status=PROBATION"
-                  className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100/50 rounded-xl hover:shadow-md transition-all group border border-blue-200/50"
+                  className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-500 rounded-lg text-white">
@@ -685,7 +672,7 @@ export default function DashboardPage() {
               {payrollData?.pending_runs && payrollData.pending_runs > 0 && (
                 <Link
                   to="/admin/payroll"
-                  className="flex items-center justify-between p-4 bg-gradient-to-r from-primary-50 to-primary-100/50 rounded-xl hover:shadow-md transition-all group border border-primary-200/50"
+                  className="flex items-center justify-between p-4 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary-500 rounded-lg text-white">
@@ -703,7 +690,7 @@ export default function DashboardPage() {
               )}
 
               {pendingLeave === 0 && (hrData?.pending_confirmations || 0) === 0 && (!payrollData?.pending_runs || payrollData.pending_runs === 0) && (
-                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-green-50 to-green-100/50 rounded-xl border border-green-200/50">
+                <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="p-2 bg-green-500 rounded-lg text-white">
                     <CheckCircleIcon className="h-5 w-5" />
                   </div>
