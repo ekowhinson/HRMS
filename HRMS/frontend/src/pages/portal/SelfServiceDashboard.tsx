@@ -53,6 +53,9 @@ export default function SelfServiceDashboard() {
   const user = useAuthStore((state) => state.user)
   const queryClient = useQueryClient()
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
+  const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null)
+  const [policyContent, setPolicyContent] = useState<string>('')
+  const [loadingPolicyContent, setLoadingPolicyContent] = useState(false)
 
   // Fetch announcements
   const { data: announcements = [], isLoading: loadingAnnouncements } = useQuery({
@@ -104,6 +107,24 @@ export default function SelfServiceDashboard() {
       queryClient.invalidateQueries({ queryKey: ['all-policies'] })
     },
   })
+
+  // Open policy detail
+  const handleOpenPolicy = async (policy: Policy) => {
+    setSelectedPolicy(policy)
+    if (policy.content) {
+      setPolicyContent(policy.content)
+    } else {
+      setLoadingPolicyContent(true)
+      try {
+        const full = await policyService.getPolicy(String(policy.id))
+        setPolicyContent(full.content || '')
+      } catch {
+        setPolicyContent('')
+      } finally {
+        setLoadingPolicyContent(false)
+      }
+    }
+  }
 
   // Download policy attachment
   const handleDownloadAttachment = async (policy: Policy) => {
@@ -293,6 +314,7 @@ export default function SelfServiceDashboard() {
                       key={policy.id}
                       policy={policy}
                       showAcknowledge
+                      onView={() => handleOpenPolicy(policy)}
                       onAcknowledge={() => ackPolicyMutation.mutate(policy.id)}
                       onDownload={() => handleDownloadAttachment(policy)}
                       isAcknowledging={ackPolicyMutation.isPending}
@@ -317,6 +339,7 @@ export default function SelfServiceDashboard() {
                       key={policy.id}
                       policy={policy}
                       showAcknowledge={policy.requires_acknowledgement && !policy.user_acknowledged}
+                      onView={() => handleOpenPolicy(policy)}
                       onAcknowledge={() => ackPolicyMutation.mutate(policy.id)}
                       onDownload={() => handleDownloadAttachment(policy)}
                       isAcknowledging={ackPolicyMutation.isPending}
@@ -445,6 +468,99 @@ export default function SelfServiceDashboard() {
           </div>
         )}
       </Modal>
+
+      {/* Policy Detail Modal */}
+      <Modal
+        isOpen={!!selectedPolicy}
+        onClose={() => { setSelectedPolicy(null); setPolicyContent('') }}
+        title={selectedPolicy?.title}
+        size="lg"
+      >
+        {selectedPolicy && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                variant={
+                  (policyTypeConfig[selectedPolicy.policy_type] || policyTypeConfig.POLICY).variant
+                }
+                size="sm"
+              >
+                {(policyTypeConfig[selectedPolicy.policy_type] || policyTypeConfig.POLICY).label}
+              </Badge>
+              <span className="text-xs text-gray-400">{selectedPolicy.code}</span>
+              {selectedPolicy.category_name && (
+                <Badge variant="default" size="sm">
+                  {selectedPolicy.category_name}
+                </Badge>
+              )}
+              <span className="text-xs text-gray-400">v{selectedPolicy.version}</span>
+              {selectedPolicy.effective_date && (
+                <span className="text-xs text-gray-400">
+                  Effective: {formatDate(selectedPolicy.effective_date)}
+                </span>
+              )}
+            </div>
+
+            {selectedPolicy.summary && (
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">{selectedPolicy.summary}</p>
+              </div>
+            )}
+
+            <div className="prose prose-sm max-w-none text-gray-700">
+              {loadingPolicyContent ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap">{policyContent}</div>
+              )}
+            </div>
+
+            {selectedPolicy.has_attachment && (
+              <div className="border-t border-gray-200 pt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownloadAttachment(selectedPolicy)}
+                  leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+                >
+                  Download Attachment
+                </Button>
+              </div>
+            )}
+
+            {selectedPolicy.requires_acknowledgement && !selectedPolicy.user_acknowledged && (
+              <div className="border-t border-gray-200 pt-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-warning-600">
+                  <ExclamationTriangleIcon className="h-5 w-5" />
+                  <span>This policy requires your acknowledgement</span>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    ackPolicyMutation.mutate(selectedPolicy.id)
+                    setSelectedPolicy(null)
+                    setPolicyContent('')
+                  }}
+                  isLoading={ackPolicyMutation.isPending}
+                  leftIcon={<CheckCircleIcon className="h-4 w-4" />}
+                >
+                  Acknowledge
+                </Button>
+              </div>
+            )}
+
+            {selectedPolicy.user_acknowledged && (
+              <div className="border-t border-gray-200 pt-4">
+                <Badge variant="success" size="sm" dot>
+                  You have acknowledged this policy
+                </Badge>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
@@ -453,12 +569,14 @@ export default function SelfServiceDashboard() {
 function PolicyRow({
   policy,
   showAcknowledge,
+  onView,
   onAcknowledge,
   onDownload,
   isAcknowledging,
 }: {
   policy: Policy
   showAcknowledge: boolean
+  onView: () => void
   onAcknowledge: () => void
   onDownload: () => void
   isAcknowledging: boolean
@@ -466,7 +584,7 @@ function PolicyRow({
   const typeConfig = policyTypeConfig[policy.policy_type] || policyTypeConfig.POLICY
 
   return (
-    <div className="px-6 py-4 hover:bg-gray-50 transition-colors">
+    <div className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors" onClick={onView}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -478,7 +596,7 @@ function PolicyRow({
               <span className="text-xs text-gray-400">{policy.category_name}</span>
             )}
           </div>
-          <h3 className="text-sm font-semibold text-gray-900">{policy.title}</h3>
+          <h3 className="text-sm font-semibold text-gray-900 hover:text-primary-600">{policy.title}</h3>
           {policy.summary && (
             <p className="mt-1 text-sm text-gray-500 line-clamp-2">{policy.summary}</p>
           )}

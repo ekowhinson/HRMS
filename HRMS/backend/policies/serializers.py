@@ -9,7 +9,7 @@ from .models import PolicyCategory, Policy, PolicyVersion, PolicyAcknowledgement
 
 class PolicyCategorySerializer(serializers.ModelSerializer):
     """Serializer for policy categories."""
-    policy_count = serializers.IntegerField(read_only=True)
+    policy_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = PolicyCategory

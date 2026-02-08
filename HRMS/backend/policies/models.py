@@ -30,10 +30,6 @@ class PolicyCategory(AuditModel):
     def __str__(self):
         return self.name
 
-    @property
-    def policy_count(self):
-        return self.policies.filter(status='PUBLISHED').count()
-
 
 class Policy(AuditModel):
     """
