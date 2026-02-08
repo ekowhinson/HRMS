@@ -465,13 +465,18 @@ class PayrollPeriodViewSet(viewsets.ModelViewSet):
                 'data': PayrollPeriodSerializer(period).data
             })
 
-        # Should typically only close PAID periods
+        # Allow closing if period is PAID/APPROVED, or if it has a PAID run
+        # (handles case where period was reopened but run stayed PAID)
         if period.status not in ['PAID', 'APPROVED']:
-            return Response({
-                'error': f'Cannot close a period with status {period.status}. '
-                         'Period should be PAID or APPROVED before closing.',
-                'current_status': period.status
-            }, status=status.HTTP_400_BAD_REQUEST)
+            has_paid_run = PayrollRun.objects.filter(
+                payroll_period=period, status='PAID'
+            ).exists()
+            if not has_paid_run:
+                return Response({
+                    'error': f'Cannot close a period with status {period.status}. '
+                             'Period should be PAID or APPROVED before closing.',
+                    'current_status': period.status
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         previous_status = period.status
         period.status = PayrollPeriod.Status.CLOSED
