@@ -192,6 +192,13 @@ export const policyService = {
     return response.data
   },
 
+  getAttachmentBlobUrl: async (id: string): Promise<string> => {
+    const response = await api.get(`/policies/policies/${id}/view_attachment/`, {
+      responseType: 'blob'
+    })
+    return URL.createObjectURL(response.data)
+  },
+
   getStats: async () => {
     const response = await api.get<PolicyStats>('/policies/policies/stats/')
     return response.data

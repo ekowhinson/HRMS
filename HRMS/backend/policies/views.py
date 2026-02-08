@@ -209,6 +209,28 @@ class PolicyViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = f'attachment; filename="{policy.attachment_name}"'
         return response
 
+    @action(detail=True, methods=['get'], url_path='view_attachment')
+    def view_attachment(self, request, pk=None):
+        """View policy attachment inline (for PDFs and images)."""
+        policy = self.get_object()
+
+        if not policy.attachment:
+            return Response(
+                {'detail': 'No attachment found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        content_type = policy.attachment_type or 'application/octet-stream'
+        response = HttpResponse(policy.attachment, content_type=content_type)
+
+        # Inline display for PDFs and images; download fallback for others
+        if content_type in ('application/pdf',) or content_type.startswith('image/'):
+            response['Content-Disposition'] = f'inline; filename="{policy.attachment_name}"'
+        else:
+            response['Content-Disposition'] = f'attachment; filename="{policy.attachment_name}"'
+
+        return response
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Get policy statistics."""

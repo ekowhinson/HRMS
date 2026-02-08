@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -14,6 +14,8 @@ import {
   UserGroupIcon,
   CalendarIcon,
   PaperClipIcon,
+  EyeIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { policyService, type PolicyAcknowledgement } from '@/services/policies'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
@@ -21,6 +23,11 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
+
+function isViewableType(type?: string): boolean {
+  if (!type) return false
+  return type === 'application/pdf' || type.startsWith('image/')
+}
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
   DRAFT: 'default',
@@ -37,6 +44,8 @@ export default function PolicyDetailPage() {
   const [showAckModal, setShowAckModal] = useState(false)
   const [ackComments, setAckComments] = useState('')
   const [activeTab, setActiveTab] = useState('content')
+  const [viewerBlobUrl, setViewerBlobUrl] = useState<string | null>(null)
+  const [viewerLoading, setViewerLoading] = useState(false)
 
   // Fetch policy
   const { data: policy, isLoading } = useQuery({
@@ -90,6 +99,30 @@ export default function PolicyDetailPage() {
       toast.error(error.response?.data?.detail || 'Failed to acknowledge policy')
     },
   })
+
+  // Clean up blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (viewerBlobUrl) URL.revokeObjectURL(viewerBlobUrl)
+    }
+  }, [viewerBlobUrl])
+
+  const toggleViewer = useCallback(async () => {
+    if (viewerBlobUrl) {
+      URL.revokeObjectURL(viewerBlobUrl)
+      setViewerBlobUrl(null)
+      return
+    }
+    setViewerLoading(true)
+    try {
+      const url = await policyService.getAttachmentBlobUrl(id!)
+      setViewerBlobUrl(url)
+    } catch {
+      toast.error('Failed to load attachment')
+    } finally {
+      setViewerLoading(false)
+    }
+  }, [id, viewerBlobUrl])
 
   if (isLoading) {
     return (
@@ -267,7 +300,18 @@ export default function PolicyDetailPage() {
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Attachment</h3>
                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
                   <PaperClipIcon className="h-5 w-5 text-gray-400" />
-                  <span className="text-sm text-gray-700">{policy.attachment_name}</span>
+                  <span className="text-sm text-gray-700 flex-1">{policy.attachment_name}</span>
+                  {isViewableType(policy.attachment_type) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleViewer}
+                      isLoading={viewerLoading}
+                    >
+                      <EyeIcon className="h-4 w-4 mr-1" />
+                      {viewerBlobUrl ? 'Hide' : 'View'}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -278,11 +322,38 @@ export default function PolicyDetailPage() {
                       a.href = url
                       a.download = policy.attachment_name || 'attachment'
                       a.click()
+                      window.URL.revokeObjectURL(url)
                     }}
                   >
                     Download
                   </Button>
                 </div>
+                {viewerBlobUrl && (
+                  <div className="mt-3 border rounded-lg overflow-hidden relative">
+                    <button
+                      onClick={() => {
+                        URL.revokeObjectURL(viewerBlobUrl)
+                        setViewerBlobUrl(null)
+                      }}
+                      className="absolute top-2 right-2 z-10 p-1 bg-white rounded-full shadow hover:bg-gray-100"
+                    >
+                      <XMarkIcon className="h-4 w-4 text-gray-500" />
+                    </button>
+                    {policy.attachment_type === 'application/pdf' ? (
+                      <iframe
+                        src={viewerBlobUrl}
+                        className="w-full h-[600px]"
+                        title="Policy attachment"
+                      />
+                    ) : (
+                      <img
+                        src={viewerBlobUrl}
+                        alt={policy.attachment_name || 'Attachment'}
+                        className="max-w-full h-auto"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>

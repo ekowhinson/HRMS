@@ -117,6 +117,7 @@ class PolicyDetailSerializer(serializers.ModelSerializer):
 class PolicyCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating policies."""
     attachment_data = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    content = serializers.CharField(required=False, allow_blank=True, default='')
 
     class Meta:
         model = Policy
@@ -132,6 +133,17 @@ class PolicyCreateUpdateSerializer(serializers.ModelSerializer):
     def validate_code(self, value):
         """Ensure code is uppercase."""
         return value.upper()
+
+    def validate(self, attrs):
+        """On create, require at least content or attachment."""
+        if not self.instance:  # create only
+            content = attrs.get('content', '')
+            attachment_data = attrs.get('attachment_data', '')
+            if not content and not attachment_data:
+                raise serializers.ValidationError(
+                    'Please provide either policy content or upload an attachment.'
+                )
+        return attrs
 
     def create(self, validated_data):
         attachment_data = validated_data.pop('attachment_data', None)

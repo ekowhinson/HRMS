@@ -13,6 +13,8 @@ import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
+  EyeIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/features/auth/store'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
@@ -41,6 +43,11 @@ const policyTypeConfig: Record<string, { variant: 'info' | 'default' | 'success'
   MEMO: { variant: 'default', label: 'Memo' },
 }
 
+function isViewableType(type?: string): boolean {
+  if (!type) return false
+  return type === 'application/pdf' || type.startsWith('image/')
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -56,6 +63,8 @@ export default function SelfServiceDashboard() {
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null)
   const [policyContent, setPolicyContent] = useState<string>('')
   const [loadingPolicyContent, setLoadingPolicyContent] = useState(false)
+  const [policyViewerUrl, setPolicyViewerUrl] = useState<string | null>(null)
+  const [policyViewerLoading, setPolicyViewerLoading] = useState(false)
 
   // Fetch announcements
   const { data: announcements = [], isLoading: loadingAnnouncements } = useQuery({
@@ -472,7 +481,14 @@ export default function SelfServiceDashboard() {
       {/* Policy Detail Modal */}
       <Modal
         isOpen={!!selectedPolicy}
-        onClose={() => { setSelectedPolicy(null); setPolicyContent('') }}
+        onClose={() => {
+          setSelectedPolicy(null)
+          setPolicyContent('')
+          if (policyViewerUrl) {
+            URL.revokeObjectURL(policyViewerUrl)
+            setPolicyViewerUrl(null)
+          }
+        }}
         title={selectedPolicy?.title}
         size="lg"
       >
@@ -519,14 +535,68 @@ export default function SelfServiceDashboard() {
 
             {selectedPolicy.has_attachment && (
               <div className="border-t border-gray-200 pt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadAttachment(selectedPolicy)}
-                  leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
-                >
-                  Download Attachment
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isViewableType(selectedPolicy.attachment_type) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      isLoading={policyViewerLoading}
+                      onClick={async () => {
+                        if (policyViewerUrl) {
+                          URL.revokeObjectURL(policyViewerUrl)
+                          setPolicyViewerUrl(null)
+                          return
+                        }
+                        setPolicyViewerLoading(true)
+                        try {
+                          const url = await policyService.getAttachmentBlobUrl(selectedPolicy.id)
+                          setPolicyViewerUrl(url)
+                        } catch {
+                          // silently fail
+                        } finally {
+                          setPolicyViewerLoading(false)
+                        }
+                      }}
+                      leftIcon={<EyeIcon className="h-4 w-4" />}
+                    >
+                      {policyViewerUrl ? 'Hide' : 'View'} Attachment
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadAttachment(selectedPolicy)}
+                    leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+                  >
+                    Download Attachment
+                  </Button>
+                </div>
+                {policyViewerUrl && (
+                  <div className="mt-3 border rounded-lg overflow-hidden relative">
+                    <button
+                      onClick={() => {
+                        URL.revokeObjectURL(policyViewerUrl)
+                        setPolicyViewerUrl(null)
+                      }}
+                      className="absolute top-2 right-2 z-10 p-1 bg-white rounded-full shadow hover:bg-gray-100"
+                    >
+                      <XMarkIcon className="h-4 w-4 text-gray-500" />
+                    </button>
+                    {selectedPolicy.attachment_type === 'application/pdf' ? (
+                      <iframe
+                        src={policyViewerUrl}
+                        className="w-full h-[500px]"
+                        title="Policy attachment"
+                      />
+                    ) : (
+                      <img
+                        src={policyViewerUrl}
+                        alt={selectedPolicy.attachment_name || 'Attachment'}
+                        className="max-w-full h-auto"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -542,6 +612,10 @@ export default function SelfServiceDashboard() {
                     ackPolicyMutation.mutate(selectedPolicy.id)
                     setSelectedPolicy(null)
                     setPolicyContent('')
+                    if (policyViewerUrl) {
+                      URL.revokeObjectURL(policyViewerUrl)
+                      setPolicyViewerUrl(null)
+                    }
                   }}
                   isLoading={ackPolicyMutation.isPending}
                   leftIcon={<CheckCircleIcon className="h-4 w-4" />}

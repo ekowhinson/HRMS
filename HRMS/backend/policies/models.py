@@ -66,7 +66,7 @@ class Policy(AuditModel):
 
     # Content
     summary = models.TextField(blank=True, help_text="Brief summary of the policy")
-    content = models.TextField(help_text="Full policy content (supports markdown)")
+    content = models.TextField(blank=True, default='', help_text="Full policy content (supports markdown)")
 
     # Versioning
     version = models.CharField(max_length=20, default='1.0')
