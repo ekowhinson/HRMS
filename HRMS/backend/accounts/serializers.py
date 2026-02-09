@@ -57,6 +57,8 @@ class LoginSerializer(serializers.Serializer):
 
 class UserRoleDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for UserRole with role info."""
+    name = serializers.CharField(source='role.name', read_only=True)
+    code = serializers.CharField(source='role.code', read_only=True)
     role_name = serializers.CharField(source='role.name', read_only=True)
     role_code = serializers.CharField(source='role.code', read_only=True)
     is_effective = serializers.BooleanField(read_only=True)
@@ -64,7 +66,7 @@ class UserRoleDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserRole
         fields = [
-            'id', 'role', 'role_name', 'role_code', 'scope_type', 'scope_id',
+            'id', 'role', 'name', 'code', 'role_name', 'role_code', 'scope_type', 'scope_id',
             'is_primary', 'effective_from', 'effective_to', 'is_active', 'is_effective'
         ]
 
