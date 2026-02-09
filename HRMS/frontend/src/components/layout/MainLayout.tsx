@@ -433,6 +433,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
     return userRoles.some((role) => HR_ADMIN_ROLES.includes(role))
   })();
 
+  // Check if user has Payroll access
+  const isPayrollAdmin = (() => {
+    if (!user) return false
+    if (user.is_staff || user.is_superuser) return true
+    return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'ADMIN', 'SUPERUSER'].includes(role))
+  })();
+
   // Check if user has full Admin access (Administration section - system settings, user mgmt, etc.)
   const isSystemAdmin = (() => {
     if (!user) return false
@@ -496,8 +503,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Payroll Section - Only for system admins */}
-        {isSystemAdmin && (
+        {/* Payroll Section - For payroll admins and system admins */}
+        {isPayrollAdmin && (
           <>
             <SectionDivider label="Payroll" icon={<BanknotesIcon className="h-3.5 w-3.5" />} />
             <div className="px-2 space-y-0.5">

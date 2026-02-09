@@ -110,6 +110,14 @@ function useIsHROrAdmin() {
   return userRoles.some((role) => HR_ADMIN_ROLES.includes(role))
 }
 
+function useIsPayrollAdmin() {
+  const user = useAuthStore((state) => state.user)
+  const userRoles = useUserRoles()
+  if (!user) return false
+  if (user.is_staff || user.is_superuser) return true
+  return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'ADMIN', 'SUPERUSER'].includes(role))
+}
+
 function useIsSystemAdmin() {
   const user = useAuthStore((state) => state.user)
   const userRoles = useUserRoles()
@@ -132,6 +140,21 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isHROrAdmin) {
+    return <Navigate to="/self-service" replace />
+  }
+
+  return <>{children}</>
+}
+
+function PayrollRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const isPayrollAdmin = useIsPayrollAdmin()
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!isPayrollAdmin) {
     return <Navigate to="/self-service" replace />
   }
 
@@ -217,16 +240,16 @@ function App() {
                 {/* Leave Management - Admin only */}
                 <Route path="/leave" element={<AdminRoute><LeavePage /></AdminRoute>} />
 
-                {/* Payroll & Benefits - System Admin only */}
-                <Route path="/payroll" element={<SystemAdminRoute><PayrollPage /></SystemAdminRoute>} />
-                <Route path="/benefits" element={<SystemAdminRoute><BenefitsPage /></SystemAdminRoute>} />
+                {/* Payroll & Benefits - Payroll Admin */}
+                <Route path="/payroll" element={<PayrollRoute><PayrollPage /></PayrollRoute>} />
+                <Route path="/benefits" element={<PayrollRoute><BenefitsPage /></PayrollRoute>} />
 
-                {/* Reports - System Admin only */}
-                <Route path="/reports" element={<SystemAdminRoute><ReportsPage /></SystemAdminRoute>} />
-                <Route path="/reports/payroll-master" element={<SystemAdminRoute><PayrollMasterReportPage /></SystemAdminRoute>} />
-                <Route path="/reports/reconciliation" element={<SystemAdminRoute><PayrollReconciliationPage /></SystemAdminRoute>} />
-                <Route path="/reports/journal" element={<SystemAdminRoute><PayrollJournalPage /></SystemAdminRoute>} />
-                <Route path="/reports/salary-reconciliation" element={<SystemAdminRoute><SalaryReconciliationPage /></SystemAdminRoute>} />
+                {/* Reports - Payroll Admin */}
+                <Route path="/reports" element={<PayrollRoute><ReportsPage /></PayrollRoute>} />
+                <Route path="/reports/payroll-master" element={<PayrollRoute><PayrollMasterReportPage /></PayrollRoute>} />
+                <Route path="/reports/reconciliation" element={<PayrollRoute><PayrollReconciliationPage /></PayrollRoute>} />
+                <Route path="/reports/journal" element={<PayrollRoute><PayrollJournalPage /></PayrollRoute>} />
+                <Route path="/reports/salary-reconciliation" element={<PayrollRoute><SalaryReconciliationPage /></PayrollRoute>} />
 
                 {/* Settings - Available to all authenticated users */}
                 <Route path="/settings" element={<SettingsPage />} />
@@ -237,15 +260,15 @@ function App() {
                 <Route path="/admin/leave-types" element={<AdminRoute><LeaveTypeSetupPage /></AdminRoute>} />
                 <Route path="/admin/leave-calendar" element={<AdminRoute><MyLeaveCalendarPage /></AdminRoute>} />
 
-                {/* Payroll Admin Routes - System Admin only */}
-                <Route path="/admin/payroll" element={<SystemAdminRoute><PayrollProcessingPage /></SystemAdminRoute>} />
-                <Route path="/admin/loans" element={<SystemAdminRoute><LoanManagementPage /></SystemAdminRoute>} />
-                <Route path="/admin/transaction-types" element={<SystemAdminRoute><TransactionTypeSetupPage /></SystemAdminRoute>} />
-                <Route path="/admin/employee-transactions" element={<SystemAdminRoute><EmployeeTransactionsPage /></SystemAdminRoute>} />
-                <Route path="/admin/tax-configuration" element={<SystemAdminRoute><TaxConfigurationPage /></SystemAdminRoute>} />
-                <Route path="/admin/payroll-setup" element={<SystemAdminRoute><PayrollSetupPage /></SystemAdminRoute>} />
-                <Route path="/admin/payroll-implementation" element={<SystemAdminRoute><PayrollImplementationPage /></SystemAdminRoute>} />
-                <Route path="/admin/backpay" element={<SystemAdminRoute><BackpayPage /></SystemAdminRoute>} />
+                {/* Payroll Admin Routes */}
+                <Route path="/admin/payroll" element={<PayrollRoute><PayrollProcessingPage /></PayrollRoute>} />
+                <Route path="/admin/loans" element={<PayrollRoute><LoanManagementPage /></PayrollRoute>} />
+                <Route path="/admin/transaction-types" element={<PayrollRoute><TransactionTypeSetupPage /></PayrollRoute>} />
+                <Route path="/admin/employee-transactions" element={<PayrollRoute><EmployeeTransactionsPage /></PayrollRoute>} />
+                <Route path="/admin/tax-configuration" element={<PayrollRoute><TaxConfigurationPage /></PayrollRoute>} />
+                <Route path="/admin/payroll-setup" element={<PayrollRoute><PayrollSetupPage /></PayrollRoute>} />
+                <Route path="/admin/payroll-implementation" element={<PayrollRoute><PayrollImplementationPage /></PayrollRoute>} />
+                <Route path="/admin/backpay" element={<PayrollRoute><BackpayPage /></PayrollRoute>} />
 
                 {/* Data Tools - System Admin only */}
                 <Route path="/admin/data-import" element={<SystemAdminRoute><DataImportPage /></SystemAdminRoute>} />
