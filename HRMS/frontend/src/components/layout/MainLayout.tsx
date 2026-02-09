@@ -496,8 +496,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Payroll Section - Only for HR/Admin users */}
-        {isHROrAdmin && (
+        {/* Payroll Section - Only for system admins */}
+        {isSystemAdmin && (
           <>
             <SectionDivider label="Payroll" icon={<BanknotesIcon className="h-3.5 w-3.5" />} />
             <div className="px-2 space-y-0.5">
