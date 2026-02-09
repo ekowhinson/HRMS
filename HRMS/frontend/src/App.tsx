@@ -85,28 +85,37 @@ import AuditLogsPage from './pages/admin/AuditLogsPage'
 import ApprovalInboxPage from './pages/ApprovalInboxPage'
 import ApprovalWorkflowPage from './pages/admin/ApprovalWorkflowPage'
 
-// Roles that grant access to HR/Admin features
+// Roles that grant access to HR features (Self Service + HR + Payroll sections)
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
 
-function useIsHROrAdmin() {
+function useUserRoles() {
   const user = useAuthStore((state) => state.user)
-  if (!user) return false
-
-  // Check staff/superuser first
-  if (user.is_staff || user.is_superuser) return true
-
-  // Safely extract role strings
-  const userRoles: string[] = []
-  if (Array.isArray(user.roles)) {
+  const roles: string[] = []
+  if (user && Array.isArray(user.roles)) {
     user.roles.forEach((r: any) => {
       const roleStr = typeof r === 'string' ? r : (r?.code || r?.name || '')
       if (typeof roleStr === 'string' && roleStr) {
-        userRoles.push(roleStr.toUpperCase())
+        roles.push(roleStr.toUpperCase())
       }
     })
   }
+  return roles
+}
 
+function useIsHROrAdmin() {
+  const user = useAuthStore((state) => state.user)
+  const userRoles = useUserRoles()
+  if (!user) return false
+  if (user.is_staff || user.is_superuser) return true
   return userRoles.some((role) => HR_ADMIN_ROLES.includes(role))
+}
+
+function useIsSystemAdmin() {
+  const user = useAuthStore((state) => state.user)
+  const userRoles = useUserRoles()
+  if (!user) return false
+  if (user.is_staff || user.is_superuser) return true
+  return userRoles.some((role) => ['ADMIN', 'SUPERUSER'].includes(role))
 }
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -123,6 +132,21 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isHROrAdmin) {
+    return <Navigate to="/self-service" replace />
+  }
+
+  return <>{children}</>
+}
+
+function SystemAdminRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const isSystemAdmin = useIsSystemAdmin()
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!isSystemAdmin) {
     return <Navigate to="/self-service" replace />
   }
 
@@ -218,8 +242,8 @@ function App() {
                 <Route path="/admin/payroll-setup" element={<AdminRoute><PayrollSetupPage /></AdminRoute>} />
                 <Route path="/admin/leave-types" element={<AdminRoute><LeaveTypeSetupPage /></AdminRoute>} />
                 <Route path="/admin/leave-calendar" element={<AdminRoute><MyLeaveCalendarPage /></AdminRoute>} />
-                <Route path="/admin/data-import" element={<AdminRoute><DataImportPage /></AdminRoute>} />
-                <Route path="/admin/data-analyzer" element={<AdminRoute><DataAnalyzerPage /></AdminRoute>} />
+                <Route path="/admin/data-import" element={<SystemAdminRoute><DataImportPage /></SystemAdminRoute>} />
+                <Route path="/admin/data-analyzer" element={<SystemAdminRoute><DataAnalyzerPage /></SystemAdminRoute>} />
                 <Route path="/admin/payroll-implementation" element={<AdminRoute><PayrollImplementationPage /></AdminRoute>} />
                 <Route path="/admin/backpay" element={<AdminRoute><BackpayPage /></AdminRoute>} />
 
@@ -259,11 +283,11 @@ function App() {
                 {/* Announcements Routes */}
                 <Route path="/admin/announcements" element={<AdminRoute><AnnouncementsPage /></AdminRoute>} />
 
-                {/* User & Role Management Routes */}
-                <Route path="/admin/users" element={<AdminRoute><UserManagementPage /></AdminRoute>} />
-                <Route path="/admin/roles" element={<AdminRoute><RoleManagementPage /></AdminRoute>} />
-                <Route path="/admin/auth-providers" element={<AdminRoute><AuthProvidersPage /></AdminRoute>} />
-                <Route path="/admin/audit-logs" element={<AdminRoute><AuditLogsPage /></AdminRoute>} />
+                {/* User & Role Management Routes - System Admin only */}
+                <Route path="/admin/users" element={<SystemAdminRoute><UserManagementPage /></SystemAdminRoute>} />
+                <Route path="/admin/roles" element={<SystemAdminRoute><RoleManagementPage /></SystemAdminRoute>} />
+                <Route path="/admin/auth-providers" element={<SystemAdminRoute><AuthProvidersPage /></SystemAdminRoute>} />
+                <Route path="/admin/audit-logs" element={<SystemAdminRoute><AuditLogsPage /></SystemAdminRoute>} />
 
                 {/* Catch-all redirect */}
                 <Route path="*" element={<DefaultRedirect />} />

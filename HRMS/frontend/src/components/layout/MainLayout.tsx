@@ -411,21 +411,33 @@ export default function MainLayout({ children }: MainLayoutProps) {
     });
   }, [location.pathname, allSections]);
 
-  // Check if user has HR/Admin access
-  const isHROrAdmin = (() => {
-    if (!user) return false
-    if (user.is_staff || user.is_superuser) return true
-
-    const userRoles: string[] = []
+  // Extract user role codes
+  const userRoles: string[] = useMemo(() => {
+    if (!user) return []
+    const roles: string[] = []
     if (Array.isArray(user.roles)) {
       user.roles.forEach((r: any) => {
         const roleStr = typeof r === 'string' ? r : (r?.code || r?.name || '')
         if (typeof roleStr === 'string' && roleStr) {
-          userRoles.push(roleStr.toUpperCase())
+          roles.push(roleStr.toUpperCase())
         }
       })
     }
+    return roles
+  }, [user])
+
+  // Check if user has HR/Admin access (Self Service + HR + Payroll sections)
+  const isHROrAdmin = (() => {
+    if (!user) return false
+    if (user.is_staff || user.is_superuser) return true
     return userRoles.some((role) => HR_ADMIN_ROLES.includes(role))
+  })();
+
+  // Check if user has full Admin access (Administration section - system settings, user mgmt, etc.)
+  const isSystemAdmin = (() => {
+    if (!user) return false
+    if (user.is_staff || user.is_superuser) return true
+    return userRoles.some((role) => ['ADMIN', 'SUPERUSER'].includes(role))
   })();
 
   const handleLogout = () => {
@@ -512,8 +524,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Administration Section - Only for HR/Admin users */}
-        {isHROrAdmin && (
+        {/* Administration Section - Only for system admins */}
+        {isSystemAdmin && (
           <>
             <SectionDivider label="Administration" icon={<Cog6ToothIcon className="h-3.5 w-3.5" />} />
             <div className="px-2 space-y-0.5">
