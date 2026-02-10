@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -10,6 +10,14 @@ import {
   PlayIcon,
   DocumentTextIcon,
 } from '@heroicons/react/24/outline'
+import { ChevronUpDownIcon, CheckIcon as CheckIconSolid } from '@heroicons/react/20/solid'
+import {
+  Combobox,
+  ComboboxButton,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from '@headlessui/react'
 import { transactionsService } from '@/services/transactions'
 import { employeeService } from '@/services/employees'
 import { payrollSetupService } from '@/services/payrollSetup'
@@ -111,6 +119,17 @@ export default function EmployeeTransactionsPage() {
   const [isBulkMode, setIsBulkMode] = useState(false)
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
+  const [employeeSearch, setEmployeeSearch] = useState('')
+  const [debouncedEmployeeSearch, setDebouncedEmployeeSearch] = useState('')
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>()
+
+  // Debounce employee search
+  useEffect(() => {
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedEmployeeSearch(employeeSearch)
+    }, 300)
+    return () => clearTimeout(debounceTimer.current)
+  }, [employeeSearch])
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -147,9 +166,13 @@ export default function EmployeeTransactionsPage() {
     queryFn: () => transactionsService.getPayComponents({ is_active: true }),
   })
 
-  const { data: employeesData } = useQuery({
-    queryKey: ['employees-list'],
-    queryFn: () => employeeService.getEmployees({ page_size: 5000, status: 'ACTIVE' }),
+  const { data: employeesData, isFetching: isEmployeesFetching } = useQuery({
+    queryKey: ['employees-search', debouncedEmployeeSearch],
+    queryFn: () => employeeService.getEmployees({
+      search: debouncedEmployeeSearch || undefined,
+      status: 'ACTIVE',
+      page_size: 50,
+    }),
   })
 
   const { data: departmentsData } = useQuery({
@@ -807,19 +830,60 @@ export default function EmployeeTransactionsPage() {
                   </div>
                 </div>
               ) : (
-                <LinkedSelect
-                  fieldKey="employee"
-                  label="Employee"
-                  value={formData.employee}
-                  onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
-                  placeholder="Search by name or number..."
-                  options={employees.map((emp: Employee) => ({
-                    value: emp.id,
-                    label: `${emp.full_name || `${emp.first_name} ${emp.last_name}`} (${emp.employee_number})`,
-                  }))}
-                  showSetupLink={false}
-                  required={!isBulkMode}
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Employee<span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <Combobox
+                    value={formData.employee}
+                    onChange={(empId: string | null) => setFormData({ ...formData, employee: empId || '' })}
+                  >
+                    <div className="relative">
+                      <ComboboxInput
+                        autoComplete="off"
+                        className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm pr-8 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 hover:border-gray-400 sm:text-sm bg-white"
+                        displayValue={(empId: string) => {
+                          const emp = employees.find((e: Employee) => e.id === empId)
+                          return emp ? `${emp.full_name || `${emp.first_name} ${emp.last_name}`} (${emp.employee_number})` : ''
+                        }}
+                        onChange={(e) => setEmployeeSearch(e.target.value)}
+                        placeholder="Search by name or number..."
+                      />
+                      <ComboboxButton className="absolute inset-y-0 right-0 flex items-center pr-2">
+                        {isEmployeesFetching ? (
+                          <div className="h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+                        )}
+                      </ComboboxButton>
+                    </div>
+                    <ComboboxOptions
+                      anchor="bottom start"
+                      className="w-[var(--input-width)] z-50 max-h-60 overflow-auto rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none empty:invisible"
+                    >
+                      {employees.length === 0 ? (
+                        <div className="px-4 py-2 text-gray-500">
+                          {employeeSearch ? 'No employees found' : 'Type to search...'}
+                        </div>
+                      ) : (
+                        employees.map((emp: Employee) => (
+                          <ComboboxOption
+                            key={emp.id}
+                            value={emp.id}
+                            className="group relative cursor-pointer select-none py-2 pl-10 pr-4 text-gray-900 data-[focus]:bg-primary-50 data-[focus]:text-primary-900"
+                          >
+                            <span className="block truncate group-data-[selected]:font-semibold">
+                              {emp.full_name || `${emp.first_name} ${emp.last_name}`} ({emp.employee_number})
+                            </span>
+                            <span className="absolute inset-y-0 left-0 hidden items-center pl-3 text-primary-600 group-data-[selected]:flex">
+                              <CheckIconSolid className="h-4 w-4" />
+                            </span>
+                          </ComboboxOption>
+                        ))
+                      )}
+                    </ComboboxOptions>
+                  </Combobox>
+                </div>
               )}
             </>
           )}
