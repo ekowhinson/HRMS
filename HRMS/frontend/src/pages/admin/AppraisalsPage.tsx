@@ -77,6 +77,7 @@ export default function AppraisalsPage() {
         department: departmentFilter || undefined,
         search: searchQuery || undefined,
         page: currentPage,
+        page_size: pageSize,
       }),
   })
 

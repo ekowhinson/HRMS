@@ -176,6 +176,7 @@ export interface AppraisalFilters {
   department?: string
   search?: string
   page?: number
+  page_size?: number
 }
 
 export interface GoalFilters {
