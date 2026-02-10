@@ -302,7 +302,7 @@ class PayrollSetupProcessor:
         self._update_progress(2, 100)
 
     def phase3_create_pay_components(self):
-        """Phase 3: Create 16 pay components (10 earnings + 6 deductions)."""
+        """Phase 3: Create 21 pay components (13 earnings + 8 deductions)."""
         from payroll.models import PayComponent
 
         self._log('Phase 3: Creating Pay Components...')
@@ -397,6 +397,44 @@ class PayrollSetupProcessor:
                 'calculation_type': 'FIXED', 'category': 'OTHER',
                 'is_taxable': False, 'display_order': 16,
             },
+            # Overtime Earnings
+            {
+                'code': 'OT_WEEKDAY', 'name': 'Weekday Overtime', 'component_type': 'EARNING',
+                'calculation_type': 'FORMULA', 'category': 'OVERTIME',
+                'formula': 'basic / 176 * 1.5',
+                'is_overtime': True, 'is_taxable': False, 'is_recurring': False,
+                'is_prorated': False, 'is_part_of_gross': True, 'affects_ssnit': False,
+                'display_order': 20, 'show_on_payslip': True,
+            },
+            {
+                'code': 'OT_WEEKEND', 'name': 'Weekend Overtime', 'component_type': 'EARNING',
+                'calculation_type': 'FORMULA', 'category': 'OVERTIME',
+                'formula': 'basic / 176 * 2.0',
+                'is_overtime': True, 'is_taxable': False, 'is_recurring': False,
+                'is_prorated': False, 'is_part_of_gross': True, 'affects_ssnit': False,
+                'display_order': 21, 'show_on_payslip': True,
+            },
+            {
+                'code': 'OT_HOLIDAY', 'name': 'Holiday Overtime', 'component_type': 'EARNING',
+                'calculation_type': 'FORMULA', 'category': 'OVERTIME',
+                'formula': 'basic / 176 * 2.5',
+                'is_overtime': True, 'is_taxable': False, 'is_recurring': False,
+                'is_prorated': False, 'is_part_of_gross': True, 'affects_ssnit': False,
+                'display_order': 22, 'show_on_payslip': True,
+            },
+            # Overtime/Bonus Tax Deductions
+            {
+                'code': 'OVERTIME_TAX', 'name': 'Overtime Tax', 'component_type': 'DEDUCTION',
+                'calculation_type': 'FIXED', 'category': 'STATUTORY',
+                'is_taxable': False, 'is_statutory': True, 'is_recurring': False,
+                'is_prorated': False, 'display_order': 23, 'show_on_payslip': True,
+            },
+            {
+                'code': 'BONUS_TAX', 'name': 'Bonus Tax', 'component_type': 'DEDUCTION',
+                'calculation_type': 'FIXED', 'category': 'STATUTORY',
+                'is_taxable': False, 'is_statutory': True, 'is_recurring': False,
+                'is_prorated': False, 'display_order': 24, 'show_on_payslip': True,
+            },
         ]
 
         created_count = 0
@@ -408,9 +446,10 @@ class PayrollSetupProcessor:
             # Only set fields that are in comp_data
             for field in [
                 'component_type', 'calculation_type', 'category', 'percentage_value',
-                'default_amount', 'is_taxable', 'reduces_taxable', 'is_part_of_basic',
+                'default_amount', 'formula', 'is_taxable', 'reduces_taxable',
+                'is_overtime', 'is_bonus', 'is_part_of_basic',
                 'is_part_of_gross', 'affects_ssnit', 'is_statutory', 'display_order',
-                'is_recurring', 'show_on_payslip',
+                'is_recurring', 'is_prorated', 'show_on_payslip',
             ]:
                 if field in comp_data:
                     defaults[field] = comp_data[field]
