@@ -380,8 +380,14 @@ class PayrollService:
             # Either no end date (ongoing) or end date is after period start
             Q(effective_to__isnull=True) | Q(effective_to__gte=self.period.start_date)
         ).filter(
-            # Either recurring OR one-time for this specific period
-            Q(is_recurring=True) | Q(payroll_period=self.period)
+            # Recurring transactions (date range already checked above)
+            Q(is_recurring=True)
+            # One-time: linked to this specific period
+            | Q(is_recurring=False, payroll_period=self.period)
+            # One-time: linked to matching calendar month/year
+            | Q(is_recurring=False, calendar__year=self.period.year, calendar__month=self.period.month)
+            # One-time: no period/calendar set, but date range falls within this period
+            | Q(is_recurring=False, payroll_period__isnull=True, calendar__isnull=True)
         ).select_related('pay_component'))
 
     def calculate_tax_relief(self, gross_salary: Decimal) -> Decimal:

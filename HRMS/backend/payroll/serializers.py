@@ -398,7 +398,7 @@ class EmployeeTransactionCreateSerializer(serializers.ModelSerializer):
         fields = [
             'target_type', 'employee', 'employee_ids', 'job_grade', 'salary_band',
             'pay_component',
-            'override_type', 'override_amount', 'override_percentage', 'override_formula',
+            'override_type', 'override_amount', 'override_percentage', 'override_formula', 'quantity',
             'is_recurring', 'effective_from', 'effective_to',
             'payroll_period', 'description', 'supporting_document'
         ]
@@ -464,6 +464,12 @@ class EmployeeTransactionCreateSerializer(serializers.ModelSerializer):
         """Create single or multiple transactions."""
         employee_ids = validated_data.pop('employee_ids', None)
         supporting_document = validated_data.pop('supporting_document', None)
+
+        # Auto-set payroll_period to active period if not provided
+        if not validated_data.get('payroll_period'):
+            active_period = PayrollSettings.get_active_period()
+            if active_period:
+                validated_data['payroll_period'] = active_period
 
         if employee_ids:
             # Bulk creation
@@ -610,6 +616,7 @@ class BulkTransactionCreateSerializer(serializers.Serializer):
         max_digits=6, decimal_places=4, required=False, allow_null=True
     )
     override_formula = serializers.CharField(required=False, allow_blank=True)
+    quantity = serializers.DecimalField(max_digits=8, decimal_places=2, default=Decimal('1'))
     is_recurring = serializers.BooleanField(default=True)
     effective_from = serializers.DateField()
     effective_to = serializers.DateField(required=False, allow_null=True)

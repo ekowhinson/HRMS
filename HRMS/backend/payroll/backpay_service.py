@@ -115,7 +115,10 @@ class BackpayService:
         ).filter(
             Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date)
         ).filter(
-            Q(is_recurring=True) | Q(payroll_period=period)
+            Q(is_recurring=True)
+            | Q(is_recurring=False, payroll_period=period)
+            | Q(is_recurring=False, calendar__year=period.year, calendar__month=period.month)
+            | Q(is_recurring=False, payroll_period__isnull=True, calendar__isnull=True)
         ).select_related('pay_component'))
 
     # ── Paid vs Should-Have-Paid ──

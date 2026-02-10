@@ -781,6 +781,12 @@ class EmployeeTransactionViewSet(viewsets.ModelViewSet):
         employee_ids = data.pop('employee_ids')
         pay_component = data.pop('pay_component')
 
+        # Auto-set payroll_period to active period if not provided
+        if not data.get('payroll_period'):
+            active_period = PayrollSettings.get_active_period()
+            if active_period:
+                data['payroll_period'] = active_period
+
         from employees.models import Employee
         transactions = []
 
@@ -2321,6 +2327,15 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
     list / create / approve / reject / bulk-create / preview
     """
     permission_classes = [IsAuthenticated]
+
+    def _has_role(self, user, role_codes):
+        """Check if user has any of the given role codes (or is staff/superuser)."""
+        if user.is_staff or user.is_superuser:
+            return True
+        return user.user_roles.filter(
+            role__code__in=role_codes,
+            is_active=True,
+        ).exists()
     serializer_class = SalaryUpgradeRequestSerializer
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -2373,6 +2388,11 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a PENDING salary upgrade request."""
+        if not self._has_role(request.user, ['PAYROLL_DATA_ENTRY']):
+            return Response(
+                {'error': 'Only Payroll Data Entry users can create upgrade requests.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = SalaryUpgradeCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -2397,6 +2417,11 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         """Approve a PENDING request — applies the actual salary changes."""
+        if not self._has_role(request.user, ['PAYROLL_ADMIN']):
+            return Response(
+                {'error': 'Only Payroll Admin users can approve upgrade requests.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         try:
             req = SalaryUpgradeService.approve_request(pk, request.user)
             out = SalaryUpgradeRequestSerializer(req).data
@@ -2411,6 +2436,11 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         """Reject a PENDING request."""
+        if not self._has_role(request.user, ['PAYROLL_ADMIN']):
+            return Response(
+                {'error': 'Only Payroll Admin users can reject upgrade requests.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = SalaryUpgradeRejectSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -2428,6 +2458,11 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='bulk-create')
     def bulk_create(self, request):
         """Create multiple PENDING requests with a shared bulk_reference."""
+        if not self._has_role(request.user, ['PAYROLL_DATA_ENTRY']):
+            return Response(
+                {'error': 'Only Payroll Data Entry users can create upgrade requests.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = SalaryUpgradeBulkSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data

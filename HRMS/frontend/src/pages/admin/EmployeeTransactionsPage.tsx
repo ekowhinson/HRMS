@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { transactionsService } from '@/services/transactions'
 import { employeeService } from '@/services/employees'
+import { payrollSetupService } from '@/services/payrollSetup'
 import api from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -182,11 +183,17 @@ export default function EmployeeTransactionsPage() {
     },
   })
 
+  const { data: settingsData } = useQuery({
+    queryKey: ['payroll-settings'],
+    queryFn: () => payrollSetupService.getPayrollSettings(),
+  })
+
   const transactions = transactionsData?.results || []
   const components = componentsData?.results || []
   const employees = employeesData?.results || []
   const grades = gradesData || []
   const salaryBands = salaryBandsData || []
+  const activePeriodName = settingsData?.settings?.active_period_name
 
   // Mutations
   const createMutation = useMutation({
@@ -705,6 +712,14 @@ export default function EmployeeTransactionsPage() {
         size="lg"
       >
         <form onSubmit={handleSubmitCreate} className="space-y-6">
+          {/* Active Payroll Period */}
+          {activePeriodName && (
+            <div className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+              <span className="text-sm text-gray-600">Payroll Period</span>
+              <Badge variant="info">{activePeriodName}</Badge>
+            </div>
+          )}
+
           {/* Target Type Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1100,6 +1115,12 @@ export default function EmployeeTransactionsPage() {
                 <div>
                   <label className="text-xs text-gray-500">Quantity / Hours</label>
                   <p>{showViewModal.quantity}</p>
+                </div>
+              )}
+              {showViewModal.payroll_period_name && (
+                <div>
+                  <label className="text-xs text-gray-500">Payroll Period</label>
+                  <p>{showViewModal.payroll_period_name}</p>
                 </div>
               )}
               <div>
