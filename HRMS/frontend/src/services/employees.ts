@@ -5,8 +5,10 @@ export interface EmployeeFilters {
   search?: string
   department?: string
   employment_status?: string
+  status?: string
   grade?: string
   page?: number
+  page_size?: number
 }
 
 export const employeeService = {

@@ -149,7 +149,7 @@ export default function EmployeeTransactionsPage() {
 
   const { data: employeesData } = useQuery({
     queryKey: ['employees-list'],
-    queryFn: () => employeeService.getEmployees(),
+    queryFn: () => employeeService.getEmployees({ page_size: 2000, status: 'ACTIVE' }),
   })
 
   const { data: departmentsData } = useQuery({
@@ -807,17 +807,17 @@ export default function EmployeeTransactionsPage() {
                   </div>
                 </div>
               ) : (
-                <Select
+                <LinkedSelect
+                  fieldKey="employee"
                   label="Employee"
                   value={formData.employee}
                   onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
-                  options={[
-                    { value: '', label: 'Select Employee' },
-                    ...employees.map((emp: Employee) => ({
-                      value: emp.id,
-                      label: `${emp.full_name || `${emp.first_name} ${emp.last_name}`} (${emp.employee_number})`,
-                    })),
-                  ]}
+                  placeholder="Search by name or number..."
+                  options={employees.map((emp: Employee) => ({
+                    value: emp.id,
+                    label: `${emp.full_name || `${emp.first_name} ${emp.last_name}`} (${emp.employee_number})`,
+                  }))}
+                  showSetupLink={false}
                   required={!isBulkMode}
                 />
               )}
