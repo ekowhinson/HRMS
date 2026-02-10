@@ -1,5 +1,13 @@
-import { forwardRef } from 'react'
+import { useState, useMemo, forwardRef } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  Combobox,
+  ComboboxButton,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from '@headlessui/react'
+import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/20/solid'
 import { Cog6ToothIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
 import { getSetupUrl, getFieldSetupConfig } from '@/lib/field-setup-config'
@@ -39,13 +47,41 @@ const LinkedSelect = forwardRef<HTMLSelectElement, LinkedSelectProps>(
       isLoading = false,
       id,
       required,
-      ...props
+      value,
+      onChange,
+      onBlur,
+      name,
+      disabled,
     },
-    ref
+    _ref
   ) => {
+    const [query, setQuery] = useState('')
     const selectId = id || label?.toLowerCase().replace(/\s+/g, '-')
     const config = getFieldSetupConfig(fieldKey)
     const setupUrl = getSetupUrl(fieldKey)
+
+    const isDisabled = isLoading || disabled
+
+    const selectedOption = useMemo(
+      () => options.find((o) => o.value === String(value ?? '')) || null,
+      [options, value]
+    )
+
+    const filteredOptions = useMemo(() => {
+      if (!query) return options
+      const lower = query.toLowerCase()
+      return options.filter((o) => o.label.toLowerCase().includes(lower))
+    }, [options, query])
+
+    const handleChange = (option: SelectOption | null) => {
+      if (onChange) {
+        const syntheticEvent = {
+          target: { value: option?.value ?? '', name: name ?? '' },
+          currentTarget: { value: option?.value ?? '', name: name ?? '' },
+        } as unknown as React.ChangeEvent<HTMLSelectElement>
+        onChange(syntheticEvent)
+      }
+    }
 
     return (
       <div className="w-full">
@@ -75,44 +111,77 @@ const LinkedSelect = forwardRef<HTMLSelectElement, LinkedSelectProps>(
             )}
           </div>
         )}
-        <div className="relative">
-          <select
-            ref={ref}
-            id={selectId}
+        <Combobox
+          value={selectedOption}
+          onChange={handleChange}
+          onClose={() => setQuery('')}
+          disabled={isDisabled}
+          immediate
+        >
+          <div className="relative">
+            <ComboboxInput
+              id={selectId}
+              autoComplete="off"
+              className={cn(
+                'block w-full px-3 py-2.5 border rounded-lg shadow-sm pr-8',
+                'transition-all duration-200',
+                'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
+                'hover:border-gray-400',
+                'sm:text-sm bg-white',
+                'disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed',
+                error
+                  ? 'border-danger-500 text-danger-900 focus:ring-danger-500/20 focus:border-danger-500'
+                  : 'border-gray-300',
+                isLoading && 'animate-pulse bg-gray-100',
+                className
+              )}
+              displayValue={(option: SelectOption | null) =>
+                isLoading ? '' : (option?.label ?? '')
+              }
+              onChange={(e) => setQuery(e.target.value)}
+              onBlur={onBlur as any}
+              placeholder={isLoading ? 'Loading...' : (placeholder || 'Select...')}
+            />
+            <ComboboxButton className="absolute inset-y-0 right-0 flex items-center pr-2">
+              {isLoading ? (
+                <div className="h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+              )}
+            </ComboboxButton>
+          </div>
+          <ComboboxOptions
+            anchor="bottom start"
+            transition
             className={cn(
-              'block w-full px-3 py-2.5 border rounded-lg shadow-sm',
-              'transition-all duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
-              'hover:border-gray-400',
-              'sm:text-sm bg-white',
-              'disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed',
-              error
-                ? 'border-danger-500 text-danger-900 focus:ring-danger-500/20 focus:border-danger-500'
-                : 'border-gray-300',
-              isLoading && 'animate-pulse bg-gray-100',
-              className
+              'w-[var(--input-width)] z-50 max-h-60 overflow-auto rounded-lg',
+              'bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none',
+              'transition duration-100 ease-out data-[leave]:data-[closed]:opacity-0',
+              'empty:invisible',
             )}
-            disabled={isLoading || props.disabled}
-            required={required}
-            {...props}
           >
-            {placeholder && (
-              <option value="" disabled>
-                {isLoading ? 'Loading...' : placeholder}
-              </option>
+            {filteredOptions.length === 0 ? (
+              <div className="relative cursor-default select-none px-4 py-2 text-gray-500">
+                {query ? 'No results found' : 'No options available'}
+              </div>
+            ) : (
+              filteredOptions.map((option) => (
+                <ComboboxOption
+                  key={option.value}
+                  value={option}
+                  className="group relative cursor-pointer select-none py-2 pl-10 pr-4 text-gray-900 data-[focus]:bg-primary-50 data-[focus]:text-primary-900"
+                >
+                  <span className="block truncate group-data-[selected]:font-semibold">
+                    {option.label}
+                  </span>
+                  <span className="absolute inset-y-0 left-0 hidden items-center pl-3 text-primary-600 group-data-[selected]:flex">
+                    <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </ComboboxOption>
+              ))
             )}
-            {options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {isLoading && (
-            <div className="absolute inset-y-0 right-8 flex items-center pointer-events-none">
-              <div className="h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-        </div>
+          </ComboboxOptions>
+        </Combobox>
         {error && <p className="mt-1.5 text-sm text-danger-600">{error}</p>}
         {!error && options.length === 0 && !isLoading && config && (
           <p className="mt-1.5 text-sm text-gray-500">
