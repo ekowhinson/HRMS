@@ -72,6 +72,15 @@ export default function BackpayPage() {
   const [showApproveAllConfirm, setShowApproveAllConfirm] = useState(false)
   const [showDetectionModal, setShowDetectionModal] = useState(false)
   const [detectionResults, setDetectionResults] = useState<RetropayDetection[] | null>(null)
+  const bulkProcessStartRef = useRef<number | null>(null)
+  const [bulkProcessResult, setBulkProcessResult] = useState<{
+    total: number
+    approved: number
+    calculated: number
+    zeroArrears: number
+    errorCount: number
+    durationSeconds: number
+  } | null>(null)
 
   // Create form state
   const [createForm, setCreateForm] = useState({
@@ -296,6 +305,7 @@ export default function BackpayPage() {
   const bulkProcessMutation = useMutation({
     mutationFn: backpayService.bulkProcess,
     onSuccess: (result) => {
+      bulkProcessStartRef.current = Date.now()
       setProcessingBatchId(result.batch_id)
       setShowProcessConfirm(false)
     },
@@ -321,9 +331,16 @@ export default function BackpayPage() {
 
     if (bulkProgress.status === 'completed') {
       completionHandled.current = true
-      const msg = `Processed ${bulkProgress.total} requests: ${bulkProgress.approved} approved, ${bulkProgress.zero_arrears} with zero arrears` +
-        (bulkProgress.errors.length > 0 ? `, ${bulkProgress.errors.length} errors` : '')
-      toast.success(msg)
+      const durationMs = bulkProcessStartRef.current ? Date.now() - bulkProcessStartRef.current : 0
+      bulkProcessStartRef.current = null
+      setBulkProcessResult({
+        total: bulkProgress.total,
+        approved: bulkProgress.approved,
+        calculated: bulkProgress.calculated,
+        zeroArrears: bulkProgress.zero_arrears,
+        errorCount: bulkProgress.errors.length,
+        durationSeconds: Math.round(durationMs / 1000),
+      })
       queryClient.invalidateQueries({ queryKey: ['backpay-requests'] })
       setProcessingBatchId(null)
     } else if (bulkProgress.status === 'failed') {
@@ -1331,6 +1348,72 @@ export default function BackpayPage() {
           </div>
         </div>
       </Modal>
+
+      {/* ── Bulk Process Success Modal ── */}
+      {bulkProcessResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-gray-900/50" onClick={() => setBulkProcessResult(null)} />
+          <div className="relative w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl overflow-hidden">
+            <div className="p-8">
+              {/* Success Icon */}
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
+                  <CheckIcon className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-1">Backpay Processing Complete</h2>
+                <p className="text-gray-500 text-sm">All eligible requests have been processed</p>
+              </div>
+
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                  <p className="text-3xl font-bold text-blue-700">{bulkProcessResult.total}</p>
+                  <p className="text-blue-600 text-sm mt-1">Requests Processed</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <p className="text-3xl font-bold text-purple-700">
+                    {bulkProcessResult.durationSeconds < 60
+                      ? `${bulkProcessResult.durationSeconds}s`
+                      : `${Math.floor(bulkProcessResult.durationSeconds / 60)}m ${bulkProcessResult.durationSeconds % 60}s`}
+                  </p>
+                  <p className="text-purple-600 text-sm mt-1">Duration</p>
+                </div>
+              </div>
+
+              {/* Breakdown */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3 mb-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Calculated</span>
+                  <span className="font-semibold text-gray-900">{bulkProcessResult.calculated}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Approved</span>
+                  <span className="font-semibold text-green-600">{bulkProcessResult.approved}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Zero Arrears</span>
+                  <span className="font-semibold text-gray-500">{bulkProcessResult.zeroArrears}</span>
+                </div>
+              </div>
+
+              {/* Errors Warning */}
+              {bulkProcessResult.errorCount > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                  <p className="text-amber-700 text-sm">
+                    {bulkProcessResult.errorCount} request(s) had errors during processing
+                  </p>
+                </div>
+              )}
+
+              {/* Close Button */}
+              <Button className="w-full" onClick={() => setBulkProcessResult(null)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Retropay Detection Results Modal ── */}
       <Modal

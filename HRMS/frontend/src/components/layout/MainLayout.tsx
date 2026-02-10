@@ -480,7 +480,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     }));
   };
 
-  const SidebarContent = ({ onLinkClick }: { onLinkClick?: () => void }) => (
+  const renderSidebarContent = (onLinkClick?: () => void) => (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
         {/* Self-Service Section - Always visible */}
@@ -611,7 +611,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </button>
           </div>
           <nav className="flex-1 min-h-0">
-            <SidebarContent onLinkClick={() => setSidebarOpen(false)} />
+            {renderSidebarContent(() => setSidebarOpen(false))}
           </nav>
           {/* Mobile user section */}
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
@@ -642,7 +642,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <HRMSLogo />
           </div>
           <nav className="flex-1 min-h-0">
-            <SidebarContent />
+            {renderSidebarContent()}
           </nav>
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <div className="flex items-center gap-3 p-2 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors">

@@ -12,6 +12,7 @@ import {
   ArrowPathIcon,
   TrashIcon,
   LockClosedIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { payrollService } from '@/services/payroll'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -58,6 +59,17 @@ export default function PayrollProcessingPage() {
     current_employee: string
   } | null>(null)
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const computeStartTimeRef = useRef<number | null>(null)
+
+  // Success modal state
+  const [computeResult, setComputeResult] = useState<{
+    totalEmployees: number
+    totalErrors: number
+    durationSeconds: number
+    totalGross: string
+    totalDeductions: string
+    totalNet: string
+  } | null>(null)
 
   // Poll for progress when computing
   useEffect(() => {
@@ -122,6 +134,7 @@ export default function PayrollProcessingPage() {
       setShowConfirmModal(null)
       setComputingRunId(runId)
       setProgress({ status: 'starting', total: 0, processed: 0, percentage: 0, current_employee: '' })
+      computeStartTimeRef.current = Date.now()
       return payrollService.computePayroll(runId)
     },
     onSettled: () => {
@@ -134,11 +147,22 @@ export default function PayrollProcessingPage() {
       setProgress(null)
     },
     onSuccess: (data) => {
-      toast.success(`Payroll computed: ${data.data?.total_employees || 0} employees processed`)
+      const durationMs = computeStartTimeRef.current ? Date.now() - computeStartTimeRef.current : 0
+      computeStartTimeRef.current = null
+      const result = data.data
+      setComputeResult({
+        totalEmployees: result?.total_employees || 0,
+        totalErrors: result?.errors?.length || 0,
+        durationSeconds: Math.round(durationMs / 1000),
+        totalGross: result?.total_gross || '0',
+        totalDeductions: result?.total_deductions || '0',
+        totalNet: result?.total_net || '0',
+      })
       queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
       queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
     },
     onError: (error: any) => {
+      computeStartTimeRef.current = null
       toast.error(error.response?.data?.error || 'Failed to compute payroll')
     },
   })
@@ -838,6 +862,72 @@ export default function PayrollProcessingPage() {
                     : 'Processing...'}
                 </span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payroll Computation Success Modal */}
+      {computeResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-gray-900/50" onClick={() => setComputeResult(null)} />
+          <div className="relative w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl overflow-hidden">
+            <div className="p-8">
+              {/* Success Icon */}
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
+                  <CheckIcon className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-1">Payroll Computed Successfully</h2>
+                <p className="text-gray-500 text-sm">All employee salaries have been calculated</p>
+              </div>
+
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                  <p className="text-3xl font-bold text-blue-700">{computeResult.totalEmployees}</p>
+                  <p className="text-blue-600 text-sm mt-1">Employees Processed</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <p className="text-3xl font-bold text-purple-700">
+                    {computeResult.durationSeconds < 60
+                      ? `${computeResult.durationSeconds}s`
+                      : `${Math.floor(computeResult.durationSeconds / 60)}m ${computeResult.durationSeconds % 60}s`}
+                  </p>
+                  <p className="text-purple-600 text-sm mt-1">Duration</p>
+                </div>
+              </div>
+
+              {/* Financial Summary */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3 mb-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Total Gross</span>
+                  <span className="font-semibold text-gray-900">{formatCurrency(parseFloat(computeResult.totalGross))}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Total Deductions</span>
+                  <span className="font-semibold text-red-600">{formatCurrency(parseFloat(computeResult.totalDeductions))}</span>
+                </div>
+                <div className="border-t pt-3 flex justify-between items-center">
+                  <span className="text-gray-900 font-medium">Net Pay</span>
+                  <span className="text-lg font-bold text-green-700">{formatCurrency(parseFloat(computeResult.totalNet))}</span>
+                </div>
+              </div>
+
+              {/* Errors Warning */}
+              {computeResult.totalErrors > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                  <p className="text-amber-700 text-sm">
+                    {computeResult.totalErrors} employee(s) had errors during computation
+                  </p>
+                </div>
+              )}
+
+              {/* Close Button */}
+              <Button className="w-full" onClick={() => setComputeResult(null)}>
+                Done
+              </Button>
             </div>
           </div>
         </div>
