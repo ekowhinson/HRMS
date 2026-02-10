@@ -19,6 +19,9 @@ logger = logging.getLogger('nhia_hrms')
 EXCLUDED_MODELS = {
     'AuditLog', 'Session', 'AuthenticationLog',
     'ContentType', 'Permission', 'LogEntry', 'Migration',
+    # Payroll bulk records — audited via summary entries instead
+    'PayrollItem', 'PayrollItemDetail', 'Payslip',
+    'BackpayDetail',
 }
 
 # Fields to skip when capturing values (binary/sensitive)

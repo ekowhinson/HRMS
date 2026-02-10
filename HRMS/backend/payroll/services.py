@@ -733,6 +733,8 @@ class PayrollService:
         - COMPUTED: Rerun to pick up changes (transactions, salaries, etc.)
         - REJECTED: Recompute after corrections
         """
+        start_time = timezone.now()
+
         allowed_statuses = ['DRAFT', 'COMPUTED', 'REJECTED']
         if self.payroll_run.status not in allowed_statuses:
             raise ValueError(
@@ -921,6 +923,48 @@ class PayrollService:
             'total_employees': total_employees,
             'errors_count': len(errors),
         }, timeout=300)  # Keep for 5 minutes after completion
+
+        # Create summary audit log entry (replaces per-record signal-based audit)
+        end_time = timezone.now()
+        duration = (end_time - start_time).total_seconds()
+        try:
+            from core.models import AuditLog
+            from core.middleware import get_current_user, get_current_request
+
+            audit_user = get_current_user() or user
+            ip_address = None
+            user_agent = ''
+            request = get_current_request()
+            if request:
+                x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+                ip_address = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+            AuditLog.objects.create(
+                user=audit_user,
+                action=AuditLog.ActionType.CREATE,
+                model_name='PayrollRun',
+                object_id=str(self.payroll_run.pk),
+                object_repr=f'Payroll computation: {self.payroll_run.run_number}'[:255],
+                changes={
+                    'started_at': start_time.isoformat(),
+                    'completed_at': end_time.isoformat(),
+                    'duration_seconds': round(duration, 2),
+                    'total_employees': total_employees,
+                    'total_gross': str(total_gross),
+                    'total_deductions': str(total_deductions),
+                    'total_net': str(total_net),
+                    'error_count': len(errors),
+                    'period_name': self.period.name,
+                },
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+        except Exception:
+            import logging
+            logging.getLogger('nhia_hrms').warning(
+                'Failed to create payroll computation audit log', exc_info=True
+            )
 
         return {
             'total_employees': total_employees,
@@ -1124,6 +1168,8 @@ class PayrollService:
 
     def generate_payslips(self, user) -> list[Payslip]:
         """Generate payslips for all employees in the payroll run."""
+        start_time = timezone.now()
+
         if self.payroll_run.status not in [PayrollRun.Status.COMPUTED, PayrollRun.Status.APPROVED, PayrollRun.Status.PAID]:
             raise ValueError(f'Cannot generate payslips for payroll in status: {self.payroll_run.status}')
 
@@ -1160,6 +1206,44 @@ class PayrollService:
                 generated_at=timezone.now(),
             )
             payslips.append(payslip)
+
+        # Create summary audit log entry
+        end_time = timezone.now()
+        duration = (end_time - start_time).total_seconds()
+        try:
+            from core.models import AuditLog
+            from core.middleware import get_current_user, get_current_request
+
+            audit_user = get_current_user() or user
+            ip_address = None
+            user_agent = ''
+            request = get_current_request()
+            if request:
+                x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+                ip_address = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+            AuditLog.objects.create(
+                user=audit_user,
+                action=AuditLog.ActionType.CREATE,
+                model_name='Payslip',
+                object_id=str(self.payroll_run.pk),
+                object_repr=f'Payslip generation: {self.payroll_run.run_number}'[:255],
+                changes={
+                    'started_at': start_time.isoformat(),
+                    'completed_at': end_time.isoformat(),
+                    'duration_seconds': round(duration, 2),
+                    'payslips_generated': len(payslips),
+                    'period_name': self.period.name,
+                },
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+        except Exception:
+            import logging
+            logging.getLogger('nhia_hrms').warning(
+                'Failed to create payslip generation audit log', exc_info=True
+            )
 
         return payslips
 

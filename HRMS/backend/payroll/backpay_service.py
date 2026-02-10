@@ -561,6 +561,8 @@ class BackpayService:
         Creates PayrollItemDetail rows with is_arrear=True on the employee's PayrollItem.
         Updates PayrollItem totals and marks BackpayRequest as APPLIED.
         """
+        start_time = timezone.now()
+
         if backpay_request.status != BackpayRequest.Status.APPROVED:
             raise ValueError('Backpay request must be APPROVED before applying.')
 
@@ -630,6 +632,45 @@ class BackpayService:
         backpay_request.save(update_fields=[
             'status', 'applied_to_run', 'applied_at', 'updated_at'
         ])
+
+        # Create summary audit log entry
+        end_time = timezone.now()
+        duration = (end_time - start_time).total_seconds()
+        try:
+            from core.models import AuditLog
+            from core.middleware import get_current_user, get_current_request
+
+            audit_user = get_current_user()
+            ip_address = None
+            user_agent = ''
+            request = get_current_request()
+            if request:
+                x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+                ip_address = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+            AuditLog.objects.create(
+                user=audit_user,
+                action=AuditLog.ActionType.CREATE,
+                model_name='BackpayRequest',
+                object_id=str(backpay_request.pk),
+                object_repr=f'Backpay applied: {backpay_request.reference_number}'[:255],
+                changes={
+                    'started_at': start_time.isoformat(),
+                    'completed_at': end_time.isoformat(),
+                    'duration_seconds': round(duration, 2),
+                    'net_arrears': str(backpay_request.net_arrears),
+                    'periods_covered': backpay_request.periods_covered,
+                    'applied_to_run': payroll_run.run_number,
+                },
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+        except Exception:
+            import logging
+            logging.getLogger('nhia_hrms').warning(
+                'Failed to create backpay application audit log', exc_info=True
+            )
 
         return backpay_request
 
