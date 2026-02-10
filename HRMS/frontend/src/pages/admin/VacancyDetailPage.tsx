@@ -7,7 +7,7 @@ import Badge from '@/components/ui/Badge'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
-import { recruitmentService, type Vacancy, type Applicant, type ShortlistCriteria } from '@/services/recruitment'
+import { recruitmentService, type Vacancy, type Applicant, type ShortlistCriteria, type VacancyURL } from '@/services/recruitment'
 
 const statusColors: Record<string, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
   DRAFT: 'default',
@@ -123,6 +123,12 @@ export default function VacancyDetailPage() {
   const [savingCriteria, setSavingCriteria] = useState(false)
   const [runningShortlist, setRunningShortlist] = useState(false)
 
+  // URL state
+  const [vacancyURLs, setVacancyURLs] = useState<VacancyURL[]>([])
+  const [showURLForm, setShowURLForm] = useState(false)
+  const [urlFormData, setUrlFormData] = useState({ url_type: 'PUBLIC', expires_at: '', max_applications: '' })
+  const [savingURL, setSavingURL] = useState(false)
+
   useEffect(() => {
     if (id) {
       loadVacancy()
@@ -133,14 +139,16 @@ export default function VacancyDetailPage() {
     if (!id) return
     setLoading(true)
     try {
-      const [vacancyData, applicantsData, criteriaData] = await Promise.all([
+      const [vacancyData, applicantsData, criteriaData, urlsData] = await Promise.all([
         recruitmentService.getVacancy(id),
         recruitmentService.getApplicants({ vacancy: id }),
         recruitmentService.getShortlistCriteria(id),
+        recruitmentService.getVacancyURLs(id),
       ])
       setVacancy(vacancyData)
       setApplicants(applicantsData.results || [])
       setCriteria(criteriaData)
+      setVacancyURLs(urlsData)
     } catch (error) {
       console.error('Error loading vacancy:', error)
     } finally {
@@ -280,6 +288,57 @@ export default function VacancyDetailPage() {
     } catch (error) {
       toast.error('Failed to delete criteria')
     }
+  }
+
+  // --- URL Handlers ---
+
+  const handleGenerateURL = async () => {
+    if (!id) return
+    setSavingURL(true)
+    try {
+      const data: { vacancy: string; url_type: string; expires_at?: string; max_applications?: number } = {
+        vacancy: id,
+        url_type: urlFormData.url_type,
+      }
+      if (urlFormData.expires_at) data.expires_at = urlFormData.expires_at
+      if (urlFormData.max_applications) data.max_applications = parseInt(urlFormData.max_applications)
+
+      const newURL = await recruitmentService.createVacancyURL(data)
+      setVacancyURLs((prev) => [newURL, ...prev])
+      setShowURLForm(false)
+      setUrlFormData({ url_type: 'PUBLIC', expires_at: '', max_applications: '' })
+      toast.success('Application URL generated')
+    } catch (error: any) {
+      const detail = error.response?.data
+      if (detail && typeof detail === 'object') {
+        const msg = Object.entries(detail)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+          .join('; ')
+        toast.error(msg)
+      } else {
+        toast.error('Failed to generate URL')
+      }
+    } finally {
+      setSavingURL(false)
+    }
+  }
+
+  const handleDeactivateURL = async (urlId: string) => {
+    try {
+      await recruitmentService.deactivateVacancyURL(urlId)
+      setVacancyURLs((prev) => prev.map((u) => u.id === urlId ? { ...u, is_active: false } : u))
+      toast.success('URL deactivated')
+    } catch {
+      toast.error('Failed to deactivate URL')
+    }
+  }
+
+  const handleCopyURL = (fullUrl: string) => {
+    navigator.clipboard.writeText(fullUrl).then(() => {
+      toast.success('URL copied to clipboard')
+    }).catch(() => {
+      toast.error('Failed to copy URL')
+    })
   }
 
   if (loading) {
@@ -721,18 +780,135 @@ export default function VacancyDetailPage() {
         </TabsContent>
 
         {/* ========== URLs Tab ========== */}
-        <TabsContent value="urls" className="mt-4">
+        <TabsContent value="urls" className="mt-4 space-y-6">
+          {/* Generate URL Form */}
+          {showURLForm && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Generate Application URL</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Select
+                  label="URL Type"
+                  value={urlFormData.url_type}
+                  onChange={(e) => setUrlFormData((prev) => ({ ...prev, url_type: e.target.value }))}
+                  options={[
+                    { value: 'PUBLIC', label: 'Public - Anyone with the link can apply' },
+                    { value: 'TOKEN', label: 'Token - Unique token-secured link' },
+                    { value: 'INTERNAL', label: 'Internal - For internal applicants only' },
+                  ]}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Expiry Date (optional)"
+                    type="date"
+                    value={urlFormData.expires_at}
+                    onChange={(e) => setUrlFormData((prev) => ({ ...prev, expires_at: e.target.value }))}
+                  />
+                  <Input
+                    label="Max Applications (optional)"
+                    type="number"
+                    value={urlFormData.max_applications}
+                    onChange={(e) => setUrlFormData((prev) => ({ ...prev, max_applications: e.target.value }))}
+                    placeholder="Unlimited if empty"
+                    min={1}
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button onClick={handleGenerateURL} isLoading={savingURL}>
+                    Generate
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowURLForm(false)
+                      setUrlFormData({ url_type: 'PUBLIC', expires_at: '', max_applications: '' })
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* URL List */}
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Application URLs</CardTitle>
-                <Button variant="outline" size="sm">Generate URL</Button>
+                {!showURLForm && (
+                  <Button variant="outline" size="sm" onClick={() => setShowURLForm(true)}>
+                    Generate URL
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-500 text-center py-8">
-                Generate shareable URLs for candidates to apply directly.
-              </p>
+              {vacancyURLs.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-4">
+                    No application URLs generated yet. Generate shareable URLs for candidates to apply directly.
+                  </p>
+                  {!showURLForm && (
+                    <Button variant="outline" onClick={() => setShowURLForm(true)}>
+                      Generate Your First URL
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {vacancyURLs.map((url) => (
+                    <div
+                      key={url.id}
+                      className={`border rounded-lg p-4 ${url.is_active ? 'border-gray-200' : 'border-gray-100 bg-gray-50 opacity-60'}`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant={url.is_active ? 'success' : 'default'}>
+                              {url.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <Badge variant="info">{url.url_type}</Badge>
+                            {url.expires_at && new Date(url.expires_at) < new Date() && (
+                              <Badge variant="danger">Expired</Badge>
+                            )}
+                          </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <code className="text-sm bg-gray-100 px-3 py-1.5 rounded block truncate flex-1">
+                              {url.full_url}
+                            </code>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCopyURL(url.full_url)}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                          <div className="flex gap-6 mt-3 text-xs text-gray-500">
+                            <span>Views: {url.views_count}</span>
+                            <span>Applications: {url.current_applications}{url.max_applications ? `/${url.max_applications}` : ''}</span>
+                            <span>Created: {new Date(url.created_at).toLocaleDateString()}</span>
+                            {url.expires_at && (
+                              <span>Expires: {new Date(url.expires_at).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                        </div>
+                        {url.is_active && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeactivateURL(url.id)}
+                          >
+                            Deactivate
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
