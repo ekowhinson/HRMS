@@ -302,8 +302,9 @@ export default function EmployeeTransactionsPage() {
       data.override_formula = formData.override_formula
     }
 
-    if (parseFloat(formData.quantity) !== 1) {
-      data.quantity = parseFloat(formData.quantity)
+    const qty = parseFloat(formData.quantity)
+    if (!isNaN(qty)) {
+      data.quantity = qty
     }
 
     // Set target based on target_type

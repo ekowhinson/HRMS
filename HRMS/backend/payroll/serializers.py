@@ -525,9 +525,9 @@ class EmployeeTransactionCreateSerializer(serializers.ModelSerializer):
             writable_fields = [
                 'target_type', 'employee', 'job_grade', 'salary_band',
                 'pay_component', 'override_type', 'override_amount',
-                'override_percentage', 'override_formula', 'is_recurring',
-                'effective_from', 'effective_to', 'calendar', 'payroll_period',
-                'status', 'description',
+                'override_percentage', 'override_formula', 'quantity',
+                'is_recurring', 'effective_from', 'effective_to',
+                'calendar', 'payroll_period', 'status', 'description',
             ]
             new_data = {}
             for field in writable_fields:
