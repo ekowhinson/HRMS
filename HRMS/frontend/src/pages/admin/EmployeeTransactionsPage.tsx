@@ -149,7 +149,7 @@ export default function EmployeeTransactionsPage() {
 
   const { data: employeesData } = useQuery({
     queryKey: ['employees-list'],
-    queryFn: () => employeeService.getEmployees({ page_size: 2000, status: 'ACTIVE' }),
+    queryFn: () => employeeService.getEmployees({ page_size: 5000, status: 'ACTIVE' }),
   })
 
   const { data: departmentsData } = useQuery({
