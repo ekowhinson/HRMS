@@ -2073,3 +2073,106 @@ class BackpayDetail(BaseModel):
 
     def __str__(self):
         return f"{self.backpay_request.reference_number} - {self.payroll_period.name} - {self.pay_component.code}"
+
+
+class SalaryUpgradeRequest(BaseModel):
+    """
+    Tracks salary upgrade requests that require approval before taking effect.
+    On approval, the actual Employee/EmployeeSalary/EmploymentHistory changes are applied.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    class Reason(models.TextChoices):
+        PROMOTION = 'PROMOTION', 'Promotion'
+        GRADE_UPGRADE = 'GRADE_UPGRADE', 'Grade Upgrade'
+        NOTCH_INCREMENT = 'NOTCH_INCREMENT', 'Notch Increment'
+        SALARY_REVISION = 'SALARY_REVISION', 'Salary Revision'
+        OTHER = 'OTHER', 'Other'
+
+    reference_number = models.CharField(max_length=30, unique=True, db_index=True)
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.CASCADE,
+        related_name='salary_upgrade_requests',
+    )
+    new_notch = models.ForeignKey(
+        SalaryNotch,
+        on_delete=models.PROTECT,
+        related_name='upgrade_requests',
+    )
+    new_grade = models.ForeignKey(
+        'organization.JobGrade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='upgrade_requests',
+    )
+    new_position = models.ForeignKey(
+        'organization.JobPosition',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='upgrade_requests',
+    )
+    reason = models.CharField(max_length=20, choices=Reason.choices)
+    effective_from = models.DateField()
+    description = models.TextField(blank=True, default='')
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+
+    # Bulk tracking
+    is_bulk = models.BooleanField(default=False)
+    bulk_reference = models.CharField(max_length=50, blank=True, default='', db_index=True)
+
+    # Approval fields
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_salary_upgrades',
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, default='')
+
+    # Processing
+    processing_period = models.ForeignKey(
+        PayrollPeriod,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='salary_upgrade_requests',
+    )
+
+    class Meta:
+        db_table = 'salary_upgrade_requests'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['employee', '-created_at']),
+            models.Index(fields=['bulk_reference']),
+        ]
+
+    def __str__(self):
+        return f"{self.reference_number} - {self.employee} - {self.get_status_display()}"
+
+    def save(self, *args, **kwargs):
+        if not self.reference_number:
+            self.reference_number = self.generate_reference_number()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generate_reference_number(cls) -> str:
+        import uuid
+        from datetime import datetime
+        prefix = datetime.now().strftime('%Y%m')
+        suffix = uuid.uuid4().hex[:8].upper()
+        return f"SU-{prefix}-{suffix}"

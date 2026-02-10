@@ -23,7 +23,7 @@ from .models import (
     TaxBracket, TaxRelief, SSNITRate, BankFile, Payslip, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
     SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings,
-    BackpayRequest, BackpayDetail,
+    BackpayRequest, BackpayDetail, SalaryUpgradeRequest,
 )
 from .serializers import (
     PayComponentSerializer, SalaryStructureSerializer,
@@ -42,8 +42,12 @@ from .serializers import (
     BackpayPreviewSerializer, BackpayDetailSerializer,
     BackpayBulkCreateSerializer,
     MyPayslipSerializer,
+    SalaryUpgradeCreateSerializer, SalaryUpgradeBulkSerializer,
+    SalaryUpgradePreviewSerializer, SalaryUpgradeRequestSerializer,
+    SalaryUpgradeRejectSerializer,
 )
 from .services import PayrollService
+from .salary_upgrade_service import SalaryUpgradeService
 
 
 class PayComponentViewSet(viewsets.ModelViewSet):
@@ -2305,3 +2309,166 @@ class PayrollRunBankFileDownloadView(APIView):
         response = HttpResponse(content, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+# ============================================
+# Salary Upgrade Views
+# ============================================
+
+class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for salary upgrade requests with approval workflow.
+    list / create / approve / reject / bulk-create / preview
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = SalaryUpgradeRequestSerializer
+    pagination_class = LargeResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        'reference_number',
+        'employee__employee_number',
+        'employee__first_name',
+        'employee__last_name',
+    ]
+    ordering_fields = ['created_at', 'effective_from', 'status']
+    ordering = ['-created_at']
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    def get_queryset(self):
+        qs = SalaryUpgradeRequest.objects.select_related(
+            'employee', 'employee__salary_notch',
+            'employee__salary_notch__level', 'employee__salary_notch__level__band',
+            'employee__grade', 'employee__position',
+            'new_notch', 'new_notch__level', 'new_notch__level__band',
+            'new_grade', 'new_position',
+            'approved_by', 'processing_period',
+        ).order_by('-created_at')
+
+        # Status filter
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        # Date range filters
+        date_from = self.request.query_params.get('date_from')
+        if date_from:
+            qs = qs.filter(effective_from__gte=date_from)
+
+        date_to = self.request.query_params.get('date_to')
+        if date_to:
+            qs = qs.filter(effective_from__lte=date_to)
+
+        return qs
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return SalaryUpgradeCreateSerializer
+        if self.action == 'reject':
+            return SalaryUpgradeRejectSerializer
+        if self.action == 'bulk_create':
+            return SalaryUpgradeBulkSerializer
+        if self.action == 'preview':
+            return SalaryUpgradePreviewSerializer
+        return SalaryUpgradeRequestSerializer
+
+    def create(self, request, *args, **kwargs):
+        """Create a PENDING salary upgrade request."""
+        serializer = SalaryUpgradeCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            req = SalaryUpgradeService.create_request(
+                employee_id=data['employee'],
+                new_notch_id=data['new_notch'],
+                reason=data['reason'],
+                effective_from=data['effective_from'],
+                description=data.get('description', ''),
+                new_grade_id=data.get('new_grade'),
+                new_position_id=data.get('new_position'),
+            )
+            out = SalaryUpgradeRequestSerializer(req).data
+            return Response(out, status=status.HTTP_201_CREATED)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Approve a PENDING request — applies the actual salary changes."""
+        try:
+            req = SalaryUpgradeService.approve_request(pk, request.user)
+            out = SalaryUpgradeRequestSerializer(req).data
+            return Response(out)
+        except SalaryUpgradeRequest.DoesNotExist:
+            return Response({'error': 'Request not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Reject a PENDING request."""
+        serializer = SalaryUpgradeRejectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            req = SalaryUpgradeService.reject_request(
+                pk, request.user, serializer.validated_data['rejection_reason'],
+            )
+            out = SalaryUpgradeRequestSerializer(req).data
+            return Response(out)
+        except SalaryUpgradeRequest.DoesNotExist:
+            return Response({'error': 'Request not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='bulk-create')
+    def bulk_create(self, request):
+        """Create multiple PENDING requests with a shared bulk_reference."""
+        serializer = SalaryUpgradeBulkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        filter_fields = {}
+        for f in SalaryUpgradeBulkSerializer.FILTER_FIELDS:
+            if data.get(f):
+                filter_fields[f] = data[f]
+        if data.get('all_active'):
+            filter_fields['all_active'] = True
+        if data.get('employee_ids'):
+            filter_fields['employee_ids'] = data['employee_ids']
+
+        try:
+            result = SalaryUpgradeService.bulk_create(
+                filters=filter_fields,
+                new_notch_id=data['new_notch'],
+                reason=data['reason'],
+                effective_from=data['effective_from'],
+                description=data.get('description', ''),
+                new_grade_id=data.get('new_grade'),
+                new_position_id=data.get('new_position'),
+            )
+            return Response(result, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def preview(self, request):
+        """Preview a salary upgrade without saving."""
+        serializer = SalaryUpgradePreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            result = SalaryUpgradeService.preview_upgrade(
+                employee_id=data['employee'],
+                new_notch_id=data['new_notch'],
+                new_grade_id=data.get('new_grade'),
+                new_position_id=data.get('new_position'),
+            )
+            return Response(result)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

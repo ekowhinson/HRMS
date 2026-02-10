@@ -27,6 +27,7 @@ router.register(r'salary-bands', views.SalaryBandViewSet, basename='salary-band'
 router.register(r'salary-levels', views.SalaryLevelViewSet, basename='salary-level')
 router.register(r'salary-notches', views.SalaryNotchViewSet, basename='salary-notch')
 router.register(r'backpay', views.BackpayRequestViewSet, basename='backpay')
+router.register(r'salary-upgrades', views.SalaryUpgradeRequestViewSet, basename='salary-upgrade')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -77,4 +78,5 @@ urlpatterns = [
     path('bank-files/<uuid:pk>/download/', views.BankFileDownloadView.as_view(), name='bank-file-download'),
     path('runs/<uuid:run_id>/bank-files/', views.PayrollRunBankFilesListView.as_view(), name='payroll-run-bank-files'),
     path('runs/<uuid:run_id>/bank-file/download/', views.PayrollRunBankFileDownloadView.as_view(), name='payroll-run-bank-file-download'),
+
 ]

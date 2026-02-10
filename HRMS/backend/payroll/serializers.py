@@ -14,7 +14,7 @@ from .models import (
     AdHocPayment, TaxBracket, TaxRelief, SSNITRate, EmployeeTransaction,
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
     SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings,
-    BackpayRequest, BackpayDetail,
+    BackpayRequest, BackpayDetail, SalaryUpgradeRequest,
 )
 
 
@@ -967,3 +967,189 @@ class BackpayBulkCreateSerializer(serializers.Serializer):
                 'Provide all_active, employee_ids, or at least one filter field.'
             )
         return data
+
+
+# ============================================
+# Salary Upgrade Serializers
+# ============================================
+
+SALARY_UPGRADE_REASONS = [
+    ('PROMOTION', 'Promotion'),
+    ('GRADE_UPGRADE', 'Grade Upgrade'),
+    ('NOTCH_INCREMENT', 'Notch Increment'),
+    ('SALARY_REVISION', 'Salary Revision'),
+    ('OTHER', 'Other'),
+]
+
+
+class SalaryUpgradeCreateSerializer(serializers.Serializer):
+    """Serializer for creating an individual salary upgrade."""
+    employee = serializers.UUIDField()
+    new_notch = serializers.UUIDField()
+    new_grade = serializers.UUIDField(required=False, allow_null=True)
+    new_position = serializers.UUIDField(required=False, allow_null=True)
+    reason = serializers.ChoiceField(choices=SALARY_UPGRADE_REASONS)
+    effective_from = serializers.DateField()
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_employee(self, value):
+        from employees.models import Employee
+        try:
+            emp = Employee.objects.get(pk=value, is_deleted=False)
+            if emp.status != 'ACTIVE':
+                raise serializers.ValidationError('Employee is not active.')
+        except Employee.DoesNotExist:
+            raise serializers.ValidationError('Employee not found.')
+        return value
+
+    def validate_new_notch(self, value):
+        try:
+            SalaryNotch.objects.get(pk=value)
+        except SalaryNotch.DoesNotExist:
+            raise serializers.ValidationError('Salary notch not found.')
+        return value
+
+    def validate(self, data):
+        if data.get('new_grade'):
+            from organization.models import JobGrade
+            try:
+                JobGrade.objects.get(pk=data['new_grade'])
+            except JobGrade.DoesNotExist:
+                raise serializers.ValidationError({'new_grade': 'Job grade not found.'})
+
+        if data.get('new_position'):
+            from organization.models import JobPosition
+            try:
+                JobPosition.objects.get(pk=data['new_position'])
+            except JobPosition.DoesNotExist:
+                raise serializers.ValidationError({'new_position': 'Job position not found.'})
+
+        return data
+
+
+class SalaryUpgradeBulkSerializer(serializers.Serializer):
+    """Serializer for bulk salary upgrades."""
+    all_active = serializers.BooleanField(default=False)
+    employee_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, allow_empty=True,
+    )
+    # Filter fields
+    division = serializers.UUIDField(required=False, allow_null=True)
+    directorate = serializers.UUIDField(required=False, allow_null=True)
+    department = serializers.UUIDField(required=False, allow_null=True)
+    grade = serializers.UUIDField(required=False, allow_null=True)
+    region = serializers.UUIDField(required=False, allow_null=True)
+    district = serializers.UUIDField(required=False, allow_null=True)
+    work_location = serializers.UUIDField(required=False, allow_null=True)
+    staff_category = serializers.UUIDField(required=False, allow_null=True)
+    # Upgrade fields
+    new_notch = serializers.UUIDField()
+    new_grade = serializers.UUIDField(required=False, allow_null=True)
+    new_position = serializers.UUIDField(required=False, allow_null=True)
+    reason = serializers.ChoiceField(choices=SALARY_UPGRADE_REASONS)
+    effective_from = serializers.DateField()
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+
+    FILTER_FIELDS = [
+        'division', 'directorate', 'department', 'grade',
+        'region', 'district', 'work_location', 'staff_category',
+    ]
+
+    def validate(self, data):
+        has_employees = bool(data.get('employee_ids'))
+        has_all = data.get('all_active', False)
+        has_filter = any(data.get(f) for f in self.FILTER_FIELDS)
+
+        if not has_employees and not has_all and not has_filter:
+            raise serializers.ValidationError(
+                'Provide all_active, employee_ids, or at least one filter field.'
+            )
+        return data
+
+
+class SalaryUpgradePreviewSerializer(serializers.Serializer):
+    """Input serializer for preview endpoint."""
+    employee = serializers.UUIDField()
+    new_notch = serializers.UUIDField()
+    new_grade = serializers.UUIDField(required=False, allow_null=True)
+    new_position = serializers.UUIDField(required=False, allow_null=True)
+
+
+class SalaryUpgradeRequestSerializer(serializers.ModelSerializer):
+    """Full read serializer for SalaryUpgradeRequest."""
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    new_notch_display = serializers.SerializerMethodField()
+    new_notch_amount = serializers.DecimalField(
+        source='new_notch.amount', max_digits=12, decimal_places=2, read_only=True,
+    )
+    current_notch_display = serializers.SerializerMethodField()
+    current_salary = serializers.SerializerMethodField()
+    salary_diff = serializers.SerializerMethodField()
+    new_grade_name = serializers.CharField(source='new_grade.name', read_only=True, allow_null=True)
+    new_position_title = serializers.CharField(source='new_position.title', read_only=True, allow_null=True)
+    current_grade_name = serializers.SerializerMethodField()
+    current_position_title = serializers.SerializerMethodField()
+    approved_by_name = serializers.SerializerMethodField()
+    processing_period_name = serializers.CharField(
+        source='processing_period.name', read_only=True, allow_null=True,
+    )
+
+    class Meta:
+        model = SalaryUpgradeRequest
+        fields = [
+            'id', 'reference_number',
+            'employee', 'employee_number', 'employee_name',
+            'new_notch', 'new_notch_display', 'new_notch_amount',
+            'current_notch_display', 'current_salary', 'salary_diff',
+            'new_grade', 'new_grade_name',
+            'new_position', 'new_position_title',
+            'current_grade_name', 'current_position_title',
+            'reason', 'reason_display',
+            'effective_from', 'description',
+            'status', 'status_display',
+            'is_bulk', 'bulk_reference',
+            'approved_by', 'approved_by_name', 'approved_at',
+            'rejection_reason',
+            'processing_period', 'processing_period_name',
+            'created_at', 'updated_at',
+        ]
+
+    def get_new_notch_display(self, obj):
+        n = obj.new_notch
+        if n and n.level:
+            return f"{n.level.band.code}/{n.level.code}/{n.code}"
+        return n.code if n else None
+
+    def get_current_notch_display(self, obj):
+        n = obj.employee.salary_notch if obj.employee else None
+        if n and n.level:
+            return f"{n.level.band.code}/{n.level.code}/{n.code}"
+        return n.code if n else None
+
+    def get_current_salary(self, obj):
+        n = obj.employee.salary_notch if obj.employee else None
+        return float(n.amount) if n else 0
+
+    def get_salary_diff(self, obj):
+        current = obj.employee.salary_notch.amount if obj.employee and obj.employee.salary_notch else 0
+        return float(obj.new_notch.amount - current) if obj.new_notch else 0
+
+    def get_current_grade_name(self, obj):
+        return obj.employee.grade.name if obj.employee and obj.employee.grade else None
+
+    def get_current_position_title(self, obj):
+        return obj.employee.position.title if obj.employee and obj.employee.position else None
+
+    def get_approved_by_name(self, obj):
+        if obj.approved_by:
+            name = f"{obj.approved_by.first_name} {obj.approved_by.last_name}".strip()
+            return name or obj.approved_by.email
+        return None
+
+
+class SalaryUpgradeRejectSerializer(serializers.Serializer):
+    """Input serializer for rejecting a salary upgrade request."""
+    rejection_reason = serializers.CharField(required=True, min_length=1)
