@@ -67,6 +67,10 @@ class LeaveType(BaseModel):
     include_weekends = models.BooleanField(default=False)
     include_holidays = models.BooleanField(default=False)
     advance_notice_days = models.PositiveSmallIntegerField(default=0)
+    is_emergency = models.BooleanField(
+        default=False,
+        help_text='Emergency leave types bypass advance notice requirements'
+    )
 
     # Display
     color_code = models.CharField(max_length=7, default='#3B82F6')

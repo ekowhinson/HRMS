@@ -72,6 +72,7 @@ const leaveTypePresets: Record<string, Partial<LeaveTypeFormData>> = {
     requires_document: true,
     document_required_after_days: '2',
     advance_notice_days: '0',
+    is_emergency: true,
     color_code: '#EF4444',
   },
   maternity: {
@@ -118,6 +119,7 @@ const leaveTypePresets: Record<string, Partial<LeaveTypeFormData>> = {
     requires_approval: true,
     requires_document: true,
     advance_notice_days: '0',
+    is_emergency: true,
     color_code: '#6B7280',
   },
   study: {
@@ -181,6 +183,7 @@ interface LeaveTypeFormData {
   include_weekends: boolean
   include_holidays: boolean
   advance_notice_days: string
+  is_emergency: boolean
   // Display
   color_code: string
   sort_order: string
@@ -213,6 +216,7 @@ const initialFormData: LeaveTypeFormData = {
   include_weekends: false,
   include_holidays: false,
   advance_notice_days: '0',
+  is_emergency: false,
   color_code: '#3B82F6',
   sort_order: '0',
   is_active: true,
@@ -311,6 +315,7 @@ export default function LeaveTypeSetupPage() {
       include_weekends: leaveType.include_weekends || false,
       include_holidays: leaveType.include_holidays || false,
       advance_notice_days: leaveType.advance_notice_days?.toString() || '0',
+      is_emergency: leaveType.is_emergency || false,
       color_code: leaveType.color_code || '#3B82F6',
       sort_order: leaveType.sort_order?.toString() || '0',
       is_active: leaveType.is_active,
@@ -364,6 +369,7 @@ export default function LeaveTypeSetupPage() {
       include_weekends: formData.include_weekends,
       include_holidays: formData.include_holidays,
       advance_notice_days: parseInt(formData.advance_notice_days) || 0,
+      is_emergency: formData.is_emergency,
       color_code: formData.color_code,
       sort_order: parseInt(formData.sort_order) || 0,
       is_active: formData.is_active,
@@ -867,12 +873,24 @@ export default function LeaveTypeSetupPage() {
                   </label>
                 </div>
                 <Input
-                  label="Advance Notice (Days)"
+                  label="Advance Notice (Working Days)"
                   type="number"
                   value={formData.advance_notice_days}
                   onChange={(e) => setFormData({ ...formData, advance_notice_days: e.target.value })}
                   placeholder="0 for no advance notice required"
                 />
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_emergency}
+                    onChange={(e) => setFormData({ ...formData, is_emergency: e.target.checked })}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm">Emergency leave type (bypasses advance notice)</span>
+                </label>
+                <p className="text-xs text-gray-500 -mt-2 ml-6">
+                  Enable for leave types like Sick or Compassionate that don't require advance notice even when a notice period is set.
+                </p>
               </div>
             </div>
           )}

@@ -348,7 +348,7 @@ class SubmitLeaveView(APIView):
 
     def post(self, request, pk):
         try:
-            leave_request = LeaveRequest.objects.get(pk=pk)
+            leave_request = LeaveRequest.objects.select_related('leave_type').get(pk=pk)
         except LeaveRequest.DoesNotExist:
             return Response(
                 {'error': 'Leave request not found'},
@@ -363,6 +363,24 @@ class SubmitLeaveView(APIView):
                 {'error': 'Only draft requests can be submitted'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Validate advance notice (working days)
+        leave_type = leave_request.leave_type
+        if leave_type.advance_notice_days > 0 and not leave_type.is_emergency:
+            from .utils import count_working_days
+            today = timezone.now().date()
+            working_days_notice = count_working_days(today, leave_request.start_date)
+            if working_days_notice < leave_type.advance_notice_days:
+                return Response(
+                    {
+                        'error': (
+                            f'{leave_type.name} requires at least {leave_type.advance_notice_days} '
+                            f'working days advance notice. You have only {working_days_notice} '
+                            f'working day(s) before the requested start date.'
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         # Validate leave balance
         try:

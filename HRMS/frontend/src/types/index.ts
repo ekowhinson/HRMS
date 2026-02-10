@@ -265,6 +265,7 @@ export interface LeaveType {
   include_weekends: boolean
   include_holidays: boolean
   advance_notice_days: number
+  is_emergency: boolean
   // Display
   color_code: string
   sort_order: number
