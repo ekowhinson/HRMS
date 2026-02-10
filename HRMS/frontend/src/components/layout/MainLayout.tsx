@@ -121,8 +121,18 @@ const hrSections: NavSection[] = [
       { name: 'Competencies', href: '/admin/competencies', icon: AcademicCapIcon },
       { name: 'Core Values', href: '/admin/core-values', icon: StarIcon },
       { name: 'Probation Assessments', href: '/admin/probation-assessments', icon: ShieldCheckIcon },
-      { name: 'Training Needs', href: '/admin/training-needs', icon: AcademicCapIcon },
       { name: 'Performance Appeals', href: '/admin/performance-appeals', icon: ScaleIcon },
+    ],
+  },
+  {
+    name: 'Training & Development',
+    icon: AcademicCapIcon,
+    items: [
+      { name: 'Dashboard', href: '/admin/training-dashboard', icon: ChartBarIcon },
+      { name: 'Programs', href: '/admin/training-programs', icon: AcademicCapIcon },
+      { name: 'Sessions', href: '/admin/training-sessions', icon: CalendarDaysIcon },
+      { name: 'Training Needs', href: '/admin/training-needs', icon: FlagIcon },
+      { name: 'Development Plans', href: '/admin/development-plans', icon: ArrowTrendingUpIcon },
     ],
   },
   {

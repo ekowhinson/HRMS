@@ -74,6 +74,11 @@ import GrievancePage from './pages/admin/GrievancePage'
 // Portal - Discipline & Grievance
 import MyDisciplinaryPage from './pages/portal/MyDisciplinaryPage'
 import MyGrievancesPage from './pages/portal/MyGrievancesPage'
+// Training & Development pages
+import TrainingDashboardPage from './pages/admin/TrainingDashboardPage'
+import TrainingProgramsPage from './pages/admin/TrainingProgramsPage'
+import TrainingSessionsPage from './pages/admin/TrainingSessionsPage'
+import DevelopmentPlansPage from './pages/admin/DevelopmentPlansPage'
 // Announcements pages
 import AnnouncementsPage from './pages/admin/AnnouncementsPage'
 // User & Role Management pages
@@ -290,6 +295,12 @@ function App() {
                 <Route path="/admin/probation-assessments" element={<AdminRoute><ProbationAssessmentsPage /></AdminRoute>} />
                 <Route path="/admin/training-needs" element={<AdminRoute><TrainingNeedsPage /></AdminRoute>} />
                 <Route path="/admin/performance-appeals" element={<AdminRoute><PerformanceAppealsPage /></AdminRoute>} />
+
+                {/* Training & Development Routes */}
+                <Route path="/admin/training-dashboard" element={<AdminRoute><TrainingDashboardPage /></AdminRoute>} />
+                <Route path="/admin/training-programs" element={<AdminRoute><TrainingProgramsPage /></AdminRoute>} />
+                <Route path="/admin/training-sessions" element={<AdminRoute><TrainingSessionsPage /></AdminRoute>} />
+                <Route path="/admin/development-plans" element={<AdminRoute><DevelopmentPlansPage /></AdminRoute>} />
 
                 {/* Company Policies Routes */}
                 <Route path="/admin/policies" element={<AdminRoute><PoliciesPage /></AdminRoute>} />

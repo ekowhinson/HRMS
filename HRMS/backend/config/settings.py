@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'imports.apps.ImportsConfig',
     'policies.apps.PoliciesConfig',
     'exits.apps.ExitsConfig',
+    'training.apps.TrainingConfig',
 ]
 
 MIDDLEWARE = [

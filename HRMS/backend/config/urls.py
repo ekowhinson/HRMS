@@ -33,6 +33,7 @@ urlpatterns = [
         path('recruitment/', include('recruitment.urls')),  # Recruitment & interview scoring
         path('discipline/', include('discipline.urls')),  # Discipline & Grievance management
         path('workflow/', include('workflow.urls')),  # Approval workflow engine
+        path('training/', include('training.urls')),  # Training & Development
     ])),
 
     # API Documentation

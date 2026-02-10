@@ -888,3 +888,85 @@ export interface TaxCalculationPreview {
     bonus_excess_to_paye: string
   }
 }
+
+// Training & Development Types
+export interface TrainingProgram {
+  id: string
+  name: string
+  code: string
+  description: string
+  category: string
+  category_display: string
+  training_type: string
+  type_display: string
+  duration_hours: number
+  max_participants: number | null
+  is_mandatory: boolean
+  is_active: boolean
+  cost_per_person: number
+  provider: string
+  objectives: string
+  prerequisites: string
+  target_departments: string[]
+  target_positions: string[]
+  session_count: number
+  enrolled_count: number
+  sessions?: TrainingSession[]
+  created_at: string
+  updated_at: string
+}
+
+export interface TrainingSession {
+  id: string
+  program: string
+  program_name: string
+  program_code: string
+  title: string
+  facilitator: string
+  venue: string
+  start_date: string
+  end_date: string
+  start_time: string | null
+  end_time: string | null
+  status: string
+  status_display: string
+  notes: string
+  max_participants: number | null
+  enrollment_count: number
+  capacity: number | null
+  enrollments?: TrainingEnrollment[]
+  created_at: string
+  updated_at: string
+}
+
+export interface TrainingEnrollment {
+  id: string
+  session: string
+  session_title: string
+  employee: string
+  employee_name: string
+  employee_number: string
+  department_name: string
+  status: string
+  status_display: string
+  attendance_date: string | null
+  score: number | null
+  feedback: string
+  certificate_issued: boolean
+  certificate_date: string | null
+  program_name?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TrainingDashboardData {
+  total_programs: number
+  active_sessions: number
+  total_enrolled: number
+  total_completed: number
+  completion_rate: number
+  upcoming_sessions: TrainingSession[]
+  recent_completions: TrainingSession[]
+  by_category: { category: string; count: number }[]
+  top_programs: { id: string; name: string; code: string; category: string; total_enrolled: number }[]
+}

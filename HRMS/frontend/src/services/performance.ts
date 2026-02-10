@@ -872,4 +872,55 @@ export const performanceService = {
   deleteRatingScale: async (id: string): Promise<void> => {
     await api.delete(`/performance/rating-scales/${id}/`)
   },
+
+  // Development Plans
+  getDevelopmentPlans: async (filters: { employee?: string; is_active?: string; search?: string; page?: number } = {}): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/performance/development-plans/', { params: filters })
+    return response.data
+  },
+
+  getDevelopmentPlan: async (id: string): Promise<any> => {
+    const response = await api.get(`/performance/development-plans/${id}/`)
+    return response.data
+  },
+
+  createDevelopmentPlan: async (data: any): Promise<any> => {
+    const response = await api.post('/performance/development-plans/', data)
+    return response.data
+  },
+
+  updateDevelopmentPlan: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/performance/development-plans/${id}/`, data)
+    return response.data
+  },
+
+  deleteDevelopmentPlan: async (id: string): Promise<void> => {
+    await api.delete(`/performance/development-plans/${id}/`)
+  },
+
+  approveDevelopmentPlan: async (id: string): Promise<any> => {
+    const response = await api.post(`/performance/development-plans/${id}/approve/`)
+    return response.data
+  },
+
+  // Development Activities
+  getDevelopmentActivities: async (planId?: string): Promise<any[]> => {
+    const params = planId ? { plan: planId } : {}
+    const response = await api.get('/performance/development-activities/', { params })
+    return response.data.results || response.data
+  },
+
+  createDevelopmentActivity: async (data: any): Promise<any> => {
+    const response = await api.post('/performance/development-activities/', data)
+    return response.data
+  },
+
+  updateDevelopmentActivity: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/performance/development-activities/${id}/`, data)
+    return response.data
+  },
+
+  deleteDevelopmentActivity: async (id: string): Promise<void> => {
+    await api.delete(`/performance/development-activities/${id}/`)
+  },
 }
