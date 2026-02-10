@@ -1898,11 +1898,14 @@ class EmployeeTransaction(BaseModel):
         if not self.reference_number:
             self.reference_number = self.generate_reference_number()
 
-        # Auto-link to active calendar if not set
-        if not self.calendar_id:
-            active_calendar = PayrollSettings.get_active_calendar()
-            if active_calendar:
-                self.calendar = active_calendar
+        # Auto-link calendar based on effective_from date
+        if not self.calendar_id and self.effective_from:
+            calendar = PayrollCalendar.objects.filter(
+                year=self.effective_from.year,
+                month=self.effective_from.month,
+            ).first()
+            if calendar:
+                self.calendar = calendar
 
         super().save(*args, **kwargs)
 

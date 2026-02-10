@@ -465,11 +465,17 @@ class EmployeeTransactionCreateSerializer(serializers.ModelSerializer):
         employee_ids = validated_data.pop('employee_ids', None)
         supporting_document = validated_data.pop('supporting_document', None)
 
-        # Auto-set payroll_period to active period if not provided
+        # Auto-set payroll_period based on effective_from date
         if not validated_data.get('payroll_period'):
-            active_period = PayrollSettings.get_active_period()
-            if active_period:
-                validated_data['payroll_period'] = active_period
+            effective_from = validated_data.get('effective_from')
+            if effective_from:
+                period = PayrollPeriod.objects.filter(
+                    year=effective_from.year,
+                    month=effective_from.month,
+                    is_supplementary=False,
+                ).first()
+                if period:
+                    validated_data['payroll_period'] = period
 
         if employee_ids:
             # Bulk creation

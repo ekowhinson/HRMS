@@ -781,11 +781,18 @@ class EmployeeTransactionViewSet(viewsets.ModelViewSet):
         employee_ids = data.pop('employee_ids')
         pay_component = data.pop('pay_component')
 
-        # Auto-set payroll_period to active period if not provided
+        # Auto-set payroll_period based on effective_from date
         if not data.get('payroll_period'):
-            active_period = PayrollSettings.get_active_period()
-            if active_period:
-                data['payroll_period'] = active_period
+            effective_from = data.get('effective_from')
+            if effective_from:
+                from payroll.models import PayrollPeriod as PP
+                period = PP.objects.filter(
+                    year=effective_from.year,
+                    month=effective_from.month,
+                    is_supplementary=False,
+                ).first()
+                if period:
+                    data['payroll_period'] = period
 
         from employees.models import Employee
         transactions = []
