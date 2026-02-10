@@ -600,7 +600,7 @@ class PayrollService:
                 details.append({
                     'pay_component': txn.pay_component,
                     'amount': txn_amount,
-                    'quantity': Decimal('1'),
+                    'quantity': txn.quantity,
                     'notes': f'{txn.reference_number}: {txn.description or ""}',
                 })
 

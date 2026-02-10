@@ -341,7 +341,7 @@ class EmployeeTransactionSerializer(serializers.ModelSerializer):
             'applicable_employee_count',
             'pay_component', 'component_code', 'component_name', 'component_type',
             'override_type', 'override_type_display',
-            'override_amount', 'override_percentage', 'override_formula',
+            'override_amount', 'override_percentage', 'override_formula', 'quantity',
             'is_recurring', 'effective_from', 'effective_to',
             'calendar', 'calendar_name', 'calendar_year', 'calendar_month',
             'payroll_period', 'payroll_period_name',

@@ -65,6 +65,7 @@ interface TransactionFormData {
   override_amount: string
   override_percentage: string
   override_formula: string
+  quantity: string
   is_recurring: boolean
   effective_from: string
   effective_to: string
@@ -82,6 +83,7 @@ const initialFormData: TransactionFormData = {
   override_amount: '',
   override_percentage: '',
   override_formula: '',
+  quantity: '1',
   is_recurring: true,
   effective_from: new Date().toISOString().split('T')[0],
   effective_to: '',
@@ -293,6 +295,10 @@ export default function EmployeeTransactionsPage() {
       data.override_formula = formData.override_formula
     }
 
+    if (parseFloat(formData.quantity) !== 1) {
+      data.quantity = parseFloat(formData.quantity)
+    }
+
     // Set target based on target_type
     if (formData.target_type === 'GRADE') {
       data.job_grade = formData.job_grade
@@ -338,23 +344,26 @@ export default function EmployeeTransactionsPage() {
 
     const basicSalary = selectedEmployee.salary?.basic_salary || 0
     const grossSalary = selectedEmployee.salary?.gross_salary || basicSalary
+    const qty = parseFloat(formData.quantity) || 1
+
+    let amount: number | null = null
 
     if (formData.override_type === 'FIXED' && formData.override_amount) {
-      return parseFloat(formData.override_amount)
-    }
-    if (formData.override_type === 'PCT' && formData.override_percentage) {
-      return (basicSalary * parseFloat(formData.override_percentage)) / 100
-    }
-    if (formData.override_type === 'NONE') {
+      amount = parseFloat(formData.override_amount)
+    } else if (formData.override_type === 'PCT' && formData.override_percentage) {
+      amount = (basicSalary * parseFloat(formData.override_percentage)) / 100
+    } else if (formData.override_type === 'NONE') {
       if (selectedComponent.calculation_type === 'FIXED') {
-        return selectedComponent.default_amount || 0
+        amount = selectedComponent.default_amount || 0
+      } else if (selectedComponent.calculation_type === 'PCT_BASIC') {
+        amount = (basicSalary * (selectedComponent.percentage_value || 0)) / 100
+      } else if (selectedComponent.calculation_type === 'PCT_GROSS') {
+        amount = (grossSalary * (selectedComponent.percentage_value || 0)) / 100
       }
-      if (selectedComponent.calculation_type === 'PCT_BASIC') {
-        return (basicSalary * (selectedComponent.percentage_value || 0)) / 100
-      }
-      if (selectedComponent.calculation_type === 'PCT_GROSS') {
-        return (grossSalary * (selectedComponent.percentage_value || 0)) / 100
-      }
+    }
+
+    if (amount !== null) {
+      return amount * qty
     }
     return null
   }
@@ -924,6 +933,19 @@ export default function EmployeeTransactionsPage() {
             </div>
           )}
 
+          {/* Overtime Hours */}
+          {selectedComponent?.is_overtime && (
+            <Input
+              label="Overtime Hours"
+              type="number"
+              step="0.5"
+              min="0.5"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+              required
+            />
+          )}
+
           {/* Amount Preview */}
           {!isBulkMode && selectedComponent && selectedEmployee && (
             <div className="p-3 bg-blue-50 rounded-lg">
@@ -1074,6 +1096,12 @@ export default function EmployeeTransactionsPage() {
                     : showViewModal.override_formula}
                 </p>
               </div>
+              {showViewModal.quantity && showViewModal.quantity !== 1 && (
+                <div>
+                  <label className="text-xs text-gray-500">Quantity / Hours</label>
+                  <p>{showViewModal.quantity}</p>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-gray-500">Type</label>
                 <p>{showViewModal.is_recurring ? 'Recurring' : 'One-time'}</p>

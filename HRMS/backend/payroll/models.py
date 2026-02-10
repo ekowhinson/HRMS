@@ -1614,6 +1614,10 @@ class EmployeeTransaction(BaseModel):
     override_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     override_percentage = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
     override_formula = models.TextField(null=True, blank=True)
+    quantity = models.DecimalField(
+        max_digits=8, decimal_places=2, default=Decimal('1'),
+        help_text='Multiplier for calculated amount (e.g., overtime hours)'
+    )
 
     # Recurring vs one-time
     is_recurring = models.BooleanField(default=True)
@@ -1811,41 +1815,36 @@ class EmployeeTransaction(BaseModel):
         """
         # Determine which calculation to use
         if self.override_type == self.OverrideType.FIXED:
-            return self.override_amount or Decimal('0')
+            amount = self.override_amount or Decimal('0')
 
         elif self.override_type == self.OverrideType.PERCENTAGE:
             pct = self.override_percentage or Decimal('0')
-            # Default to percentage of basic
-            return (basic_salary * pct / Decimal('100')).quantize(Decimal('0.01'))
+            amount = (basic_salary * pct / Decimal('100')).quantize(Decimal('0.01'))
 
         elif self.override_type == self.OverrideType.FORMULA:
             formula = self.override_formula
-            if formula:
-                return self._evaluate_formula(formula, basic_salary, gross_salary)
-            return Decimal('0')
+            amount = self._evaluate_formula(formula, basic_salary, gross_salary) if formula else Decimal('0')
 
-        # Use pay component defaults (NONE override)
-        component = self.pay_component
-        calc_type = component.calculation_type
+        else:
+            # Use pay component defaults (NONE override)
+            component = self.pay_component
+            calc_type = component.calculation_type
 
-        if calc_type == PayComponent.CalculationType.FIXED:
-            return component.default_amount or Decimal('0')
+            if calc_type == PayComponent.CalculationType.FIXED:
+                amount = component.default_amount or Decimal('0')
+            elif calc_type == PayComponent.CalculationType.PERCENTAGE_BASIC:
+                pct = component.percentage_value or Decimal('0')
+                amount = (basic_salary * pct / Decimal('100')).quantize(Decimal('0.01'))
+            elif calc_type == PayComponent.CalculationType.PERCENTAGE_GROSS:
+                pct = component.percentage_value or Decimal('0')
+                amount = (gross_salary * pct / Decimal('100')).quantize(Decimal('0.01'))
+            elif calc_type == PayComponent.CalculationType.FORMULA:
+                formula = component.formula
+                amount = self._evaluate_formula(formula, basic_salary, gross_salary) if formula else Decimal('0')
+            else:
+                amount = Decimal('0')
 
-        elif calc_type == PayComponent.CalculationType.PERCENTAGE_BASIC:
-            pct = component.percentage_value or Decimal('0')
-            return (basic_salary * pct / Decimal('100')).quantize(Decimal('0.01'))
-
-        elif calc_type == PayComponent.CalculationType.PERCENTAGE_GROSS:
-            pct = component.percentage_value or Decimal('0')
-            return (gross_salary * pct / Decimal('100')).quantize(Decimal('0.01'))
-
-        elif calc_type == PayComponent.CalculationType.FORMULA:
-            formula = component.formula
-            if formula:
-                return self._evaluate_formula(formula, basic_salary, gross_salary)
-            return Decimal('0')
-
-        return Decimal('0')
+        return (amount * self.quantity).quantize(Decimal('0.01'))
 
     def _evaluate_formula(self, formula: str, basic_salary: Decimal, gross_salary: Decimal) -> Decimal:
         """

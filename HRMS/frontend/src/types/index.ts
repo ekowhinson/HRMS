@@ -763,6 +763,7 @@ export interface EmployeeTransaction {
   override_amount?: number
   override_percentage?: number
   override_formula?: string
+  quantity?: number
   is_recurring: boolean
   effective_from: string
   effective_to?: string
@@ -789,6 +790,7 @@ export interface EmployeeTransactionCreate {
   override_amount?: number
   override_percentage?: number
   override_formula?: string
+  quantity?: number
   is_recurring: boolean
   effective_from: string
   effective_to?: string
@@ -813,6 +815,7 @@ export interface BulkTransactionCreate {
   override_amount?: number
   override_percentage?: number
   override_formula?: string
+  quantity?: number
   is_recurring: boolean
   effective_from: string
   effective_to?: string
