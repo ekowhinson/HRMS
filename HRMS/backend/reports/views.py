@@ -3349,7 +3349,8 @@ class SalaryReconciliationView(APIView):
                         prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
                         if detail['amount'] != prev_amt:
                             non_recurring_add.append({
-                                'description': detail['name'],
+                                'employee_name': emp.full_name,
+                                'description': f"{emp.full_name} - {detail['name']}",
                                 'amount': float(detail['amount']),
                             })
                             total_non_recurring_add += detail['amount']
@@ -3359,7 +3360,8 @@ class SalaryReconciliationView(APIView):
                     if not detail['is_recurring'] and detail['amount'] > 0:
                         if code not in curr_comps or curr_comps[code]['amount'] == 0:
                             non_recurring_less.append({
-                                'description': detail['name'],
+                                'employee_name': emp.full_name,
+                                'description': f"{emp.full_name} - {detail['name']}",
                                 'amount': float(detail['amount']),
                             })
                             total_non_recurring_less += detail['amount']
