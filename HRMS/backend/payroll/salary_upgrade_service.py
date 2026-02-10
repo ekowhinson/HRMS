@@ -81,12 +81,14 @@ class SalaryUpgradeService:
         Approve a PENDING request: apply the actual upgrade (Employee update,
         EmployeeSalary, EmploymentHistory, auto-backpay), then mark APPROVED.
         """
+        # Only select_related non-nullable FKs with select_for_update();
+        # nullable FKs produce LEFT OUTER JOINs which PostgreSQL rejects
+        # with "FOR UPDATE cannot be applied to the nullable side of an outer join".
+        # Nullable relations (salary_notch, grade, position, new_grade, new_position)
+        # are lazy-loaded within the same transaction.
         req = SalaryUpgradeRequest.objects.select_related(
-            'employee', 'employee__salary_notch',
-            'employee__salary_notch__level', 'employee__salary_notch__level__band',
-            'employee__grade', 'employee__position',
+            'employee',
             'new_notch', 'new_notch__level', 'new_notch__level__band',
-            'new_grade', 'new_position',
         ).select_for_update().get(pk=request_id)
 
         if req.status != SalaryUpgradeRequest.Status.PENDING:
