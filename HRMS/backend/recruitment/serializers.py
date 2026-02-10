@@ -320,6 +320,7 @@ class VacancyURLListSerializer(serializers.ModelSerializer):
     vacancy_number = serializers.CharField(source='vacancy.vacancy_number', read_only=True)
     vacancy_title = serializers.CharField(source='vacancy.job_title', read_only=True)
     url_type_display = serializers.CharField(source='get_url_type_display', read_only=True)
+    full_url = serializers.ReadOnlyField()
     is_expired = serializers.ReadOnlyField()
 
     class Meta:
@@ -327,6 +328,7 @@ class VacancyURLListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'vacancy', 'vacancy_number', 'vacancy_title',
             'url_type', 'url_type_display', 'url_slug',
+            'full_url', 'expires_at', 'max_uses', 'current_uses',
             'is_active', 'is_expired', 'view_count', 'application_count',
             'created_at'
         ]

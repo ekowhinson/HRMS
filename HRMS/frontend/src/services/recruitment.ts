@@ -239,15 +239,18 @@ export interface VacancyURL {
   id: string
   vacancy: string
   vacancy_title: string
-  vacancy_reference: string
+  vacancy_number: string
   url_type: string
-  slug: string
+  url_type_display: string
+  url_slug: string
   full_url: string
   expires_at: string | null
   is_active: boolean
-  max_applications: number | null
-  current_applications: number
-  views_count: number
+  is_expired: boolean
+  max_uses: number | null
+  current_uses: number
+  view_count: number
+  application_count: number
   created_at: string
 }
 
@@ -652,7 +655,7 @@ export const recruitmentService = {
     vacancy: string
     url_type: string
     expires_at?: string
-    max_applications?: number
+    max_uses?: number
   }): Promise<VacancyURL> => {
     const response = await api.post('/recruitment/vacancy-urls/', data)
     return response.data

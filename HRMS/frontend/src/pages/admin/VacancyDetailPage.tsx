@@ -296,12 +296,12 @@ export default function VacancyDetailPage() {
     if (!id) return
     setSavingURL(true)
     try {
-      const data: { vacancy: string; url_type: string; expires_at?: string; max_applications?: number } = {
+      const data: { vacancy: string; url_type: string; expires_at?: string; max_uses?: number } = {
         vacancy: id,
         url_type: urlFormData.url_type,
       }
       if (urlFormData.expires_at) data.expires_at = urlFormData.expires_at
-      if (urlFormData.max_applications) data.max_applications = parseInt(urlFormData.max_applications)
+      if (urlFormData.max_applications) data.max_uses = parseInt(urlFormData.max_applications)
 
       const newURL = await recruitmentService.createVacancyURL(data)
       setVacancyURLs((prev) => [newURL, ...prev])
@@ -887,8 +887,8 @@ export default function VacancyDetailPage() {
                             </Button>
                           </div>
                           <div className="flex gap-6 mt-3 text-xs text-gray-500">
-                            <span>Views: {url.views_count}</span>
-                            <span>Applications: {url.current_applications}{url.max_applications ? `/${url.max_applications}` : ''}</span>
+                            <span>Views: {url.view_count}</span>
+                            <span>Applications: {url.application_count}{url.max_uses ? `/${url.max_uses}` : ''}</span>
                             <span>Created: {new Date(url.created_at).toLocaleDateString()}</span>
                             {url.expires_at && (
                               <span>Expires: {new Date(url.expires_at).toLocaleDateString()}</span>

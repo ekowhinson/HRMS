@@ -520,6 +520,15 @@ class VacancyURLViewSet(viewsets.ModelViewSet):
             return VacancyURLListSerializer
         return VacancyURLSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return Response(
+            VacancyURLSerializer(instance).data,
+            status=status.HTTP_201_CREATED
+        )
+
     @action(detail=False, methods=['get'])
     def by_vacancy(self, request):
         """Get all URLs for a specific vacancy."""
