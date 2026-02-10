@@ -44,7 +44,12 @@ const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'info' | '
   DECEASED: 'danger',
 }
 
-export default function EmployeeDetailPage() {
+interface EmployeeDetailPageProps {
+  readOnly?: boolean
+  basePath?: string
+}
+
+export default function EmployeeDetailPage({ readOnly = false, basePath = '/employees' }: EmployeeDetailPageProps) {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<TabType>('personal')
   const [expandedPayslips, setExpandedPayslips] = useState<Record<string, boolean>>({})
@@ -202,7 +207,7 @@ export default function EmployeeDetailPage() {
         </p>
         <div className="flex gap-3">
           <Button onClick={() => refetch()}>Try Again</Button>
-          <Link to="/employees">
+          <Link to={basePath}>
             <Button variant="outline">Back to Employees</Button>
           </Link>
         </div>
@@ -214,7 +219,7 @@ export default function EmployeeDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">Employee not found</p>
-        <Link to="/employees" className="text-primary-600 hover:underline mt-2 inline-block">
+        <Link to={basePath} className="text-primary-600 hover:underline mt-2 inline-block">
           Back to Employees
         </Link>
       </div>
@@ -224,7 +229,7 @@ export default function EmployeeDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link to="/employees">
+        <Link to={basePath}>
           <Button variant="ghost" size="sm">
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
             Back
@@ -260,14 +265,16 @@ export default function EmployeeDetailPage() {
                 <span>Grade: {employee.grade_name || 'Not Set'}</span>
               </div>
             </div>
-            <div className="flex gap-3">
-              <Link to={`/employees/${id}/edit`}>
-                <Button variant="outline">
-                  <PencilIcon className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              </Link>
-            </div>
+            {!readOnly && (
+              <div className="flex gap-3">
+                <Link to={`/employees/${id}/edit`}>
+                  <Button variant="outline">
+                    <PencilIcon className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1247,10 +1254,12 @@ export default function EmployeeDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Employee Transactions</CardTitle>
-              <Button onClick={() => setShowTransactionModal(true)}>
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Add Transaction
-              </Button>
+              {!readOnly && (
+                <Button onClick={() => setShowTransactionModal(true)}>
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Add Transaction
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {isLoadingTransactions ? (
@@ -1282,9 +1291,11 @@ export default function EmployeeDetailPage() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
+                        {!readOnly && (
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -1336,53 +1347,55 @@ export default function EmployeeDetailPage() {
                               {txn.status_display || txn.status}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex gap-1">
-                              {txn.status === 'PENDING' && (
-                                <>
+                          {!readOnly && (
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex gap-1">
+                                {txn.status === 'PENDING' && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => approveTransactionMutation.mutate({ txnId: txn.id })}
+                                      title="Approve"
+                                    >
+                                      <CheckIcon className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        const reason = prompt('Enter rejection reason:')
+                                        if (reason) rejectTransactionMutation.mutate({ txnId: txn.id, reason })
+                                      }}
+                                      title="Reject"
+                                    >
+                                      <XMarkIcon className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </>
+                                )}
+                                {txn.status === 'ACTIVE' && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => approveTransactionMutation.mutate({ txnId: txn.id })}
-                                    title="Approve"
+                                    onClick={() => suspendTransactionMutation.mutate(txn.id)}
+                                    title="Suspend"
                                   >
-                                    <CheckIcon className="h-4 w-4 text-green-600" />
+                                    <PauseIcon className="h-4 w-4 text-yellow-600" />
                                   </Button>
+                                )}
+                                {txn.status === 'SUSPENDED' && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => {
-                                      const reason = prompt('Enter rejection reason:')
-                                      if (reason) rejectTransactionMutation.mutate({ txnId: txn.id, reason })
-                                    }}
-                                    title="Reject"
+                                    onClick={() => reactivateTransactionMutation.mutate(txn.id)}
+                                    title="Reactivate"
                                   >
-                                    <XMarkIcon className="h-4 w-4 text-red-600" />
+                                    <PlayIcon className="h-4 w-4 text-green-600" />
                                   </Button>
-                                </>
-                              )}
-                              {txn.status === 'ACTIVE' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => suspendTransactionMutation.mutate(txn.id)}
-                                  title="Suspend"
-                                >
-                                  <PauseIcon className="h-4 w-4 text-yellow-600" />
-                                </Button>
-                              )}
-                              {txn.status === 'SUSPENDED' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => reactivateTransactionMutation.mutate(txn.id)}
-                                  title="Reactivate"
-                                >
-                                  <PlayIcon className="h-4 w-4 text-green-600" />
-                                </Button>
-                              )}
-                            </div>
-                          </td>
+                                )}
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

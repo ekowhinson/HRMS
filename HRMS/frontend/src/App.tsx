@@ -40,6 +40,7 @@ import DataAnalyzerPage from './pages/admin/DataAnalyzerPage'
 import PayrollSetupPage from './pages/admin/PayrollSetupPage'
 import PayrollImplementationPage from './pages/admin/PayrollImplementationPage'
 import BackpayPage from './pages/admin/BackpayPage'
+import SalaryUpgradePage from './pages/admin/SalaryUpgradePage'
 // Performance pages
 import CoreValuesPage from './pages/admin/CoreValuesPage'
 import ProbationAssessmentsPage from './pages/admin/ProbationAssessmentsPage'
@@ -84,6 +85,9 @@ import AuditLogsPage from './pages/admin/AuditLogsPage'
 // Approval Workflow
 import ApprovalInboxPage from './pages/ApprovalInboxPage'
 import ApprovalWorkflowPage from './pages/admin/ApprovalWorkflowPage'
+// Payroll Employee Views
+import PayrollEmployeesPage from './pages/payroll/PayrollEmployeesPage'
+import PayrollEmployeeDetailPage from './pages/payroll/PayrollEmployeeDetailPage'
 
 // Roles that grant access to HR features (Self Service + HR + Payroll sections)
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
@@ -115,7 +119,7 @@ function useIsPayrollAdmin() {
   const userRoles = useUserRoles()
   if (!user) return false
   if (user.is_staff || user.is_superuser) return true
-  return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'ADMIN', 'SUPERUSER'].includes(role))
+  return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'PAYROLL_DATA_ENTRY', 'ADMIN', 'SUPERUSER'].includes(role))
 }
 
 function useIsSystemAdmin() {
@@ -269,6 +273,9 @@ function App() {
                 <Route path="/admin/payroll-setup" element={<PayrollRoute><PayrollSetupPage /></PayrollRoute>} />
                 <Route path="/admin/payroll-implementation" element={<PayrollRoute><PayrollImplementationPage /></PayrollRoute>} />
                 <Route path="/admin/backpay" element={<PayrollRoute><BackpayPage /></PayrollRoute>} />
+                <Route path="/admin/salary-upgrades" element={<PayrollRoute><SalaryUpgradePage /></PayrollRoute>} />
+                <Route path="/payroll/employees" element={<PayrollRoute><PayrollEmployeesPage /></PayrollRoute>} />
+                <Route path="/payroll/employees/:id" element={<PayrollRoute><PayrollEmployeeDetailPage /></PayrollRoute>} />
 
                 {/* Data Tools - System Admin only */}
                 <Route path="/admin/data-import" element={<SystemAdminRoute><DataImportPage /></SystemAdminRoute>} />

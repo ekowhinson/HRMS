@@ -44,6 +44,7 @@ import {
   ExclamationTriangleIcon,
   ChatBubbleLeftRightIcon,
   InboxStackIcon,
+  ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
@@ -137,19 +138,39 @@ const hrSections: NavSection[] = [
 // Payroll Section - Top level items
 const payrollNavigation: NavItem[] = [
   { name: 'Payroll Overview', href: '/payroll', icon: BanknotesIcon },
-  { name: 'Process Payroll', href: '/admin/payroll', icon: CalculatorIcon },
-  { name: 'Backpay', href: '/admin/backpay', icon: ArrowPathIcon },
-  { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
-  { name: 'Employee Transactions', href: '/admin/employee-transactions', icon: DocumentPlusIcon },
-  { name: 'Benefits', href: '/benefits', icon: GiftIcon },
-  { name: 'Loan Management', href: '/admin/loans', icon: CreditCardIcon },
+  { name: 'Employee Directory', href: '/payroll/employees', icon: UsersIcon },
   { name: 'Reports', href: '/reports', icon: ChartBarIcon },
 ];
 
 // Payroll Section - Collapsible sub-sections
 const payrollSections: NavSection[] = [
   {
-    name: 'Payroll Setup',
+    name: 'Payroll Processing',
+    icon: CalculatorIcon,
+    items: [
+      { name: 'Process Payroll', href: '/admin/payroll', icon: CalculatorIcon },
+      { name: 'Backpay', href: '/admin/backpay', icon: ArrowPathIcon },
+      { name: 'Salary Upgrades', href: '/admin/salary-upgrades', icon: ArrowTrendingUpIcon },
+    ],
+  },
+  {
+    name: 'Transactions',
+    icon: CurrencyDollarIcon,
+    items: [
+      { name: 'Employee Transactions', href: '/admin/employee-transactions', icon: DocumentPlusIcon },
+      { name: 'Benefits', href: '/benefits', icon: GiftIcon },
+      { name: 'Loan Management', href: '/admin/loans', icon: CreditCardIcon },
+    ],
+  },
+  {
+    name: 'Data Loading',
+    icon: DocumentArrowUpIcon,
+    items: [
+      { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
+    ],
+  },
+  {
+    name: 'Setup',
     icon: WrenchScrewdriverIcon,
     items: [
       { name: 'Period Setup', href: '/admin/payroll-setup?tab=settings', icon: CalendarDaysIcon },
@@ -437,7 +458,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const isPayrollAdmin = (() => {
     if (!user) return false
     if (user.is_staff || user.is_superuser) return true
-    return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'ADMIN', 'SUPERUSER'].includes(role))
+    return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'PAYROLL_DATA_ENTRY', 'ADMIN', 'SUPERUSER'].includes(role))
   })();
 
   // Check if user has full Admin access (Administration section - system settings, user mgmt, etc.)

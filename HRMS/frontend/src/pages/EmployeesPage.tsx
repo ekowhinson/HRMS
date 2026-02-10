@@ -20,7 +20,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import type { Employee } from '@/types';
 
-export default function EmployeesPage() {
+interface EmployeesPageProps {
+  readOnly?: boolean
+  basePath?: string
+}
+
+export default function EmployeesPage({ readOnly = false, basePath = '/employees' }: EmployeesPageProps) {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   const [search, setSearch] = useState('');
@@ -65,7 +70,7 @@ export default function EmployeesPage() {
           />
           <div>
             <Link
-              to={`/employees/${employee.id}`}
+              to={`${basePath}/${employee.id}`}
               className="text-sm font-medium text-gray-900 hover:text-primary-600 transition-colors"
             >
               {employee.first_name} {employee.last_name}
@@ -164,19 +169,21 @@ export default function EmployeesPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
       <PageHeader
-        title="Employees"
-        subtitle="Manage employee records and information"
-        breadcrumbs={[{ label: 'Employees' }]}
+        title={readOnly ? "Employee Directory" : "Employees"}
+        subtitle={readOnly ? "View employee records for payroll processing" : "Manage employee records and information"}
+        breadcrumbs={[{ label: readOnly ? 'Employee Directory' : 'Employees' }]}
         actions={
           <div className="flex gap-3">
             <Button variant="outline" size="sm" leftIcon={<ArrowDownTrayIcon className="w-4 h-4" />}>
               Export
             </Button>
-            <Link to="/employees/new">
-              <Button size="sm" leftIcon={<PlusIcon className="w-4 h-4" />}>
-                Add Employee
-              </Button>
-            </Link>
+            {!readOnly && (
+              <Link to="/employees/new">
+                <Button size="sm" leftIcon={<PlusIcon className="w-4 h-4" />}>
+                  Add Employee
+                </Button>
+              </Link>
+            )}
           </div>
         }
       />
@@ -286,7 +293,9 @@ export default function EmployeesPage() {
             action={
               search || filters.department || filters.employment_status || filters.grade
                 ? { label: 'Clear Filters', onClick: clearFilters }
-                : { label: 'Add Employee', onClick: () => (window.location.href = '/employees/new') }
+                : readOnly
+                  ? undefined
+                  : { label: 'Add Employee', onClick: () => (window.location.href = '/employees/new') }
             }
           />
         ) : (

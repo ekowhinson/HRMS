@@ -13,6 +13,7 @@ import {
   ClockIcon,
   ChevronUpDownIcon,
 } from '@heroicons/react/24/outline'
+import { useAuthStore } from '@/features/auth/store'
 import { salaryUpgradeService } from '@/services/salaryUpgrade'
 import type { UpgradeRequestFilters, SalaryUpgradePreview, SalaryUpgradeRequest } from '@/services/salaryUpgrade'
 import { employeeService } from '@/services/employees'
@@ -42,6 +43,27 @@ const reasonOptions = [
 
 export default function SalaryUpgradePage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.user)
+
+  // Derive role-based permissions
+  const userRoles: string[] = useMemo(() => {
+    if (!user) return []
+    const roles: string[] = []
+    if (Array.isArray(user.roles)) {
+      user.roles.forEach((r: any) => {
+        const roleStr = typeof r === 'string' ? r : (r?.code || r?.name || '')
+        if (typeof roleStr === 'string' && roleStr) {
+          roles.push(roleStr.toUpperCase())
+        }
+      })
+    }
+    return roles
+  }, [user])
+
+  const isStaffOrSuper = !!(user?.is_staff || user?.is_superuser)
+  const canCreate = isStaffOrSuper || userRoles.includes('PAYROLL_DATA_ENTRY')
+  const canApprove = isStaffOrSuper || userRoles.includes('PAYROLL_ADMIN')
+
   const [page, setPage] = useState(1)
   const [pageSize] = useState(20)
   const [filters, setFilters] = useState<UpgradeRequestFilters>({})
@@ -356,22 +378,24 @@ export default function SalaryUpgradePage() {
             <h1 className="text-2xl font-bold text-white">Salary Upgrades</h1>
             <p className="text-sm text-white/70 mt-1">Process notch increments, grade changes, and promotions</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setShowBulkModal(true)}
-              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
-            >
-              <UsersIcon className="h-4 w-4 mr-2" />
-              Bulk Upgrade
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
-            >
-              <PlusIcon className="h-4 w-4 mr-2" />
-              New Upgrade
-            </button>
-          </div>
+          {canCreate && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowBulkModal(true)}
+                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+              >
+                <UsersIcon className="h-4 w-4 mr-2" />
+                Bulk Upgrade
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                New Upgrade
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -477,10 +501,12 @@ export default function SalaryUpgradePage() {
                 <p className="text-lg font-medium text-gray-400">No upgrade requests found</p>
                 <p className="text-sm text-gray-400 mt-1">Submit a new upgrade request to get started</p>
               </div>
-              <Button variant="primary" onClick={() => setShowCreateModal(true)}>
-                <PlusIcon className="h-4 w-4 mr-2" />
-                New Upgrade
-              </Button>
+              {canCreate && (
+                <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  New Upgrade
+                </Button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -556,7 +582,7 @@ export default function SalaryUpgradePage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3.5 text-center">
-                        {item.status === 'PENDING' ? (
+                        {item.status === 'PENDING' && canApprove ? (
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => handleApprove(item)}
@@ -576,6 +602,8 @@ export default function SalaryUpgradePage() {
                               Reject
                             </button>
                           </div>
+                        ) : item.status === 'PENDING' ? (
+                          <span className="text-xs text-gray-400">Awaiting approval</span>
                         ) : (
                           <span className="text-xs text-gray-400">
                             {item.approved_by_name ? `by ${item.approved_by_name}` : '—'}
