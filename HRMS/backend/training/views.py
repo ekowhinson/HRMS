@@ -21,7 +21,7 @@ from .serializers import (
     TrainingSessionListSerializer, TrainingSessionDetailSerializer,
     TrainingSessionCreateSerializer,
     TrainingEnrollmentListSerializer, TrainingEnrollmentDetailSerializer,
-    TrainingEnrollmentCreateSerializer,
+    TrainingEnrollmentCreateSerializer, MyEnrollmentSerializer,
     PostTrainingReportSerializer, PostTrainingReportCreateSerializer,
     TrainingImpactAssessmentSerializer, TrainingImpactAssessmentCreateSerializer,
 )
@@ -243,6 +243,27 @@ class TrainingEnrollmentViewSet(viewsets.ModelViewSet):
         enrollment.save()
 
         serializer = TrainingEnrollmentDetailSerializer(enrollment)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def my_enrollments(self, request):
+        """Get training enrollments for the current user."""
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response(
+                {'detail': 'No employee profile found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        enrollments = self.get_queryset().filter(
+            employee=employee
+        ).order_by('-session__start_date')
+
+        # Optional status filter
+        enrollment_status = request.query_params.get('status')
+        if enrollment_status:
+            enrollments = enrollments.filter(status=enrollment_status)
+
+        serializer = MyEnrollmentSerializer(enrollments, many=True)
         return Response(serializer.data)
 
 

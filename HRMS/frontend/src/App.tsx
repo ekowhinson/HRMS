@@ -52,6 +52,8 @@ import AppraisalDetailPage from './pages/admin/AppraisalDetailPage'
 import CompetenciesPage from './pages/admin/CompetenciesPage'
 // Portal - Performance
 import MyAppraisalPage from './pages/portal/MyAppraisalPage'
+// Portal - Training
+import MyTrainingPage from './pages/portal/MyTrainingPage'
 // Report pages
 import PayrollMasterReportPage from './pages/reports/PayrollMasterReportPage'
 import PayrollReconciliationPage from './pages/admin/PayrollReconciliationPage'
@@ -240,6 +242,7 @@ function App() {
                 <Route path="/my-data-updates" element={<DataUpdateRequestsPage />} />
                 <Route path="/my-service-requests" element={<ServiceRequestsPage />} />
                 <Route path="/my-appraisal" element={<MyAppraisalPage />} />
+                <Route path="/my-training" element={<MyTrainingPage />} />
                 <Route path="/my-payslips" element={<MyPayslipsPage />} />
                 <Route path="/my-loans" element={<MyLoansPage />} />
                 <Route path="/my-disciplinary" element={<MyDisciplinaryPage />} />

@@ -203,6 +203,26 @@ class TrainingEnrollmentListSerializer(serializers.ModelSerializer):
             return None
 
 
+class MyEnrollmentSerializer(TrainingEnrollmentListSerializer):
+    """Enriched serializer for employee-facing 'My Training' view."""
+    program_name = serializers.CharField(source='session.program.name', read_only=True)
+    session_start_date = serializers.DateField(source='session.start_date', read_only=True)
+    session_end_date = serializers.DateField(source='session.end_date', read_only=True)
+    session_start_time = serializers.TimeField(source='session.start_time', read_only=True)
+    session_end_time = serializers.TimeField(source='session.end_time', read_only=True)
+    session_venue = serializers.CharField(source='session.venue', read_only=True)
+    session_facilitator = serializers.CharField(source='session.facilitator', read_only=True)
+    session_status = serializers.CharField(source='session.status', read_only=True)
+
+    class Meta(TrainingEnrollmentListSerializer.Meta):
+        fields = TrainingEnrollmentListSerializer.Meta.fields + [
+            'program_name',
+            'session_start_date', 'session_end_date',
+            'session_start_time', 'session_end_time',
+            'session_venue', 'session_facilitator', 'session_status',
+        ]
+
+
 class TrainingEnrollmentDetailSerializer(serializers.ModelSerializer):
     employee_name = serializers.SerializerMethodField()
     employee_number = serializers.CharField(source='employee.employee_number', read_only=True)

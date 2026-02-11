@@ -220,6 +220,12 @@ export const trainingService = {
     return response.data
   },
 
+  // My Enrollments (Employee Self-Service)
+  getMyEnrollments: async (params: { status?: string } = {}) => {
+    const response = await api.get('/training/enrollments/my_enrollments/', { params })
+    return response.data
+  },
+
   // Dashboard
   getDashboard: async (): Promise<TrainingDashboardData> => {
     const response = await api.get('/training/dashboard/')
