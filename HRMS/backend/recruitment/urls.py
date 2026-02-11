@@ -43,6 +43,11 @@ urlpatterns = [
     path('careers/apply/<slug:slug>/', views.PublicVacancyDetailView.as_view(), name='public-vacancy-detail'),
     path('careers/apply/<slug:slug>/submit/', views.PublicApplicationSubmitView.as_view(), name='public-application-submit'),
 
+    # Internal job board (authenticated employees)
+    path('internal/vacancies/', views.InternalVacancyListView.as_view(), name='internal-vacancies'),
+    path('internal/apply/<uuid:vacancy_id>/', views.InternalApplicationSubmitView.as_view(), name='internal-apply'),
+    path('internal/my-applications/', views.MyInternalApplicationsView.as_view(), name='internal-my-applications'),
+
     # Applicant portal
     path('portal/login/', views.ApplicantPortalLoginView.as_view(), name='portal-login'),
     path('portal/status/', views.ApplicantPortalStatusView.as_view(), name='portal-status'),

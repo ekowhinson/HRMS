@@ -1229,6 +1229,167 @@ from .serializers import (
 )
 
 
+# ========================================
+# Internal Job Board Views (Authenticated Employees)
+# ========================================
+
+class InternalVacancyListView(generics.ListAPIView):
+    """List vacancies available to internal employees."""
+    serializer_class = PublicVacancySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Vacancy.objects.filter(
+            status=Vacancy.Status.PUBLISHED,
+            posting_type__in=[Vacancy.PostingType.INTERNAL, Vacancy.PostingType.BOTH]
+        ).select_related('position', 'department', 'work_location')
+
+
+class InternalApplicationSubmitView(APIView):
+    """Apply for an internal vacancy as an authenticated employee."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, vacancy_id):
+        """Return vacancy details + pre-filled employee data."""
+        try:
+            vacancy = Vacancy.objects.select_related(
+                'position', 'department', 'work_location'
+            ).get(
+                id=vacancy_id,
+                status=Vacancy.Status.PUBLISHED,
+                posting_type__in=[Vacancy.PostingType.INTERNAL, Vacancy.PostingType.BOTH]
+            )
+        except Vacancy.DoesNotExist:
+            return Response({'error': 'Vacancy not found or not available for internal applications'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        employee = getattr(request.user, 'employee', None)
+        employee_data = {}
+        if employee:
+            employee_data = {
+                'first_name': employee.first_name,
+                'middle_name': employee.middle_name or '',
+                'last_name': employee.last_name,
+                'email': employee.work_email or employee.personal_email or '',
+                'phone': employee.mobile_phone or '',
+                'date_of_birth': str(employee.date_of_birth) if employee.date_of_birth else '',
+                'gender': employee.gender or '',
+                'nationality': employee.nationality or '',
+                'address': employee.residential_address or '',
+                'current_position': str(employee.position) if employee.position else '',
+                'department': str(employee.department) if employee.department else '',
+                'employee_number': employee.employee_number,
+            }
+
+        return Response({
+            'vacancy': PublicVacancySerializer(vacancy).data,
+            'employee': employee_data,
+        })
+
+    def post(self, request, vacancy_id):
+        """Submit an internal application."""
+        try:
+            vacancy = Vacancy.objects.get(
+                id=vacancy_id,
+                status=Vacancy.Status.PUBLISHED,
+                posting_type__in=[Vacancy.PostingType.INTERNAL, Vacancy.PostingType.BOTH]
+            )
+        except Vacancy.DoesNotExist:
+            return Response({'error': 'Vacancy not found or not available for internal applications'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        # Check closing date
+        if vacancy.closing_date and timezone.now().date() > vacancy.closing_date:
+            return Response({'error': 'Application deadline has passed'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response({'error': 'No employee profile linked to your account'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Duplicate check
+        if Applicant.objects.filter(vacancy=vacancy, employee=employee).exists():
+            return Response({'error': 'You have already applied for this vacancy'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Create applicant from employee data
+        import uuid
+        applicant = Applicant.objects.create(
+            applicant_number=f"APP-{uuid.uuid4().hex[:8].upper()}",
+            vacancy=vacancy,
+            first_name=employee.first_name,
+            middle_name=employee.middle_name or '',
+            last_name=employee.last_name,
+            email=employee.work_email or employee.personal_email or '',
+            phone=employee.mobile_phone or '',
+            date_of_birth=employee.date_of_birth,
+            gender=employee.gender or '',
+            nationality=employee.nationality or 'Ghanaian',
+            address=employee.residential_address or '',
+            current_position=str(employee.position) if employee.position else '',
+            cover_letter=request.data.get('cover_letter', ''),
+            is_internal=True,
+            employee=employee,
+            source=Applicant.Source.INTERNAL,
+        )
+
+        # Create status history
+        ApplicantStatusHistory.objects.create(
+            applicant=applicant,
+            old_status='',
+            new_status=Applicant.Status.NEW,
+            is_visible_to_applicant=True,
+            public_message='Your internal application has been received.'
+        )
+
+        # Auto-shortlist if criteria configured
+        try:
+            auto_shortlist_applicant(applicant)
+        except Exception:
+            pass
+
+        return Response({
+            'message': 'Internal application submitted successfully',
+            'applicant_number': applicant.applicant_number,
+        }, status=status.HTTP_201_CREATED)
+
+
+class MyInternalApplicationsView(APIView):
+    """List the authenticated employee's internal applications."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response([])
+
+        applicants = Applicant.objects.filter(
+            employee=employee, is_internal=True
+        ).select_related('vacancy', 'vacancy__department', 'vacancy__position').order_by('-application_date')
+
+        data = []
+        for app in applicants:
+            timeline = app.status_history.filter(
+                is_visible_to_applicant=True
+            ).order_by('-changed_at')[:10]
+
+            data.append({
+                'id': str(app.id),
+                'applicant_number': app.applicant_number,
+                'vacancy_id': str(app.vacancy.id),
+                'vacancy_title': app.vacancy.job_title,
+                'department': app.vacancy.department.name if app.vacancy.department else '',
+                'status': app.status,
+                'status_display': app.get_status_display(),
+                'application_date': app.application_date.isoformat(),
+                'cover_letter': app.cover_letter,
+                'timeline': ApplicantStatusHistorySerializer(timeline, many=True).data,
+            })
+
+        return Response(data)
+
+
 class ShortlistCriteriaViewSet(viewsets.ModelViewSet):
     """ViewSet for managing shortlist criteria."""
     queryset = ShortlistCriteria.objects.select_related('vacancy')

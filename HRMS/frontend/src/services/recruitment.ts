@@ -756,4 +756,26 @@ export const recruitmentService = {
     const response = await api.post(`/recruitment/careers/apply/${slug}/submit/`, data)
     return response.data
   },
+
+  // ==================== Internal Job Board ====================
+
+  getInternalVacancies: async (): Promise<any[]> => {
+    const response = await api.get('/recruitment/internal/vacancies/')
+    return response.data.results || response.data
+  },
+
+  getInternalVacancyDetail: async (vacancyId: string): Promise<any> => {
+    const response = await api.get(`/recruitment/internal/apply/${vacancyId}/`)
+    return response.data
+  },
+
+  submitInternalApplication: async (vacancyId: string, data: { cover_letter: string }): Promise<any> => {
+    const response = await api.post(`/recruitment/internal/apply/${vacancyId}/`, data)
+    return response.data
+  },
+
+  getMyInternalApplications: async (): Promise<any[]> => {
+    const response = await api.get('/recruitment/internal/my-applications/')
+    return response.data
+  },
 }
