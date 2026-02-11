@@ -1,0 +1,66 @@
+# Development overrides — automatically loaded by docker-compose.
+# To run production-like locally: docker-compose -f docker-compose.yml up
+
+services:
+  # ─── Backend: hot-reload with runserver ──────────────────────
+  backend:
+    build:
+      context: ./HRMS/backend
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./HRMS/backend:/app
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+    environment:
+      DEBUG: "true"
+      DJANGO_LOG_LEVEL: DEBUG
+    command: >
+      bash -c "
+        pip install -q watchdog &&
+        python manage.py migrate --noinput &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+
+  # ─── Celery Worker: background task processing ──────────────
+  celery:
+    build:
+      context: ./HRMS/backend
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./HRMS/backend:/app
+    env_file:
+      - .env
+    environment:
+      USE_POSTGRES: "true"
+      USE_REDIS: "true"
+      DB_HOST: db
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
+      DEBUG: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config worker -l info -Q default,imports,reports,payroll
+
+  # ─── Frontend: Vite dev server with HMR ─────────────────────
+  frontend:
+    build:
+      context: ./HRMS/frontend
+      dockerfile: Dockerfile
+      target: build
+    volumes:
+      - ./HRMS/frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: /api/v1
+      API_PROXY_TARGET: http://backend:8000
+    command: npm run dev -- --host 0.0.0.0

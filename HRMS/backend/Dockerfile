@@ -33,6 +33,9 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 # Copy application source
 COPY . .
 
+# Create logs directory (excluded by .dockerignore)
+RUN mkdir -p /app/logs
+
 # Collect static files at build time
 # Use dummy SECRET_KEY since we only need collectstatic, not full app
 ENV DJANGO_SETTINGS_MODULE=config.settings
