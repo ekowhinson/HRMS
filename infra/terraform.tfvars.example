@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# NHIA HRMS – Terraform Variables Example
+# Copy this to terraform.tfvars and fill in your values.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Required
+project_id         = "nhia-hrms-production"
+environment        = "production"
+domain             = "hrms.nhia.gov.gh"
+notification_email = "devops@nhia.gov.gh"
+
+# Optional overrides (defaults shown)
+# region           = "us-central1"
+# image_tag        = "latest"
+
+# Database
+# db_tier                   = "db-custom-4-16384"
+# db_disk_size              = 100
+# db_disk_autoresize_limit  = 500
+# db_availability_type      = "REGIONAL"
+
+# Cache
+# redis_memory_size_gb = 2
+# redis_tier           = "STANDARD_HA"
+
+# Cloud Run – API
+# api_cpu           = "2"
+# api_memory        = "1Gi"
+# api_min_instances  = 1
+# api_max_instances  = 10
+
+# Cloud Run – Worker
+# worker_cpu           = "2"
+# worker_memory        = "2Gi"
+# worker_min_instances  = 1
+# worker_max_instances  = 5
+
+# SSL Certificate (required for HTTPS)
+ssl_certificate_domains = ["hrms.nhia.gov.gh"]
+
+# CI/CD – Workload Identity Federation
+github_repo = "nhia/hrms"
+
+# Labels
+labels = {
+  organization = "nhia"
+  department   = "it"
+  cost_center  = "engineering"
+}
