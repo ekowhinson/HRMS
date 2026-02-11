@@ -448,6 +448,7 @@ class PublicApplicationSerializer(serializers.ModelSerializer):
             'highest_education', 'institution', 'graduation_year',
             'current_employer', 'current_position', 'years_of_experience',
             'current_salary', 'expected_salary', 'notice_period',
+            'previous_employer_email', 'previous_employer_phone',
             'cover_letter'
         ]
 

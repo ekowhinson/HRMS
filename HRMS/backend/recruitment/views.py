@@ -18,7 +18,8 @@ from .models import (
     Reference, JobOffer,
     InterviewScoreTemplate, InterviewScoreCategory,
     InterviewScoringSheet, InterviewScoreItem, InterviewReport,
-    VacancyURL, VacancyURLView, ApplicantPortalAccess, ApplicantStatusHistory
+    VacancyURL, VacancyURLView, ApplicantPortalAccess, ApplicantStatusHistory,
+    ApplicantDocument
 )
 from .services import ShortlistingService, auto_shortlist_applicant, apply_template_to_vacancy
 from .serializers import (
@@ -781,6 +782,394 @@ class ApplicantPortalStatusView(APIView):
         return Response({
             'applicant': ApplicantPortalSerializer(access.applicant).data,
         })
+
+
+class PortalTokenMixin:
+    """Reusable mixin for validating portal access tokens."""
+
+    def validate_portal_token(self, request):
+        """Validate X-Portal-Token header or ?token= query param.
+        Returns (applicant, None) on success or (None, error_response) on failure.
+        """
+        token = request.META.get('HTTP_X_PORTAL_TOKEN') or request.query_params.get('token')
+        if not token:
+            return None, Response(
+                {'error': 'Portal access token is required'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            access = ApplicantPortalAccess.objects.select_related(
+                'applicant', 'applicant__vacancy',
+                'applicant__vacancy__department', 'applicant__vacancy__position',
+                'applicant__vacancy__work_location'
+            ).get(access_token=token)
+        except ApplicantPortalAccess.DoesNotExist:
+            return None, Response(
+                {'error': 'Invalid access token'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if not access.is_valid():
+            return None, Response(
+                {'error': 'Access token has expired'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        return access.applicant, None
+
+
+class ApplicantPortalDashboardView(PortalTokenMixin, APIView):
+    """Full applicant portal dashboard."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        applicant, error = self.validate_portal_token(request)
+        if error:
+            return error
+
+        # Applicant info
+        applicant_data = ApplicantPortalSerializer(applicant).data
+
+        # Offer summary
+        offer_data = None
+        offer = applicant.offers.first()
+        if offer:
+            offer_data = {
+                'id': str(offer.id),
+                'offer_number': offer.offer_number,
+                'status': offer.status,
+                'status_display': offer.get_status_display(),
+                'position': offer.position.name if offer.position else '',
+                'department': offer.department.name if offer.department else '',
+                'basic_salary': str(offer.basic_salary),
+                'total_compensation': str(offer.total_compensation),
+                'proposed_start_date': str(offer.proposed_start_date),
+                'response_deadline': str(offer.response_deadline),
+                'has_offer_letter': offer.has_offer_letter,
+            }
+
+        # Documents checklist
+        documents = applicant.documents.all()
+        documents_data = [
+            {
+                'id': str(doc.id),
+                'document_type': doc.document_type,
+                'document_type_display': doc.get_document_type_display(),
+                'status': doc.status,
+                'status_display': doc.get_status_display(),
+                'file_name': doc.file_name,
+                'file_size': doc.file_size,
+                'rejection_reason': doc.rejection_reason,
+                'updated_at': doc.updated_at.isoformat() if doc.updated_at else None,
+            }
+            for doc in documents
+        ]
+
+        # Interviews
+        interviews = applicant.interviews.filter(
+            status__in=['SCHEDULED', 'CONFIRMED']
+        ).order_by('scheduled_date', 'scheduled_time')
+        interviews_data = [
+            {
+                'id': str(iv.id),
+                'interview_type': iv.interview_type,
+                'interview_type_display': iv.get_interview_type_display(),
+                'scheduled_date': str(iv.scheduled_date),
+                'scheduled_time': str(iv.scheduled_time),
+                'duration_minutes': iv.duration_minutes,
+                'location': iv.location,
+                'meeting_link': iv.meeting_link,
+                'status': iv.status,
+                'status_display': iv.get_status_display(),
+            }
+            for iv in interviews
+        ]
+
+        # Status timeline
+        timeline = applicant.status_history.filter(
+            is_visible_to_applicant=True
+        ).order_by('-changed_at')[:20]
+        timeline_data = ApplicantStatusHistorySerializer(timeline, many=True).data
+
+        return Response({
+            'applicant': applicant_data,
+            'offer': offer_data,
+            'documents': documents_data,
+            'interviews': interviews_data,
+            'timeline': timeline_data,
+        })
+
+
+class ApplicantPortalOfferView(PortalTokenMixin, APIView):
+    """View offer details and download offer letter."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        applicant, error = self.validate_portal_token(request)
+        if error:
+            return error
+
+        offer = applicant.offers.select_related('position', 'department', 'grade').first()
+        if not offer:
+            return Response({'error': 'No offer found'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = {
+            'id': str(offer.id),
+            'offer_number': offer.offer_number,
+            'status': offer.status,
+            'status_display': offer.get_status_display(),
+            'position': offer.position.name if offer.position else '',
+            'department': offer.department.name if offer.department else '',
+            'grade': offer.grade.name if offer.grade else '',
+            'basic_salary': str(offer.basic_salary),
+            'allowances': str(offer.allowances),
+            'total_compensation': str(offer.total_compensation),
+            'compensation_notes': offer.compensation_notes,
+            'offer_date': str(offer.offer_date),
+            'response_deadline': str(offer.response_deadline),
+            'proposed_start_date': str(offer.proposed_start_date),
+            'has_offer_letter': offer.has_offer_letter,
+            'offer_letter_base64': offer.get_offer_letter_base64(),
+            'offer_letter_name': offer.offer_letter_name,
+            'offer_letter_mime': offer.offer_letter_mime,
+        }
+
+        return Response(data)
+
+
+class ApplicantPortalOfferAcceptView(PortalTokenMixin, APIView):
+    """Accept offer and upload acceptance letter."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        applicant, error = self.validate_portal_token(request)
+        if error:
+            return error
+
+        offer = applicant.offers.first()
+        if not offer:
+            return Response({'error': 'No offer found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if offer.status not in [JobOffer.Status.SENT, JobOffer.Status.APPROVED]:
+            return Response(
+                {'error': 'This offer cannot be accepted in its current state'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Accept the offer
+        offer.status = JobOffer.Status.ACCEPTED
+        offer.responded_at = timezone.now()
+        offer.save()
+
+        # Update applicant status
+        old_status = applicant.status
+        applicant.status = Applicant.Status.HIRED
+        applicant.save()
+
+        # Create status history
+        ApplicantStatusHistory.objects.create(
+            applicant=applicant,
+            old_status=old_status,
+            new_status=Applicant.Status.HIRED,
+            is_visible_to_applicant=True,
+            public_message='Congratulations! You have accepted the offer.'
+        )
+
+        # Handle acceptance letter upload
+        acceptance_file = request.FILES.get('acceptance_letter')
+        if acceptance_file:
+            doc, _ = ApplicantDocument.objects.get_or_create(
+                applicant=applicant,
+                document_type=ApplicantDocument.DocumentType.ACCEPTANCE_LETTER,
+            )
+            doc.set_file(acceptance_file)
+            doc.save()
+
+        # Auto-create pending document records for all required onboarding types
+        required_types = [
+            ApplicantDocument.DocumentType.PERSONAL_HISTORY,
+            ApplicantDocument.DocumentType.POLICE_REPORT,
+            ApplicantDocument.DocumentType.MEDICAL_REPORT,
+            ApplicantDocument.DocumentType.BANK_DETAILS,
+            ApplicantDocument.DocumentType.PROVIDENT_FUND,
+            ApplicantDocument.DocumentType.TIER_2_FORM,
+        ]
+        for doc_type in required_types:
+            ApplicantDocument.objects.get_or_create(
+                applicant=applicant,
+                document_type=doc_type,
+                defaults={'status': ApplicantDocument.Status.PENDING}
+            )
+
+        return Response({
+            'message': 'Offer accepted successfully',
+            'status': 'HIRED',
+        })
+
+
+class ApplicantPortalOfferDeclineView(PortalTokenMixin, APIView):
+    """Decline an offer with reason."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        applicant, error = self.validate_portal_token(request)
+        if error:
+            return error
+
+        offer = applicant.offers.first()
+        if not offer:
+            return Response({'error': 'No offer found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if offer.status not in [JobOffer.Status.SENT, JobOffer.Status.APPROVED]:
+            return Response(
+                {'error': 'This offer cannot be declined in its current state'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        reason = request.data.get('reason', '')
+        offer.status = JobOffer.Status.DECLINED
+        offer.responded_at = timezone.now()
+        offer.decline_reason = reason
+        offer.save()
+
+        # Create status history
+        ApplicantStatusHistory.objects.create(
+            applicant=applicant,
+            old_status=applicant.status,
+            new_status=applicant.status,
+            is_visible_to_applicant=True,
+            public_message='You have declined the offer.'
+        )
+
+        return Response({
+            'message': 'Offer declined',
+            'status': offer.status,
+        })
+
+
+class ApplicantPortalDocumentsView(PortalTokenMixin, APIView):
+    """List onboarding documents with status."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        applicant, error = self.validate_portal_token(request)
+        if error:
+            return error
+
+        documents = applicant.documents.all().order_by('document_type')
+        data = [
+            {
+                'id': str(doc.id),
+                'document_type': doc.document_type,
+                'document_type_display': doc.get_document_type_display(),
+                'status': doc.status,
+                'status_display': doc.get_status_display(),
+                'file_name': doc.file_name,
+                'file_size': doc.file_size,
+                'rejection_reason': doc.rejection_reason,
+                'notes': doc.notes,
+                'updated_at': doc.updated_at.isoformat() if doc.updated_at else None,
+            }
+            for doc in documents
+        ]
+
+        return Response(data)
+
+
+class ApplicantPortalDocumentUploadView(PortalTokenMixin, APIView):
+    """Upload a specific onboarding document."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        applicant, error = self.validate_portal_token(request)
+        if error:
+            return error
+
+        document_type = request.data.get('document_type')
+        if not document_type:
+            return Response(
+                {'error': 'document_type is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate document type
+        valid_types = [c[0] for c in ApplicantDocument.DocumentType.choices]
+        if document_type not in valid_types:
+            return Response(
+                {'error': f'Invalid document type. Must be one of: {", ".join(valid_types)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {'error': 'No file provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate file size (max 10MB)
+        max_size = 10 * 1024 * 1024
+        if file_obj.size > max_size:
+            return Response(
+                {'error': 'File size exceeds maximum of 10MB'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        doc, _ = ApplicantDocument.objects.get_or_create(
+            applicant=applicant,
+            document_type=document_type,
+        )
+
+        # Allow re-upload if rejected or pending
+        if doc.status == ApplicantDocument.Status.VERIFIED:
+            return Response(
+                {'error': 'This document has already been verified and cannot be replaced'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        doc.set_file(file_obj)
+        doc.rejection_reason = ''  # Clear any previous rejection
+        doc.save()
+
+        return Response({
+            'message': 'Document uploaded successfully',
+            'document_type': doc.document_type,
+            'document_type_display': doc.get_document_type_display(),
+            'status': doc.status,
+            'file_name': doc.file_name,
+            'file_size': doc.file_size,
+        })
+
+
+class ApplicantPortalInterviewsView(PortalTokenMixin, APIView):
+    """View scheduled interviews (applicant-safe fields only)."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        applicant, error = self.validate_portal_token(request)
+        if error:
+            return error
+
+        interviews = applicant.interviews.order_by('scheduled_date', 'scheduled_time')
+        data = [
+            {
+                'id': str(iv.id),
+                'interview_type': iv.interview_type,
+                'interview_type_display': iv.get_interview_type_display(),
+                'round_number': iv.round_number,
+                'scheduled_date': str(iv.scheduled_date),
+                'scheduled_time': str(iv.scheduled_time),
+                'duration_minutes': iv.duration_minutes,
+                'location': iv.location,
+                'meeting_link': iv.meeting_link,
+                'status': iv.status,
+                'status_display': iv.get_status_display(),
+            }
+            for iv in interviews
+        ]
+
+        return Response(data)
 
 
 class ApplicantStatusHistoryViewSet(viewsets.ReadOnlyModelViewSet):

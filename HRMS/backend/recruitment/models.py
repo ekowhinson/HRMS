@@ -172,6 +172,10 @@ class Applicant(BaseModel):
     )
     notice_period = models.CharField(max_length=50, blank=True)
 
+    # Previous employer contacts (SRS: mandatory for applications)
+    previous_employer_email = models.EmailField(blank=True, help_text='Email contact of previous employer')
+    previous_employer_phone = models.CharField(max_length=20, blank=True, help_text='Phone contact of previous employer')
+
     # Tracking
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.NEW
@@ -1200,6 +1204,95 @@ class ApplicantStatusHistory(BaseModel):
             'WITHDRAWN': 'Your application has been withdrawn.',
         }
         return messages.get(self.new_status, 'Your application status has been updated.')
+
+
+class ApplicantDocument(BaseModel):
+    """Post-acceptance onboarding document uploads for applicants."""
+
+    class DocumentType(models.TextChoices):
+        ACCEPTANCE_LETTER = 'ACCEPTANCE_LETTER', 'Acceptance Letter'
+        PERSONAL_HISTORY = 'PERSONAL_HISTORY', 'Personal History Form'
+        POLICE_REPORT = 'POLICE_REPORT', 'Police Report'
+        MEDICAL_REPORT = 'MEDICAL_REPORT', 'Medical Report'
+        BANK_DETAILS = 'BANK_DETAILS', 'Bank Details Form'
+        PROVIDENT_FUND = 'PROVIDENT_FUND', 'Provident Fund Form'
+        TIER_2_FORM = 'TIER_2_FORM', 'Tier 2 Form'
+        OTHER = 'OTHER', 'Other'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        UPLOADED = 'UPLOADED', 'Uploaded'
+        VERIFIED = 'VERIFIED', 'Verified'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    applicant = models.ForeignKey(
+        Applicant, on_delete=models.CASCADE, related_name='documents'
+    )
+    document_type = models.CharField(max_length=30, choices=DocumentType.choices)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+
+    # Binary file storage
+    file_data = models.BinaryField(null=True, blank=True)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
+    file_mime = models.CharField(max_length=100, null=True, blank=True)
+    file_checksum = models.CharField(max_length=64, null=True, blank=True)
+
+    # Review
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='reviewed_applicant_documents'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'applicant_documents'
+        unique_together = ['applicant', 'document_type']
+        ordering = ['document_type']
+
+    def __str__(self):
+        return f"{self.applicant.applicant_number} - {self.get_document_type_display()}"
+
+    def set_file(self, file_obj, filename=None):
+        """Store document file as binary data."""
+        if file_obj is None:
+            self.file_data = None
+            self.file_name = None
+            self.file_size = None
+            self.file_mime = None
+            self.file_checksum = None
+            return
+
+        content = file_obj.read() if hasattr(file_obj, 'read') else file_obj
+
+        if filename:
+            self.file_name = filename
+        elif hasattr(file_obj, 'name'):
+            self.file_name = file_obj.name
+        else:
+            self.file_name = f'document_{self.document_type}'
+
+        self.file_data = content
+        self.file_size = len(content)
+
+        if hasattr(file_obj, 'content_type'):
+            self.file_mime = file_obj.content_type
+        else:
+            mime, _ = mimetypes.guess_type(self.file_name)
+            self.file_mime = mime or 'application/octet-stream'
+
+        self.file_checksum = hashlib.sha256(content).hexdigest()
+        self.status = self.Status.UPLOADED
+
+    def get_file_base64(self):
+        """Return file data as base64 encoded string."""
+        if self.file_data:
+            return base64.b64encode(self.file_data).decode('utf-8')
+        return None
 
 
 # ========================================

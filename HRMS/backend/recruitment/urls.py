@@ -46,4 +46,11 @@ urlpatterns = [
     # Applicant portal
     path('portal/login/', views.ApplicantPortalLoginView.as_view(), name='portal-login'),
     path('portal/status/', views.ApplicantPortalStatusView.as_view(), name='portal-status'),
+    path('portal/dashboard/', views.ApplicantPortalDashboardView.as_view(), name='portal-dashboard'),
+    path('portal/offer/', views.ApplicantPortalOfferView.as_view(), name='portal-offer'),
+    path('portal/offer/accept/', views.ApplicantPortalOfferAcceptView.as_view(), name='portal-offer-accept'),
+    path('portal/offer/decline/', views.ApplicantPortalOfferDeclineView.as_view(), name='portal-offer-decline'),
+    path('portal/documents/', views.ApplicantPortalDocumentsView.as_view(), name='portal-documents'),
+    path('portal/documents/upload/', views.ApplicantPortalDocumentUploadView.as_view(), name='portal-document-upload'),
+    path('portal/interviews/', views.ApplicantPortalInterviewsView.as_view(), name='portal-interviews'),
 ]

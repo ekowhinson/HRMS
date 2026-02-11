@@ -95,6 +95,13 @@ import ApprovalWorkflowPage from './pages/admin/ApprovalWorkflowPage'
 // Payroll Employee Views
 import PayrollEmployeesPage from './pages/payroll/PayrollEmployeesPage'
 import PayrollEmployeeDetailPage from './pages/payroll/PayrollEmployeeDetailPage'
+// Careers & Applicant Portal
+import CareersPage from './pages/careers/CareersPage'
+import ApplicationFormPage from './pages/careers/ApplicationFormPage'
+import PortalLoginPage from './pages/careers/PortalLoginPage'
+import PortalDashboardPage from './pages/careers/PortalDashboardPage'
+import PortalOfferPage from './pages/careers/PortalOfferPage'
+import PortalDocumentsPage from './pages/careers/PortalDocumentsPage'
 
 // Roles that grant access to HR features (Self Service + HR + Payroll sections)
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
@@ -209,6 +216,14 @@ function App() {
       <Route path="/signup/verify" element={<PublicRoute><SignupPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
+
+      {/* Careers & Applicant Portal — independent of HRMS auth */}
+      <Route path="/careers" element={<CareersPage />} />
+      <Route path="/careers/apply/:slug" element={<ApplicationFormPage />} />
+      <Route path="/portal/login" element={<PortalLoginPage />} />
+      <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
+      <Route path="/portal/offer" element={<PortalOfferPage />} />
+      <Route path="/portal/documents" element={<PortalDocumentsPage />} />
 
       {/* Onboarding (authenticated but no layout) */}
       <Route path="/onboarding" element={<PrivateRoute><OnboardingPage /></PrivateRoute>} />
