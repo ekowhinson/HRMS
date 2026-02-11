@@ -1295,6 +1295,74 @@ class ApplicantDocument(BaseModel):
         return None
 
 
+class ApplicantAttachment(BaseModel):
+    """Application-phase file attachments (resume, cover letter, certificates)."""
+
+    class AttachmentType(models.TextChoices):
+        RESUME = 'RESUME', 'Resume/CV'
+        COVER_LETTER = 'COVER_LETTER', 'Cover Letter'
+        CERTIFICATE = 'CERTIFICATE', 'Certificate'
+        OTHER = 'OTHER', 'Other'
+
+    applicant = models.ForeignKey(
+        Applicant, on_delete=models.CASCADE, related_name='attachments'
+    )
+    attachment_type = models.CharField(
+        max_length=20, choices=AttachmentType.choices
+    )
+    label = models.CharField(max_length=255, blank=True)
+
+    # Binary file storage
+    file_data = models.BinaryField(null=True, blank=True)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
+    file_mime = models.CharField(max_length=100, null=True, blank=True)
+    file_checksum = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        db_table = 'applicant_attachments'
+        ordering = ['attachment_type', 'created_at']
+
+    def __str__(self):
+        return f"{self.applicant.applicant_number} - {self.get_attachment_type_display()} - {self.file_name or ''}"
+
+    def set_file(self, file_obj, filename=None):
+        """Store file as binary data."""
+        if file_obj is None:
+            self.file_data = None
+            self.file_name = None
+            self.file_size = None
+            self.file_mime = None
+            self.file_checksum = None
+            return
+
+        content = file_obj.read() if hasattr(file_obj, 'read') else file_obj
+
+        if filename:
+            self.file_name = filename
+        elif hasattr(file_obj, 'name'):
+            self.file_name = file_obj.name
+        else:
+            self.file_name = f'attachment_{self.attachment_type}'
+
+        self.file_data = content
+        self.file_size = len(content)
+
+        if hasattr(file_obj, 'content_type'):
+            self.file_mime = file_obj.content_type
+        else:
+            mime, _ = mimetypes.guess_type(self.file_name)
+            self.file_mime = mime or 'application/octet-stream'
+
+        self.file_checksum = hashlib.sha256(content).hexdigest()
+
+    def get_file_base64(self):
+        """Return file data as base64 encoded string."""
+        if self.file_data:
+            return base64.b64encode(self.file_data).decode('utf-8')
+        return None
+
+
 # ========================================
 # System-Based Shortlisting
 # ========================================

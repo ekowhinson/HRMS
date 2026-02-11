@@ -19,7 +19,7 @@ from .models import (
     InterviewScoreTemplate, InterviewScoreCategory,
     InterviewScoringSheet, InterviewScoreItem, InterviewReport,
     VacancyURL, VacancyURLView, ApplicantPortalAccess, ApplicantStatusHistory,
-    ApplicantDocument
+    ApplicantDocument, ApplicantAttachment
 )
 from .services import ShortlistingService, auto_shortlist_applicant, apply_template_to_vacancy
 from .serializers import (
@@ -703,6 +703,7 @@ class PublicApplicationSubmitView(APIView):
 
         if serializer.is_valid():
             applicant = serializer.save()
+            _save_applicant_attachments(applicant, request)
             vacancy_url.record_use()
 
             # Auto-shortlist if vacancy has criteria configured
@@ -1233,6 +1234,50 @@ from .serializers import (
 # Internal Job Board Views (Authenticated Employees)
 # ========================================
 
+
+def _save_applicant_attachments(applicant, request):
+    """Save file attachments (resume, cover letter file, certificates) for an applicant."""
+    max_file_size = 10 * 1024 * 1024  # 10MB
+
+    # Resume
+    resume = request.FILES.get('resume')
+    if resume and resume.size <= max_file_size:
+        attachment = ApplicantAttachment(
+            applicant=applicant,
+            attachment_type=ApplicantAttachment.AttachmentType.RESUME,
+            label='Resume',
+        )
+        attachment.set_file(resume)
+        attachment.save()
+        # Backward compatibility: also store on Applicant model
+        resume.seek(0)
+        applicant.set_resume(resume)
+        applicant.save()
+
+    # Cover letter file
+    cover_letter_file = request.FILES.get('cover_letter_file')
+    if cover_letter_file and cover_letter_file.size <= max_file_size:
+        attachment = ApplicantAttachment(
+            applicant=applicant,
+            attachment_type=ApplicantAttachment.AttachmentType.COVER_LETTER,
+            label='Cover Letter',
+        )
+        attachment.set_file(cover_letter_file)
+        attachment.save()
+
+    # Certificates (multiple)
+    certificates = request.FILES.getlist('certificates')
+    for cert_file in certificates:
+        if cert_file.size <= max_file_size:
+            attachment = ApplicantAttachment(
+                applicant=applicant,
+                attachment_type=ApplicantAttachment.AttachmentType.CERTIFICATE,
+                label=cert_file.name,
+            )
+            attachment.set_file(cert_file)
+            attachment.save()
+
+
 class InternalVacancyListView(generics.ListAPIView):
     """List vacancies available to internal employees."""
     serializer_class = PublicVacancySerializer
@@ -1333,6 +1378,8 @@ class InternalApplicationSubmitView(APIView):
             employee=employee,
             source=Applicant.Source.INTERNAL,
         )
+
+        _save_applicant_attachments(applicant, request)
 
         # Create status history
         ApplicantStatusHistory.objects.create(

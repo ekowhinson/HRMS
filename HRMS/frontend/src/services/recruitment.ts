@@ -769,8 +769,10 @@ export const recruitmentService = {
     return response.data
   },
 
-  submitInternalApplication: async (vacancyId: string, data: { cover_letter: string }): Promise<any> => {
-    const response = await api.post(`/recruitment/internal/apply/${vacancyId}/`, data)
+  submitInternalApplication: async (vacancyId: string, data: FormData | { cover_letter: string }): Promise<any> => {
+    const response = await api.post(`/recruitment/internal/apply/${vacancyId}/`, data, {
+      ...(data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
+    })
     return response.data
   },
 

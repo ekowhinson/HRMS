@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import {
   BriefcaseIcon,
   BuildingOfficeIcon,
@@ -8,6 +9,7 @@ import {
   MagnifyingGlassIcon,
   CheckCircleIcon,
   PaperAirplaneIcon,
+  DocumentArrowUpIcon,
 } from '@heroicons/react/24/outline'
 import { recruitmentService } from '@/services/recruitment'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -77,12 +79,30 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const DOC_FORMATS = ['.pdf', '.doc', '.docx']
+const CERT_FORMATS = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
+
+function validateFile(file: File, allowedExts: string[]): string | null {
+  if (file.size > MAX_FILE_SIZE) {
+    return `"${file.name}" exceeds 10MB. Please select a file smaller than 10MB.`
+  }
+  const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
+  if (!allowedExts.includes(ext)) {
+    return `"${file.name}" is not a supported format. Accepted formats: ${allowedExts.join(', ')}`
+  }
+  return null
+}
+
 export default function InternalJobBoardPage() {
   const [activeTab, setActiveTab] = useState('positions')
   const [search, setSearch] = useState('')
   const [applyModalOpen, setApplyModalOpen] = useState(false)
   const [selectedVacancy, setSelectedVacancy] = useState<InternalVacancy | null>(null)
   const [coverLetter, setCoverLetter] = useState('')
+  const [resumeFile, setResumeFile] = useState<File | null>(null)
+  const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null)
+  const [certificateFiles, setCertificateFiles] = useState<File[]>([])
   const [employeeData, setEmployeeData] = useState<Record<string, string>>({})
   const queryClient = useQueryClient()
 
@@ -97,13 +117,22 @@ export default function InternalJobBoardPage() {
   })
 
   const submitMutation = useMutation({
-    mutationFn: (vacancyId: string) =>
-      recruitmentService.submitInternalApplication(vacancyId, { cover_letter: coverLetter }),
+    mutationFn: (vacancyId: string) => {
+      const formData = new FormData()
+      formData.append('cover_letter', coverLetter)
+      if (resumeFile) formData.append('resume', resumeFile)
+      if (coverLetterFile) formData.append('cover_letter_file', coverLetterFile)
+      certificateFiles.forEach(f => formData.append('certificates', f))
+      return recruitmentService.submitInternalApplication(vacancyId, formData)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['internal-applications'] })
       queryClient.invalidateQueries({ queryKey: ['internal-vacancies'] })
       setApplyModalOpen(false)
       setCoverLetter('')
+      setResumeFile(null)
+      setCoverLetterFile(null)
+      setCertificateFiles([])
       setSelectedVacancy(null)
       setEmployeeData({})
     },
@@ -112,6 +141,9 @@ export default function InternalJobBoardPage() {
   const handleApplyClick = async (vacancy: InternalVacancy) => {
     setSelectedVacancy(vacancy)
     setCoverLetter('')
+    setResumeFile(null)
+    setCoverLetterFile(null)
+    setCertificateFiles([])
     try {
       const detail = await recruitmentService.getInternalVacancyDetail(vacancy.id)
       setEmployeeData(detail.employee || {})
@@ -366,6 +398,9 @@ export default function InternalJobBoardPage() {
           setApplyModalOpen(false)
           setSelectedVacancy(null)
           setCoverLetter('')
+          setResumeFile(null)
+          setCoverLetterFile(null)
+          setCertificateFiles([])
           setEmployeeData({})
         }}
         title={`Apply for ${selectedVacancy?.job_title || ''}`}
@@ -434,6 +469,110 @@ export default function InternalJobBoardPage() {
             />
           </div>
 
+          {/* File Attachments */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-gray-700">Attachments</h4>
+
+            {/* Resume */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Resume/CV</label>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded cursor-pointer hover:bg-gray-200">
+                  <DocumentArrowUpIcon className="h-3.5 w-3.5" />
+                  {resumeFile ? resumeFile.name : 'Choose File'}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const err = validateFile(file, DOC_FORMATS)
+                      if (err) { toast.error(err); e.target.value = ''; return }
+                      setResumeFile(file)
+                    }}
+                  />
+                </label>
+                {resumeFile && (
+                  <button type="button" onClick={() => setResumeFile(null)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">Accepted: PDF, DOC, DOCX (max 10MB)</p>
+            </div>
+
+            {/* Cover Letter File */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Cover Letter File (optional)</label>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded cursor-pointer hover:bg-gray-200">
+                  <DocumentArrowUpIcon className="h-3.5 w-3.5" />
+                  {coverLetterFile ? coverLetterFile.name : 'Choose File'}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const err = validateFile(file, DOC_FORMATS)
+                      if (err) { toast.error(err); e.target.value = ''; return }
+                      setCoverLetterFile(file)
+                    }}
+                  />
+                </label>
+                {coverLetterFile && (
+                  <button type="button" onClick={() => setCoverLetterFile(null)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">Accepted: PDF, DOC, DOCX (max 10MB)</p>
+            </div>
+
+            {/* Certificates */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Certificates & Documents (optional)</label>
+              <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded cursor-pointer hover:bg-gray-200 w-fit">
+                <DocumentArrowUpIcon className="h-3.5 w-3.5" />
+                Add Files
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || [])
+                    const valid: File[] = []
+                    for (const file of files) {
+                      const err = validateFile(file, CERT_FORMATS)
+                      if (err) { toast.error(err); continue }
+                      valid.push(file)
+                    }
+                    if (valid.length > 0) {
+                      setCertificateFiles(prev => {
+                        const combined = [...prev, ...valid]
+                        if (combined.length > 5) {
+                          toast.error('Maximum 5 certificate files allowed.')
+                        }
+                        return combined.slice(0, 5)
+                      })
+                    }
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {certificateFiles.length > 0 && (
+                <ul className="mt-1.5 space-y-0.5">
+                  {certificateFiles.map((file, idx) => (
+                    <li key={idx} className="flex items-center gap-2 text-xs text-gray-700">
+                      <span className="truncate">{file.name}</span>
+                      <button type="button" onClick={() => setCertificateFiles(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 text-xs flex-shrink-0">Remove</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-xs text-gray-400 mt-1">Accepted: PDF, DOC, DOCX, JPG, PNG (max 10MB each, up to 5 files)</p>
+            </div>
+          </div>
+
           {/* Error display */}
           {submitMutation.isError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md">
@@ -452,6 +591,9 @@ export default function InternalJobBoardPage() {
                 setApplyModalOpen(false)
                 setSelectedVacancy(null)
                 setCoverLetter('')
+                setResumeFile(null)
+                setCoverLetterFile(null)
+                setCertificateFiles([])
                 setEmployeeData({})
               }}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
