@@ -430,7 +430,9 @@ class PasswordResetConfirmView(APIView):
 
 class UserListView(generics.ListCreateAPIView):
     """List and create users."""
-    queryset = User.objects.all().prefetch_related('user_roles__role')
+    queryset = User.objects.select_related(
+        'employee__department', 'employee__position'
+    ).prefetch_related('user_roles__role')
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -660,7 +662,13 @@ class UserSessionsView(generics.ListAPIView):
 
 class RoleListView(generics.ListCreateAPIView):
     """List and create roles."""
-    queryset = Role.objects.all().prefetch_related('role_permissions__permission')
+    queryset = Role.objects.prefetch_related('role_permissions__permission').annotate(
+        permissions_count_annotated=models.Count('role_permissions'),
+        active_users_count_annotated=models.Count(
+            'user_roles',
+            filter=models.Q(user_roles__is_active=True),
+        ),
+    )
     serializer_class = RoleSerializer
 
     def get_queryset(self):

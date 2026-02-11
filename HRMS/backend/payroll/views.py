@@ -5,7 +5,7 @@ Payroll management views.
 import uuid
 from decimal import Decimal
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.core.cache import cache
 from rest_framework import viewsets, generics, status
 from rest_framework.views import APIView
@@ -52,7 +52,12 @@ from .salary_upgrade_service import SalaryUpgradeService
 
 class PayComponentViewSet(viewsets.ModelViewSet):
     """ViewSet for Pay Components with formula validation and usage stats."""
-    queryset = PayComponent.objects.all()
+    queryset = PayComponent.objects.annotate(
+        active_transaction_count=Count(
+            'employee_transactions',
+            filter=Q(employee_transactions__status__in=['PENDING', 'APPROVED', 'ACTIVE']),
+        )
+    )
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['component_type', 'calculation_type', 'category', 'is_active', 'is_statutory', 'is_recurring']
     search_fields = ['code', 'name', 'short_name', 'description']
@@ -810,7 +815,7 @@ class EmployeeTransactionViewSet(viewsets.ModelViewSet):
             except Employee.DoesNotExist:
                 continue
 
-        created = EmployeeTransaction.objects.bulk_create(transactions)
+        created = EmployeeTransaction.objects.bulk_create(transactions, batch_size=1000)
 
         return Response({
             'message': f'Created {len(created)} transactions.',
@@ -1477,7 +1482,7 @@ class OvertimeBonusTaxConfigViewSet(viewsets.ModelViewSet):
 
 class BankViewSet(viewsets.ModelViewSet):
     """ViewSet for Banks."""
-    queryset = Bank.objects.all()
+    queryset = Bank.objects.annotate(branch_count_annotated=Count('branches'))
     serializer_class = BankSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['is_active']
@@ -1499,7 +1504,9 @@ class BankBranchViewSet(viewsets.ModelViewSet):
 
 class StaffCategoryViewSet(viewsets.ModelViewSet):
     """ViewSet for Staff Categories."""
-    queryset = StaffCategory.objects.all()
+    queryset = StaffCategory.objects.select_related('salary_band').annotate(
+        employee_count_annotated=Count('employees')
+    )
     serializer_class = StaffCategorySerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['is_active', 'payroll_group']
@@ -1510,7 +1517,7 @@ class StaffCategoryViewSet(viewsets.ModelViewSet):
 
 class SalaryBandViewSet(viewsets.ModelViewSet):
     """ViewSet for Salary Bands."""
-    queryset = SalaryBand.objects.all()
+    queryset = SalaryBand.objects.annotate(level_count_annotated=Count('levels'))
     serializer_class = SalaryBandSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['is_active']
@@ -1521,7 +1528,9 @@ class SalaryBandViewSet(viewsets.ModelViewSet):
 
 class SalaryLevelViewSet(viewsets.ModelViewSet):
     """ViewSet for Salary Levels."""
-    queryset = SalaryLevel.objects.select_related('band')
+    queryset = SalaryLevel.objects.select_related('band').annotate(
+        notch_count_annotated=Count('notches')
+    )
     serializer_class = SalaryLevelSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['band', 'is_active']
@@ -1812,7 +1821,7 @@ class BackpayRequestViewSet(viewsets.ModelViewSet):
                 payroll_period=PayrollSettings.get_active_period(),
             ))
 
-        created = BackpayRequest.objects.bulk_create(to_create)
+        created = BackpayRequest.objects.bulk_create(to_create, batch_size=1000)
 
         return Response({
             'count': len(created),
@@ -1996,7 +2005,7 @@ class BackpayRequestViewSet(viewsets.ModelViewSet):
             created.append(bp)
 
         if created:
-            BackpayRequest.objects.bulk_create(created)
+            BackpayRequest.objects.bulk_create(created, batch_size=1000)
 
         return Response({
             'count': len(created),

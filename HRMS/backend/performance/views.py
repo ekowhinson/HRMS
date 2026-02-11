@@ -132,7 +132,7 @@ class AppraisalViewSet(viewsets.ModelViewSet):
     queryset = Appraisal.objects.select_related(
         'employee', 'employee__department', 'employee__position',
         'appraisal_cycle', 'manager'
-    )
+    ).prefetch_related('goals')
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):

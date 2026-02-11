@@ -2,7 +2,7 @@
 Custom pagination classes for the HRMS API.
 """
 
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination
 from rest_framework.response import Response
 
 
@@ -53,3 +53,19 @@ class SmallResultsSetPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 50
+
+
+class StandardCursorPagination(CursorPagination):
+    """O(1) cursor pagination for large datasets."""
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+    ordering = '-created_at'
+
+
+class LargeCursorPagination(CursorPagination):
+    """Cursor pagination for large result sets."""
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+    ordering = '-created_at'

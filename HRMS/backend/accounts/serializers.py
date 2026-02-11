@@ -105,15 +105,18 @@ class UserSerializer(serializers.ModelSerializer):
     def get_employee(self, obj):
         """Return linked employee info if exists."""
         try:
+            # Use select_related employee from queryset if available
             employee = obj.employee
             if employee:
+                dept = getattr(employee, 'department', None)
+                pos = getattr(employee, 'position', None)
                 return {
                     'id': str(employee.id),
                     'employee_number': employee.employee_number,
-                    'department_name': employee.department.name if employee.department else None,
-                    'position_title': employee.position.title if employee.position else None,
+                    'department_name': dept.name if dept else None,
+                    'position_title': pos.title if pos else None,
                 }
-        except Exception:
+        except Employee.DoesNotExist:
             pass
         return None
 
@@ -238,9 +241,13 @@ class RoleSerializer(serializers.ModelSerializer):
         return PermissionSerializer(permissions, many=True).data
 
     def get_permissions_count(self, obj):
+        if hasattr(obj, 'permissions_count_annotated'):
+            return obj.permissions_count_annotated
         return obj.role_permissions.count()
 
     def get_users_count(self, obj):
+        if hasattr(obj, 'active_users_count_annotated'):
+            return obj.active_users_count_annotated
         return obj.user_roles.filter(is_active=True).count()
 
 

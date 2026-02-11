@@ -61,11 +61,13 @@ class EmployeeSalaryNestedSerializer(serializers.Serializer):
         """Calculate total allowances from salary components."""
         from decimal import Decimal
         if hasattr(obj, 'components'):
-            allowances = obj.components.filter(
-                pay_component__component_type='EARNING',
-                pay_component__is_part_of_basic=False
-            ).select_related('pay_component')
-            return sum(comp.amount or Decimal('0') for comp in allowances)
+            # Use prefetched components - iterate in Python to avoid extra queries
+            components = obj.components.all()
+            total = Decimal('0')
+            for comp in components:
+                if comp.pay_component.component_type == 'EARNING' and not comp.pay_component.is_part_of_basic:
+                    total += comp.amount or Decimal('0')
+            return total
         # If no components, estimate from gross - basic
         if obj.gross_salary and obj.basic_salary:
             return obj.gross_salary - obj.basic_salary
@@ -75,10 +77,13 @@ class EmployeeSalaryNestedSerializer(serializers.Serializer):
         """Calculate total deductions from salary components."""
         from decimal import Decimal
         if hasattr(obj, 'components'):
-            deductions = obj.components.filter(
-                pay_component__component_type='DEDUCTION'
-            ).select_related('pay_component')
-            return sum(comp.amount or Decimal('0') for comp in deductions)
+            # Use prefetched components - iterate in Python to avoid extra queries
+            components = obj.components.all()
+            total = Decimal('0')
+            for comp in components:
+                if comp.pay_component.component_type == 'DEDUCTION':
+                    total += comp.amount or Decimal('0')
+            return total
         return Decimal('0')
 
     def get_net_salary(self, obj):
@@ -165,43 +170,52 @@ class EmployeeSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
             return str(obj.salary_notch.amount)
         return None
 
+    def _get_primary_bank(self, obj):
+        """Get primary bank account from prefetch or fallback to query."""
+        accounts = getattr(obj, 'active_bank_accounts', None)
+        if accounts is None:
+            accounts = list(obj.bank_accounts.filter(is_deleted=False))
+        primary = next((a for a in accounts if a.is_primary), None)
+        return primary or (accounts[0] if accounts else None)
+
     def get_bank_name(self, obj):
-        primary_account = obj.bank_accounts.filter(is_deleted=False, is_primary=True).first()
-        if not primary_account:
-            primary_account = obj.bank_accounts.filter(is_deleted=False).first()
-        return primary_account.bank_name if primary_account else None
+        acct = self._get_primary_bank(obj)
+        return acct.bank_name if acct else None
 
     def get_bank_branch(self, obj):
-        primary_account = obj.bank_accounts.filter(is_deleted=False, is_primary=True).first()
-        if not primary_account:
-            primary_account = obj.bank_accounts.filter(is_deleted=False).first()
-        return primary_account.branch_name if primary_account else None
+        acct = self._get_primary_bank(obj)
+        return acct.branch_name if acct else None
 
     def get_bank_account_number(self, obj):
-        primary_account = obj.bank_accounts.filter(is_deleted=False, is_primary=True).first()
-        if not primary_account:
-            primary_account = obj.bank_accounts.filter(is_deleted=False).first()
-        return primary_account.account_number if primary_account else None
+        acct = self._get_primary_bank(obj)
+        return acct.account_number if acct else None
 
     def get_bank_accounts_list(self, obj):
-        accounts = obj.bank_accounts.filter(is_deleted=False)
+        accounts = getattr(obj, 'active_bank_accounts', None)
+        if accounts is None:
+            accounts = obj.bank_accounts.filter(is_deleted=False)
         return BankAccountSerializer(accounts, many=True).data
 
     def get_leave_balances(self, obj):
-        from leave.models import LeaveBalance
-        balances = LeaveBalance.objects.filter(employee=obj).select_related('leave_type')
+        balances = getattr(obj, 'current_leave_balances', None)
+        if balances is None:
+            from leave.models import LeaveBalance
+            from django.utils import timezone
+            balances = LeaveBalance.objects.filter(
+                employee=obj, year=timezone.now().year
+            ).select_related('leave_type')
         return LeaveBalanceNestedSerializer(balances, many=True).data
 
     def get_salary(self, obj):
         """Get current salary information for the employee."""
-        from payroll.models import EmployeeSalary
-        current_salary = EmployeeSalary.objects.filter(
-            employee=obj,
-            is_current=True
-        ).select_related('salary_structure').prefetch_related('components__pay_component').first()
-        if current_salary:
-            return EmployeeSalaryNestedSerializer(current_salary).data
-        return None
+        salary_list = getattr(obj, 'current_salary_list', None)
+        if salary_list is None:
+            from payroll.models import EmployeeSalary
+            salary_list = list(EmployeeSalary.objects.filter(
+                employee=obj, is_current=True
+            ).select_related('salary_structure').prefetch_related('components__pay_component'))
+        current_salary = salary_list[0] if salary_list else None
+        return EmployeeSalaryNestedSerializer(current_salary).data if current_salary else None
 
     def update(self, instance, validated_data):
         # Extract bank account data
@@ -501,9 +515,12 @@ class MyTeamMemberSerializer(EmployeePhotoMixin, serializers.ModelSerializer):
         ]
 
     def get_is_on_leave(self, obj):
+        # Use annotation from queryset if available (avoids N+1)
+        if hasattr(obj, 'is_currently_on_leave'):
+            return obj.is_currently_on_leave
+
         from leave.models import LeaveRequest
         from django.utils import timezone
-
         today = timezone.now().date()
         return LeaveRequest.objects.filter(
             employee=obj,

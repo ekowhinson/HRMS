@@ -49,6 +49,9 @@ class PayComponentListSerializer(serializers.ModelSerializer):
         ]
 
     def get_transaction_count(self, obj):
+        # Use annotation if available (set in PayComponentViewSet.get_queryset)
+        if hasattr(obj, 'active_transaction_count'):
+            return obj.active_transaction_count
         return obj.employee_transactions.filter(
             status__in=['PENDING', 'APPROVED', 'ACTIVE']
         ).count()
@@ -493,7 +496,7 @@ class EmployeeTransactionCreateSerializer(serializers.ModelSerializer):
                 except Employee.DoesNotExist:
                     continue
 
-            created = EmployeeTransaction.objects.bulk_create(transactions)
+            created = EmployeeTransaction.objects.bulk_create(transactions, batch_size=1000)
             # Return first one for single object response
             return created[0] if created else None
 
@@ -700,6 +703,8 @@ class BankSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
     def get_branch_count(self, obj):
+        if hasattr(obj, 'branch_count_annotated'):
+            return obj.branch_count_annotated
         return obj.branches.count() if hasattr(obj, 'branches') else 0
 
 
@@ -735,6 +740,8 @@ class StaffCategorySerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
     def get_employee_count(self, obj):
+        if hasattr(obj, 'employee_count_annotated'):
+            return obj.employee_count_annotated
         return obj.employees.count() if hasattr(obj, 'employees') else 0
 
 
@@ -752,6 +759,8 @@ class SalaryBandSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
     def get_level_count(self, obj):
+        if hasattr(obj, 'level_count_annotated'):
+            return obj.level_count_annotated
         return obj.levels.count() if hasattr(obj, 'levels') else 0
 
 
@@ -771,6 +780,8 @@ class SalaryLevelSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
     def get_notch_count(self, obj):
+        if hasattr(obj, 'notch_count_annotated'):
+            return obj.notch_count_annotated
         return obj.notches.count() if hasattr(obj, 'notches') else 0
 
 

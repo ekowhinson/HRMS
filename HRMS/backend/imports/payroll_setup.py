@@ -504,7 +504,7 @@ class PayrollSetupProcessor:
                 batch.append(salary)
 
                 if len(batch) >= 500:
-                    EmployeeSalary.objects.bulk_create(batch, ignore_conflicts=True)
+                    EmployeeSalary.objects.bulk_create(batch, ignore_conflicts=True, batch_size=500)
                     created_count += len(batch)
                     batch = []
 
@@ -521,7 +521,7 @@ class PayrollSetupProcessor:
 
         # Final batch
         if batch:
-            EmployeeSalary.objects.bulk_create(batch, ignore_conflicts=True)
+            EmployeeSalary.objects.bulk_create(batch, ignore_conflicts=True, batch_size=500)
             created_count += len(batch)
 
         self.results['employee_salaries_created'] = created_count
@@ -590,7 +590,7 @@ class PayrollSetupProcessor:
 
                 # Bulk create in batches
                 if len(batch) >= 1000:
-                    EmployeeTransaction.objects.bulk_create(batch, ignore_conflicts=True)
+                    EmployeeTransaction.objects.bulk_create(batch, ignore_conflicts=True, batch_size=1000)
                     created_count += len(batch)
                     batch = []
 
@@ -607,7 +607,7 @@ class PayrollSetupProcessor:
 
         # Final batch
         if batch:
-            EmployeeTransaction.objects.bulk_create(batch, ignore_conflicts=True)
+            EmployeeTransaction.objects.bulk_create(batch, ignore_conflicts=True, batch_size=1000)
             created_count += len(batch)
 
         self.results['transactions_created'] = created_count

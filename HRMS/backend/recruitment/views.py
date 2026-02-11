@@ -39,7 +39,9 @@ from .serializers import (
 
 class VacancyViewSet(viewsets.ModelViewSet):
     """ViewSet for Vacancy model."""
-    queryset = Vacancy.objects.select_related('position', 'department', 'grade')
+    queryset = Vacancy.objects.select_related('position', 'department', 'grade').annotate(
+        applicant_count=Count('applicants')
+    )
     serializer_class = VacancySerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
@@ -80,7 +82,7 @@ class VacancyViewSet(viewsets.ModelViewSet):
 
 class ApplicantViewSet(viewsets.ModelViewSet):
     """ViewSet for Applicant model."""
-    queryset = Applicant.objects.select_related('vacancy')
+    queryset = Applicant.objects.select_related('vacancy').prefetch_related('documents')
     serializer_class = ApplicantSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]

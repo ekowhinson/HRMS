@@ -10,7 +10,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Exists, OuterRef
+from django.db.models import Prefetch
 
 from .models import (
     Employee, EmergencyContact, Dependent, Education,
@@ -36,9 +37,6 @@ from leave.serializers import LeaveBalanceSerializer, LeaveRequestSerializer
 
 class EmployeeViewSet(viewsets.ModelViewSet):
     """ViewSet for Employee CRUD operations."""
-    queryset = Employee.objects.select_related(
-        'department', 'position', 'grade', 'supervisor'
-    ).prefetch_related('dependents', 'emergency_contacts')
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -55,12 +53,51 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         return EmployeeSerializer
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        from employees.models import BankAccount
+        from leave.models import LeaveBalance
+        from payroll.models import EmployeeSalary
+
+        qs = Employee.objects.select_related(
+            'division', 'directorate', 'department', 'position', 'grade',
+            'supervisor', 'work_location', 'cost_center', 'staff_category',
+            'residential_region', 'residential_district',
+            'salary_notch__level__band',
+        )
+        if self.action == 'list':
+            # List only needs basic relations (EmployeeListSerializer)
+            pass
+        elif self.action in ('retrieve', 'update', 'partial_update'):
+            # Detail view: prefetch heavy relations to avoid N+1
+            qs = qs.prefetch_related(
+                'dependents', 'emergency_contacts',
+                Prefetch(
+                    'bank_accounts',
+                    queryset=BankAccount.objects.filter(is_deleted=False),
+                    to_attr='active_bank_accounts',
+                ),
+                Prefetch(
+                    'leavebalance_set',
+                    queryset=LeaveBalance.objects.filter(
+                        year=timezone.now().year
+                    ).select_related('leave_type'),
+                    to_attr='current_leave_balances',
+                ),
+                Prefetch(
+                    'salaries',
+                    queryset=EmployeeSalary.objects.filter(
+                        is_current=True
+                    ).select_related('salary_structure').prefetch_related(
+                        'components__pay_component'
+                    ),
+                    to_attr='current_salary_list',
+                ),
+            )
+
         # Additional filters
         status_param = self.request.query_params.get('status')
         if status_param:
-            queryset = queryset.filter(status=status_param)
-        return queryset
+            qs = qs.filter(status=status_param)
+        return qs
 
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
@@ -425,9 +462,18 @@ class MyTeamView(generics.ListAPIView):
         if not hasattr(user, 'employee') or user.employee is None:
             return Employee.objects.none()
 
+        today = timezone.now().date()
+        active_leave = LeaveRequest.objects.filter(
+            employee=OuterRef('pk'),
+            status=LeaveRequest.Status.APPROVED,
+            start_date__lte=today,
+            end_date__gte=today,
+        )
         return Employee.objects.filter(
             supervisor=user.employee
-        ).select_related('position').order_by('first_name', 'last_name')
+        ).select_related('position').annotate(
+            is_currently_on_leave=Exists(active_leave)
+        ).order_by('first_name', 'last_name')
 
 
 class TeamLeaveOverviewView(APIView):

@@ -52,7 +52,9 @@ class LeavePolicyViewSet(viewsets.ModelViewSet):
 
 class LeaveRequestViewSet(viewsets.ModelViewSet):
     """ViewSet for Leave Requests."""
-    queryset = LeaveRequest.objects.select_related('employee', 'leave_type')
+    queryset = LeaveRequest.objects.select_related(
+        'employee', 'leave_type', 'reliever', 'approved_by'
+    )
     permission_classes = [IsAuthenticated, IsOwnerOrManager]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'leave_type', 'employee']
@@ -188,6 +190,11 @@ class LeaveCalendarView(APIView):
             end_date__gte=start_date
         ).select_related(
             'employee', 'employee__department', 'leave_type'
+        ).only(
+            'id', 'employee__id', 'employee__first_name', 'employee__last_name',
+            'employee__employee_number', 'employee__department__id', 'employee__department__name',
+            'leave_type__id', 'leave_type__name', 'leave_type__color_code',
+            'start_date', 'end_date', 'status', 'created_at',
         )
 
         # Apply department filter

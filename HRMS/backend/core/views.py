@@ -22,6 +22,7 @@ from .caching import (
 )
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.http import HttpResponse
+from .pagination import StandardResultsSetPagination
 
 from .models import (
     Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment,
@@ -402,6 +403,7 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
     """
     queryset = Announcement.objects.prefetch_related('targets', 'attachments')
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination  # Page-number: complex ordering incompatible with cursor
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'category', 'priority', 'is_company_wide']
     search_fields = ['title', 'content', 'summary']
