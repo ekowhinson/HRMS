@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_CACHE = 'default'
 PERSISTENT_CACHE = 'persistent'
 VOLATILE_CACHE = 'volatile'
+LONG_CACHE = 'long'
+SESSIONS_CACHE = 'sessions'
 
 # Cache timeouts (seconds)
 CACHE_TIMEOUT_SHORT = 60  # 1 minute
@@ -203,16 +205,21 @@ def cached_view(
 
             # Only cache GET requests
             if request.method == 'GET':
-                cached_result = cache.get(cache_key)
-                if cached_result is not None:
-                    logger.debug(f"View cache HIT: {cache_key}")
-                    return cached_result
+                cached_data = cache.get(cache_key)
+                if cached_data is not None:
+                    logger.debug("View cache HIT: %s", cache_key)
+                    from rest_framework.response import Response
+                    return Response(cached_data['data'], status=cached_data['status'])
 
             result = func(self, request, *args, **kwargs)
 
-            if request.method == 'GET':
-                logger.debug(f"View cache MISS: {cache_key}")
-                cache.set(cache_key, result, timeout)
+            if request.method == 'GET' and result.status_code < 400:
+                logger.debug("View cache MISS: %s", cache_key)
+                # Store serializable data, not the Response object
+                cache.set(cache_key, {
+                    'data': result.data,
+                    'status': result.status_code,
+                }, timeout)
 
             return result
 
@@ -227,18 +234,46 @@ def invalidate_cache_key(key: str, cache_alias: str = DEFAULT_CACHE):
     logger.debug(f"Cache invalidated: {key}")
 
 
+def _redis_delete_pattern(cache, pattern: str):
+    """
+    Delete cache keys matching a pattern using Redis SCAN.
+    Works with Django's native RedisCache which lacks delete_pattern().
+    """
+    try:
+        # Access the underlying Redis client
+        client = cache._cache
+        cursor = 0
+        deleted = 0
+        while True:
+            cursor, keys = client.scan(cursor=cursor, match=pattern, count=100)
+            if keys:
+                client.delete(*keys)
+                deleted += len(keys)
+            if cursor == 0:
+                break
+        if deleted:
+            logger.debug("Deleted %d keys matching pattern: %s", deleted, pattern)
+        return deleted
+    except Exception as e:
+        logger.warning("Redis pattern deletion failed for %s: %s", pattern, e)
+        return 0
+
+
 def invalidate_cache_pattern(pattern: str, cache_alias: str = DEFAULT_CACHE):
     """
     Invalidate all cache keys matching a pattern.
-    Note: This only works with Redis backend.
+    Supports django-redis (delete_pattern), native RedisCache (SCAN), and
+    falls back to a warning for non-Redis backends.
     """
     cache = get_cache(cache_alias)
 
     if hasattr(cache, 'delete_pattern'):
         cache.delete_pattern(pattern)
-        logger.debug(f"Cache pattern invalidated: {pattern}")
+        logger.debug("Cache pattern invalidated: %s", pattern)
+    elif hasattr(cache, '_cache'):
+        _redis_delete_pattern(cache, pattern)
     else:
-        logger.warning(f"Cache backend doesn't support pattern deletion: {pattern}")
+        logger.warning("Cache backend doesn't support pattern deletion: %s", pattern)
 
 
 def invalidate_model_cache(model_name: str):
@@ -398,6 +433,45 @@ class CacheManager:
         """Invalidate all organization-related caches."""
         invalidate_cache_pattern(f"*:{CACHE_PREFIX_ORGANIZATION}:*")
         invalidate_cache_pattern(f"*:{CACHE_PREFIX_LOOKUP}:*")
+        invalidate_cache_pattern("*:org_*")
+
+    @staticmethod
+    def invalidate_leave_caches():
+        """Invalidate all leave-related caches."""
+        invalidate_cache_pattern(f"*:{CACHE_PREFIX_LEAVE}:*")
+        invalidate_cache_pattern("*:leave_*")
+
+    @staticmethod
+    def invalidate_payroll_caches():
+        """Invalidate all payroll-related caches."""
+        invalidate_cache_pattern(f"*:{CACHE_PREFIX_PAYROLL}:*")
+        invalidate_cache_pattern("*:payroll_*")
+
+    @staticmethod
+    def invalidate_performance_caches():
+        """Invalidate all performance-related caches."""
+        invalidate_cache_pattern("*:perf_*")
+
+    @staticmethod
+    def invalidate_discipline_caches():
+        """Invalidate all discipline-related caches."""
+        invalidate_cache_pattern("*:discipline_*")
+
+    @staticmethod
+    def invalidate_recruitment_caches():
+        """Invalidate all recruitment-related caches."""
+        invalidate_cache_pattern("*:recruit_*")
+
+    @staticmethod
+    def invalidate_benefits_caches():
+        """Invalidate all benefits-related caches."""
+        invalidate_cache_pattern("*:benefits_*")
+
+    @staticmethod
+    def invalidate_report_caches():
+        """Invalidate all report-related caches."""
+        invalidate_cache_pattern(f"*:{CACHE_PREFIX_REPORT}:*")
+        invalidate_cache_pattern("*:rpt_*")
 
     @staticmethod
     def warm_cache():
@@ -420,6 +494,53 @@ class CacheManager:
         logger.info("Cache warming complete")
 
 
+class CachedModelMixin:
+    """
+    DRF ViewSet mixin: cache-aside pattern for retrieve() operations.
+
+    Usage:
+        class DivisionViewSet(CachedModelMixin, viewsets.ModelViewSet):
+            cache_timeout = 3600
+            cache_alias = 'long'
+            cache_key_prefix = 'division'
+    """
+    cache_timeout = CACHE_TIMEOUT_MEDIUM
+    cache_alias = DEFAULT_CACHE
+    cache_key_prefix = ''
+
+    def _get_cache_prefix(self):
+        if self.cache_key_prefix:
+            return self.cache_key_prefix
+        if hasattr(self, 'queryset') and self.queryset is not None:
+            return self.queryset.model.__name__.lower()
+        return 'obj'
+
+    def retrieve(self, request, *args, **kwargs):
+        from rest_framework.response import Response
+        pk = kwargs.get(self.lookup_field, kwargs.get('pk'))
+        cache_key = make_cache_key(self._get_cache_prefix(), 'detail', str(pk))
+        cache_backend = get_cache(self.cache_alias)
+        cached_data = cache_backend.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        response = super().retrieve(request, *args, **kwargs)
+        if response.status_code == 200:
+            cache_backend.set(cache_key, response.data, self.cache_timeout)
+        return response
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        self._invalidate_instance_cache(serializer.instance)
+
+    def perform_destroy(self, instance):
+        self._invalidate_instance_cache(instance)
+        super().perform_destroy(instance)
+
+    def _invalidate_instance_cache(self, instance):
+        cache_key = make_cache_key(self._get_cache_prefix(), 'detail', str(instance.pk))
+        get_cache(self.cache_alias).delete(cache_key)
+
+
 # Signal handlers for cache invalidation
 def setup_cache_invalidation_signals():
     """
@@ -434,18 +555,83 @@ def setup_cache_invalidation_signals():
     def invalidate_on_organization_change(sender, **kwargs):
         CacheManager.invalidate_organization_caches()
 
-    # Import models and connect signals
+    def invalidate_on_leave_change(sender, **kwargs):
+        CacheManager.invalidate_leave_caches()
+
+    def invalidate_on_payroll_change(sender, **kwargs):
+        CacheManager.invalidate_payroll_caches()
+
+    def invalidate_on_performance_change(sender, **kwargs):
+        CacheManager.invalidate_performance_caches()
+
+    def invalidate_on_recruitment_change(sender, **kwargs):
+        CacheManager.invalidate_recruitment_caches()
+
+    def invalidate_on_discipline_change(sender, **kwargs):
+        CacheManager.invalidate_discipline_caches()
+
+    def invalidate_on_benefits_change(sender, **kwargs):
+        CacheManager.invalidate_benefits_caches()
+
+    def _connect(handler, models):
+        for model in models:
+            post_save.connect(handler, sender=model)
+            post_delete.connect(handler, sender=model)
+
+    # Employee signals
     try:
         from employees.models import Employee
-        from organization.models import Department, Division, Directorate, JobPosition, JobGrade
-
-        post_save.connect(invalidate_on_employee_change, sender=Employee)
-        post_delete.connect(invalidate_on_employee_change, sender=Employee)
-
-        for model in [Department, Division, Directorate, JobPosition, JobGrade]:
-            post_save.connect(invalidate_on_organization_change, sender=model)
-            post_delete.connect(invalidate_on_organization_change, sender=model)
-
-        logger.info("Cache invalidation signals connected")
+        _connect(invalidate_on_employee_change, [Employee])
     except Exception as e:
-        logger.warning(f"Failed to setup cache invalidation signals: {e}")
+        logger.warning("Failed to setup employee cache signals: %s", e)
+
+    # Organization signals
+    try:
+        from organization.models import Department, Division, Directorate, JobPosition, JobGrade
+        _connect(invalidate_on_organization_change, [Department, Division, Directorate, JobPosition, JobGrade])
+    except Exception as e:
+        logger.warning("Failed to setup organization cache signals: %s", e)
+
+    # Payroll signals
+    try:
+        from payroll.models import PayComponent, Bank, SalaryBand, SalaryLevel, SalaryNotch, StaffCategory
+        _connect(invalidate_on_payroll_change, [PayComponent, Bank, SalaryBand, SalaryLevel, SalaryNotch, StaffCategory])
+    except Exception as e:
+        logger.warning("Failed to setup payroll cache signals: %s", e)
+
+    # Leave signals
+    try:
+        from leave.models import LeaveType, LeaveRequest
+        _connect(invalidate_on_leave_change, [LeaveType, LeaveRequest])
+    except Exception as e:
+        logger.warning("Failed to setup leave cache signals: %s", e)
+
+    # Performance signals
+    try:
+        from performance.models import Appraisal, AppraisalCycle
+        _connect(invalidate_on_performance_change, [Appraisal, AppraisalCycle])
+    except Exception as e:
+        logger.warning("Failed to setup performance cache signals: %s", e)
+
+    # Recruitment signals
+    try:
+        from recruitment.models import Vacancy, Applicant
+        _connect(invalidate_on_recruitment_change, [Vacancy, Applicant])
+    except Exception as e:
+        logger.warning("Failed to setup recruitment cache signals: %s", e)
+
+    # Discipline signals
+    try:
+        from discipline.models import DisciplinaryCase, Grievance
+        _connect(invalidate_on_discipline_change, [DisciplinaryCase, Grievance])
+    except Exception as e:
+        logger.warning("Failed to setup discipline cache signals: %s", e)
+
+    # Benefits signals
+    try:
+        from benefits.models import LoanAccount, LoanType
+        _connect(invalidate_on_benefits_change, [LoanAccount, LoanType])
+    except Exception as e:
+        logger.warning("Failed to setup benefits cache signals: %s", e)
+
+    logger.info("Cache invalidation signals connected")

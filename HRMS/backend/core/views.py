@@ -271,7 +271,7 @@ class CacheClearView(APIView):
     """
     Clear all or specific cache entries.
     POST /api/v1/cache/clear/
-    Body: {"cache_type": "all" | "employees" | "organization" | "lookups"}
+    Body: {"cache_type": "all" | "employees" | "organization" | "lookups" | "leave" | "payroll" | "performance" | "discipline" | "reports"}
     """
     permission_classes = [IsAuthenticated, IsAdminUser]
 
@@ -281,10 +281,10 @@ class CacheClearView(APIView):
         try:
             if cache_type == 'all':
                 # Clear all caches
-                for alias in ['default', 'persistent', 'volatile']:
+                for alias in ['default', 'persistent', 'volatile', 'long', 'sessions']:
                     try:
                         caches[alias].clear()
-                    except:
+                    except Exception:
                         pass
                 message = 'All caches cleared'
 
@@ -301,6 +301,26 @@ class CacheClearView(APIView):
                 for lookup_type in ['grades', 'positions', 'banks', 'leave_types', 'pay_components', 'staff_categories', 'work_locations']:
                     cache.delete(f"hrms_persist:lookup:{lookup_type}")
                 message = 'Lookup caches cleared'
+
+            elif cache_type == 'leave':
+                CacheManager.invalidate_leave_caches()
+                message = 'Leave caches cleared'
+
+            elif cache_type == 'payroll':
+                CacheManager.invalidate_payroll_caches()
+                message = 'Payroll caches cleared'
+
+            elif cache_type == 'performance':
+                CacheManager.invalidate_performance_caches()
+                message = 'Performance caches cleared'
+
+            elif cache_type == 'discipline':
+                CacheManager.invalidate_discipline_caches()
+                message = 'Discipline caches cleared'
+
+            elif cache_type == 'reports':
+                CacheManager.invalidate_report_caches()
+                message = 'Report caches cleared'
 
             else:
                 return Response({

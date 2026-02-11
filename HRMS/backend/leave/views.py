@@ -26,6 +26,7 @@ from .serializers import (
     LeaveCarryForwardRequestSerializer, LeaveReminderSerializer,
     LeavePlanCalendarSerializer
 )
+from core.caching import cached_view
 from .permissions import IsHROrReadOnly, IsOwnerOrManager, CanApproveLeave, IsEmployee
 
 
@@ -38,6 +39,10 @@ class LeaveTypeViewSet(viewsets.ModelViewSet):
     filterset_fields = ['is_active', 'is_paid', 'accrual_type']
     search_fields = ['code', 'name', 'description']
     ordering = ['sort_order', 'name']
+
+    @cached_view(timeout=3600, key_prefix='leave_types_list', vary_on_user=False, vary_on_params=['is_active'])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class LeavePolicyViewSet(viewsets.ModelViewSet):
@@ -125,6 +130,7 @@ class LeaveCalendarView(APIView):
     """Get leave calendar data."""
     permission_classes = [IsAuthenticated]
 
+    @cached_view(timeout=60, key_prefix='leave_calendar', vary_on_params=['start_date', 'end_date', 'department', 'leave_type', 'status'])
     def get(self, request):
         """
         Return leave events for the given date range.

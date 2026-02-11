@@ -187,3 +187,62 @@ class RequestLoggingMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
         logger.debug(f"Response: {request.method} {request.path} - {response.status_code}")
         return response
+
+
+class CacheControlMiddleware(MiddlewareMixin):
+    """
+    Sets Cache-Control headers and ETags on API responses.
+    Helps browsers and CDNs cache appropriate responses.
+    """
+
+    PUBLIC_CACHEABLE_PREFIXES = [
+        '/api/v1/core/lookups/',
+        '/api/v1/organization/',
+        '/api/v1/leave/leave-types/',
+        '/api/v1/performance/rating-scales/',
+        '/api/v1/performance/competencies/',
+        '/api/v1/performance/goal-categories/',
+    ]
+
+    STATIC_PREFIXES = ['/static/', '/media/']
+
+    def process_response(self, request, response):
+        # Skip if Cache-Control is already set by the view
+        if response.get('Cache-Control'):
+            return response
+
+        path = request.path
+
+        # Static assets: aggressive caching
+        if any(path.startswith(p) for p in self.STATIC_PREFIXES):
+            response['Cache-Control'] = 'public, max-age=31536000, immutable'
+            return response
+
+        # Non-GET requests: no caching
+        if request.method != 'GET':
+            response['Cache-Control'] = 'no-store'
+            return response
+
+        # Public lookup/org endpoints: short public cache + ETag
+        if any(path.startswith(p) for p in self.PUBLIC_CACHEABLE_PREFIXES):
+            response['Cache-Control'] = 'public, max-age=300'
+
+            # Generate ETag from response content
+            if hasattr(response, 'content') and response.content:
+                import hashlib
+                etag = hashlib.md5(response.content).hexdigest()
+                response['ETag'] = f'"{etag}"'
+
+                # Handle If-None-Match for 304 responses
+                if_none_match = request.META.get('HTTP_IF_NONE_MATCH', '')
+                if if_none_match == f'"{etag}"':
+                    response.status_code = 304
+                    response.content = b''
+
+            return response
+
+        # All other API endpoints: private, no-cache
+        if path.startswith('/api/'):
+            response['Cache-Control'] = 'private, no-cache'
+
+        return response

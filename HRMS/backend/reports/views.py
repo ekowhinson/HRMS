@@ -9,6 +9,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
+from core.caching import cached_view
+
 from employees.models import Employee
 from leave.models import LeaveBalance, LeaveRequest
 from benefits.models import LoanAccount
@@ -18,6 +20,7 @@ from payroll.models import PayrollRun, PayrollItem, PayrollItemDetail
 class DashboardView(APIView):
     """Main dashboard with overview metrics."""
 
+    @cached_view(timeout=60, key_prefix='rpt_dashboard', vary_on_user=False)
     def get(self, request):
         today = timezone.now().date()
         current_year = today.year
@@ -70,6 +73,7 @@ class DashboardView(APIView):
 class HRDashboardView(APIView):
     """HR-specific dashboard."""
 
+    @cached_view(timeout=300, key_prefix='rpt_hr_dashboard', vary_on_user=False)
     def get(self, request):
         today = timezone.now().date()
 
@@ -124,6 +128,7 @@ class HRDashboardView(APIView):
 class PayrollDashboardView(APIView):
     """Payroll-specific dashboard."""
 
+    @cached_view(timeout=300, key_prefix='rpt_payroll_dashboard', vary_on_user=False)
     def get(self, request):
         current_year = timezone.now().year
 
@@ -176,6 +181,7 @@ class PayrollDashboardView(APIView):
 class LeaveDashboardView(APIView):
     """Leave-specific dashboard."""
 
+    @cached_view(timeout=60, key_prefix='rpt_leave_dashboard', vary_on_user=False)
     def get(self, request):
         today = timezone.now().date()
         current_month = today.month
@@ -254,6 +260,7 @@ class PerformanceDashboardView(APIView):
 class EmployeeMasterReportView(APIView):
     """Employee master report."""
 
+    @cached_view(timeout=300, key_prefix='rpt_emp_master', vary_on_params=['department', 'grade', 'region'])
     def get(self, request):
         queryset = Employee.objects.select_related(
             'department', 'grade', 'position', 'supervisor'
@@ -289,6 +296,7 @@ class EmployeeMasterReportView(APIView):
 class HeadcountReportView(APIView):
     """Headcount report with breakdown."""
 
+    @cached_view(timeout=300, key_prefix='rpt_headcount', vary_on_user=False)
     def get(self, request):
         queryset = Employee.objects.filter(status='ACTIVE')
 
@@ -326,6 +334,7 @@ class HeadcountReportView(APIView):
 class TurnoverReportView(APIView):
     """Employee turnover analysis."""
 
+    @cached_view(timeout=300, key_prefix='rpt_turnover', vary_on_params=['year'])
     def get(self, request):
         current_year = timezone.now().year
         year = request.query_params.get('year', current_year)
@@ -384,6 +393,7 @@ class TurnoverReportView(APIView):
 class DemographicsReportView(APIView):
     """Employee demographics analysis."""
 
+    @cached_view(timeout=300, key_prefix='rpt_demographics', vary_on_user=False)
     def get(self, request):
         queryset = Employee.objects.filter(status='ACTIVE')
         today = timezone.now().date()

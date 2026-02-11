@@ -80,6 +80,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.AuditLogMiddleware',
     'core.middleware.SecurityHeadersMiddleware',
+    'core.middleware.CacheControlMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -302,11 +303,25 @@ if os.getenv('USE_REDIS', 'false').lower() == 'true':
             'KEY_PREFIX': 'hrms_volatile',
             'TIMEOUT': 60,  # 1 minute
         },
+        # Long-term cache for org structure and rarely changing data
+        'long': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_CACHE_URL,
+            'KEY_PREFIX': 'hrms_long',
+            'TIMEOUT': 3600,  # 1 hour
+        },
+        # Dedicated session cache
+        'sessions': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_CACHE_URL,
+            'KEY_PREFIX': 'hrms_sessions',
+            'TIMEOUT': 86400,  # 24 hours
+        },
     }
 
     # Use Redis for session storage
     SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-    SESSION_CACHE_ALIAS = 'default'
+    SESSION_CACHE_ALIAS = 'sessions'
 else:
     CACHES = {
         'default': {
@@ -320,6 +335,14 @@ else:
         'volatile': {
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
             'LOCATION': 'volatile-cache',
+        },
+        'long': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'long-cache',
+        },
+        'sessions': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'sessions-cache',
         },
     }
 

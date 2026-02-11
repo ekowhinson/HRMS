@@ -15,6 +15,7 @@ from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from core.pagination import LargeResultsSetPagination
+from core.caching import cached_view
 
 from django.http import HttpResponse
 from .models import (
@@ -172,6 +173,7 @@ class PayrollCalendarViewSet(viewsets.ModelViewSet):
             ).data
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
+    @cached_view(timeout=3600, key_prefix='payroll_cal_years', vary_on_user=False)
     @action(detail=False, methods=['get'])
     def years(self, request):
         """Get list of years with calendar entries."""
@@ -190,6 +192,7 @@ class PayrollSettingsView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @cached_view(timeout=300, key_prefix='payroll_settings', vary_on_user=False)
     def get(self, request):
         """Get current payroll settings."""
         settings_obj = PayrollSettings.get_settings()

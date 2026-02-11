@@ -32,17 +32,18 @@ def invalidate_cache_task(cache_type: str = 'all'):
     Invalidate cache entries.
 
     Args:
-        cache_type: Type of cache to invalidate (all, employees, organization, lookups)
+        cache_type: Type of cache to invalidate
+            (all, employees, organization, lookups, leave, payroll, performance, discipline, reports)
     """
     from .caching import CacheManager
     from django.core.cache import caches
 
     try:
         if cache_type == 'all':
-            for alias in ['default', 'persistent', 'volatile']:
+            for alias in ['default', 'persistent', 'volatile', 'long', 'sessions']:
                 try:
                     caches[alias].clear()
-                except:
+                except Exception:
                     pass
             message = 'All caches cleared'
 
@@ -53,6 +54,26 @@ def invalidate_cache_task(cache_type: str = 'all'):
         elif cache_type == 'organization':
             CacheManager.invalidate_organization_caches()
             message = 'Organization caches cleared'
+
+        elif cache_type == 'leave':
+            CacheManager.invalidate_leave_caches()
+            message = 'Leave caches cleared'
+
+        elif cache_type == 'payroll':
+            CacheManager.invalidate_payroll_caches()
+            message = 'Payroll caches cleared'
+
+        elif cache_type == 'performance':
+            CacheManager.invalidate_performance_caches()
+            message = 'Performance caches cleared'
+
+        elif cache_type == 'discipline':
+            CacheManager.invalidate_discipline_caches()
+            message = 'Discipline caches cleared'
+
+        elif cache_type == 'reports':
+            CacheManager.invalidate_report_caches()
+            message = 'Report caches cleared'
 
         else:
             message = f'Unknown cache type: {cache_type}'
