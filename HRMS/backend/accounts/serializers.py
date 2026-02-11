@@ -117,6 +117,15 @@ class UserSerializer(serializers.ModelSerializer):
             pass
         return None
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and request.user != instance:
+            if not (request.user.is_staff or request.user.is_superuser):
+                for field in ('failed_login_attempts', 'lockout_until', 'last_login_ip', 'is_superuser'):
+                    data.pop(field, None)
+        return data
+
 
 class UserCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating users (admin)."""

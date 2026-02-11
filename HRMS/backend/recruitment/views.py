@@ -652,6 +652,10 @@ class PublicApplicationSubmitView(APIView):
     """Submit a job application via public URL."""
     permission_classes = [AllowAny]
 
+    def get_throttles(self):
+        from core.throttling import ApplicationSubmitRateThrottle
+        return [ApplicationSubmitRateThrottle()]
+
     def post(self, request, slug):
         # Find vacancy URL by slug
         try:
@@ -740,6 +744,10 @@ class PublicApplicationSubmitView(APIView):
 class ApplicantPortalLoginView(APIView):
     """Login to applicant portal with email and token."""
     permission_classes = [AllowAny]
+
+    def get_throttles(self):
+        from core.throttling import PortalLoginRateThrottle
+        return [PortalLoginRateThrottle()]
 
     def post(self, request):
         email = request.data.get('email')
@@ -1246,11 +1254,23 @@ from .serializers import (
 
 def _save_applicant_attachments(applicant, request):
     """Save file attachments (resume, cover letter file, certificates) for an applicant."""
-    max_file_size = 10 * 1024 * 1024  # 10MB
+    import logging
+    from core.validators import validate_uploaded_file
+    from django.core.exceptions import ValidationError
+
+    logger = logging.getLogger(__name__)
+
+    def _is_valid_file(file_obj):
+        try:
+            validate_uploaded_file(file_obj)
+            return True
+        except ValidationError as e:
+            logger.warning('File validation failed for %s: %s', file_obj.name, e.message)
+            return False
 
     # Resume
     resume = request.FILES.get('resume')
-    if resume and resume.size <= max_file_size:
+    if resume and _is_valid_file(resume):
         attachment = ApplicantAttachment(
             applicant=applicant,
             attachment_type=ApplicantAttachment.AttachmentType.RESUME,
@@ -1265,7 +1285,7 @@ def _save_applicant_attachments(applicant, request):
 
     # Cover letter file
     cover_letter_file = request.FILES.get('cover_letter_file')
-    if cover_letter_file and cover_letter_file.size <= max_file_size:
+    if cover_letter_file and _is_valid_file(cover_letter_file):
         attachment = ApplicantAttachment(
             applicant=applicant,
             attachment_type=ApplicantAttachment.AttachmentType.COVER_LETTER,
@@ -1277,7 +1297,7 @@ def _save_applicant_attachments(applicant, request):
     # Certificates (multiple)
     certificates = request.FILES.getlist('certificates')
     for cert_file in certificates:
-        if cert_file.size <= max_file_size:
+        if _is_valid_file(cert_file):
             attachment = ApplicantAttachment(
                 applicant=applicant,
                 attachment_type=ApplicantAttachment.AttachmentType.CERTIFICATE,

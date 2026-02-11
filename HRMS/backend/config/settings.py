@@ -18,7 +18,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+
+# Prevent running in production with insecure defaults
+if not DEBUG and 'insecure' in SECRET_KEY:
+    import warnings
+    warnings.warn(
+        'Running with insecure SECRET_KEY! Generate a new one with: '
+        'python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"',
+        stacklevel=1
+    )
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -70,6 +79,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.AuditLogMiddleware',
+    'core.middleware.SecurityHeadersMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -191,14 +201,18 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
+        'login': '5/minute',
+        'password_reset': '3/hour',
+        'application_submit': '10/hour',
+        'portal_login': '5/minute',
     },
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
 }
 
 # JWT Configuration
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv('ACCESS_TOKEN_LIFETIME_MINUTES', 60))),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('REFRESH_TOKEN_LIFETIME_DAYS', 7))),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv('ACCESS_TOKEN_LIFETIME_MINUTES', 30))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('REFRESH_TOKEN_LIFETIME_DAYS', 1))),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
@@ -218,6 +232,17 @@ CORS_ALLOWED_ORIGINS = os.getenv(
     'http://localhost:3000,http://localhost:5173'
 ).split(',')
 CORS_ALLOW_CREDENTIALS = True
+
+# CORS production warning
+if not DEBUG:
+    import logging as _logging
+    _cors_logger = _logging.getLogger('nhia_hrms')
+    _localhost_origins = [o for o in CORS_ALLOWED_ORIGINS if 'localhost' in o or '127.0.0.1' in o]
+    if _localhost_origins:
+        _cors_logger.warning(
+            'CORS_ALLOWED_ORIGINS contains localhost entries in non-DEBUG mode: %s',
+            _localhost_origins
+        )
 
 # API Documentation
 SPECTACULAR_SETTINGS = {
@@ -370,6 +395,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
 
 # Frontend URL for email links
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+
+# Admin URL path (obscured for security)
+ADMIN_URL_PATH = os.getenv('ADMIN_URL_PATH', 'nhia-sys-admin/')
 
 # HRMS Specific Settings
 HRMS_SETTINGS = {

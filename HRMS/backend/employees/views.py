@@ -18,6 +18,7 @@ from .models import (
     DataUpdateRequest, DataUpdateDocument,
     ServiceRequestType, ServiceRequest, ServiceRequestComment, ServiceRequestDocument
 )
+from .permissions import EmployeeOwnershipMixin
 from .serializers import (
     EmployeeSerializer, EmployeeListSerializer, EmployeeCreateSerializer,
     EmergencyContactSerializer, DependentSerializer, EducationSerializer,
@@ -163,7 +164,7 @@ class BulkExportView(APIView):
         return Response({'message': 'Bulk export endpoint'}, status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
-class DependentListView(generics.ListCreateAPIView):
+class DependentListView(EmployeeOwnershipMixin, generics.ListCreateAPIView):
     """List and create dependents for an employee."""
     serializer_class = DependentSerializer
 
@@ -174,7 +175,7 @@ class DependentListView(generics.ListCreateAPIView):
         serializer.save(employee_id=self.kwargs['employee_id'])
 
 
-class EducationListView(generics.ListCreateAPIView):
+class EducationListView(EmployeeOwnershipMixin, generics.ListCreateAPIView):
     """List and create education records for an employee."""
     serializer_class = EducationSerializer
 
@@ -185,7 +186,7 @@ class EducationListView(generics.ListCreateAPIView):
         serializer.save(employee_id=self.kwargs['employee_id'])
 
 
-class WorkExperienceListView(generics.ListCreateAPIView):
+class WorkExperienceListView(EmployeeOwnershipMixin, generics.ListCreateAPIView):
     """List and create work experience for an employee."""
     serializer_class = WorkExperienceSerializer
 
@@ -196,7 +197,7 @@ class WorkExperienceListView(generics.ListCreateAPIView):
         serializer.save(employee_id=self.kwargs['employee_id'])
 
 
-class CertificationListView(generics.ListCreateAPIView):
+class CertificationListView(EmployeeOwnershipMixin, generics.ListCreateAPIView):
     """List and create certifications for an employee."""
     serializer_class = CertificationSerializer
 
@@ -207,7 +208,7 @@ class CertificationListView(generics.ListCreateAPIView):
         serializer.save(employee_id=self.kwargs['employee_id'])
 
 
-class SkillListView(generics.ListCreateAPIView):
+class SkillListView(EmployeeOwnershipMixin, generics.ListCreateAPIView):
     """List and create skills for an employee."""
     serializer_class = SkillSerializer
 
@@ -218,7 +219,7 @@ class SkillListView(generics.ListCreateAPIView):
         serializer.save(employee_id=self.kwargs['employee_id'])
 
 
-class BankAccountListView(generics.ListCreateAPIView):
+class BankAccountListView(EmployeeOwnershipMixin, generics.ListCreateAPIView):
     """List and create bank accounts for an employee."""
     serializer_class = BankAccountSerializer
 
@@ -229,7 +230,7 @@ class BankAccountListView(generics.ListCreateAPIView):
         serializer.save(employee_id=self.kwargs['employee_id'])
 
 
-class EmergencyContactListView(generics.ListCreateAPIView):
+class EmergencyContactListView(EmployeeOwnershipMixin, generics.ListCreateAPIView):
     """List and create emergency contacts for an employee."""
     serializer_class = EmergencyContactSerializer
 
@@ -240,7 +241,7 @@ class EmergencyContactListView(generics.ListCreateAPIView):
         serializer.save(employee_id=self.kwargs['employee_id'])
 
 
-class EmploymentHistoryView(generics.ListAPIView):
+class EmploymentHistoryView(EmployeeOwnershipMixin, generics.ListAPIView):
     """List employment history for an employee."""
     serializer_class = EmploymentHistorySerializer
 

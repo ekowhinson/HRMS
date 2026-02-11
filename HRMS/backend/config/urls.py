@@ -13,8 +13,8 @@ from drf_spectacular.views import (
 )
 
 urlpatterns = [
-    # Admin
-    path('admin/', admin.site.urls),
+    # Admin (obscured URL for security)
+    path(settings.ADMIN_URL_PATH, admin.site.urls),
 
     # API v1
     path('api/v1/', include([
@@ -36,17 +36,17 @@ urlpatterns = [
         path('training/', include('training.urls')),  # Training & Development
     ])),
 
-    # API Documentation
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-
     # Health check
     path('health/', include('core.urls', namespace='core-health')),
 ]
 
-# Serve media files in development
+# Serve media files and API docs in development only
 if settings.DEBUG:
+    urlpatterns += [
+        path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+        path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+        path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    ]
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 

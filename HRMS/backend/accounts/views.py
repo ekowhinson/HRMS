@@ -29,6 +29,11 @@ from .serializers import (
 class LoginView(APIView):
     """User login endpoint with 2FA support."""
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
+    def get_throttles(self):
+        from core.throttling import LoginRateThrottle
+        return [LoginRateThrottle()]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -255,6 +260,10 @@ class PasswordResetRequestView(APIView):
     """Request password reset."""
     permission_classes = [permissions.AllowAny]
 
+    def get_throttles(self):
+        from core.throttling import PasswordResetRateThrottle
+        return [PasswordResetRateThrottle()]
+
     def post(self, request):
         import logging
         logger = logging.getLogger(__name__)
@@ -319,6 +328,10 @@ HRMS Team
 class PasswordResetConfirmView(APIView):
     """Confirm password reset with token."""
     permission_classes = [permissions.AllowAny]
+
+    def get_throttles(self):
+        from core.throttling import PasswordResetRateThrottle
+        return [PasswordResetRateThrottle()]
 
     def get(self, request):
         """Validate token and return status."""
@@ -470,6 +483,7 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class UserRoleListView(APIView):
     """Manage user roles."""
+    permission_classes = [permissions.IsAdminUser]
 
     def get(self, request, pk):
         """Get user's roles."""
@@ -520,6 +534,7 @@ class UserRoleListView(APIView):
 
 class UserRoleDetailView(APIView):
     """Remove a role from user."""
+    permission_classes = [permissions.IsAdminUser]
 
     def delete(self, request, pk, role_pk):
         """Remove role from user."""

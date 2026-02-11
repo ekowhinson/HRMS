@@ -5,6 +5,7 @@ Recruitment models for vacancy, applicant, interview, and offer management.
 import base64
 import hashlib
 import mimetypes
+import secrets
 from django.db import models
 from django.conf import settings
 
@@ -1060,7 +1061,7 @@ class VacancyURL(BaseModel):
         if not token or not self.access_token:
             return False
 
-        return token == self.access_token
+        return secrets.compare_digest(token or '', self.access_token or '')
 
     def verify_email(self, email):
         """Verify if email is in target list (for GROUP type)."""
