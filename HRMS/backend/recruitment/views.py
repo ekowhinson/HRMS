@@ -715,6 +715,15 @@ class PublicApplicationSubmitView(APIView):
             # Get portal access
             portal_access = ApplicantPortalAccess.objects.get(applicant=applicant)
 
+            # Send confirmation email asynchronously
+            from .tasks import send_application_confirmation_email
+            try:
+                send_application_confirmation_email.delay(
+                    str(applicant.id), portal_access.access_token
+                )
+            except Exception:
+                pass  # Don't fail submission if email queuing errors
+
             return Response({
                 'message': 'Application submitted successfully',
                 'applicant_number': applicant.applicant_number,
@@ -1395,6 +1404,13 @@ class InternalApplicationSubmitView(APIView):
             auto_shortlist_applicant(applicant)
         except Exception:
             pass
+
+        # Send confirmation email asynchronously
+        from .tasks import send_application_confirmation_email
+        try:
+            send_application_confirmation_email.delay(str(applicant.id))
+        except Exception:
+            pass  # Don't fail submission if email queuing errors
 
         return Response({
             'message': 'Internal application submitted successfully',

@@ -1,7 +1,8 @@
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import PortalLayout from '@/components/layout/PortalLayout'
-import { applicantPortalService, getPortalToken } from '@/services/applicantPortal'
+import { applicantPortalService, getPortalToken, setPortalToken } from '@/services/applicantPortal'
 import type { PortalDashboardData } from '@/services/applicantPortal'
 import {
   CheckCircleIcon,
@@ -27,7 +28,23 @@ const statusColors: Record<string, string> = {
 
 export default function PortalDashboardPage() {
   const navigate = useNavigate()
-  const token = getPortalToken()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [tokenReady, setTokenReady] = useState(!!getPortalToken())
+
+  // Pick up token from email link (?token=...), persist it, then strip from URL
+  useEffect(() => {
+    const urlToken = searchParams.get('token')
+    if (urlToken) {
+      setPortalToken(urlToken)
+      setTokenReady(true)
+      // Remove token from address bar so it's not visible in browser history or referrer headers
+      setSearchParams({}, { replace: true })
+    } else if (!getPortalToken()) {
+      navigate('/portal/login', { replace: true })
+    }
+  }, [searchParams, setSearchParams, navigate])
+
+  const token = tokenReady ? getPortalToken() : null
 
   const { data, isLoading, error } = useQuery<PortalDashboardData>({
     queryKey: ['portal-dashboard'],
@@ -36,8 +53,11 @@ export default function PortalDashboardPage() {
   })
 
   if (!token) {
-    navigate('/portal/login')
-    return null
+    return (
+      <PortalLayout>
+        <div className="text-center py-16 text-gray-500">Redirecting...</div>
+      </PortalLayout>
+    )
   }
 
   if (isLoading) {
