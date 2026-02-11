@@ -11,7 +11,7 @@ import os
 
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import task_failure, task_retry
+from celery.signals import task_failure, task_prerun, task_postrun, task_retry
 from django.conf import settings
 
 logger = logging.getLogger('nhia_hrms')
@@ -109,22 +109,75 @@ app.conf.update(
 app.autodiscover_tasks(['imports', 'core', 'payroll', 'reports', 'training'])
 
 
-# ── Task failure / retry signal handlers ────────────────────────────────────
+# ── Task lifecycle signal handlers ──────────────────────────────────────────
+
+# Thread-local storage for task start times
+import threading
+import time as _time
+
+_task_timing = threading.local()
+
+
+@task_prerun.connect
+def handle_task_prerun(sender=None, task_id=None, args=None, kwargs=None, **kw):
+    """Record task start time and log task execution start."""
+    _task_timing.start = _time.monotonic()
+    logger.info(
+        "Celery task started: %s[%s]",
+        sender.name if sender else 'unknown',
+        task_id,
+        extra={
+            'task_name': sender.name if sender else 'unknown',
+            'task_id': task_id,
+            'args': str(args)[:500],
+            'event': 'task_started',
+        },
+    )
+
+
+@task_postrun.connect
+def handle_task_postrun(sender=None, task_id=None, args=None, kwargs=None,
+                        retval=None, state=None, **kw):
+    """Log task completion with duration and result status."""
+    start = getattr(_task_timing, 'start', None)
+    duration_ms = round((_time.monotonic() - start) * 1000, 2) if start else 0
+
+    logger.info(
+        "Celery task completed: %s[%s] state=%s duration=%sms",
+        sender.name if sender else 'unknown',
+        task_id,
+        state,
+        duration_ms,
+        extra={
+            'task_name': sender.name if sender else 'unknown',
+            'task_id': task_id,
+            'state': state,
+            'duration_ms': duration_ms,
+            'event': 'task_completed',
+        },
+    )
+
 
 @task_failure.connect
 def handle_task_failure(sender=None, task_id=None, exception=None,
                         args=None, kwargs=None, traceback=None,
                         einfo=None, **kw):
     """Log task failures with structured data for Cloud Monitoring alerts."""
+    start = getattr(_task_timing, 'start', None)
+    duration_ms = round((_time.monotonic() - start) * 1000, 2) if start else 0
+
     logger.error(
-        "Celery task failed: %s[%s]",
+        "Celery task failed: %s[%s] after %sms",
         sender.name if sender else 'unknown',
         task_id,
+        duration_ms,
         extra={
             'task_name': sender.name if sender else 'unknown',
             'task_id': task_id,
             'exception': str(exception),
+            'exception_type': type(exception).__name__ if exception else '',
             'args': str(args)[:500],
+            'duration_ms': duration_ms,
             'event': 'task_failure',
         },
         exc_info=einfo,

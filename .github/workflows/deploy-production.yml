@@ -442,7 +442,7 @@ jobs:
           API_URL="${{ vars.PRODUCTION_API_URL }}"
           echo "## Production Smoke Tests" >> "$GITHUB_STEP_SUMMARY"
 
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/api/v1/core/health/")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/healthz/")
           if [ "$STATUS" = "200" ]; then
             echo "- [x] Health check: **PASS**" >> "$GITHUB_STEP_SUMMARY"
           else

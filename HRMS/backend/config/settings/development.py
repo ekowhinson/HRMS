@@ -9,6 +9,8 @@ import os
 from config.settings.base import *  # noqa: F401,F403
 from config.settings.base import BASE_DIR, SIMPLE_JWT
 
+DJANGO_ENV = 'development'
+
 # ── Core ─────────────────────────────────────────────────────────────────────
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-only-change-me-in-production')
 DEBUG = True

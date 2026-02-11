@@ -8,6 +8,8 @@ import time
 import uuid
 from django.utils.deprecation import MiddlewareMixin
 
+from core.logging import set_log_context, clear_log_context, request_stats
+
 logger = logging.getLogger('nhia_hrms')
 
 # Thread-local storage for request context
@@ -101,12 +103,17 @@ class AuditLogMiddleware(MiddlewareMixin):
     Middleware to log all requests for audit purposes.
 
     Captures request_id (from X-Request-ID header or auto-generated UUID),
+    trace_id (from X-Cloud-Trace-Context for GCP Cloud Trace integration),
     request duration, and emits structured log fields compatible with JSON
     logging in staging/production.
+
+    Also propagates request_id and trace_id into thread-local log context
+    so that all loggers (including SQL and Celery) automatically include them.
     """
 
     EXCLUDED_PATHS = [
-        '/health/',
+        '/healthz/',
+        '/readyz/',
         '/static/',
         '/media/',
         '/api/schema/',
@@ -128,20 +135,40 @@ class AuditLogMiddleware(MiddlewareMixin):
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')
 
+    def _extract_trace_id(self, request):
+        """
+        Extract trace_id from GCP's X-Cloud-Trace-Context header.
+        Format: TRACE_ID/SPAN_ID;o=TRACE_TRUE
+        Falls back to empty string if not present.
+        """
+        trace_header = request.META.get('HTTP_X_CLOUD_TRACE_CONTEXT', '')
+        if trace_header:
+            return trace_header.split('/')[0]
+        return ''
+
     def process_request(self, request):
         # Always assign a request_id (used by other middleware / views too)
         request.request_id = (
             request.META.get('HTTP_X_REQUEST_ID') or uuid.uuid4().hex
         )
+        request.trace_id = self._extract_trace_id(request)
         request._audit_start = time.monotonic()
+
+        # Propagate into thread-local log context for all downstream loggers
+        set_log_context(
+            request_id=request.request_id,
+            trace_id=request.trace_id,
+        )
 
         if self.should_log(request):
             request._audit_data = {
                 'request_id': request.request_id,
+                'trace_id': request.trace_id,
                 'ip_address': self.get_client_ip(request),
                 'user_agent': request.META.get('HTTP_USER_AGENT', ''),
                 'method': request.method,
                 'path': request.path,
+                'query_string': request.META.get('QUERY_STRING', ''),
             }
 
     def process_response(self, request, response):
@@ -149,9 +176,15 @@ class AuditLogMiddleware(MiddlewareMixin):
             duration_ms = round(
                 (time.monotonic() - request._audit_start) * 1000, 2
             )
+
+            # Record timing for /api/status/ percentile stats
+            request_stats.record(duration_ms)
+
             audit_data = request._audit_data
             audit_data['status_code'] = response.status_code
             audit_data['duration_ms'] = duration_ms
+            audit_data['response_size'] = len(response.content) if hasattr(response, 'content') else 0
+            audit_data['content_length'] = request.META.get('CONTENT_LENGTH', 0)
 
             user = getattr(request, 'user', None)
             user_id = getattr(user, 'id', None) if user and getattr(user, 'is_authenticated', False) else None
@@ -167,15 +200,26 @@ class AuditLogMiddleware(MiddlewareMixin):
                 audit_data['status_code'],
                 duration_ms,
                 extra={
+                    'event': 'http_request',
                     'request_id': audit_data['request_id'],
-                    'user_id': user_id,
+                    'trace_id': audit_data.get('trace_id', ''),
+                    'user_id': str(user_id) if user_id else '',
                     'method': audit_data['method'],
                     'path': audit_data['path'],
+                    'query_string': audit_data.get('query_string', ''),
                     'status_code': audit_data['status_code'],
                     'duration_ms': duration_ms,
+                    'response_size': audit_data.get('response_size', 0),
                     'ip_address': audit_data['ip_address'],
                 },
             )
+
+        # Inject request_id into response header for client-side correlation
+        if hasattr(request, 'request_id'):
+            response['X-Request-ID'] = request.request_id
+
+        # Clear thread-local log context
+        clear_log_context()
 
         return response
 

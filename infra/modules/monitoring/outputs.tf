@@ -1,6 +1,11 @@
 output "notification_channel_id" {
-  description = "Monitoring notification channel ID"
+  description = "Email notification channel ID"
   value       = google_monitoring_notification_channel.email.name
+}
+
+output "slack_channel_id" {
+  description = "Slack notification channel ID (empty if not configured)"
+  value       = var.slack_webhook_url != "" ? google_monitoring_notification_channel.slack[0].name : ""
 }
 
 output "dashboard_id" {
@@ -8,7 +13,12 @@ output "dashboard_id" {
   value       = google_monitoring_dashboard.hrms.id
 }
 
-output "uptime_check_id" {
-  description = "API uptime check ID"
-  value       = google_monitoring_uptime_check_config.api_health.uptime_check_id
+output "liveness_check_id" {
+  description = "API liveness uptime check ID"
+  value       = google_monitoring_uptime_check_config.api_liveness.uptime_check_id
+}
+
+output "readiness_check_id" {
+  description = "API readiness uptime check ID"
+  value       = google_monitoring_uptime_check_config.api_readiness.uptime_check_id
 }

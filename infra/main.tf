@@ -196,14 +196,16 @@ module "frontend_cdn" {
 module "monitoring" {
   source = "./modules/monitoring"
 
-  project_id         = var.project_id
-  name_prefix        = local.name_prefix
-  notification_email = var.notification_email
-  domain             = var.domain
-  uptime_check_path  = var.uptime_check_path
-  api_service_name   = module.backend_service.service_name
-  worker_service_name = module.worker_service.service_name
-  db_instance_id     = module.database.instance_id
-  redis_instance_id  = module.cache.instance_id
-  labels             = local.common_labels
+  project_id              = var.project_id
+  name_prefix             = local.name_prefix
+  notification_email      = var.notification_email
+  slack_webhook_url       = var.slack_webhook_url
+  domain                  = var.domain
+  uptime_check_path       = var.uptime_check_path
+  api_service_name        = module.backend_service.service_name
+  worker_service_name     = module.worker_service.service_name
+  db_instance_id          = module.database.instance_id
+  redis_instance_id       = module.cache.instance_id
+  enable_log_based_metrics = var.enable_log_based_metrics
+  labels                  = local.common_labels
 }

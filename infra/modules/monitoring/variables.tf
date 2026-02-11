@@ -11,6 +11,13 @@ variable "notification_email" {
   type        = string
 }
 
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for critical alerts (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "domain" {
   description = "Application domain for uptime checks"
   type        = string
@@ -19,7 +26,13 @@ variable "domain" {
 variable "uptime_check_path" {
   description = "Health check path"
   type        = string
-  default     = "/api/v1/core/health/"
+  default     = "/healthz/"
+}
+
+variable "readiness_check_path" {
+  description = "Readiness check path"
+  type        = string
+  default     = "/readyz/"
 }
 
 variable "api_service_name" {
@@ -40,6 +53,12 @@ variable "db_instance_id" {
 variable "redis_instance_id" {
   description = "Memorystore Redis instance ID"
   type        = string
+}
+
+variable "enable_log_based_metrics" {
+  description = "Create log-based metrics for application errors and slow queries"
+  type        = bool
+  default     = true
 }
 
 variable "labels" {

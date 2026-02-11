@@ -126,7 +126,7 @@ jobs:
             --project="$PROJECT" \
             --format="value(status.url)")
 
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${URL}/api/v1/core/health/" || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${URL}/healthz/" || echo "000")
           if [ "$STATUS" = "200" ]; then
             echo "Health check **PASS** after rollback." >> "$GITHUB_STEP_SUMMARY"
           else

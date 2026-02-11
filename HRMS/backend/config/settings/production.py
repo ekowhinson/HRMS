@@ -9,7 +9,9 @@ import os
 import sys
 
 from config.settings.base import *  # noqa: F401,F403
-from config.settings.base import MIDDLEWARE, SIMPLE_JWT
+from config.settings.base import INSTALLED_APPS, MIDDLEWARE, SIMPLE_JWT
+
+DJANGO_ENV = 'production'
 
 # ── Fail-hard checks ────────────────────────────────────────────────────────
 SECRET_KEY = os.environ.get('SECRET_KEY')
@@ -127,20 +129,60 @@ CACHES = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'sessions'
 
+# ── Sentry — error tracking ──────────────────────────────────────────────────
+SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(transaction_style='url'),
+            CeleryIntegration(monitor_beat_tasks=True),
+            RedisIntegration(),
+            LoggingIntegration(
+                level=None,           # Don't capture breadcrumbs from logs
+                event_level='ERROR',  # Send ERROR+ logs as Sentry events
+            ),
+        ],
+        environment='production',
+        release=os.environ.get('APP_VERSION', 'unknown'),
+        traces_sample_rate=float(os.environ.get('SENTRY_TRACES_RATE', '0.1')),
+        profiles_sample_rate=float(os.environ.get('SENTRY_PROFILES_RATE', '0.1')),
+        send_default_pii=False,
+        # Filter out health check transactions
+        traces_sampler=lambda ctx: 0 if ctx.get('wsgi_environ', {}).get('PATH_INFO', '').startswith(('/healthz', '/readyz')) else float(os.environ.get('SENTRY_TRACES_RATE', '0.1')),
+    )
+
 # ── Logging — structured JSON to stdout only ─────────────────────────────────
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'json': {
-            '()': 'pythonjsonlogger.json.JsonFormatter',
+            '()': 'core.logging.HRMSJsonFormatter',
             'fmt': '%(asctime)s %(levelname)s %(name)s %(message)s',
+        },
+    },
+    'filters': {
+        'celery_context': {
+            '()': 'core.logging.CeleryTaskFilter',
         },
     },
     'handlers': {
         'stdout': {
             'class': 'logging.StreamHandler',
             'formatter': 'json',
+            'filters': ['celery_context'],
+        },
+        'sql_slow': {
+            '()': 'core.logging.SQLQueryLogger',
+            'warning_ms': 500,   # Production: warn at 500ms
+            'error_ms': 2000,    # Production: error at 2s
         },
     },
     'root': {
@@ -158,7 +200,22 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
+        'django.db.backends': {
+            'handlers': ['sql_slow'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
         'nhia_hrms': {
+            'handlers': ['stdout'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'nhia_hrms.sql.slow': {
+            'handlers': ['stdout'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'celery': {
             'handlers': ['stdout'],
             'level': 'INFO',
             'propagate': False,

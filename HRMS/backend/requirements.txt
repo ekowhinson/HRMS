@@ -75,3 +75,6 @@ flower>=2.0.0
 
 # Structured JSON logging
 python-json-logger>=3.0.0
+
+# Error tracking & performance monitoring
+sentry-sdk[django,celery,redis]>=2.0.0

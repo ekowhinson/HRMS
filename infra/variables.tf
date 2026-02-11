@@ -282,10 +282,23 @@ variable "notification_email" {
   type        = string
 }
 
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for critical alerts (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "uptime_check_path" {
   description = "Health check path for uptime monitoring"
   type        = string
-  default     = "/api/v1/core/health/"
+  default     = "/healthz/"
+}
+
+variable "enable_log_based_metrics" {
+  description = "Enable log-based metrics for application errors and slow queries"
+  type        = bool
+  default     = true
 }
 
 # ── Labels ───────────────────────────────────────────────────────────────────

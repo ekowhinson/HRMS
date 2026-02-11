@@ -8,6 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from .health import system_status
 from .views import (
     EmployeeIDConfigView,
     TwoFactorPolicyView,
@@ -58,6 +59,9 @@ def health_check(request):
 
 urlpatterns = [
     path('', health_check, name='health-check'),
+
+    # System status (admin only — detailed observability)
+    path('status/', system_status, name='system-status'),
 
     # Employee ID configuration (admin only)
     path('employee-id-config/', EmployeeIDConfigView.as_view(), name='employee-id-config'),

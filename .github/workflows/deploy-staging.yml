@@ -170,10 +170,10 @@ jobs:
       - name: Health check on new revision
         run: |
           CANARY_URL="${{ steps.deploy-api.outputs.canary_url }}"
-          echo "Checking health at: ${CANARY_URL}/api/v1/core/health/"
+          echo "Checking health at: ${CANARY_URL}/healthz/"
 
           for i in $(seq 1 10); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${CANARY_URL}/api/v1/core/health/" || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${CANARY_URL}/healthz/" || echo "000")
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (attempt $i)"
               exit 0
@@ -283,7 +283,7 @@ jobs:
           echo "## Smoke Tests" >> "$GITHUB_STEP_SUMMARY"
 
           # Health endpoint
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/api/v1/core/health/")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/healthz/")
           if [ "$STATUS" = "200" ]; then
             echo "- [x] Health check: **PASS** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
           else

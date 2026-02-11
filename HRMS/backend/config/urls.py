@@ -12,9 +12,15 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from core.health import healthz, readyz
+
 urlpatterns = [
     # Admin (obscured URL for security)
     path(settings.ADMIN_URL_PATH, admin.site.urls),
+
+    # ── Health probes (no auth, no middleware overhead) ────────────────────
+    path('healthz/', healthz, name='healthz'),   # Liveness — always 200
+    path('readyz/', readyz, name='readyz'),       # Readiness — checks DB, Redis
 
     # API v1
     path('api/v1/', include([
@@ -27,7 +33,7 @@ urlpatterns = [
         path('performance/', include('performance.urls')),
         path('reports/', include('reports.urls')),
         path('imports/', include('imports.urls')),
-        path('core/', include('core.urls')),  # Cache, lookups, dashboard stats
+        path('core/', include('core.urls')),  # Cache, lookups, dashboard stats, system status
         path('policies/', include('policies.urls')),  # Company policies & SOPs
         path('exits/', include('exits.urls')),  # Exit/Offboarding management
         path('recruitment/', include('recruitment.urls')),  # Recruitment & interview scoring
@@ -36,7 +42,7 @@ urlpatterns = [
         path('training/', include('training.urls')),  # Training & Development
     ])),
 
-    # Health check
+    # Legacy health check (kept for backwards compatibility)
     path('health/', include('core.urls', namespace='core-health')),
 ]
 
