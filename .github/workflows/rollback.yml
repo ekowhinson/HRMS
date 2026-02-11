@@ -1,0 +1,146 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Rollback – Manual trigger to revert to a previous revision
+# ─────────────────────────────────────────────────────────────────────────────
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      revision:
+        description: "Cloud Run revision name (or 'previous' for the last stable revision)"
+        required: true
+        default: "previous"
+      reason:
+        description: "Reason for rollback"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  rollback:
+    name: Rollback ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Determine project and service names
+        id: config
+        run: |
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            echo "project=${{ secrets.GCP_PROJECT_ID_PRODUCTION }}" >> "$GITHUB_OUTPUT"
+            echo "api_service=nhia-hrms-production-api" >> "$GITHUB_OUTPUT"
+            echo "worker_service=nhia-hrms-production-worker" >> "$GITHUB_OUTPUT"
+            echo "urlmap=nhia-hrms-production-frontend-urlmap" >> "$GITHUB_OUTPUT"
+          else
+            echo "project=${{ secrets.GCP_PROJECT_ID_STAGING }}" >> "$GITHUB_OUTPUT"
+            echo "api_service=nhia-hrms-staging-api" >> "$GITHUB_OUTPUT"
+            echo "worker_service=nhia-hrms-staging-worker" >> "$GITHUB_OUTPUT"
+            echo "urlmap=nhia-hrms-staging-frontend-urlmap" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve target revision
+        id: resolve
+        run: |
+          SERVICE="${{ steps.config.outputs.api_service }}"
+          PROJECT="${{ steps.config.outputs.project }}"
+
+          if [ "${{ inputs.revision }}" = "previous" ]; then
+            # Get the second most recent revision (skip current)
+            REVISION=$(gcloud run revisions list \
+              --service="$SERVICE" \
+              --region=${{ env.GCP_REGION }} \
+              --project="$PROJECT" \
+              --sort-by="~metadata.creationTimestamp" \
+              --limit=2 \
+              --format="value(metadata.name)" | tail -1)
+
+            if [ -z "$REVISION" ]; then
+              echo "ERROR: No previous revision found to rollback to."
+              exit 1
+            fi
+            echo "Resolved 'previous' to: $REVISION"
+          else
+            REVISION="${{ inputs.revision }}"
+          fi
+
+          echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
+
+      - name: Rollback API service
+        run: |
+          REVISION="${{ steps.resolve.outputs.revision }}"
+          SERVICE="${{ steps.config.outputs.api_service }}"
+          PROJECT="${{ steps.config.outputs.project }}"
+
+          echo "## Rollback Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment:** ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Target revision:** ${REVISION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Reason:** ${{ inputs.reason }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
+
+          gcloud run services update-traffic "$SERVICE" \
+            --region=${{ env.GCP_REGION }} \
+            --project="$PROJECT" \
+            --to-revisions="${REVISION}=100"
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "API traffic shifted to **${REVISION}**" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Invalidate CDN cache
+        run: |
+          PROJECT="${{ steps.config.outputs.project }}"
+          URLMAP="${{ steps.config.outputs.urlmap }}"
+
+          gcloud compute url-maps invalidate-cdn-cache "$URLMAP" \
+            --path="/*" \
+            --project="$PROJECT" \
+            --async || true
+
+          echo "CDN cache invalidated." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify rollback
+        run: |
+          SERVICE="${{ steps.config.outputs.api_service }}"
+          PROJECT="${{ steps.config.outputs.project }}"
+
+          URL=$(gcloud run services describe "$SERVICE" \
+            --region=${{ env.GCP_REGION }} \
+            --project="$PROJECT" \
+            --format="value(status.url)")
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${URL}/api/v1/core/health/" || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "Health check **PASS** after rollback." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**WARNING:** Health check returned ${STATUS} after rollback." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Notify Slack (optional)
+        if: always() && vars.SLACK_WEBHOOK_URL != ''
+        run: |
+          STATUS="${{ job.status }}"
+          EMOJI=$([ "$STATUS" = "success" ] && echo ":rewind:" || echo ":x:")
+
+          curl -s -X POST "${{ vars.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"${EMOJI} Rollback ${STATUS} on ${{ inputs.environment }}\nRevision: \`${{ steps.resolve.outputs.revision }}\`\nReason: ${{ inputs.reason }}\nTriggered by: ${{ github.actor }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"
+            }" || true

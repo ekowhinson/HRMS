@@ -1,0 +1,322 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Deploy to Staging – Build, Migrate, Deploy, Smoke Test
+# Triggers on push to develop branch.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Deploy Staging
+
+on:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false # Never cancel an in-progress deploy
+
+env:
+  GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_STAGING }}
+  REGISTRY: ${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev
+  REPOSITORY: ${{ secrets.GCP_PROJECT_ID_STAGING }}/nhia-hrms-staging-docker
+  BACKEND_IMAGE: backend
+  WORKER_IMAGE: celery-worker
+  CLOUD_RUN_API: nhia-hrms-staging-api
+  CLOUD_RUN_WORKER: nhia-hrms-staging-worker
+
+permissions:
+  contents: read
+  id-token: write # Required for Workload Identity Federation
+
+jobs:
+  # ── 1. Run CI ────────────────────────────────────────────────────────────
+  ci:
+    name: Run CI
+    uses: ./.github/workflows/ci.yml
+
+  # ── 2. Build & Push Images ──────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Images
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: HRMS/backend
+          file: HRMS/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.BACKEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: HRMS/backend
+          file: HRMS/backend/Dockerfile.celery
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.WORKER_IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.WORKER_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan backend image for vulnerabilities
+        run: |
+          gcloud artifacts docker images scan \
+            "${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}" \
+            --format=json --project=${{ env.PROJECT_ID }} || true
+
+  # ── 3. Database Migration ───────────────────────────────────────────────
+  migrate-database:
+    name: Run Migrations
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run migrations via Cloud Run Job
+        id: migrate
+        run: |
+          # Execute migration as a one-off Cloud Run job using the new image
+          IMAGE="${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image-tag }}"
+
+          echo "## Database Migration" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # Use gcloud run jobs to execute migration
+          gcloud run jobs execute ${{ env.CLOUD_RUN_API }}-migrate \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --wait \
+            --format="text" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || {
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              echo "**MIGRATION FAILED** - Deployment halted." >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            }
+
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Migration completed successfully." >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 4. Deploy Backend ───────────────────────────────────────────────────
+  deploy-backend:
+    name: Deploy Backend Services
+    needs: [build-and-push, migrate-database]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy API service (0% traffic)
+        id: deploy-api
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image-tag }}"
+
+          gcloud run deploy ${{ env.CLOUD_RUN_API }} \
+            --image="$IMAGE" \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --no-traffic \
+            --tag=canary \
+            --format="value(status.url)"
+
+          # Get the canary revision URL
+          CANARY_URL=$(gcloud run services describe ${{ env.CLOUD_RUN_API }} \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format="value(status.traffic[tag=canary].url)")
+
+          echo "canary_url=$CANARY_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Health check on new revision
+        run: |
+          CANARY_URL="${{ steps.deploy-api.outputs.canary_url }}"
+          echo "Checking health at: ${CANARY_URL}/api/v1/core/health/"
+
+          for i in $(seq 1 10); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${CANARY_URL}/api/v1/core/health/" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i: got $STATUS, retrying in 10s..."
+            sleep 10
+          done
+
+          echo "Health check failed after 10 attempts"
+          exit 1
+
+      - name: Shift 100% traffic to new revision
+        run: |
+          LATEST_REVISION=$(gcloud run revisions list \
+            --service=${{ env.CLOUD_RUN_API }} \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --sort-by="~metadata.creationTimestamp" \
+            --limit=1 \
+            --format="value(metadata.name)")
+
+          gcloud run services update-traffic ${{ env.CLOUD_RUN_API }} \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --to-revisions="$LATEST_REVISION=100"
+
+          echo "Traffic shifted to $LATEST_REVISION"
+
+      - name: Deploy Celery worker
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.WORKER_IMAGE }}:${{ needs.build-and-push.outputs.image-tag }}"
+
+          gcloud run deploy ${{ env.CLOUD_RUN_WORKER }} \
+            --image="$IMAGE" \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.PROJECT_ID }}
+
+  # ── 5. Deploy Frontend ──────────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: HRMS/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: HRMS/frontend
+        run: npm ci
+
+      - name: Build for staging
+        working-directory: HRMS/frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.STAGING_API_URL }}
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload to GCS with cache headers
+        run: |
+          BUCKET="${{ vars.STAGING_BUCKET }}"
+
+          # Static assets: long cache, immutable
+          gcloud storage cp HRMS/frontend/dist/assets/* "gs://${BUCKET}/assets/" \
+            --recursive \
+            --cache-control="public, max-age=31536000, immutable"
+
+          # HTML files: no cache
+          gcloud storage cp HRMS/frontend/dist/index.html "gs://${BUCKET}/" \
+            --cache-control="no-cache, no-store, must-revalidate"
+
+          # Other root files (favicon, manifest, etc.)
+          gcloud storage cp HRMS/frontend/dist/* "gs://${BUCKET}/" \
+            --cache-control="public, max-age=3600" \
+            --no-clobber || true
+
+      - name: Invalidate CDN cache for index.html
+        run: |
+          gcloud compute url-maps invalidate-cdn-cache nhia-hrms-staging-frontend-urlmap \
+            --path="/index.html" \
+            --project=${{ env.PROJECT_ID }} \
+            --async || true
+
+  # ── 6. Smoke Tests ──────────────────────────────────────────────────────
+  smoke-tests:
+    name: Smoke Tests
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: API health check
+        run: |
+          API_URL="${{ vars.STAGING_API_URL }}"
+          echo "## Smoke Tests" >> "$GITHUB_STEP_SUMMARY"
+
+          # Health endpoint
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/api/v1/core/health/")
+          if [ "$STATUS" = "200" ]; then
+            echo "- [x] Health check: **PASS** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- [ ] Health check: **FAIL** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # API status
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/api/v1/core/lookups/")
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "401" ]; then
+            echo "- [x] API endpoint: **PASS** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- [ ] API endpoint: **FAIL** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Frontend check
+        run: |
+          FRONTEND_URL="https://${{ vars.STAGING_BUCKET && 'staging.hrms.nhia.gov.gh' || 'staging.hrms.nhia.gov.gh' }}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "- [x] Frontend: **PASS** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- [ ] Frontend: **WARN** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Notify Slack (optional)
+        if: always() && vars.SLACK_WEBHOOK_URL != ''
+        run: |
+          STATUS="${{ job.status }}"
+          EMOJI=$([ "$STATUS" = "success" ] && echo ":white_check_mark:" || echo ":x:")
+
+          curl -s -X POST "${{ vars.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"${EMOJI} Staging deploy ${STATUS}: \`${{ github.sha }}\` by ${{ github.actor }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"
+            }" || true

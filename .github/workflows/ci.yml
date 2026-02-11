@@ -1,0 +1,256 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CI Pipeline – Lint, Test, Security Scan, Build Verification
+# Triggers on pull requests to develop and main.
+# ─────────────────────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_call: # Allow reuse from deploy workflows
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Backend Checks ───────────────────────────────────────────────────────
+  backend-lint:
+    name: Backend Lint & Format
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: HRMS/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install linters
+        run: pip install ruff bandit
+
+      - name: Ruff lint check
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Bandit security scan
+        run: bandit -r . -x ./tests,./manage.py -ll -ii
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: HRMS/backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hrms_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_ENV: development
+      USE_POSTGRES: "true"
+      USE_REDIS: "true"
+      DB_NAME: hrms_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: localhost
+      DB_PORT: 5432
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      SECRET_KEY: ci-test-secret-key-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpq-dev libldap2-dev libsasl2-dev
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-django pytest-cov ruff
+
+      - name: Django system checks
+        run: python manage.py check
+
+      - name: Migration check (no unapplied migrations)
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run migrations
+        run: python manage.py migrate
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=. --cov-report=xml --cov-report=term-missing \
+            --cov-fail-under=80 -v \
+            --junitxml=test-results.xml
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: HRMS/backend/coverage.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: HRMS/backend/test-results.xml
+
+  backend-security:
+    name: Backend Security Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: HRMS/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install audit tools
+        run: pip install pip-audit
+
+      - name: Dependency vulnerability scan
+        run: pip-audit -r requirements.txt --desc
+
+  # ── Frontend Checks ──────────────────────────────────────────────────────
+  frontend-lint:
+    name: Frontend Lint & TypeScript
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: HRMS/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: HRMS/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint check
+        run: npx eslint .
+
+      - name: TypeScript check
+        run: npx tsc -b --noEmit
+
+  frontend-build:
+    name: Frontend Build Verification
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: HRMS/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: HRMS/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: https://api.example.com
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: HRMS/frontend/dist
+          retention-days: 1
+
+  frontend-security:
+    name: Frontend Security Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: HRMS/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: HRMS/frontend/package-lock.json
+
+      - name: npm audit
+        run: npm audit --audit-level=high || true
+
+  # ── Docker Build Verification ────────────────────────────────────────────
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - context: HRMS/backend
+            dockerfile: HRMS/backend/Dockerfile
+            name: backend
+          - context: HRMS/backend
+            dockerfile: HRMS/backend/Dockerfile.celery
+            name: celery-worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.name }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: ${{ matrix.name }}:ci-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
