@@ -5,7 +5,6 @@ import {
   PlusIcon,
   MagnifyingGlassIcon,
   UsersIcon,
-  BanknotesIcon,
   ArrowTrendingUpIcon,
   FunnelIcon,
   CheckCircleIcon,

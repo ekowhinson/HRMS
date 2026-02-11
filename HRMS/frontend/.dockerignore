@@ -1,0 +1,28 @@
+# Dependencies (installed fresh via npm ci)
+node_modules/
+
+# Build output (generated during build)
+dist/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Version control
+.git
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker (prevent recursive copy)
+Dockerfile
+.dockerignore

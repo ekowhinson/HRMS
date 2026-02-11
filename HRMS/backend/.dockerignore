@@ -1,0 +1,67 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# Development databases
+db.sqlite3
+db.sqlite3-journal
+
+# Generated/uploaded files
+media/
+staticfiles/
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Version control
+.git
+.gitignore
+
+# Docker (prevent recursive copy)
+Dockerfile
+.dockerignore
+
+# Celery schedule files
+celerybeat-schedule*
+celerybeat.pid
+
+# Test & coverage
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+.tox/
+
+# Documents (not needed in container)
+*.xlsx
+*.pdf
+*.docx
+*.csv
+
+# Node (shouldn't be here, but just in case)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db

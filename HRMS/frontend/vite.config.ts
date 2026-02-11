@@ -18,4 +18,18 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    sourcemap: true,
+    chunkSizeWarningLimit: 500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-query': ['@tanstack/react-query', '@tanstack/react-table'],
+          'vendor-ui': ['@headlessui/react', '@heroicons/react', 'recharts'],
+          'vendor-utils': ['axios', 'date-fns', 'zod', 'zustand', 'clsx', 'react-hook-form'],
+        },
+      },
+    },
+  },
 })
