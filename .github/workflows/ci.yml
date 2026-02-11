@@ -110,6 +110,9 @@ jobs:
       - name: Migration check (no unapplied migrations)
         run: python manage.py makemigrations --check --dry-run
 
+      - name: Migration safety analysis
+        run: python ../../scripts/migration/check-migration-safety.py --ci
+
       - name: Run migrations
         run: python manage.py migrate
 
