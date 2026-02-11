@@ -1,5 +1,8 @@
 """
 Celery tasks for core functionality.
+
+Includes scheduled maintenance (session/token cleanup, health metrics)
+and HR business-logic periodic tasks (probation, grievance, appraisals).
 """
 
 import logging
@@ -7,6 +10,105 @@ from datetime import date, timedelta
 from celery import shared_task
 
 logger = logging.getLogger(__name__)
+
+
+# ─── Maintenance / cleanup tasks ────────────────────────────────────────────
+
+@shared_task
+def cleanup_expired_sessions():
+    """
+    Remove expired Django sessions from the database/cache.
+    Runs daily at 3:00 AM via Celery Beat.
+    """
+    try:
+        from django.contrib.sessions.models import Session
+        from django.utils import timezone
+
+        count, _ = Session.objects.filter(
+            expire_date__lt=timezone.now()
+        ).delete()
+
+        logger.info("Cleaned up %d expired sessions", count)
+        return {'status': 'success', 'deleted_sessions': count}
+    except Exception as e:
+        # Session backend may be cache-only (no DB table) — that's fine
+        logger.info("Session cleanup skipped (cache backend): %s", e)
+        return {'status': 'skipped', 'reason': str(e)}
+
+
+@shared_task
+def cleanup_expired_tokens():
+    """
+    Flush expired / blacklisted JWT refresh tokens.
+    Runs daily at 3:30 AM via Celery Beat.
+    """
+    try:
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken, OutstandingToken,
+        )
+        from django.utils import timezone
+
+        # Delete blacklisted tokens whose outstanding token has expired
+        expired = OutstandingToken.objects.filter(expires_at__lt=timezone.now())
+        bl_count, _ = BlacklistedToken.objects.filter(
+            token__in=expired
+        ).delete()
+        ot_count, _ = expired.delete()
+
+        logger.info("Token cleanup: %d blacklisted, %d outstanding removed",
+                     bl_count, ot_count)
+        return {
+            'status': 'success',
+            'blacklisted_deleted': bl_count,
+            'outstanding_deleted': ot_count,
+        }
+    except Exception as e:
+        logger.exception("Token cleanup failed: %s", e)
+        return {'status': 'error', 'message': str(e)}
+
+
+@shared_task
+def collect_health_metrics():
+    """
+    Collect lightweight health metrics and store in volatile cache.
+    Runs every 5 minutes via Celery Beat.
+    Useful for Cloud Monitoring dashboards and /health/ endpoint enrichment.
+    """
+    from django.core.cache import caches
+    from django.utils import timezone
+    from django.db import connection
+
+    metrics = {
+        'timestamp': timezone.now().isoformat(),
+        'status': 'healthy',
+    }
+
+    # DB connectivity check
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        metrics['db'] = 'ok'
+    except Exception as e:
+        metrics['db'] = f'error: {e}'
+        metrics['status'] = 'degraded'
+
+    # Cache connectivity check
+    try:
+        cache = caches['default']
+        cache.set('_health_probe', 1, timeout=60)
+        cache.get('_health_probe')
+        metrics['cache'] = 'ok'
+    except Exception as e:
+        metrics['cache'] = f'error: {e}'
+        metrics['status'] = 'degraded'
+
+    # Store in volatile cache for the health endpoint
+    try:
+        caches['volatile'].set('health_metrics', metrics, timeout=600)
+    except Exception:
+        pass
+
+    return metrics
 
 
 @shared_task

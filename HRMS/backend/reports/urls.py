@@ -53,7 +53,10 @@ urlpatterns = [
     path('custom/', views.CustomReportView.as_view(), name='custom-report'),
     path('scheduled/', views.ScheduledReportsView.as_view(), name='scheduled-reports'),
 
-    # Export endpoints (CSV downloads)
+    # Async export (returns task_id for polling)
+    path('export/async/', views.AsyncExportView.as_view(), name='export-async'),
+
+    # Export endpoints (synchronous CSV/Excel/PDF downloads)
     path('export/employees/', views.ExportEmployeeMasterView.as_view(), name='export-employees'),
     path('export/headcount/', views.ExportHeadcountView.as_view(), name='export-headcount'),
     path('export/payroll/', views.ExportPayrollSummaryView.as_view(), name='export-payroll'),

@@ -3708,3 +3708,48 @@ class ExportSalaryReconciliationView(APIView):
         title = f"Salary Reconciliation - {current_period_name}"
 
         return ReportExporter.export_data(rows, headers, filename, format_type, title=title)
+
+
+# ─── Async export trigger ───────────────────────────────────────────────────
+
+class AsyncExportView(APIView):
+    """
+    Trigger an export asynchronously via Celery and return a task_id.
+
+    POST /api/v1/reports/export/async/
+    Body: { "export_type": "payroll_summary", "file_format": "excel", "filters": {...}, ... }
+
+    Response: { "task_id": "...", "status_url": "/api/v1/core/tasks/<task_id>/status/" }
+
+    Poll the status_url until status=="completed", then download from
+    /api/v1/core/tasks/<task_id>/download/.
+    """
+
+    def post(self, request):
+        from .tasks import generate_export_task
+
+        export_type = request.data.get('export_type')
+        if not export_type:
+            return Response({'error': 'export_type is required'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        file_format = request.data.get('file_format', 'excel')
+        params = {
+            'filters': request.data.get('filters', {}),
+            'payroll_run_id': request.data.get('payroll_run_id'),
+            'current_run_id': request.data.get('current_run_id'),
+            'previous_run_id': request.data.get('previous_run_id'),
+        }
+
+        result = generate_export_task.delay(
+            export_type=export_type,
+            params=params,
+            file_format=file_format,
+            user_id=str(request.user.id),
+        )
+
+        return Response({
+            'task_id': result.id,
+            'status_url': f'/api/v1/core/tasks/{result.id}/status/',
+            'download_url': f'/api/v1/core/tasks/{result.id}/download/',
+        }, status=status.HTTP_202_ACCEPTED)

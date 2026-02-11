@@ -70,5 +70,8 @@ cryptography>=41.0.0
 gunicorn>=22.0.0
 whitenoise>=6.7.0
 
+# Celery monitoring
+flower>=2.0.0
+
 # Structured JSON logging
 python-json-logger>=3.0.0

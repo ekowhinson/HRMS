@@ -884,3 +884,65 @@ class NotificationViewSet(viewsets.ModelViewSet):
             user=request.user, is_read=False
         ).update(is_read=True, read_at=timezone.now())
         return Response({'message': f'{updated} notifications marked as read'})
+
+
+# ─── Async task status endpoints ────────────────────────────────────────────
+
+class TaskStatusView(APIView):
+    """
+    Poll the status of an async Celery task.
+
+    GET /api/v1/core/tasks/<task_id>/status/
+    Returns: { status, percentage, filename, error, ... }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, task_id):
+        from celery.result import AsyncResult
+        from django.core.cache import cache
+
+        # Check cache first (reports store progress there)
+        cached = cache.get(f'report_task_{task_id}')
+        if cached:
+            return Response(cached)
+
+        # Fall back to Celery result backend
+        result = AsyncResult(task_id)
+        data = {
+            'task_id': task_id,
+            'status': result.status,  # PENDING, STARTED, SUCCESS, FAILURE, RETRY
+        }
+
+        if result.successful():
+            data['result'] = result.result
+        elif result.failed():
+            data['error'] = str(result.result)
+
+        return Response(data)
+
+
+class TaskDownloadView(APIView):
+    """
+    Download the file produced by a completed export task.
+
+    GET /api/v1/core/tasks/<task_id>/download/
+    Returns the generated file (CSV/Excel/PDF) as an attachment.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, task_id):
+        import base64
+        from django.core.cache import cache
+
+        cached = cache.get(f'report_file_{task_id}')
+        if not cached:
+            return Response(
+                {'error': 'File not found or expired. Please re-run the export.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        file_bytes = base64.b64decode(cached['file_b64'])
+        response = HttpResponse(file_bytes, content_type=cached['content_type'])
+        response['Content-Disposition'] = f'attachment; filename="{cached["filename"]}"'
+        response['Content-Length'] = len(file_bytes)
+        return response

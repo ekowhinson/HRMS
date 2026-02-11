@@ -75,7 +75,7 @@ services:
   celery:
     build:
       context: ./HRMS/backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.celery
     restart: unless-stopped
     env_file:
       - .env
@@ -93,7 +93,49 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A config worker -l info -Q default,imports,reports,payroll
+    # CMD from Dockerfile.celery: worker with 4 queues
+
+  # ─── Celery Beat (periodic task scheduler) ─────────────────
+  celery-beat:
+    build:
+      context: ./HRMS/backend
+      dockerfile: Dockerfile.celery
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_ENV: "production"
+      USE_POSTGRES: "true"
+      USE_REDIS: "true"
+      DB_HOST: db
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config beat --loglevel=info
+
+  # ─── Flower (Celery monitoring — optional, for staging) ────
+  # Uncomment to enable the Flower dashboard on port 5555.
+  # flower:
+  #   build:
+  #     context: ./HRMS/backend
+  #     dockerfile: Dockerfile.celery
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     DJANGO_ENV: "production"
+  #     CELERY_BROKER_URL: redis://redis:6379/0
+  #   ports:
+  #     - "5555:5555"
+  #   depends_on:
+  #     - redis
+  #   command: celery -A config flower --port=5555
 
   # ─── React Frontend ──────────────────────────────────────────
   frontend:

@@ -23,6 +23,8 @@ from .views import (
     AttachmentViewSet,
     AuditLogViewSet,
     NotificationViewSet,
+    TaskStatusView,
+    TaskDownloadView,
 )
 
 app_name = 'core'
@@ -74,6 +76,10 @@ urlpatterns = [
 
     # Dashboard stats (cached)
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+
+    # Async task status & download
+    path('tasks/<str:task_id>/status/', TaskStatusView.as_view(), name='task-status'),
+    path('tasks/<str:task_id>/download/', TaskDownloadView.as_view(), name='task-download'),
 
     # Announcements
     path('', include(router.urls)),
