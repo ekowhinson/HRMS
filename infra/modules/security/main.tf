@@ -73,7 +73,9 @@ resource "google_compute_security_policy" "waf" {
     description = "Default allow rule"
   }
 
-  # OWASP ModSecurity Core Rule Set – SQL injection
+  # ── Basic rules (always enabled) ─────────────────────────────────────────
+
+  # OWASP – SQL injection
   rule {
     action   = "deny(403)"
     priority = "1000"
@@ -85,7 +87,7 @@ resource "google_compute_security_policy" "waf" {
     description = "Block SQL injection attacks"
   }
 
-  # OWASP ModSecurity Core Rule Set – XSS
+  # OWASP – XSS
   rule {
     action   = "deny(403)"
     priority = "1001"
@@ -95,42 +97,6 @@ resource "google_compute_security_policy" "waf" {
       }
     }
     description = "Block XSS attacks"
-  }
-
-  # OWASP ModSecurity Core Rule Set – Local File Inclusion
-  rule {
-    action   = "deny(403)"
-    priority = "1002"
-    match {
-      expr {
-        expression = "evaluatePreconfiguredExpr('lfi-v33-stable')"
-      }
-    }
-    description = "Block local file inclusion attacks"
-  }
-
-  # OWASP ModSecurity Core Rule Set – Remote File Inclusion
-  rule {
-    action   = "deny(403)"
-    priority = "1003"
-    match {
-      expr {
-        expression = "evaluatePreconfiguredExpr('rfi-v33-stable')"
-      }
-    }
-    description = "Block remote file inclusion attacks"
-  }
-
-  # OWASP ModSecurity Core Rule Set – Remote Code Execution
-  rule {
-    action   = "deny(403)"
-    priority = "1004"
-    match {
-      expr {
-        expression = "evaluatePreconfiguredExpr('rce-v33-stable')"
-      }
-    }
-    description = "Block remote code execution attacks"
   }
 
   # Rate limiting
@@ -154,17 +120,67 @@ resource "google_compute_security_policy" "waf" {
     }
     description = "Rate limit: 100 requests/minute per IP"
   }
+}
 
-  # Block known bad bots
-  rule {
-    action   = "deny(403)"
-    priority = "3000"
-    match {
-      expr {
-        expression = "has(request.headers['user-agent']) && request.headers['user-agent'].matches('(?i)(sqlmap|nikto|nmap|masscan|dirbuster)')"
-      }
+# ── Full OWASP rules (production only) ──────────────────────────────────────
+
+resource "google_compute_security_policy_rule" "lfi" {
+  count           = var.waf_rules_level == "full" ? 1 : 0
+  security_policy = google_compute_security_policy.waf.name
+  project         = var.project_id
+  action          = "deny(403)"
+  priority        = 1002
+  description     = "Block local file inclusion attacks"
+
+  match {
+    expr {
+      expression = "evaluatePreconfiguredExpr('lfi-v33-stable')"
     }
-    description = "Block known malicious scanners"
+  }
+}
+
+resource "google_compute_security_policy_rule" "rfi" {
+  count           = var.waf_rules_level == "full" ? 1 : 0
+  security_policy = google_compute_security_policy.waf.name
+  project         = var.project_id
+  action          = "deny(403)"
+  priority        = 1003
+  description     = "Block remote file inclusion attacks"
+
+  match {
+    expr {
+      expression = "evaluatePreconfiguredExpr('rfi-v33-stable')"
+    }
+  }
+}
+
+resource "google_compute_security_policy_rule" "rce" {
+  count           = var.waf_rules_level == "full" ? 1 : 0
+  security_policy = google_compute_security_policy.waf.name
+  project         = var.project_id
+  action          = "deny(403)"
+  priority        = 1004
+  description     = "Block remote code execution attacks"
+
+  match {
+    expr {
+      expression = "evaluatePreconfiguredExpr('rce-v33-stable')"
+    }
+  }
+}
+
+resource "google_compute_security_policy_rule" "bad_bots" {
+  count           = var.waf_rules_level == "full" ? 1 : 0
+  security_policy = google_compute_security_policy.waf.name
+  project         = var.project_id
+  action          = "deny(403)"
+  priority        = 3000
+  description     = "Block known malicious scanners"
+
+  match {
+    expr {
+      expression = "has(request.headers['user-agent']) && request.headers['user-agent'].matches('(?i)(sqlmap|nikto|nmap|masscan|dirbuster)')"
+    }
   }
 }
 

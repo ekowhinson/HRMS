@@ -12,6 +12,12 @@ variable "github_repo" {
   default     = ""
 }
 
+variable "waf_rules_level" {
+  description = "WAF rules level: basic (SQLi + XSS + rate limit) or full (all OWASP rules)"
+  type        = string
+  default     = "full"
+}
+
 variable "labels" {
   type    = map(string)
   default = {}

@@ -34,7 +34,7 @@ resource "google_sql_database_instance" "primary" {
       transaction_log_retention_days = 7
 
       backup_retention_settings {
-        retained_backups = 30
+        retained_backups = var.backup_retention_count
         retention_unit   = "COUNT"
       }
     }

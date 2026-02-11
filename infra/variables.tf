@@ -115,6 +115,12 @@ variable "db_maintenance_window_hour" {
   default     = 3
 }
 
+variable "db_backup_retention_count" {
+  description = "Number of backups to retain"
+  type        = number
+  default     = 30
+}
+
 variable "db_deletion_protection" {
   description = "Prevent accidental deletion of Cloud SQL instance"
   type        = bool
@@ -257,6 +263,16 @@ variable "rate_limit_interval_sec" {
   description = "Rate limit interval in seconds"
   type        = number
   default     = 60
+}
+
+variable "waf_rules_level" {
+  description = "Cloud Armor WAF rules level: basic (rate limit + SQLi/XSS only) or full (all OWASP rules)"
+  type        = string
+  default     = "full"
+  validation {
+    condition     = contains(["basic", "full"], var.waf_rules_level)
+    error_message = "waf_rules_level must be basic or full."
+  }
 }
 
 # ── Monitoring ───────────────────────────────────────────────────────────────

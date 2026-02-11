@@ -1,7 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "nhia-hrms-terraform-state"
-    prefix = "terraform/state"
-    # State locking is automatic with GCS backend
+    # Configured dynamically via -backend-config=environments/<env>/backend.hcl
+    # Usage: terraform init -backend-config=environments/staging/backend.hcl
   }
 }

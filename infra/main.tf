@@ -32,10 +32,11 @@ module "networking" {
 module "security" {
   source = "./modules/security"
 
-  project_id  = var.project_id
-  name_prefix = local.name_prefix
-  github_repo = var.github_repo
-  labels      = local.common_labels
+  project_id      = var.project_id
+  name_prefix     = local.name_prefix
+  github_repo     = var.github_repo
+  waf_rules_level = var.waf_rules_level
+  labels          = local.common_labels
 }
 
 # ── 3. Secret Manager ───────────────────────────────────────────────────────
@@ -80,6 +81,7 @@ module "database" {
   point_in_time_recovery   = var.db_point_in_time_recovery
   maintenance_window_day   = var.db_maintenance_window_day
   maintenance_window_hour  = var.db_maintenance_window_hour
+  backup_retention_count   = var.db_backup_retention_count
   deletion_protection      = var.db_deletion_protection
   labels                   = local.common_labels
 

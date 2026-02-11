@@ -70,6 +70,12 @@ variable "maintenance_window_hour" {
   default = 3
 }
 
+variable "backup_retention_count" {
+  description = "Number of backups to retain"
+  type        = number
+  default     = 30
+}
+
 variable "deletion_protection" {
   type    = bool
   default = true
