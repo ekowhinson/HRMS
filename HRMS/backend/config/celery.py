@@ -4,6 +4,7 @@ Celery configuration for HRMS project.
 
 import os
 from celery import Celery
+from celery.schedules import crontab
 from django.conf import settings
 
 # Set the default Django settings module
@@ -57,11 +58,23 @@ app.conf.update(
             'task': 'core.tasks.warm_cache_task',
             'schedule': 21600.0,  # Every 6 hours
         },
+        'check-probation-due': {
+            'task': 'core.tasks.check_probation_due',
+            'schedule': crontab(hour=7, minute=0),  # Daily at 7:00 AM
+        },
+        'check-grievance-escalation': {
+            'task': 'core.tasks.check_grievance_escalation',
+            'schedule': crontab(hour=8, minute=0),  # Daily at 8:00 AM
+        },
+        'check-appraisal-deadlines': {
+            'task': 'core.tasks.check_appraisal_deadlines',
+            'schedule': crontab(hour=0, minute=30),  # Daily at 00:30
+        },
     },
 )
 
 # Auto-discover tasks from all installed apps
-app.autodiscover_tasks(['imports', 'core', 'payroll'])
+app.autodiscover_tasks(['imports', 'core', 'payroll', 'training'])
 
 
 @app.task(bind=True, ignore_result=True)

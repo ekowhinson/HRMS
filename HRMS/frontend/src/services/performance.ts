@@ -394,6 +394,54 @@ export interface AppealFilters {
   page?: number
 }
 
+// Appraisal Schedule Types
+export type SchedulePhase = 'GOAL_SETTING' | 'MID_YEAR' | 'YEAR_END'
+
+export interface AppraisalSchedule {
+  id: string
+  appraisal_cycle: string
+  cycle_name: string
+  department: string
+  department_name: string
+  phase: SchedulePhase
+  phase_display: string
+  start_date: string
+  end_date: string
+  is_locked: boolean
+  locked_at: string | null
+  lock_reason: string
+  is_past_deadline: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type ExtensionStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export interface AppraisalDeadlineExtension {
+  id: string
+  schedule: string
+  schedule_department: string
+  schedule_phase: string
+  requested_by: string
+  requested_by_name: string
+  reason: string
+  new_end_date: string
+  status: ExtensionStatus
+  status_display: string
+  approved_by: string | null
+  approved_by_name: string | null
+  approved_at: string | null
+  rejection_reason: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ScheduleFilters {
+  cycle?: string
+  department?: string
+  phase?: string
+}
+
 export const performanceService = {
   // Core Values
   getCoreValues: async (includeInactive = false): Promise<CoreValue[]> => {
@@ -922,5 +970,72 @@ export const performanceService = {
 
   deleteDevelopmentActivity: async (id: string): Promise<void> => {
     await api.delete(`/performance/development-activities/${id}/`)
+  },
+
+  // Appraisal Schedules
+  getSchedules: async (filters: ScheduleFilters = {}): Promise<AppraisalSchedule[]> => {
+    const response = await api.get('/performance/schedules/', { params: filters })
+    return response.data.results || response.data
+  },
+
+  getSchedule: async (id: string): Promise<AppraisalSchedule> => {
+    const response = await api.get(`/performance/schedules/${id}/`)
+    return response.data
+  },
+
+  createSchedule: async (data: { appraisal_cycle: string; department: string; phase: SchedulePhase; start_date: string; end_date: string }): Promise<AppraisalSchedule> => {
+    const response = await api.post('/performance/schedules/', data)
+    return response.data
+  },
+
+  updateSchedule: async (id: string, data: Partial<AppraisalSchedule>): Promise<AppraisalSchedule> => {
+    const response = await api.patch(`/performance/schedules/${id}/`, data)
+    return response.data
+  },
+
+  deleteSchedule: async (id: string): Promise<void> => {
+    await api.delete(`/performance/schedules/${id}/`)
+  },
+
+  bulkCreateSchedules: async (data: {
+    appraisal_cycle: string
+    department_ids: string[]
+    phase: SchedulePhase
+    start_date: string
+    end_date: string
+  }): Promise<{ created: number; skipped: number; schedules: AppraisalSchedule[] }> => {
+    const response = await api.post('/performance/schedules/bulk_create/', data)
+    return response.data
+  },
+
+  lockSchedule: async (id: string, reason: string): Promise<AppraisalSchedule> => {
+    const response = await api.post(`/performance/schedules/${id}/lock/`, { reason })
+    return response.data
+  },
+
+  unlockSchedule: async (id: string, reason: string): Promise<AppraisalSchedule> => {
+    const response = await api.post(`/performance/schedules/${id}/unlock/`, { reason })
+    return response.data
+  },
+
+  // Deadline Extensions
+  getDeadlineExtensions: async (filters: { schedule?: string; status?: string } = {}): Promise<AppraisalDeadlineExtension[]> => {
+    const response = await api.get('/performance/deadline-extensions/', { params: filters })
+    return response.data.results || response.data
+  },
+
+  createDeadlineExtension: async (data: { schedule: string; reason: string; new_end_date: string }): Promise<AppraisalDeadlineExtension> => {
+    const response = await api.post('/performance/deadline-extensions/', data)
+    return response.data
+  },
+
+  approveDeadlineExtension: async (id: string): Promise<AppraisalDeadlineExtension> => {
+    const response = await api.post(`/performance/deadline-extensions/${id}/approve/`)
+    return response.data
+  },
+
+  rejectDeadlineExtension: async (id: string, reason: string): Promise<AppraisalDeadlineExtension> => {
+    const response = await api.post(`/performance/deadline-extensions/${id}/reject/`, { reason })
+    return response.data
   },
 }

@@ -5,6 +5,7 @@ Performance and Appraisal models.
 import base64
 import hashlib
 import mimetypes
+from datetime import date
 from decimal import Decimal
 from django.db import models
 from django.conf import settings
@@ -102,6 +103,94 @@ class AppraisalCycle(BaseModel):
             raise ValidationError(
                 f'Component weights must sum to 100. Current total: {total_weight}'
             )
+
+
+class AppraisalSchedule(BaseModel):
+    """Per-department phase deadline overrides for appraisal cycles."""
+
+    class Phase(models.TextChoices):
+        GOAL_SETTING = 'GOAL_SETTING', 'Goal Setting'
+        MID_YEAR = 'MID_YEAR', 'Mid-Year Review'
+        YEAR_END = 'YEAR_END', 'Year-End Appraisal'
+
+    appraisal_cycle = models.ForeignKey(
+        AppraisalCycle, on_delete=models.CASCADE, related_name='schedules'
+    )
+    department = models.ForeignKey(
+        'organization.Department', on_delete=models.CASCADE, related_name='appraisal_schedules'
+    )
+    phase = models.CharField(max_length=20, choices=Phase.choices)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_locked = models.BooleanField(default=False)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    lock_reason = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ['appraisal_cycle', 'department', 'phase']
+        ordering = ['appraisal_cycle', 'department', 'phase']
+
+    def __str__(self):
+        return f"{self.department} - {self.get_phase_display()} ({self.appraisal_cycle})"
+
+    @property
+    def is_past_deadline(self):
+        return date.today() > self.end_date
+
+    def check_and_lock(self):
+        """Auto-lock if past deadline."""
+        if self.is_past_deadline and not self.is_locked:
+            self.is_locked = True
+            self.locked_at = timezone.now()
+            self.lock_reason = 'Auto-locked: deadline elapsed'
+            self.save()
+
+
+class AppraisalDeadlineExtension(BaseModel):
+    """Manager request to unlock/extend an appraisal schedule deadline."""
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    schedule = models.ForeignKey(
+        AppraisalSchedule, on_delete=models.CASCADE, related_name='extensions'
+    )
+    requested_by = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE, related_name='deadline_extension_requests'
+    )
+    reason = models.TextField()
+    new_end_date = models.DateField()
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approved_deadline_extensions'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Extension for {self.schedule} by {self.requested_by}"
+
+    def approve(self, user):
+        """Approve extension: unlock schedule and extend end_date."""
+        self.status = self.Status.APPROVED
+        self.approved_by = user
+        self.approved_at = timezone.now()
+        self.save()
+
+        # Unlock and extend the schedule
+        self.schedule.is_locked = False
+        self.schedule.locked_at = None
+        self.schedule.lock_reason = ''
+        self.schedule.end_date = self.new_end_date
+        self.schedule.save()
 
 
 class RatingScale(BaseModel):

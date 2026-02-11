@@ -5,7 +5,8 @@ Serializers for performance management.
 from rest_framework import serializers
 
 from .models import (
-    AppraisalCycle, RatingScale, RatingScaleLevel, Competency, CompetencyLevel,
+    AppraisalCycle, AppraisalSchedule, AppraisalDeadlineExtension,
+    RatingScale, RatingScaleLevel, Competency, CompetencyLevel,
     GoalCategory, Appraisal, Goal, GoalUpdate, CompetencyAssessment,
     PeerFeedback, PerformanceImprovementPlan, PIPReview,
     DevelopmentPlan, DevelopmentActivity,
@@ -565,3 +566,61 @@ class AppraisalDocumentSerializer(serializers.ModelSerializer):
             instance.set_file(file_obj)
             instance.save()
         return instance
+
+
+# Appraisal Schedule Serializers
+class AppraisalScheduleSerializer(serializers.ModelSerializer):
+    department_name = serializers.CharField(source='department.name', read_only=True)
+    phase_display = serializers.CharField(source='get_phase_display', read_only=True)
+    cycle_name = serializers.CharField(source='appraisal_cycle.name', read_only=True)
+    is_past_deadline = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = AppraisalSchedule
+        fields = [
+            'id', 'appraisal_cycle', 'cycle_name', 'department', 'department_name',
+            'phase', 'phase_display', 'start_date', 'end_date',
+            'is_locked', 'locked_at', 'lock_reason', 'is_past_deadline',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['locked_at']
+
+
+class AppraisalScheduleCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppraisalSchedule
+        fields = ['appraisal_cycle', 'department', 'phase', 'start_date', 'end_date']
+
+
+class AppraisalScheduleBulkCreateSerializer(serializers.Serializer):
+    """Serializer for bulk creating schedules for multiple departments."""
+    appraisal_cycle = serializers.UUIDField()
+    department_ids = serializers.ListField(child=serializers.UUIDField())
+    phase = serializers.ChoiceField(choices=AppraisalSchedule.Phase.choices)
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+
+
+class AppraisalDeadlineExtensionSerializer(serializers.ModelSerializer):
+    requested_by_name = serializers.CharField(source='requested_by.full_name', read_only=True)
+    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, allow_null=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    schedule_department = serializers.CharField(source='schedule.department.name', read_only=True)
+    schedule_phase = serializers.CharField(source='schedule.get_phase_display', read_only=True)
+
+    class Meta:
+        model = AppraisalDeadlineExtension
+        fields = [
+            'id', 'schedule', 'schedule_department', 'schedule_phase',
+            'requested_by', 'requested_by_name', 'reason', 'new_end_date',
+            'status', 'status_display', 'approved_by', 'approved_by_name',
+            'approved_at', 'rejection_reason',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['approved_by', 'approved_at']
+
+
+class AppraisalDeadlineExtensionCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppraisalDeadlineExtension
+        fields = ['schedule', 'reason', 'new_end_date']

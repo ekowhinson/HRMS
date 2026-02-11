@@ -25,14 +25,14 @@ from django.http import HttpResponse
 
 from .models import (
     Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment,
-    Attachment, AuditLog
+    Attachment, AuditLog, Notification
 )
 from .serializers import (
     AnnouncementSerializer, AnnouncementListSerializer, AnnouncementCreateSerializer,
     AnnouncementTargetSerializer, AnnouncementReadSerializer,
     AnnouncementAttachmentSerializer, DashboardAnnouncementSerializer,
     AttachmentSerializer, AttachmentListSerializer,
-    AuditLogSerializer
+    AuditLogSerializer, NotificationSerializer
 )
 
 
@@ -820,3 +820,45 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             .order_by('model_name')
         )
         return Response(list(names))
+
+
+# ============================================
+# Notification ViewSet
+# ============================================
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for user notifications.
+    Scoped to the current authenticated user only.
+    """
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['notification_type', 'is_read']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        """Get count of unread notifications."""
+        count = Notification.objects.filter(
+            user=request.user, is_read=False
+        ).count()
+        return Response({'count': count})
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Mark a single notification as read."""
+        notification = self.get_object()
+        notification.mark_as_read()
+        return Response({'message': 'Marked as read'})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        """Mark all notifications as read for current user."""
+        updated = Notification.objects.filter(
+            user=request.user, is_read=False
+        ).update(is_read=True, read_at=timezone.now())
+        return Response({'message': f'{updated} notifications marked as read'})

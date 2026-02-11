@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -8,8 +8,12 @@ import {
   CalendarDaysIcon,
   CheckCircleIcon,
   PlayIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline'
-import { performanceService, type AppraisalCycle } from '@/services/performance'
+import { performanceService, type AppraisalCycle, type AppraisalSchedule, type AppraisalDeadlineExtension, type SchedulePhase } from '@/services/performance'
+import api from '@/lib/api'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -63,6 +67,26 @@ export default function AppraisalCyclesPage() {
   const [deletingCycle, setDeletingCycle] = useState<AppraisalCycle | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
+  const [pageTab, setPageTab] = useState('cycles')
+
+  // Department Schedules state
+  const [selectedCycleId, setSelectedCycleId] = useState<string>('')
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [scheduleForm, setScheduleForm] = useState({
+    department_ids: [] as string[],
+    phase: 'GOAL_SETTING' as SchedulePhase,
+    start_date: '',
+    end_date: '',
+  })
+  const [showExtensionModal, setShowExtensionModal] = useState(false)
+  const [extensionForm, setExtensionForm] = useState({
+    schedule: '',
+    reason: '',
+    new_end_date: '',
+  })
+  const [unlockReason, setUnlockReason] = useState('')
+  const [showUnlockModal, setShowUnlockModal] = useState(false)
+  const [unlockingScheduleId, setUnlockingScheduleId] = useState('')
 
   const { data: cycles, isLoading } = useQuery({
     queryKey: ['appraisal-cycles'],
@@ -117,6 +141,98 @@ export default function AppraisalCyclesPage() {
       toast.error(error.response?.data?.detail || 'Failed to activate cycle')
     },
   })
+
+  // Schedule queries
+  const { data: schedules, isLoading: schedulesLoading } = useQuery({
+    queryKey: ['appraisal-schedules', selectedCycleId],
+    queryFn: () => performanceService.getSchedules({ cycle: selectedCycleId }),
+    enabled: !!selectedCycleId && pageTab === 'schedules',
+  })
+
+  const { data: extensions } = useQuery({
+    queryKey: ['deadline-extensions'],
+    queryFn: () => performanceService.getDeadlineExtensions({ status: 'PENDING' }),
+    enabled: pageTab === 'schedules',
+  })
+
+  const { data: departments } = useQuery({
+    queryKey: ['departments-lookup'],
+    queryFn: async () => {
+      const response = await api.get('/core/lookups/organization/')
+      return response.data?.departments || []
+    },
+    enabled: showScheduleModal,
+  })
+
+  // Auto-select first cycle for schedules tab
+  useEffect(() => {
+    if (cycles && cycles.length > 0 && !selectedCycleId) {
+      const active = cycles.find((c: AppraisalCycle) => c.is_active)
+      setSelectedCycleId(active?.id || cycles[0].id)
+    }
+  }, [cycles, selectedCycleId])
+
+  const bulkCreateScheduleMutation = useMutation({
+    mutationFn: (data: { appraisal_cycle: string; department_ids: string[]; phase: SchedulePhase; start_date: string; end_date: string }) =>
+      performanceService.bulkCreateSchedules(data),
+    onSuccess: (data) => {
+      toast.success(`${data.created} schedule(s) created`)
+      queryClient.invalidateQueries({ queryKey: ['appraisal-schedules'] })
+      setShowScheduleModal(false)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to create schedules')
+    },
+  })
+
+  const lockScheduleMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      performanceService.lockSchedule(id, reason),
+    onSuccess: () => {
+      toast.success('Schedule locked')
+      queryClient.invalidateQueries({ queryKey: ['appraisal-schedules'] })
+    },
+  })
+
+  const unlockScheduleMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      performanceService.unlockSchedule(id, reason),
+    onSuccess: () => {
+      toast.success('Schedule unlocked')
+      queryClient.invalidateQueries({ queryKey: ['appraisal-schedules'] })
+      setShowUnlockModal(false)
+      setUnlockReason('')
+    },
+  })
+
+  const approveExtensionMutation = useMutation({
+    mutationFn: performanceService.approveDeadlineExtension,
+    onSuccess: () => {
+      toast.success('Extension approved')
+      queryClient.invalidateQueries({ queryKey: ['deadline-extensions'] })
+      queryClient.invalidateQueries({ queryKey: ['appraisal-schedules'] })
+    },
+  })
+
+  const rejectExtensionMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      performanceService.rejectDeadlineExtension(id, reason),
+    onSuccess: () => {
+      toast.success('Extension rejected')
+      queryClient.invalidateQueries({ queryKey: ['deadline-extensions'] })
+    },
+  })
+
+  const handleCreateSchedules = () => {
+    if (!selectedCycleId || scheduleForm.department_ids.length === 0 || !scheduleForm.start_date || !scheduleForm.end_date) {
+      toast.error('Please fill all required fields')
+      return
+    }
+    bulkCreateScheduleMutation.mutate({
+      appraisal_cycle: selectedCycleId,
+      ...scheduleForm,
+    })
+  }
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -293,6 +409,65 @@ export default function AppraisalCyclesPage() {
                       (formData.competencies_weight || 0) +
                       (formData.values_weight || 0)
 
+  const scheduleColumns = [
+    {
+      key: 'department',
+      header: 'Department',
+      render: (s: AppraisalSchedule) => <span className="font-medium">{s.department_name}</span>,
+    },
+    {
+      key: 'phase',
+      header: 'Phase',
+      render: (s: AppraisalSchedule) => <Badge variant="info">{s.phase_display}</Badge>,
+    },
+    {
+      key: 'period',
+      header: 'Deadline',
+      render: (s: AppraisalSchedule) => (
+        <span className="text-sm">
+          {new Date(s.start_date).toLocaleDateString()} - {new Date(s.end_date).toLocaleDateString()}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (s: AppraisalSchedule) => (
+        <div className="flex items-center gap-2">
+          {s.is_locked ? (
+            <Badge variant="danger">
+              <LockClosedIcon className="h-3 w-3 mr-1" /> Locked
+            </Badge>
+          ) : s.is_past_deadline ? (
+            <Badge variant="warning">Past Deadline</Badge>
+          ) : (
+            <Badge variant="success">Open</Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (s: AppraisalSchedule) => (
+        <div className="flex gap-1">
+          {s.is_locked ? (
+            <Button variant="ghost" size="sm" onClick={() => { setUnlockingScheduleId(s.id); setShowUnlockModal(true) }} title="Unlock">
+              <LockOpenIcon className="h-4 w-4 text-green-600" />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => lockScheduleMutation.mutate({ id: s.id, reason: 'Manually locked' })} title="Lock">
+              <LockClosedIcon className="h-4 w-4 text-red-500" />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => { setExtensionForm({ schedule: s.id, reason: '', new_end_date: '' }); setShowExtensionModal(true) }} title="Request Extension">
+            <ClockIcon className="h-4 w-4 text-blue-500" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -302,34 +477,117 @@ export default function AppraisalCyclesPage() {
             Configure appraisal cycles with phases, weights, and thresholds
           </p>
         </div>
-        <Button onClick={handleOpenCreate}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          New Cycle
-        </Button>
+        {pageTab === 'cycles' && (
+          <Button onClick={handleOpenCreate}>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            New Cycle
+          </Button>
+        )}
+        {pageTab === 'schedules' && (
+          <Button onClick={() => setShowScheduleModal(true)} disabled={!selectedCycleId}>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add Schedules
+          </Button>
+        )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <CalendarDaysIcon className="h-5 w-5 mr-2 text-primary-500" />
-            Appraisal Cycles
-          </CardTitle>
-        </CardHeader>
-        <Table
-          data={(cycles || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
-          columns={columns}
-          isLoading={isLoading}
-        />
-        {(cycles || []).length > pageSize && (
-          <TablePagination
-            currentPage={currentPage}
-            totalPages={Math.ceil((cycles || []).length / pageSize)}
-            totalItems={(cycles || []).length}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-          />
-        )}
-      </Card>
+      <Tabs value={pageTab} onValueChange={setPageTab}>
+        <TabsList>
+          <TabsTrigger value="cycles">Cycles</TabsTrigger>
+          <TabsTrigger value="schedules">Department Schedules</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="cycles">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <CalendarDaysIcon className="h-5 w-5 mr-2 text-primary-500" />
+                Appraisal Cycles
+              </CardTitle>
+            </CardHeader>
+            <Table
+              data={(cycles || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
+              columns={columns}
+              isLoading={isLoading}
+            />
+            {(cycles || []).length > pageSize && (
+              <TablePagination
+                currentPage={currentPage}
+                totalPages={Math.ceil((cycles || []).length / pageSize)}
+                totalItems={(cycles || []).length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="schedules">
+          <div className="space-y-4">
+            {/* Cycle selector */}
+            <Card>
+              <div className="p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Cycle</label>
+                <select
+                  className="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  value={selectedCycleId}
+                  onChange={(e) => setSelectedCycleId(e.target.value)}
+                >
+                  <option value="">Select a cycle...</option>
+                  {(cycles || []).map((c: AppraisalCycle) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.year}){c.is_active ? ' - Active' : ''}</option>
+                  ))}
+                </select>
+              </div>
+            </Card>
+
+            {/* Schedules table */}
+            {selectedCycleId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <CalendarDaysIcon className="h-5 w-5 mr-2 text-primary-500" />
+                    Department Schedules
+                  </CardTitle>
+                </CardHeader>
+                <Table
+                  data={schedules || []}
+                  columns={scheduleColumns}
+                  isLoading={schedulesLoading}
+                />
+              </Card>
+            )}
+
+            {/* Pending Extensions */}
+            {(extensions || []).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <ClockIcon className="h-5 w-5 mr-2 text-yellow-500" />
+                    Pending Extension Requests
+                  </CardTitle>
+                </CardHeader>
+                <div className="divide-y">
+                  {(extensions || []).map((ext: AppraisalDeadlineExtension) => (
+                    <div key={ext.id} className="p-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{ext.schedule_department} - {ext.schedule_phase}</p>
+                        <p className="text-sm text-gray-500">By: {ext.requested_by_name}</p>
+                        <p className="text-sm text-gray-500">Reason: {ext.reason}</p>
+                        <p className="text-sm text-gray-500">New end date: {new Date(ext.new_end_date).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => approveExtensionMutation.mutate(ext.id)}>Approve</Button>
+                        <Button size="sm" variant="danger" onClick={() => rejectExtensionMutation.mutate({ id: ext.id, reason: 'Rejected by admin' })}>Reject</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Create/Edit Modal */}
       <Modal
@@ -659,6 +917,150 @@ export default function AppraisalCyclesPage() {
               isLoading={deleteMutation.isPending}
             >
               Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Schedule Modal */}
+      <Modal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        title="Add Department Schedules"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phase</label>
+            <select
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              value={scheduleForm.phase}
+              onChange={(e) => setScheduleForm(prev => ({ ...prev, phase: e.target.value as SchedulePhase }))}
+            >
+              <option value="GOAL_SETTING">Goal Setting</option>
+              <option value="MID_YEAR">Mid-Year Review</option>
+              <option value="YEAR_END">Year-End Appraisal</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Start Date"
+              type="date"
+              value={scheduleForm.start_date}
+              onChange={(e) => setScheduleForm(prev => ({ ...prev, start_date: e.target.value }))}
+              required
+            />
+            <Input
+              label="End Date"
+              type="date"
+              value={scheduleForm.end_date}
+              onChange={(e) => setScheduleForm(prev => ({ ...prev, end_date: e.target.value }))}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Departments</label>
+            <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
+              {(departments || []).map((dept: any) => (
+                <label key={dept.id} className="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={scheduleForm.department_ids.includes(dept.id)}
+                    onChange={(e) => {
+                      setScheduleForm(prev => ({
+                        ...prev,
+                        department_ids: e.target.checked
+                          ? [...prev.department_ids, dept.id]
+                          : prev.department_ids.filter(id => id !== dept.id)
+                      }))
+                    }}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm">{dept.name}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{scheduleForm.department_ids.length} department(s) selected</p>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" onClick={() => setShowScheduleModal(false)}>Cancel</Button>
+            <Button onClick={handleCreateSchedules} isLoading={bulkCreateScheduleMutation.isPending}>
+              Create Schedules
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Unlock Schedule Modal */}
+      <Modal
+        isOpen={showUnlockModal}
+        onClose={() => setShowUnlockModal(false)}
+        title="Unlock Schedule"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">Provide a reason for unlocking this schedule:</p>
+          <textarea
+            className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+            rows={3}
+            value={unlockReason}
+            onChange={(e) => setUnlockReason(e.target.value)}
+            placeholder="Enter reason..."
+          />
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowUnlockModal(false)}>Cancel</Button>
+            <Button
+              onClick={() => unlockScheduleMutation.mutate({ id: unlockingScheduleId, reason: unlockReason })}
+              isLoading={unlockScheduleMutation.isPending}
+              disabled={!unlockReason.trim()}
+            >
+              Unlock
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Extension Request Modal */}
+      <Modal
+        isOpen={showExtensionModal}
+        onClose={() => setShowExtensionModal(false)}
+        title="Request Deadline Extension"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <textarea
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              rows={3}
+              value={extensionForm.reason}
+              onChange={(e) => setExtensionForm(prev => ({ ...prev, reason: e.target.value }))}
+              placeholder="Reason for extension..."
+            />
+          </div>
+          <Input
+            label="New End Date"
+            type="date"
+            value={extensionForm.new_end_date}
+            onChange={(e) => setExtensionForm(prev => ({ ...prev, new_end_date: e.target.value }))}
+            required
+          />
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowExtensionModal(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await performanceService.createDeadlineExtension(extensionForm)
+                  toast.success('Extension request submitted')
+                  queryClient.invalidateQueries({ queryKey: ['deadline-extensions'] })
+                  setShowExtensionModal(false)
+                } catch (err: any) {
+                  toast.error(err.response?.data?.detail || 'Failed to submit request')
+                }
+              }}
+              disabled={!extensionForm.reason || !extensionForm.new_end_date}
+            >
+              Submit Request
             </Button>
           </div>
         </div>

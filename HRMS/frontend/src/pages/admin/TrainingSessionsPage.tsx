@@ -11,8 +11,11 @@ import {
   XCircleIcon,
   ClipboardDocumentCheckIcon,
   AcademicCapIcon,
+  DocumentTextIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 import { trainingService } from '@/services/training'
+import type { PostTrainingReportCreate, TrainingImpactAssessmentCreate, ImpactRating } from '@/services/training'
 import { employeeService } from '@/services/employees'
 import type { TrainingSession, TrainingEnrollment } from '@/types'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -85,6 +88,38 @@ export default function TrainingSessionsPage() {
   const [selectedEnrollment, setSelectedEnrollment] = useState<TrainingEnrollment | null>(null)
   const [evalScore, setEvalScore] = useState('')
   const [evalFeedback, setEvalFeedback] = useState('')
+
+  // Post-Training Report state
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [reportEnrollment, setReportEnrollment] = useState<TrainingEnrollment | null>(null)
+  const [reportForm, setReportForm] = useState({
+    key_learnings: '',
+    skills_acquired: '',
+    knowledge_application: '',
+    action_plan: '',
+    recommendations: '',
+    challenges: '',
+    overall_rating: '3',
+  })
+
+  // Impact Assessment state
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false)
+  const [assessmentEnrollment, setAssessmentEnrollment] = useState<TrainingEnrollment | null>(null)
+  const [assessmentForm, setAssessmentForm] = useState({
+    assessment_date: new Date().toISOString().split('T')[0],
+    assessment_period_start: '',
+    assessment_period_end: '',
+    performance_before: '',
+    performance_after: '',
+    skills_application: '',
+    skills_application_rating: '3',
+    impact_rating: 'MODERATE' as ImpactRating,
+    recommendations: '',
+    follow_up_actions: '',
+    further_training_needed: false,
+    further_training_details: '',
+    overall_effectiveness_score: '3',
+  })
 
   // Fetch sessions
   const { data: sessions, isLoading } = useQuery({
@@ -212,6 +247,38 @@ export default function TrainingSessionsPage() {
       queryClient.invalidateQueries({ queryKey: ['training-session-detail'] })
     },
     onError: (error: any) => toast.error(error.response?.data?.detail || 'Failed to issue certificate'),
+  })
+
+  const reportMutation = useMutation({
+    mutationFn: (data: PostTrainingReportCreate) => trainingService.createPostTrainingReport(data),
+    onSuccess: (report) => {
+      trainingService.submitPostTrainingReport(report.id).then(() => {
+        toast.success('Post-training report submitted')
+        queryClient.invalidateQueries({ queryKey: ['training-session-detail'] })
+        setShowReportModal(false)
+      }).catch(() => {
+        toast.success('Report saved as draft')
+        queryClient.invalidateQueries({ queryKey: ['training-session-detail'] })
+        setShowReportModal(false)
+      })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || error.response?.data?.enrollment?.[0] || 'Failed to submit report'),
+  })
+
+  const assessmentMutation = useMutation({
+    mutationFn: (data: TrainingImpactAssessmentCreate) => trainingService.createImpactAssessment(data),
+    onSuccess: (assessment) => {
+      trainingService.submitImpactAssessment(assessment.id).then(() => {
+        toast.success('Impact assessment submitted')
+        queryClient.invalidateQueries({ queryKey: ['training-session-detail'] })
+        setShowAssessmentModal(false)
+      }).catch(() => {
+        toast.success('Assessment saved as draft')
+        queryClient.invalidateQueries({ queryKey: ['training-session-detail'] })
+        setShowAssessmentModal(false)
+      })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.detail || error.response?.data?.enrollment?.[0] || 'Failed to submit assessment'),
   })
 
   const handleCreate = () => {
@@ -362,6 +429,32 @@ export default function TrainingSessionsPage() {
       render: (row: TrainingEnrollment) => row.score != null ? `${row.score}%` : '-',
     },
     {
+      key: 'report_status',
+      header: 'Report / Assessment',
+      render: (row: TrainingEnrollment) => {
+        const report = (row as any).post_training_report
+        const assessment = (row as any).impact_assessment
+        return (
+          <div className="flex flex-col gap-1">
+            {report ? (
+              <Badge variant={report.status === 'SUBMITTED' || report.status === 'REVIEWED' ? 'success' : 'warning'}>
+                Report: {report.status}
+              </Badge>
+            ) : row.status === 'COMPLETED' ? (
+              <span className="text-xs text-gray-400">No report</span>
+            ) : null}
+            {assessment ? (
+              <Badge variant={assessment.status === 'SUBMITTED' ? 'success' : 'warning'}>
+                Assessment: {assessment.status}
+              </Badge>
+            ) : row.status === 'COMPLETED' ? (
+              <span className="text-xs text-gray-400">No assessment</span>
+            ) : null}
+          </div>
+        )
+      },
+    },
+    {
       key: 'certificate',
       header: 'Certificate',
       render: (row: TrainingEnrollment) => row.certificate_issued ? (
@@ -403,6 +496,56 @@ export default function TrainingSessionsPage() {
               title="Evaluate"
             >
               <AcademicCapIcon className="h-4 w-4" />
+            </Button>
+          )}
+          {row.status === 'COMPLETED' && !(row as any).post_training_report && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setReportEnrollment(row)
+                setReportForm({
+                  key_learnings: '',
+                  skills_acquired: '',
+                  knowledge_application: '',
+                  action_plan: '',
+                  recommendations: '',
+                  challenges: '',
+                  overall_rating: '3',
+                })
+                setShowReportModal(true)
+              }}
+              title="Submit Post-Training Report"
+            >
+              <DocumentTextIcon className="h-4 w-4 text-blue-500" />
+            </Button>
+          )}
+          {row.status === 'COMPLETED' && !(row as any).impact_assessment && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setAssessmentEnrollment(row)
+                setAssessmentForm({
+                  assessment_date: new Date().toISOString().split('T')[0],
+                  assessment_period_start: selectedSession?.start_date || '',
+                  assessment_period_end: new Date().toISOString().split('T')[0],
+                  performance_before: '',
+                  performance_after: '',
+                  skills_application: '',
+                  skills_application_rating: '3',
+                  impact_rating: 'MODERATE',
+                  recommendations: '',
+                  follow_up_actions: '',
+                  further_training_needed: false,
+                  further_training_details: '',
+                  overall_effectiveness_score: '3',
+                })
+                setShowAssessmentModal(true)
+              }}
+              title="Assess Impact"
+            >
+              <ChartBarIcon className="h-4 w-4 text-purple-500" />
             </Button>
           )}
           {row.status === 'COMPLETED' && !row.certificate_issued && (
@@ -800,6 +943,288 @@ export default function TrainingSessionsPage() {
                 disabled={evaluateMutation.isPending}
               >
                 {evaluateMutation.isPending ? 'Saving...' : 'Save Evaluation'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Post-Training Report Modal */}
+      <Modal isOpen={showReportModal} onClose={() => setShowReportModal(false)} title="Submit Post-Training Report" size="lg">
+        {reportEnrollment && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Employee: <span className="font-medium">{reportEnrollment.employee_name}</span>
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Key Learnings *</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                rows={3}
+                value={reportForm.key_learnings}
+                onChange={(e) => setReportForm({ ...reportForm, key_learnings: e.target.value })}
+                placeholder="What were the key learnings from this training?"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Skills Acquired *</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                rows={3}
+                value={reportForm.skills_acquired}
+                onChange={(e) => setReportForm({ ...reportForm, skills_acquired: e.target.value })}
+                placeholder="What skills were acquired during the training?"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Knowledge Application *</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                rows={3}
+                value={reportForm.knowledge_application}
+                onChange={(e) => setReportForm({ ...reportForm, knowledge_application: e.target.value })}
+                placeholder="How will the knowledge be applied to the job?"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Action Plan *</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                rows={3}
+                value={reportForm.action_plan}
+                onChange={(e) => setReportForm({ ...reportForm, action_plan: e.target.value })}
+                placeholder="What actions will be taken to implement learnings?"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Recommendations</label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  rows={2}
+                  value={reportForm.recommendations}
+                  onChange={(e) => setReportForm({ ...reportForm, recommendations: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Challenges</label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  rows={2}
+                  value={reportForm.challenges}
+                  onChange={(e) => setReportForm({ ...reportForm, challenges: e.target.value })}
+                />
+              </div>
+            </div>
+            <Select
+              label="Overall Training Rating *"
+              value={reportForm.overall_rating}
+              onChange={(e) => setReportForm({ ...reportForm, overall_rating: e.target.value })}
+              options={[
+                { value: '1', label: '1 - Poor' },
+                { value: '2', label: '2 - Below Average' },
+                { value: '3', label: '3 - Average' },
+                { value: '4', label: '4 - Good' },
+                { value: '5', label: '5 - Excellent' },
+              ]}
+            />
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={() => setShowReportModal(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (!reportForm.key_learnings || !reportForm.skills_acquired || !reportForm.knowledge_application || !reportForm.action_plan) {
+                    toast.error('Please fill in all required fields')
+                    return
+                  }
+                  reportMutation.mutate({
+                    enrollment: reportEnrollment.id,
+                    key_learnings: reportForm.key_learnings,
+                    skills_acquired: reportForm.skills_acquired,
+                    knowledge_application: reportForm.knowledge_application,
+                    action_plan: reportForm.action_plan,
+                    recommendations: reportForm.recommendations || undefined,
+                    challenges: reportForm.challenges || undefined,
+                    overall_rating: parseInt(reportForm.overall_rating),
+                  })
+                }}
+                disabled={reportMutation.isPending}
+              >
+                {reportMutation.isPending ? 'Submitting...' : 'Submit Report'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Impact Assessment Modal */}
+      <Modal isOpen={showAssessmentModal} onClose={() => setShowAssessmentModal(false)} title="Training Impact Assessment" size="lg">
+        {assessmentEnrollment && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Employee: <span className="font-medium">{assessmentEnrollment.employee_name}</span>
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input
+                label="Assessment Date *"
+                type="date"
+                value={assessmentForm.assessment_date}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, assessment_date: e.target.value })}
+              />
+              <Input
+                label="Period Start *"
+                type="date"
+                value={assessmentForm.assessment_period_start}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, assessment_period_start: e.target.value })}
+              />
+              <Input
+                label="Period End *"
+                type="date"
+                value={assessmentForm.assessment_period_end}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, assessment_period_end: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Performance Before Training *</label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  rows={3}
+                  value={assessmentForm.performance_before}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, performance_before: e.target.value })}
+                  placeholder="Describe performance before training"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Performance After Training *</label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  rows={3}
+                  value={assessmentForm.performance_after}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, performance_after: e.target.value })}
+                  placeholder="Describe performance after training"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Skills Application *</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                rows={3}
+                value={assessmentForm.skills_application}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, skills_application: e.target.value })}
+                placeholder="How has the employee applied the skills learned?"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Select
+                label="Skills Application Rating *"
+                value={assessmentForm.skills_application_rating}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, skills_application_rating: e.target.value })}
+                options={[
+                  { value: '1', label: '1 - Poor' },
+                  { value: '2', label: '2 - Below Average' },
+                  { value: '3', label: '3 - Average' },
+                  { value: '4', label: '4 - Good' },
+                  { value: '5', label: '5 - Excellent' },
+                ]}
+              />
+              <Select
+                label="Impact Rating *"
+                value={assessmentForm.impact_rating}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, impact_rating: e.target.value as ImpactRating })}
+                options={[
+                  { value: 'SIGNIFICANT', label: 'Significant Improvement' },
+                  { value: 'MODERATE', label: 'Moderate Improvement' },
+                  { value: 'MINIMAL', label: 'Minimal Improvement' },
+                  { value: 'NO_CHANGE', label: 'No Change' },
+                  { value: 'DECLINED', label: 'Performance Declined' },
+                ]}
+              />
+              <Select
+                label="Overall Effectiveness *"
+                value={assessmentForm.overall_effectiveness_score}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, overall_effectiveness_score: e.target.value })}
+                options={[
+                  { value: '1', label: '1 - Poor' },
+                  { value: '2', label: '2 - Below Average' },
+                  { value: '3', label: '3 - Average' },
+                  { value: '4', label: '4 - Good' },
+                  { value: '5', label: '5 - Excellent' },
+                ]}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Recommendations</label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  rows={2}
+                  value={assessmentForm.recommendations}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, recommendations: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Follow-up Actions</label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  rows={2}
+                  value={assessmentForm.follow_up_actions}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, follow_up_actions: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={assessmentForm.further_training_needed}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, further_training_needed: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                Further training needed
+              </label>
+            </div>
+            {assessmentForm.further_training_needed && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Further Training Details</label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  rows={2}
+                  value={assessmentForm.further_training_details}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, further_training_details: e.target.value })}
+                  placeholder="Describe what further training is needed"
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={() => setShowAssessmentModal(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (!assessmentForm.assessment_date || !assessmentForm.assessment_period_start || !assessmentForm.assessment_period_end ||
+                      !assessmentForm.performance_before || !assessmentForm.performance_after || !assessmentForm.skills_application) {
+                    toast.error('Please fill in all required fields')
+                    return
+                  }
+                  assessmentMutation.mutate({
+                    enrollment: assessmentEnrollment.id,
+                    assessment_date: assessmentForm.assessment_date,
+                    assessment_period_start: assessmentForm.assessment_period_start,
+                    assessment_period_end: assessmentForm.assessment_period_end,
+                    performance_before: assessmentForm.performance_before,
+                    performance_after: assessmentForm.performance_after,
+                    skills_application: assessmentForm.skills_application,
+                    skills_application_rating: parseInt(assessmentForm.skills_application_rating),
+                    impact_rating: assessmentForm.impact_rating,
+                    recommendations: assessmentForm.recommendations || undefined,
+                    follow_up_actions: assessmentForm.follow_up_actions || undefined,
+                    further_training_needed: assessmentForm.further_training_needed,
+                    further_training_details: assessmentForm.further_training_details || undefined,
+                    overall_effectiveness_score: parseInt(assessmentForm.overall_effectiveness_score),
+                  })
+                }}
+                disabled={assessmentMutation.isPending}
+              >
+                {assessmentMutation.isPending ? 'Submitting...' : 'Submit Assessment'}
               </Button>
             </div>
           </div>

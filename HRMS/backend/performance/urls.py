@@ -11,7 +11,8 @@ from .views import (
     PIPViewSet, DevelopmentPlanViewSet, DevelopmentActivityViewSet,
     CoreValueViewSet, CoreValueAssessmentViewSet,
     ProbationAssessmentViewSet, TrainingNeedViewSet, PerformanceAppealViewSet,
-    TrainingDocumentViewSet, AppraisalDocumentViewSet
+    TrainingDocumentViewSet, AppraisalDocumentViewSet,
+    AppraisalScheduleViewSet, AppraisalDeadlineExtensionViewSet,
 )
 
 router = DefaultRouter()
@@ -35,6 +36,10 @@ router.register(r'appeals', PerformanceAppealViewSet, basename='performance-appe
 # Document endpoints
 router.register(r'training-documents', TrainingDocumentViewSet, basename='training-document')
 router.register(r'appraisal-documents', AppraisalDocumentViewSet, basename='appraisal-document')
+
+# Appraisal scheduling
+router.register(r'schedules', AppraisalScheduleViewSet, basename='appraisal-schedule')
+router.register(r'deadline-extensions', AppraisalDeadlineExtensionViewSet, basename='deadline-extension')
 
 urlpatterns = [
     path('', include(router.urls)),

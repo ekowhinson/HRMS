@@ -35,6 +35,85 @@ export interface TrainingEnrollmentFilters {
   page_size?: number
 }
 
+// Post-Training Report types
+export interface PostTrainingReport {
+  id: string
+  enrollment: string
+  employee_name: string
+  session_title: string
+  program_name: string
+  key_learnings: string
+  skills_acquired: string
+  knowledge_application: string
+  action_plan: string
+  recommendations: string
+  challenges: string
+  overall_rating: number
+  status: 'DRAFT' | 'SUBMITTED' | 'REVIEWED'
+  status_display: string
+  submitted_at: string | null
+  created_at: string
+}
+
+export interface PostTrainingReportCreate {
+  enrollment: string
+  key_learnings: string
+  skills_acquired: string
+  knowledge_application: string
+  action_plan: string
+  recommendations?: string
+  challenges?: string
+  overall_rating: number
+}
+
+// Training Impact Assessment types
+export type ImpactRating = 'SIGNIFICANT' | 'MODERATE' | 'MINIMAL' | 'NO_CHANGE' | 'DECLINED'
+
+export interface TrainingImpactAssessment {
+  id: string
+  enrollment: string
+  assessor: string
+  assessor_name: string
+  employee_name: string
+  session_title: string
+  program_name: string
+  assessment_date: string
+  assessment_period_start: string
+  assessment_period_end: string
+  performance_before: string
+  performance_after: string
+  skills_application: string
+  skills_application_rating: number
+  impact_rating: ImpactRating
+  impact_rating_display: string
+  recommendations: string
+  follow_up_actions: string
+  further_training_needed: boolean
+  further_training_details: string
+  overall_effectiveness_score: number
+  status: 'DRAFT' | 'SUBMITTED'
+  status_display: string
+  submitted_at: string | null
+  created_at: string
+}
+
+export interface TrainingImpactAssessmentCreate {
+  enrollment: string
+  assessment_date: string
+  assessment_period_start: string
+  assessment_period_end: string
+  performance_before: string
+  performance_after: string
+  skills_application: string
+  skills_application_rating: number
+  impact_rating: ImpactRating
+  recommendations?: string
+  follow_up_actions?: string
+  further_training_needed?: boolean
+  further_training_details?: string
+  overall_effectiveness_score: number
+}
+
 export const trainingService = {
   // Programs
   getPrograms: async (filters: TrainingProgramFilters = {}): Promise<PaginatedResponse<TrainingProgram>> => {
@@ -144,6 +223,68 @@ export const trainingService = {
   // Dashboard
   getDashboard: async (): Promise<TrainingDashboardData> => {
     const response = await api.get('/training/dashboard/')
+    return response.data
+  },
+
+  // Post-Training Reports
+  getPostTrainingReports: async (params: { enrollment?: string; status?: string; page?: number; page_size?: number } = {}): Promise<PaginatedResponse<PostTrainingReport>> => {
+    const response = await api.get('/training/post-training-reports/', { params })
+    return response.data
+  },
+
+  getPostTrainingReport: async (id: string): Promise<PostTrainingReport> => {
+    const response = await api.get(`/training/post-training-reports/${id}/`)
+    return response.data
+  },
+
+  createPostTrainingReport: async (data: PostTrainingReportCreate): Promise<PostTrainingReport> => {
+    const response = await api.post('/training/post-training-reports/', data)
+    return response.data
+  },
+
+  updatePostTrainingReport: async (id: string, data: Partial<PostTrainingReportCreate>): Promise<PostTrainingReport> => {
+    const response = await api.patch(`/training/post-training-reports/${id}/`, data)
+    return response.data
+  },
+
+  submitPostTrainingReport: async (id: string): Promise<PostTrainingReport> => {
+    const response = await api.post(`/training/post-training-reports/${id}/submit/`)
+    return response.data
+  },
+
+  getMyReports: async (params: { page?: number; page_size?: number } = {}): Promise<PaginatedResponse<PostTrainingReport>> => {
+    const response = await api.get('/training/post-training-reports/my_reports/', { params })
+    return response.data
+  },
+
+  // Training Impact Assessments
+  getImpactAssessments: async (params: { enrollment?: string; status?: string; page?: number; page_size?: number } = {}): Promise<PaginatedResponse<TrainingImpactAssessment>> => {
+    const response = await api.get('/training/impact-assessments/', { params })
+    return response.data
+  },
+
+  getImpactAssessment: async (id: string): Promise<TrainingImpactAssessment> => {
+    const response = await api.get(`/training/impact-assessments/${id}/`)
+    return response.data
+  },
+
+  createImpactAssessment: async (data: TrainingImpactAssessmentCreate): Promise<TrainingImpactAssessment> => {
+    const response = await api.post('/training/impact-assessments/', data)
+    return response.data
+  },
+
+  updateImpactAssessment: async (id: string, data: Partial<TrainingImpactAssessmentCreate>): Promise<TrainingImpactAssessment> => {
+    const response = await api.patch(`/training/impact-assessments/${id}/`, data)
+    return response.data
+  },
+
+  submitImpactAssessment: async (id: string): Promise<TrainingImpactAssessment> => {
+    const response = await api.post(`/training/impact-assessments/${id}/submit/`)
+    return response.data
+  },
+
+  getMyAssessments: async (params: { page?: number; page_size?: number } = {}): Promise<PaginatedResponse<TrainingImpactAssessment>> => {
+    const response = await api.get('/training/impact-assessments/my_assessments/', { params })
     return response.data
   },
 }

@@ -3,6 +3,8 @@ Training & Development models.
 """
 
 from django.db import models
+from django.conf import settings
+from django.utils import timezone
 from core.models import BaseModel
 
 
@@ -133,3 +135,89 @@ class TrainingEnrollment(BaseModel):
 
     def __str__(self):
         return f"{self.employee} - {self.session.title}"
+
+
+class PostTrainingReport(BaseModel):
+    """Employee's post-training report."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+        REVIEWED = 'REVIEWED', 'Reviewed'
+
+    enrollment = models.OneToOneField(
+        TrainingEnrollment, on_delete=models.CASCADE, related_name='post_training_report'
+    )
+    key_learnings = models.TextField()
+    skills_acquired = models.TextField()
+    knowledge_application = models.TextField(
+        help_text='How the knowledge will be applied to the job'
+    )
+    action_plan = models.TextField()
+    recommendations = models.TextField(blank=True)
+    challenges = models.TextField(blank=True)
+    overall_rating = models.PositiveIntegerField(
+        help_text='Overall training rating (1-5)'
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Report: {self.enrollment}"
+
+
+class TrainingImpactAssessment(BaseModel):
+    """Supervisor's evaluation of training impact on employee performance."""
+
+    class ImpactRating(models.TextChoices):
+        SIGNIFICANT = 'SIGNIFICANT', 'Significant Improvement'
+        MODERATE = 'MODERATE', 'Moderate Improvement'
+        MINIMAL = 'MINIMAL', 'Minimal Improvement'
+        NO_CHANGE = 'NO_CHANGE', 'No Change'
+        DECLINED = 'DECLINED', 'Performance Declined'
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+
+    enrollment = models.OneToOneField(
+        TrainingEnrollment, on_delete=models.CASCADE, related_name='impact_assessment'
+    )
+    assessor = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE, related_name='training_impact_assessments'
+    )
+    assessment_date = models.DateField()
+    assessment_period_start = models.DateField()
+    assessment_period_end = models.DateField()
+
+    performance_before = models.TextField()
+    performance_after = models.TextField()
+    skills_application = models.TextField()
+    skills_application_rating = models.PositiveIntegerField(
+        help_text='Rating of skills application (1-5)'
+    )
+    impact_rating = models.CharField(
+        max_length=20, choices=ImpactRating.choices
+    )
+    recommendations = models.TextField(blank=True)
+    follow_up_actions = models.TextField(blank=True)
+    further_training_needed = models.BooleanField(default=False)
+    further_training_details = models.TextField(blank=True)
+    overall_effectiveness_score = models.PositiveIntegerField(
+        help_text='Overall effectiveness score (1-5)'
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Impact Assessment: {self.enrollment}"

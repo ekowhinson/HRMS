@@ -11,7 +11,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 
-from .models import TrainingProgram, TrainingSession, TrainingEnrollment
+from .models import (
+    TrainingProgram, TrainingSession, TrainingEnrollment,
+    PostTrainingReport, TrainingImpactAssessment,
+)
 from .serializers import (
     TrainingProgramListSerializer, TrainingProgramDetailSerializer,
     TrainingProgramCreateSerializer,
@@ -19,6 +22,8 @@ from .serializers import (
     TrainingSessionCreateSerializer,
     TrainingEnrollmentListSerializer, TrainingEnrollmentDetailSerializer,
     TrainingEnrollmentCreateSerializer,
+    PostTrainingReportSerializer, PostTrainingReportCreateSerializer,
+    TrainingImpactAssessmentSerializer, TrainingImpactAssessmentCreateSerializer,
 )
 
 
@@ -111,6 +116,31 @@ class TrainingSessionViewSet(viewsets.ModelViewSet):
                 created.append(str(enrollment.employee_id))
             else:
                 skipped.append(str(enrollment.employee_id))
+
+        # Send notifications to newly enrolled employees
+        if created:
+            from core.tasks import send_notification_task
+            from employees.models import Employee
+
+            enrolled_employees = Employee.objects.filter(
+                id__in=created
+            ).select_related('user')
+
+            for emp in enrolled_employees:
+                if emp.user_id:
+                    send_notification_task.delay(
+                        str(emp.user_id),
+                        'INFO',
+                        {
+                            'title': f'Training Enrollment: {session.title}',
+                            'message': f'You have been enrolled in training session "{session.title}", scheduled from {session.start_date.strftime("%d %b %Y")} to {session.end_date.strftime("%d %b %Y")}.',
+                            'link': '/training/sessions',
+                            'extra_data': {
+                                'session_id': str(session.id),
+                                'program_id': str(session.program_id),
+                            },
+                        }
+                    )
 
         return Response({
             'enrolled': len(created),
@@ -280,3 +310,87 @@ class TrainingDashboardView(APIView):
             'by_category': by_category,
             'top_programs': top_programs,
         })
+
+
+class PostTrainingReportViewSet(viewsets.ModelViewSet):
+    """Post-training report management."""
+    queryset = PostTrainingReport.objects.select_related(
+        'enrollment', 'enrollment__employee', 'enrollment__session',
+        'enrollment__session__program'
+    )
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['status', 'enrollment']
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return PostTrainingReportCreateSerializer
+        return PostTrainingReportSerializer
+
+    @action(detail=False, methods=['get'])
+    def my_reports(self, request):
+        """Get reports for the current user's enrollments."""
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response(
+                {'detail': 'No employee profile found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        reports = self.get_queryset().filter(enrollment__employee=employee)
+        serializer = PostTrainingReportSerializer(reports, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        """Submit a post-training report."""
+        report = self.get_object()
+        report.status = PostTrainingReport.Status.SUBMITTED
+        report.submitted_at = timezone.now()
+        report.save()
+        serializer = PostTrainingReportSerializer(report)
+        return Response(serializer.data)
+
+
+class TrainingImpactAssessmentViewSet(viewsets.ModelViewSet):
+    """Training impact assessment management."""
+    queryset = TrainingImpactAssessment.objects.select_related(
+        'enrollment', 'enrollment__employee', 'enrollment__session',
+        'enrollment__session__program', 'assessor'
+    )
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['status', 'enrollment', 'assessor']
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return TrainingImpactAssessmentCreateSerializer
+        return TrainingImpactAssessmentSerializer
+
+    def perform_create(self, serializer):
+        """Auto-set assessor from request user."""
+        employee = getattr(self.request.user, 'employee', None)
+        if not employee:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError('User must have an employee profile')
+        serializer.save(assessor=employee)
+
+    @action(detail=False, methods=['get'])
+    def my_assessments(self, request):
+        """Get assessments made by the current user."""
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response(
+                {'detail': 'No employee profile found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        assessments = self.get_queryset().filter(assessor=employee)
+        serializer = TrainingImpactAssessmentSerializer(assessments, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        """Submit an impact assessment."""
+        assessment = self.get_object()
+        assessment.status = TrainingImpactAssessment.Status.SUBMITTED
+        assessment.submitted_at = timezone.now()
+        assessment.save()
+        serializer = TrainingImpactAssessmentSerializer(assessment)
+        return Response(serializer.data)

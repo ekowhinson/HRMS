@@ -5,14 +5,15 @@ Views for performance management.
 from datetime import date
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers as drf_serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from .models import (
-    AppraisalCycle, RatingScale, Competency, GoalCategory,
+    AppraisalCycle, AppraisalSchedule, AppraisalDeadlineExtension,
+    RatingScale, Competency, GoalCategory,
     Appraisal, Goal, GoalUpdate, CompetencyAssessment,
     PeerFeedback, PerformanceImprovementPlan, PIPReview,
     DevelopmentPlan, DevelopmentActivity,
@@ -34,12 +35,37 @@ from .serializers import (
     TrainingNeedListSerializer, TrainingNeedSerializer, TrainingNeedCreateSerializer,
     PerformanceAppealListSerializer, PerformanceAppealSerializer,
     PerformanceAppealCreateSerializer, PerformanceAppealDecisionSerializer,
-    AppraisalDetailSerializer, TrainingDocumentSerializer, AppraisalDocumentSerializer
+    AppraisalDetailSerializer, TrainingDocumentSerializer, AppraisalDocumentSerializer,
+    AppraisalScheduleSerializer, AppraisalScheduleCreateSerializer,
+    AppraisalScheduleBulkCreateSerializer,
+    AppraisalDeadlineExtensionSerializer, AppraisalDeadlineExtensionCreateSerializer,
 )
 from .services import (
     AppraisalScoreCalculator, ProbationService,
     TrainingNeedService, PerformanceAppealService
 )
+
+
+def check_appraisal_deadline(appraisal, phase):
+    """
+    Check if the department schedule for the given phase is locked.
+    Auto-locks if past deadline.
+    Returns (is_locked, schedule_or_None).
+    """
+    if not appraisal.employee or not appraisal.employee.department:
+        return False, None
+
+    try:
+        schedule = AppraisalSchedule.objects.get(
+            appraisal_cycle=appraisal.appraisal_cycle,
+            department=appraisal.employee.department,
+            phase=phase,
+        )
+        # Auto-lock if past deadline
+        schedule.check_and_lock()
+        return schedule.is_locked, schedule
+    except AppraisalSchedule.DoesNotExist:
+        return False, None
 
 
 class AppraisalCycleViewSet(viewsets.ModelViewSet):
@@ -171,6 +197,27 @@ class AppraisalViewSet(viewsets.ModelViewSet):
     def submit_self_assessment(self, request, pk=None):
         """Submit self assessment."""
         appraisal = self.get_object()
+
+        # Determine phase from appraisal status
+        phase = AppraisalSchedule.Phase.YEAR_END
+        if appraisal.status in [Appraisal.Status.GOAL_SETTING, Appraisal.Status.GOALS_SUBMITTED]:
+            phase = AppraisalSchedule.Phase.GOAL_SETTING
+        elif appraisal.status == Appraisal.Status.IN_PROGRESS:
+            phase = AppraisalSchedule.Phase.MID_YEAR
+
+        is_locked, schedule = check_appraisal_deadline(appraisal, phase)
+        if is_locked:
+            return Response(
+                {
+                    'detail': 'Department deadline has elapsed and access is locked.',
+                    'locked_at': schedule.locked_at,
+                    'end_date': schedule.end_date,
+                    'department': schedule.department.name,
+                    'phase': schedule.get_phase_display(),
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         appraisal.status = Appraisal.Status.MANAGER_REVIEW
         appraisal.self_assessment_date = timezone.now()
         appraisal.save()
@@ -181,6 +228,20 @@ class AppraisalViewSet(viewsets.ModelViewSet):
     def complete_review(self, request, pk=None):
         """Complete manager review."""
         appraisal = self.get_object()
+
+        is_locked, schedule = check_appraisal_deadline(appraisal, AppraisalSchedule.Phase.YEAR_END)
+        if is_locked:
+            return Response(
+                {
+                    'detail': 'Department deadline has elapsed and access is locked.',
+                    'locked_at': schedule.locked_at,
+                    'end_date': schedule.end_date,
+                    'department': schedule.department.name,
+                    'phase': schedule.get_phase_display(),
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         appraisal.status = Appraisal.Status.COMPLETED
         appraisal.manager_review_date = timezone.now()
         appraisal.completion_date = timezone.now()
@@ -202,8 +263,8 @@ class AppraisalViewSet(viewsets.ModelViewSet):
 
         return Response(scores)
 
-    @action(detail=True, methods=['get'])
-    def detail(self, request, pk=None):
+    @action(detail=True, methods=['get'], url_path='detail', url_name='detail')
+    def get_detail(self, request, pk=None):
         """Get detailed appraisal with all components."""
         appraisal = self.get_object()
         serializer = AppraisalDetailSerializer(appraisal)
@@ -253,6 +314,40 @@ class GoalViewSet(viewsets.ModelViewSet):
         if appraisal_id:
             queryset = queryset.filter(appraisal_id=appraisal_id)
         return queryset
+
+    def _check_goal_deadline(self, appraisal):
+        """Check if goal setting deadline is locked for the department."""
+        is_locked, schedule = check_appraisal_deadline(appraisal, AppraisalSchedule.Phase.GOAL_SETTING)
+        if is_locked:
+            return Response(
+                {
+                    'detail': 'Goal setting deadline has elapsed and access is locked.',
+                    'locked_at': schedule.locked_at,
+                    'end_date': schedule.end_date,
+                    'department': schedule.department.name,
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return None
+
+    def create(self, request, *args, **kwargs):
+        appraisal_id = request.data.get('appraisal')
+        if appraisal_id:
+            try:
+                appraisal = Appraisal.objects.select_related('employee__department', 'appraisal_cycle').get(pk=appraisal_id)
+                locked_response = self._check_goal_deadline(appraisal)
+                if locked_response:
+                    return locked_response
+            except Appraisal.DoesNotExist:
+                pass
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        goal = self.get_object()
+        locked_response = self._check_goal_deadline(goal.appraisal)
+        if locked_response:
+            return locked_response
+        return super().update(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'])
     def update_progress(self, request, pk=None):
@@ -920,4 +1015,154 @@ class AppraisalDocumentViewSet(viewsets.ModelViewSet):
             )
 
         serializer = AppraisalDocumentSerializer(document)
+        return Response(serializer.data)
+
+
+class AppraisalScheduleViewSet(viewsets.ModelViewSet):
+    """Appraisal schedule management for department-level deadline overrides."""
+    queryset = AppraisalSchedule.objects.select_related(
+        'appraisal_cycle', 'department'
+    )
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return AppraisalScheduleCreateSerializer
+        return AppraisalScheduleSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        cycle_id = self.request.query_params.get('cycle')
+        if cycle_id:
+            queryset = queryset.filter(appraisal_cycle_id=cycle_id)
+        department_id = self.request.query_params.get('department')
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
+        phase = self.request.query_params.get('phase')
+        if phase:
+            queryset = queryset.filter(phase=phase)
+        return queryset
+
+    @action(detail=False, methods=['post'])
+    def bulk_create(self, request):
+        """Create schedules for multiple departments at once."""
+        serializer = AppraisalScheduleBulkCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        created = []
+        skipped = []
+
+        for dept_id in data['department_ids']:
+            schedule, was_created = AppraisalSchedule.objects.get_or_create(
+                appraisal_cycle_id=data['appraisal_cycle'],
+                department_id=dept_id,
+                phase=data['phase'],
+                defaults={
+                    'start_date': data['start_date'],
+                    'end_date': data['end_date'],
+                }
+            )
+            if was_created:
+                created.append(str(schedule.id))
+            else:
+                skipped.append(str(dept_id))
+
+        schedules = AppraisalSchedule.objects.filter(id__in=created)
+        result_serializer = AppraisalScheduleSerializer(schedules, many=True)
+        return Response({
+            'created': len(created),
+            'skipped': len(skipped),
+            'schedules': result_serializer.data,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def lock(self, request, pk=None):
+        """Manually lock a schedule."""
+        schedule = self.get_object()
+        reason = request.data.get('reason', 'Manually locked')
+        schedule.is_locked = True
+        schedule.locked_at = timezone.now()
+        schedule.lock_reason = reason
+        schedule.save()
+        serializer = AppraisalScheduleSerializer(schedule)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def unlock(self, request, pk=None):
+        """Manually unlock a schedule (line manager access)."""
+        schedule = self.get_object()
+        reason = request.data.get('reason', '')
+        if not reason:
+            return Response(
+                {'detail': 'A reason is required to unlock a schedule.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        schedule.is_locked = False
+        schedule.locked_at = None
+        schedule.lock_reason = ''
+        schedule.save()
+        serializer = AppraisalScheduleSerializer(schedule)
+        return Response(serializer.data)
+
+
+class AppraisalDeadlineExtensionViewSet(viewsets.ModelViewSet):
+    """Appraisal deadline extension request management."""
+    queryset = AppraisalDeadlineExtension.objects.select_related(
+        'schedule', 'schedule__department', 'schedule__appraisal_cycle',
+        'requested_by', 'approved_by'
+    )
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return AppraisalDeadlineExtensionCreateSerializer
+        return AppraisalDeadlineExtensionSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        schedule_id = self.request.query_params.get('schedule')
+        if schedule_id:
+            queryset = queryset.filter(schedule_id=schedule_id)
+        ext_status = self.request.query_params.get('status')
+        if ext_status:
+            queryset = queryset.filter(status=ext_status)
+        return queryset
+
+    def perform_create(self, serializer):
+        employee = getattr(self.request.user, 'employee', None)
+        if not employee:
+            raise drf_serializers.ValidationError('User must have an employee profile')
+        serializer.save(requested_by=employee)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Approve an extension request."""
+        extension = self.get_object()
+        if extension.status != AppraisalDeadlineExtension.Status.PENDING:
+            return Response(
+                {'detail': 'Only pending extensions can be approved.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        extension.approve(request.user)
+        serializer = AppraisalDeadlineExtensionSerializer(extension)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Reject an extension request."""
+        extension = self.get_object()
+        if extension.status != AppraisalDeadlineExtension.Status.PENDING:
+            return Response(
+                {'detail': 'Only pending extensions can be rejected.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        rejection_reason = request.data.get('reason', '')
+        extension.status = AppraisalDeadlineExtension.Status.REJECTED
+        extension.rejection_reason = rejection_reason
+        extension.approved_by = request.user
+        extension.approved_at = timezone.now()
+        extension.save()
+        serializer = AppraisalDeadlineExtensionSerializer(extension)
         return Response(serializer.data)

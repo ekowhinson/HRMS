@@ -3,7 +3,10 @@ Serializers for training module.
 """
 
 from rest_framework import serializers
-from .models import TrainingProgram, TrainingSession, TrainingEnrollment
+from .models import (
+    TrainingProgram, TrainingSession, TrainingEnrollment,
+    PostTrainingReport, TrainingImpactAssessment,
+)
 
 
 # --- TrainingProgram Serializers ---
@@ -143,12 +146,28 @@ class TrainingSessionCreateSerializer(serializers.ModelSerializer):
 
 # --- TrainingEnrollment Serializers ---
 
+class PostTrainingReportStatusSerializer(serializers.ModelSerializer):
+    """Minimal serializer for nesting report status in enrollment list."""
+    class Meta:
+        model = PostTrainingReport
+        fields = ['id', 'status', 'overall_rating', 'submitted_at']
+
+
+class TrainingImpactAssessmentStatusSerializer(serializers.ModelSerializer):
+    """Minimal serializer for nesting assessment status in enrollment list."""
+    class Meta:
+        model = TrainingImpactAssessment
+        fields = ['id', 'status', 'impact_rating', 'overall_effectiveness_score', 'submitted_at']
+
+
 class TrainingEnrollmentListSerializer(serializers.ModelSerializer):
     employee_name = serializers.SerializerMethodField()
     employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
     department_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     session_title = serializers.CharField(source='session.title', read_only=True)
+    post_training_report = serializers.SerializerMethodField()
+    impact_assessment = serializers.SerializerMethodField()
 
     class Meta:
         model = TrainingEnrollment
@@ -157,6 +176,7 @@ class TrainingEnrollmentListSerializer(serializers.ModelSerializer):
             'employee_number', 'department_name',
             'status', 'status_display', 'attendance_date',
             'score', 'feedback', 'certificate_issued', 'certificate_date',
+            'post_training_report', 'impact_assessment',
             'created_at', 'updated_at',
         ]
 
@@ -167,6 +187,20 @@ class TrainingEnrollmentListSerializer(serializers.ModelSerializer):
     def get_department_name(self, obj):
         dept = obj.employee.department
         return dept.name if dept else ''
+
+    def get_post_training_report(self, obj):
+        try:
+            report = obj.post_training_report
+            return PostTrainingReportStatusSerializer(report).data
+        except PostTrainingReport.DoesNotExist:
+            return None
+
+    def get_impact_assessment(self, obj):
+        try:
+            assessment = obj.impact_assessment
+            return TrainingImpactAssessmentStatusSerializer(assessment).data
+        except TrainingImpactAssessment.DoesNotExist:
+            return None
 
 
 class TrainingEnrollmentDetailSerializer(serializers.ModelSerializer):
@@ -201,4 +235,81 @@ class TrainingEnrollmentCreateSerializer(serializers.ModelSerializer):
         model = TrainingEnrollment
         fields = [
             'session', 'employee', 'status',
+        ]
+
+
+# --- PostTrainingReport Serializers ---
+
+class PostTrainingReportSerializer(serializers.ModelSerializer):
+    employee_name = serializers.SerializerMethodField()
+    session_title = serializers.CharField(source='enrollment.session.title', read_only=True)
+    program_name = serializers.CharField(source='enrollment.session.program.name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = PostTrainingReport
+        fields = [
+            'id', 'enrollment', 'employee_name', 'session_title', 'program_name',
+            'key_learnings', 'skills_acquired', 'knowledge_application',
+            'action_plan', 'recommendations', 'challenges',
+            'overall_rating', 'status', 'status_display', 'submitted_at',
+            'created_at', 'updated_at',
+        ]
+
+    def get_employee_name(self, obj):
+        emp = obj.enrollment.employee
+        return f"{emp.first_name} {emp.last_name}"
+
+
+class PostTrainingReportCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostTrainingReport
+        fields = [
+            'enrollment', 'key_learnings', 'skills_acquired',
+            'knowledge_application', 'action_plan', 'recommendations',
+            'challenges', 'overall_rating',
+        ]
+
+
+# --- TrainingImpactAssessment Serializers ---
+
+class TrainingImpactAssessmentSerializer(serializers.ModelSerializer):
+    assessor_name = serializers.CharField(source='assessor.full_name', read_only=True)
+    employee_name = serializers.SerializerMethodField()
+    session_title = serializers.CharField(source='enrollment.session.title', read_only=True)
+    program_name = serializers.CharField(source='enrollment.session.program.name', read_only=True)
+    impact_rating_display = serializers.CharField(source='get_impact_rating_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = TrainingImpactAssessment
+        fields = [
+            'id', 'enrollment', 'assessor', 'assessor_name',
+            'employee_name', 'session_title', 'program_name',
+            'assessment_date', 'assessment_period_start', 'assessment_period_end',
+            'performance_before', 'performance_after', 'skills_application',
+            'skills_application_rating', 'impact_rating', 'impact_rating_display',
+            'recommendations', 'follow_up_actions',
+            'further_training_needed', 'further_training_details',
+            'overall_effectiveness_score', 'status', 'status_display', 'submitted_at',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['assessor']
+
+    def get_employee_name(self, obj):
+        emp = obj.enrollment.employee
+        return f"{emp.first_name} {emp.last_name}"
+
+
+class TrainingImpactAssessmentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainingImpactAssessment
+        fields = [
+            'enrollment', 'assessment_date',
+            'assessment_period_start', 'assessment_period_end',
+            'performance_before', 'performance_after', 'skills_application',
+            'skills_application_rating', 'impact_rating',
+            'recommendations', 'follow_up_actions',
+            'further_training_needed', 'further_training_details',
+            'overall_effectiveness_score',
         ]

@@ -1,5 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { notificationService, type Notification as NotificationType } from '@/services/notifications';
 import {
   HomeIcon,
   UsersIcon,
@@ -401,6 +403,142 @@ function CollapsibleSection({
   );
 }
 
+// Notification Bell Component
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const { data: unreadData } = useQuery({
+    queryKey: ['notifications', 'unread_count'],
+    queryFn: () => notificationService.getUnreadCount(),
+    refetchInterval: 30000,
+  });
+
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications', 'recent'],
+    queryFn: () => notificationService.getNotifications({ page_size: 10 }),
+    enabled: open,
+  });
+
+  const unreadCount = unreadData?.count ?? 0;
+  const notifications: NotificationType[] = notificationsData?.results ?? [];
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    await notificationService.markAllRead();
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  };
+
+  const handleNotificationClick = async (notification: NotificationType) => {
+    if (!notification.is_read) {
+      await notificationService.markRead(notification.id);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    }
+    if (notification.link) {
+      navigate(notification.link);
+    }
+    setOpen(false);
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
+
+  const typeColors: Record<string, string> = {
+    INFO: 'bg-blue-100 text-blue-600',
+    WARNING: 'bg-yellow-100 text-yellow-600',
+    ERROR: 'bg-red-100 text-red-600',
+    SUCCESS: 'bg-green-100 text-green-600',
+    TASK: 'bg-purple-100 text-purple-600',
+    APPROVAL: 'bg-orange-100 text-orange-600',
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        className="relative p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+        onClick={() => setOpen(!open)}
+      >
+        <BellIcon className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg z-50">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllRead}
+                className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-gray-500">
+                No notifications
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => handleNotificationClick(n)}
+                  className={cn(
+                    'w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors',
+                    !n.is_read && 'bg-blue-50/50'
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={cn('mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs flex-shrink-0', typeColors[n.notification_type] || typeColors.INFO)}>
+                      {n.notification_type[0]}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn('text-sm truncate', !n.is_read ? 'font-semibold text-gray-900' : 'text-gray-700')}>
+                        {n.title}
+                      </p>
+                      <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{n.message}</p>
+                      <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(n.created_at)}</p>
+                    </div>
+                    {!n.is_read && (
+                      <span className="mt-2 h-2 w-2 rounded-full bg-primary-500 flex-shrink-0" />
+                    )}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Roles that grant access to HR/Admin features
 const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER'];
 
@@ -700,11 +838,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           <div className="flex flex-1 justify-end gap-2">
-            {/* Notification button */}
-            <button className="relative p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
-              <BellIcon className="h-5 w-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
-            </button>
+            {/* Notification button with dropdown */}
+            <NotificationBell />
 
             {/* Mobile avatar */}
             <div className="lg:hidden">
