@@ -65,3 +65,10 @@ django-auth-ldap>=4.6.0
 python-ldap>=3.4.4
 msal>=1.26.0
 cryptography>=41.0.0
+
+# Production server & static files
+gunicorn>=22.0.0
+whitenoise>=6.7.0
+
+# Structured JSON logging
+python-json-logger>=3.0.0

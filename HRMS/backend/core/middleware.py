@@ -4,6 +4,8 @@ Custom middleware for the HRMS application.
 
 import threading
 import logging
+import time
+import uuid
 from django.utils.deprecation import MiddlewareMixin
 
 logger = logging.getLogger('nhia_hrms')
@@ -97,6 +99,10 @@ class CurrentUserMiddleware(MiddlewareMixin):
 class AuditLogMiddleware(MiddlewareMixin):
     """
     Middleware to log all requests for audit purposes.
+
+    Captures request_id (from X-Request-ID header or auto-generated UUID),
+    request duration, and emits structured log fields compatible with JSON
+    logging in staging/production.
     """
 
     EXCLUDED_PATHS = [
@@ -123,8 +129,15 @@ class AuditLogMiddleware(MiddlewareMixin):
         return request.META.get('REMOTE_ADDR')
 
     def process_request(self, request):
+        # Always assign a request_id (used by other middleware / views too)
+        request.request_id = (
+            request.META.get('HTTP_X_REQUEST_ID') or uuid.uuid4().hex
+        )
+        request._audit_start = time.monotonic()
+
         if self.should_log(request):
             request._audit_data = {
+                'request_id': request.request_id,
                 'ip_address': self.get_client_ip(request),
                 'user_agent': request.META.get('HTTP_USER_AGENT', ''),
                 'method': request.method,
@@ -133,18 +146,36 @@ class AuditLogMiddleware(MiddlewareMixin):
 
     def process_response(self, request, response):
         if hasattr(request, '_audit_data') and self.should_log(request):
+            duration_ms = round(
+                (time.monotonic() - request._audit_start) * 1000, 2
+            )
             audit_data = request._audit_data
             audit_data['status_code'] = response.status_code
-            audit_data['user'] = getattr(request, 'user', None)
+            audit_data['duration_ms'] = duration_ms
 
-            # Log the request (you can also save to database here)
-            if audit_data.get('user') and hasattr(audit_data['user'], 'id'):
-                logger.info(
-                    f"API Request: {audit_data['method']} {audit_data['path']} "
-                    f"- User: {audit_data['user'].id} "
-                    f"- Status: {audit_data['status_code']} "
-                    f"- IP: {audit_data['ip_address']}"
-                )
+            user = getattr(request, 'user', None)
+            user_id = getattr(user, 'id', None) if user and getattr(user, 'is_authenticated', False) else None
+            audit_data['user_id'] = user_id
+
+            # Structured extra dict for JSON logging; falls back gracefully
+            # to the formatted message for plain-text formatters.
+            logger.info(
+                "API Request: %s %s - User: %s - Status: %s - %sms",
+                audit_data['method'],
+                audit_data['path'],
+                user_id,
+                audit_data['status_code'],
+                duration_ms,
+                extra={
+                    'request_id': audit_data['request_id'],
+                    'user_id': user_id,
+                    'method': audit_data['method'],
+                    'path': audit_data['path'],
+                    'status_code': audit_data['status_code'],
+                    'duration_ms': duration_ms,
+                    'ip_address': audit_data['ip_address'],
+                },
+            )
 
         return response
 

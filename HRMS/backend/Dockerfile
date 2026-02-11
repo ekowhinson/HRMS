@@ -36,11 +36,11 @@ COPY . .
 # Create logs directory (excluded by .dockerignore)
 RUN mkdir -p /app/logs
 
-# Collect static files at build time
-# Use dummy SECRET_KEY since we only need collectstatic, not full app
+# Collect static files at build time using development settings
+# (no fail-hard checks, no Redis/Postgres required)
 ENV DJANGO_SETTINGS_MODULE=config.settings
-RUN SECRET_KEY=build-placeholder \
-    DATABASE_URL=sqlite:///dev-null \
+RUN DJANGO_ENV=development \
+    SECRET_KEY=build-placeholder \
     python manage.py collectstatic --noinput
 
 
@@ -52,6 +52,7 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DJANGO_SETTINGS_MODULE=config.settings \
+    DJANGO_ENV=production \
     PORT=8080
 
 WORKDIR /app

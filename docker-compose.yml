@@ -56,6 +56,7 @@ services:
     env_file:
       - .env
     environment:
+      DJANGO_ENV: "production"
       USE_POSTGRES: "true"
       USE_REDIS: "true"
       DB_HOST: db
@@ -79,6 +80,7 @@ services:
     env_file:
       - .env
     environment:
+      DJANGO_ENV: "production"
       USE_POSTGRES: "true"
       USE_REDIS: "true"
       DB_HOST: db
