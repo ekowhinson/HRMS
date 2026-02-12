@@ -281,6 +281,32 @@ export const reportsService = {
     return response.data
   },
 
+  async getTurnover(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/employees/turnover/?${params.toString()}`)
+    return response.data
+  },
+
+  async getDemographics(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/employees/demographics/?${params.toString()}`)
+    return response.data
+  },
+
   async getLeaveBalance(filters?: ReportFilters) {
     const params = new URLSearchParams()
     if (filters) {
@@ -291,6 +317,19 @@ export const reportsService = {
       })
     }
     const response = await api.get(`/reports/leave/balance/?${params.toString()}`)
+    return response.data
+  },
+
+  async getLeaveUtilization(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          params.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/leave/utilization/?${params.toString()}`)
     return response.data
   },
 

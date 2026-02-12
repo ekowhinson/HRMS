@@ -158,6 +158,19 @@ const hrSections: NavSection[] = [
       { name: 'Grievances', href: '/admin/grievances', icon: ChatBubbleLeftRightIcon },
     ],
   },
+  {
+    name: 'HR Reports',
+    icon: DocumentChartBarIcon,
+    items: [
+      { name: 'All HR Reports', href: '/hr-reports', icon: DocumentChartBarIcon },
+      { name: 'Employee Master', href: '/hr-reports/employee-master', icon: UsersIcon },
+      { name: 'Headcount', href: '/hr-reports/headcount', icon: ChartBarIcon },
+      { name: 'Turnover', href: '/hr-reports/turnover', icon: ArrowTrendingUpIcon },
+      { name: 'Demographics', href: '/hr-reports/demographics', icon: UserGroupIcon },
+      { name: 'Leave Balance', href: '/hr-reports/leave-balance', icon: CalendarDaysIcon },
+      { name: 'Leave Utilization', href: '/hr-reports/leave-utilization', icon: ClockIcon },
+    ],
+  },
 ];
 
 // Payroll Section - Top level items

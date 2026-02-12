@@ -81,6 +81,15 @@ const PayrollReconciliationPage = React.lazy(() => import('./pages/admin/Payroll
 const PayrollJournalPage = React.lazy(() => import('./pages/admin/PayrollJournalPage'))
 const SalaryReconciliationPage = React.lazy(() => import('./pages/admin/SalaryReconciliationPage'))
 
+// HR Report pages
+const HRReportsPage = React.lazy(() => import('./pages/reports/HRReportsPage'))
+const EmployeeMasterReportPage = React.lazy(() => import('./pages/reports/EmployeeMasterReportPage'))
+const HeadcountReportPage = React.lazy(() => import('./pages/reports/HeadcountReportPage'))
+const TurnoverReportPage = React.lazy(() => import('./pages/reports/TurnoverReportPage'))
+const DemographicsReportPage = React.lazy(() => import('./pages/reports/DemographicsReportPage'))
+const LeaveBalanceReportPage = React.lazy(() => import('./pages/reports/LeaveBalanceReportPage'))
+const LeaveUtilizationReportPage = React.lazy(() => import('./pages/reports/LeaveUtilizationReportPage'))
+
 // Report Builder pages
 const ReportBuilderPage = React.lazy(() => import('./pages/reports/ReportBuilderPage'))
 const SavedReportsPage = React.lazy(() => import('./pages/reports/SavedReportsPage'))
@@ -347,6 +356,15 @@ function App() {
                     <Route path="/reports/builder" element={<AdminRoute><ReportBuilderPage /></AdminRoute>} />
                     <Route path="/reports/saved" element={<AdminRoute><SavedReportsPage /></AdminRoute>} />
                     <Route path="/reports/view/:id" element={<AdminRoute><ReportViewerPage /></AdminRoute>} />
+
+                    {/* HR Reports */}
+                    <Route path="/hr-reports" element={<AdminRoute><HRReportsPage /></AdminRoute>} />
+                    <Route path="/hr-reports/employee-master" element={<AdminRoute><EmployeeMasterReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/headcount" element={<AdminRoute><HeadcountReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/turnover" element={<AdminRoute><TurnoverReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/demographics" element={<AdminRoute><DemographicsReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/leave-balance" element={<AdminRoute><LeaveBalanceReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/leave-utilization" element={<AdminRoute><LeaveUtilizationReportPage /></AdminRoute>} />
 
                     {/* Settings - Available to all authenticated users */}
                     <Route path="/settings" element={<SettingsPage />} />
