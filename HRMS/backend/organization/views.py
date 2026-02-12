@@ -139,6 +139,7 @@ class WorkLocationViewSet(CachedModelMixin, viewsets.ModelViewSet):
     """ViewSet for Work Locations."""
     queryset = WorkLocation.objects.select_related('region', 'organization_unit')
     serializer_class = WorkLocationSerializer
+    pagination_class = None  # Lookup data - return all results for dropdowns
     filterset_fields = ['is_active', 'region', 'is_headquarters']
     search_fields = ['code', 'name', 'city']
     ordering = ['name']
