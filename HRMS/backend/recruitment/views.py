@@ -144,6 +144,13 @@ class ApplicantViewSet(viewsets.ModelViewSet):
         applicant.save()
         return Response(ApplicantSerializer(applicant).data)
 
+    @action(detail=True, methods=['get'])
+    def timeline(self, request, pk=None):
+        """Get applicant status change timeline."""
+        applicant = self.get_object()
+        history = applicant.status_history.order_by('-changed_at')
+        return Response(ApplicantStatusHistorySerializer(history, many=True).data)
+
 
 class InterviewViewSet(viewsets.ModelViewSet):
     """ViewSet for Interview model."""
