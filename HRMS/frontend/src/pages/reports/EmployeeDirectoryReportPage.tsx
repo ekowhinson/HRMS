@@ -25,13 +25,13 @@ interface EmployeeRecord {
   position_name: string
 }
 
-export default function EmployeeMasterReportPage() {
+export default function EmployeeDirectoryReportPage() {
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['hr-report-employee-master'],
+    queryKey: ['hr-report-employee-directory'],
     queryFn: () => reportsService.getEmployeeMaster(),
   })
 
@@ -61,7 +61,7 @@ export default function EmployeeMasterReportPage() {
           <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Employee Master Report</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Employee Directory Report</h1>
           <p className="mt-1 text-sm text-gray-500">
             Complete employee directory with search and filtering
           </p>

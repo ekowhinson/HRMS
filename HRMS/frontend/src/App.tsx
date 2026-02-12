@@ -83,12 +83,16 @@ const SalaryReconciliationPage = React.lazy(() => import('./pages/admin/SalaryRe
 
 // HR Report pages
 const HRReportsPage = React.lazy(() => import('./pages/reports/HRReportsPage'))
-const EmployeeMasterReportPage = React.lazy(() => import('./pages/reports/EmployeeMasterReportPage'))
+const EmployeeDirectoryReportPage = React.lazy(() => import('./pages/reports/EmployeeDirectoryReportPage'))
 const HeadcountReportPage = React.lazy(() => import('./pages/reports/HeadcountReportPage'))
 const TurnoverReportPage = React.lazy(() => import('./pages/reports/TurnoverReportPage'))
 const DemographicsReportPage = React.lazy(() => import('./pages/reports/DemographicsReportPage'))
 const LeaveBalanceReportPage = React.lazy(() => import('./pages/reports/LeaveBalanceReportPage'))
 const LeaveUtilizationReportPage = React.lazy(() => import('./pages/reports/LeaveUtilizationReportPage'))
+const EmploymentHistoryReportPage = React.lazy(() => import('./pages/reports/EmploymentHistoryReportPage'))
+const KPITrackingReportPage = React.lazy(() => import('./pages/reports/KPITrackingReportPage'))
+const PerformanceAppraisalsReportPage = React.lazy(() => import('./pages/reports/PerformanceAppraisalsReportPage'))
+const TrainingDevelopmentReportPage = React.lazy(() => import('./pages/reports/TrainingDevelopmentReportPage'))
 
 // Report Builder pages
 const ReportBuilderPage = React.lazy(() => import('./pages/reports/ReportBuilderPage'))
@@ -359,12 +363,16 @@ function App() {
 
                     {/* HR Reports */}
                     <Route path="/hr-reports" element={<AdminRoute><HRReportsPage /></AdminRoute>} />
-                    <Route path="/hr-reports/employee-master" element={<AdminRoute><EmployeeMasterReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/employee-directory" element={<AdminRoute><EmployeeDirectoryReportPage /></AdminRoute>} />
                     <Route path="/hr-reports/headcount" element={<AdminRoute><HeadcountReportPage /></AdminRoute>} />
                     <Route path="/hr-reports/turnover" element={<AdminRoute><TurnoverReportPage /></AdminRoute>} />
                     <Route path="/hr-reports/demographics" element={<AdminRoute><DemographicsReportPage /></AdminRoute>} />
                     <Route path="/hr-reports/leave-balance" element={<AdminRoute><LeaveBalanceReportPage /></AdminRoute>} />
                     <Route path="/hr-reports/leave-utilization" element={<AdminRoute><LeaveUtilizationReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/employment-history" element={<AdminRoute><EmploymentHistoryReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/kpi-tracking" element={<AdminRoute><KPITrackingReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/performance-appraisals" element={<AdminRoute><PerformanceAppraisalsReportPage /></AdminRoute>} />
+                    <Route path="/hr-reports/training-development" element={<AdminRoute><TrainingDevelopmentReportPage /></AdminRoute>} />
 
                     {/* Settings - Available to all authenticated users */}
                     <Route path="/settings" element={<SettingsPage />} />

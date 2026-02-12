@@ -6,13 +6,17 @@ import {
   UserGroupIcon,
   CalendarDaysIcon,
   ClockIcon,
+  ClipboardDocumentListIcon,
+  StarIcon,
+  AcademicCapIcon,
+  PresentationChartBarIcon,
 } from '@heroicons/react/24/outline'
 
 const reportCards = [
   {
-    title: 'Employee Master',
+    title: 'Employee Directory',
     description: 'Complete employee directory with search, filter, and export capabilities.',
-    href: '/hr-reports/employee-master',
+    href: '/hr-reports/employee-directory',
     icon: UsersIcon,
     color: 'bg-blue-500',
     bgLight: 'bg-blue-50',
@@ -56,6 +60,38 @@ const reportCards = [
     icon: ClockIcon,
     color: 'bg-indigo-500',
     bgLight: 'bg-indigo-50',
+  },
+  {
+    title: 'Employment History',
+    description: 'Track position, department, and grade changes for individual employees.',
+    href: '/hr-reports/employment-history',
+    icon: ClipboardDocumentListIcon,
+    color: 'bg-cyan-500',
+    bgLight: 'bg-cyan-50',
+  },
+  {
+    title: 'KPI Tracking',
+    description: 'Key performance indicators across performance, training, and recruitment.',
+    href: '/hr-reports/kpi-tracking',
+    icon: PresentationChartBarIcon,
+    color: 'bg-rose-500',
+    bgLight: 'bg-rose-50',
+  },
+  {
+    title: 'Performance Appraisals',
+    description: 'Appraisal results by cycle, status, and employee with ratings overview.',
+    href: '/hr-reports/performance-appraisals',
+    icon: StarIcon,
+    color: 'bg-amber-500',
+    bgLight: 'bg-amber-50',
+  },
+  {
+    title: 'Training & Development',
+    description: 'Training programs, sessions, enrollment stats, and completion metrics.',
+    href: '/hr-reports/training-development',
+    icon: AcademicCapIcon,
+    color: 'bg-emerald-500',
+    bgLight: 'bg-emerald-50',
   },
 ]
 
