@@ -24,4 +24,12 @@ router.register(r'exchange-rates', views.ExchangeRateViewSet, basename='exchange
 
 urlpatterns = [
     path('', include(router.urls)),
+    # Financial report endpoints
+    path('reports/trial-balance/', views.TrialBalanceView.as_view(), name='trial-balance'),
+    path('reports/income-statement/', views.IncomeStatementView.as_view(), name='income-statement'),
+    path('reports/balance-sheet/', views.BalanceSheetView.as_view(), name='balance-sheet'),
+    path('reports/cash-flow/', views.CashFlowView.as_view(), name='cash-flow'),
+    path('reports/ap-aging/', views.APAgingView.as_view(), name='ap-aging'),
+    path('reports/ar-aging/', views.ARAgingView.as_view(), name='ar-aging'),
+    path('reports/budget-vs-actual/', views.BudgetVsActualView.as_view(), name='budget-vs-actual'),
 ]

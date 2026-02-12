@@ -32,6 +32,7 @@ export interface AreaChartCardProps {
   gradient?: boolean;
   className?: string;
   valueFormatter?: (value: number) => string;
+  tooltipLabel?: string;
 }
 
 export function AreaChartCard({
@@ -49,6 +50,7 @@ export function AreaChartCard({
   gradient = true,
   className,
   valueFormatter = (value) => value.toLocaleString(),
+  tooltipLabel = 'Count',
 }: AreaChartCardProps) {
   const gradientId = `areaGradient-${dataKey}`;
   const gradientId2 = `areaGradient-${dataKey2}`;
@@ -127,7 +129,7 @@ export function AreaChartCard({
                 padding: '8px 12px',
               }}
               labelStyle={{ color: '#374151', fontWeight: 600, marginBottom: 4 }}
-              formatter={(value: number) => [valueFormatter(value), dataKey]}
+              formatter={(value: number) => [valueFormatter(value), tooltipLabel]}
             />
 
             <Area

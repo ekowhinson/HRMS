@@ -290,6 +290,24 @@ class PayComponent(BaseModel):
     requires_approval = models.BooleanField(default=False)
     approval_threshold = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
+    # GL account mapping for finance integration
+    gl_account = models.ForeignKey(
+        'finance.Account',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pay_components',
+        help_text='GL account for posting this component (salary expense, tax liability, etc.)'
+    )
+    employer_gl_account = models.ForeignKey(
+        'finance.Account',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employer_pay_components',
+        help_text='GL account for employer contribution portion (e.g., employer SSNIT)'
+    )
+
     # Display
     display_order = models.PositiveSmallIntegerField(default=0)
     show_on_payslip = models.BooleanField(default=True)

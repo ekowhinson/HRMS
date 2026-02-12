@@ -103,7 +103,7 @@ export function PieChartCard({
         {data.map((entry, index) => {
           const percentage = ((entry.value / total) * 100).toFixed(1);
           return (
-            <div key={entry.name} className="flex items-center gap-2">
+            <div key={entry.name} className="flex items-center gap-2" title={`${entry.name}: ${valueFormatter(entry.value)} (${percentage}%)`}>
               <span
                 className="w-3 h-3 rounded-full flex-shrink-0"
                 style={{ backgroundColor: entry.color || colors[index % colors.length] }}

@@ -1,11 +1,13 @@
 """ViewSets for finance app."""
 
+from datetime import date
 from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
@@ -24,6 +26,7 @@ from .serializers import (
     BankStatementSerializer, BankStatementLineSerializer,
     ExchangeRateSerializer
 )
+from .services import FinancialStatementService
 
 
 class AccountViewSet(viewsets.ModelViewSet):
@@ -208,3 +211,99 @@ class ExchangeRateViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['from_currency', 'to_currency']
     ordering = ['-effective_date']
+
+
+# ---------------------------------------------------------------------------
+# Financial Report API Views
+# ---------------------------------------------------------------------------
+
+class TrialBalanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period_id = request.query_params.get('fiscal_period')
+        if not period_id:
+            return Response({'error': 'fiscal_period query parameter required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            period = FiscalPeriod.objects.get(pk=period_id)
+        except FiscalPeriod.DoesNotExist:
+            return Response({'error': 'Fiscal period not found'}, status=status.HTTP_404_NOT_FOUND)
+        data = FinancialStatementService.generate_trial_balance(period)
+        return Response({'fiscal_period': str(period), 'data': data})
+
+
+class IncomeStatementView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period_id = request.query_params.get('fiscal_period')
+        if not period_id:
+            return Response({'error': 'fiscal_period query parameter required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            period = FiscalPeriod.objects.get(pk=period_id)
+        except FiscalPeriod.DoesNotExist:
+            return Response({'error': 'Fiscal period not found'}, status=status.HTTP_404_NOT_FOUND)
+        data = FinancialStatementService.generate_income_statement(period)
+        return Response({'fiscal_period': str(period), 'data': data})
+
+
+class BalanceSheetView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period_id = request.query_params.get('fiscal_period')
+        if not period_id:
+            return Response({'error': 'fiscal_period query parameter required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            period = FiscalPeriod.objects.get(pk=period_id)
+        except FiscalPeriod.DoesNotExist:
+            return Response({'error': 'Fiscal period not found'}, status=status.HTTP_404_NOT_FOUND)
+        data = FinancialStatementService.generate_balance_sheet(period)
+        return Response(data)
+
+
+class CashFlowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period_id = request.query_params.get('fiscal_period')
+        if not period_id:
+            return Response({'error': 'fiscal_period query parameter required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            period = FiscalPeriod.objects.get(pk=period_id)
+        except FiscalPeriod.DoesNotExist:
+            return Response({'error': 'Fiscal period not found'}, status=status.HTTP_404_NOT_FOUND)
+        data = FinancialStatementService.generate_cash_flow(period)
+        return Response(data)
+
+
+class APAgingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        as_of = request.query_params.get('as_of_date')
+        as_of_date = date.fromisoformat(as_of) if as_of else None
+        data = FinancialStatementService.generate_ap_aging(as_of_date)
+        return Response(data)
+
+
+class ARAgingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        as_of = request.query_params.get('as_of_date')
+        as_of_date = date.fromisoformat(as_of) if as_of else None
+        data = FinancialStatementService.generate_ar_aging(as_of_date)
+        return Response(data)
+
+
+class BudgetVsActualView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        fy_id = request.query_params.get('fiscal_year')
+        if not fy_id:
+            return Response({'error': 'fiscal_year query parameter required'}, status=status.HTTP_400_BAD_REQUEST)
+        cc_id = request.query_params.get('cost_center')
+        data = FinancialStatementService.generate_budget_vs_actual(fy_id, cc_id)
+        return Response(data)

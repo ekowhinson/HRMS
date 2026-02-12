@@ -255,6 +255,24 @@ class Employee(BaseModel):
         blank=True,
         related_name='employees'
     )
+    project = models.ForeignKey(
+        'projects.Project',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_employees',
+        help_text='Primary project assignment for cost allocation'
+    )
+
+    # ERP delegation
+    budget_holder = models.BooleanField(
+        default=False,
+        help_text='Can approve procurement spending within spending_limit'
+    )
+    spending_limit = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Maximum procurement amount this employee can approve (GHS)'
+    )
 
     # Staff category and salary structure
     staff_category = models.ForeignKey(

@@ -29,7 +29,7 @@ class Account(BaseModel):
     description = models.TextField(blank=True)
     is_header = models.BooleanField(default=False, help_text='Header accounts cannot have transactions')
     is_active = models.BooleanField(default=True)
-    currency = models.CharField(max_length=3, default='USD')
+    currency = models.CharField(max_length=3, default='GHS')
     normal_balance = models.CharField(
         max_length=6,
         choices=[('DEBIT', 'Debit'), ('CREDIT', 'Credit')],
@@ -154,6 +154,10 @@ class JournalLine(BaseModel):
         'organization.Department', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='journal_lines'
     )
+    project = models.ForeignKey(
+        'projects.Project', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='journal_lines'
+    )
 
     class Meta:
         db_table = 'finance_journal_lines'
@@ -186,6 +190,15 @@ class Budget(BaseModel):
     department = models.ForeignKey(
         'organization.Department', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='budgets'
+    )
+    project = models.ForeignKey(
+        'projects.Project', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='budgets'
+    )
+    fiscal_period = models.ForeignKey(
+        FiscalPeriod, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='budgets',
+        help_text='Optional period-level budget (if null, budget is for full year)'
     )
     original_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     revised_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
@@ -374,7 +387,7 @@ class OrganizationBankAccount(BaseModel):
     gl_account = models.ForeignKey(
         Account, on_delete=models.PROTECT, related_name='bank_accounts'
     )
-    currency = models.CharField(max_length=3, default='USD')
+    currency = models.CharField(max_length=3, default='GHS')
     current_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
 

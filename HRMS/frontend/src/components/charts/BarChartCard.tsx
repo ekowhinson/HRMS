@@ -152,7 +152,7 @@ export function BarChartCard({
                 padding: '8px 12px',
               }}
               labelStyle={{ color: '#374151', fontWeight: 600, marginBottom: 4 }}
-              formatter={(value: number) => [valueFormatter(value), '']}
+              formatter={(value: number) => [valueFormatter(value), 'Count']}
               cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
             />
 
