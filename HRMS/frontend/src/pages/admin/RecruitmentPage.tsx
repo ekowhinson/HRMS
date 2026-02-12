@@ -12,7 +12,9 @@ import { recruitmentService, type Vacancy, type Applicant, type Interview } from
 const statusColors: Record<string, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
   // Vacancy statuses
   DRAFT: 'default',
-  OPEN: 'success',
+  PENDING_APPROVAL: 'warning',
+  APPROVED: 'info',
+  PUBLISHED: 'success',
   ON_HOLD: 'warning',
   CLOSED: 'default',
   FILLED: 'info',
@@ -40,6 +42,7 @@ export default function RecruitmentPage() {
   const [vacancies, setVacancies] = useState<Vacancy[]>([])
   const [applicants, setApplicants] = useState<Applicant[]>([])
   const [interviews, setInterviews] = useState<Interview[]>([])
+  const [offers, setOffers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [summary, setSummary] = useState<any>(null)
@@ -65,6 +68,9 @@ export default function RecruitmentPage() {
       } else if (activeTab === 'interviews') {
         const data = await recruitmentService.getInterviews()
         setInterviews(data.results || [])
+      } else if (activeTab === 'offers') {
+        const data = await recruitmentService.getOffers()
+        setOffers(data.results || [])
       }
     } catch (error) {
       console.error('Error loading recruitment data:', error)
@@ -96,20 +102,20 @@ export default function RecruitmentPage() {
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <StatsCard
-            title="Open Vacancies"
-            value={summary.vacancies?.open || 0}
+            title="Published Vacancies"
+            value={summary.vacancies?.published || 0}
           />
           <StatsCard
             title="Total Applicants"
             value={summary.applicants?.total || 0}
           />
           <StatsCard
-            title="Interviews This Week"
-            value={summary.interviews?.this_week || 0}
+            title="Total Interviews"
+            value={summary.interviews?.total || 0}
           />
           <StatsCard
-            title="Pending Offers"
-            value={summary.offers?.pending || 0}
+            title="Hired"
+            value={summary.applicants?.hired || 0}
           />
         </div>
       )}
@@ -165,22 +171,22 @@ export default function RecruitmentPage() {
                     ) : (
                       vacancies.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((vacancy) => (
                         <tr key={vacancy.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">{vacancy.reference_number}</td>
+                          <td className="px-4 py-3 font-medium">{vacancy.vacancy_number}</td>
                           <td className="px-4 py-3">
                             <Link
                               to={`/admin/recruitment/vacancies/${vacancy.id}`}
                               className="text-primary-600 hover:underline"
                             >
-                              {vacancy.title}
+                              {vacancy.job_title}
                             </Link>
                           </td>
                           <td className="px-4 py-3">{vacancy.department_name || '-'}</td>
                           <td className="px-4 py-3">
                             <Badge variant={statusColors[vacancy.status] || 'default'}>
-                              {vacancy.status_display || vacancy.status}
+                              {vacancy.status}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3">{vacancy.applications_count || 0}</td>
+                          <td className="px-4 py-3">{vacancy.applicant_count || 0}</td>
                           <td className="px-4 py-3">
                             {vacancy.closing_date
                               ? new Date(vacancy.closing_date).toLocaleDateString()
@@ -255,7 +261,7 @@ export default function RecruitmentPage() {
                     ) : (
                       applicants.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((applicant) => (
                         <tr key={applicant.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">{applicant.application_number}</td>
+                          <td className="px-4 py-3 font-medium">{applicant.applicant_number}</td>
                           <td className="px-4 py-3">
                             <Link
                               to={`/admin/recruitment/applicants/${applicant.id}`}
@@ -268,15 +274,15 @@ export default function RecruitmentPage() {
                           <td className="px-4 py-3">{applicant.vacancy_title}</td>
                           <td className="px-4 py-3">
                             <Badge variant={statusColors[applicant.status] || 'default'}>
-                              {applicant.status_display || applicant.status}
+                              {applicant.status}
                             </Badge>
                           </td>
                           <td className="px-4 py-3">
-                            {new Date(applicant.applied_at).toLocaleDateString()}
+                            {new Date(applicant.application_date).toLocaleDateString()}
                           </td>
                           <td className="px-4 py-3">
-                            {applicant.shortlist_score
-                              ? `${applicant.shortlist_score.toFixed(1)}%`
+                            {applicant.overall_score
+                              ? `${Number(applicant.overall_score).toFixed(1)}%`
                               : '-'}
                           </td>
                           <td className="px-4 py-3">
@@ -339,8 +345,8 @@ export default function RecruitmentPage() {
                       interviews.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((interview) => (
                         <tr key={interview.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium">{interview.applicant_name}</td>
-                          <td className="px-4 py-3">{interview.vacancy_title}</td>
-                          <td className="px-4 py-3">{interview.interview_type_display}</td>
+                          <td className="px-4 py-3">{interview.interview_type} - Round {interview.round_number}</td>
+                          <td className="px-4 py-3">{interview.interview_type}</td>
                           <td className="px-4 py-3">
                             {new Date(interview.scheduled_date).toLocaleDateString()}
                             <br />
@@ -348,7 +354,7 @@ export default function RecruitmentPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Badge variant={statusColors[interview.status] || 'default'}>
-                              {interview.status_display || interview.status}
+                              {interview.status}
                             </Badge>
                           </td>
                           <td className="px-4 py-3">
@@ -384,9 +390,55 @@ export default function RecruitmentPage() {
               <CardTitle>Job Offers</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-500 text-center py-8">
-                View and manage job offers from the applicant details page.
-              </p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Offer #</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Candidate</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Salary</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">Loading...</td>
+                      </tr>
+                    ) : offers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">No job offers found</td>
+                      </tr>
+                    ) : (
+                      offers.map((offer) => (
+                        <tr key={offer.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium">{offer.offer_number}</td>
+                          <td className="px-4 py-3">{offer.applicant_name}</td>
+                          <td className="px-4 py-3">{offer.department_name || '-'}</td>
+                          <td className="px-4 py-3">GHS {Number(offer.total_compensation).toLocaleString()}</td>
+                          <td className="px-4 py-3">
+                            {offer.proposed_start_date
+                              ? new Date(offer.proposed_start_date).toLocaleDateString()
+                              : '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant={
+                              offer.status === 'ACCEPTED' ? 'success'
+                                : offer.status === 'DECLINED' ? 'danger'
+                                : offer.status === 'SENT' ? 'info'
+                                : 'warning'
+                            }>
+                              {offer.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

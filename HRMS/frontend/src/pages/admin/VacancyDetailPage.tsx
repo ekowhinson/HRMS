@@ -538,7 +538,7 @@ export default function VacancyDetailPage() {
                               : '-'}
                           </td>
                           <td className="px-4 py-3">
-                            {new Date(applicant.applied_at).toLocaleDateString()}
+                            {new Date(applicant.application_date || applicant.applied_at || applicant.created_at).toLocaleDateString()}
                           </td>
                           <td className="px-4 py-3">
                             <Link to={`/admin/recruitment/applicants/${applicant.id}`}>

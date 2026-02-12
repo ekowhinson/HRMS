@@ -10,54 +10,68 @@ export type OfferStatus = 'DRAFT' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'NEGOT
 
 export interface Vacancy {
   id: string
-  reference_number: string
-  title: string
+  reference_number?: string
+  vacancy_number: string
+  title?: string
+  job_title: string
   department: string | null
   department_name: string
   position: string | null
-  position_title: string
+  position_title?: string
   grade: string | null
-  grade_name: string
+  grade_name?: string
   work_location: string | null
-  location_name: string
+  location_name?: string
   employment_type: string
-  description: string
+  description?: string
+  job_description?: string
   requirements: string
   responsibilities: string
   qualifications: string
-  experience_years: number | null
-  salary_min: number | null
-  salary_max: number | null
+  experience_years?: number | null
+  experience_required?: string
+  salary_min?: number | null
+  salary_max?: number | null
+  salary_range_min?: string | null
+  salary_range_max?: string | null
   show_salary: boolean
-  openings: number
-  filled: number
+  openings?: number
+  number_of_positions?: number
+  filled?: number
   status: VacancyStatus
-  status_display: string
-  posted_date: string | null
+  status_display?: string
+  posted_date?: string | null
+  publish_date?: string | null
   closing_date: string | null
-  hiring_manager: string | null
-  hiring_manager_name: string
-  recruiter: string | null
-  recruiter_name: string
-  is_internal: boolean
-  is_external: boolean
-  applications_count: number
+  target_hire_date?: string | null
+  hiring_manager?: string | null
+  hiring_manager_name?: string
+  recruiter?: string | null
+  recruiter_name?: string
+  posting_type?: string
+  is_internal?: boolean
+  is_external?: boolean
+  applications_count?: number
+  applicant_count?: number
+  auto_shortlist?: boolean
   created_at: string
   updated_at: string
 }
 
 export interface Applicant {
   id: string
-  application_number: string
+  application_number?: string
+  applicant_number: string
   vacancy: string
   vacancy_title: string
-  vacancy_reference: string
+  vacancy_reference?: string
   first_name: string
+  middle_name?: string
   last_name: string
   full_name: string
   email: string
   phone: string
-  alternate_phone: string
+  alternate_phone?: string
   address: string
   city: string
   region: string
@@ -65,27 +79,33 @@ export interface Applicant {
   gender: string
   nationality: string
   highest_education: string
-  field_of_study: string
+  field_of_study?: string
   institution: string
   graduation_year: number | null
   years_of_experience: number | null
   current_employer: string
   current_position: string
-  current_salary: number | null
-  expected_salary: number | null
-  notice_period_days: number | null
+  current_salary: number | string | null
+  expected_salary: number | string | null
+  notice_period?: string
+  notice_period_days?: number | null
   status: ApplicantStatus
-  status_display: string
+  status_display?: string
   source: string
-  referral_source: string
+  referral_source?: string
   cover_letter: string
-  skills: string[]
-  languages: string[]
-  certifications: string[]
-  shortlist_score: number | null
-  shortlist_rank: number | null
+  skills?: string[]
+  languages?: string[]
+  certifications?: string[]
+  shortlist_score?: number | null
+  shortlist_rank?: number | null
+  screening_score?: number | null
+  overall_score?: number | string | null
+  overall_rating?: string
+  has_resume?: boolean
   notes: string
-  applied_at: string
+  applied_at?: string
+  application_date: string
   created_at: string
   updated_at: string
 }
@@ -526,9 +546,9 @@ export const recruitmentService = {
 
   // ==================== Job Offers ====================
 
-  getOffers: async (params?: { status?: string; applicant?: string }): Promise<JobOffer[]> => {
+  getOffers: async (params?: { status?: string; applicant?: string }): Promise<{ results: JobOffer[] }> => {
     const response = await api.get('/recruitment/offers/', { params })
-    return response.data.results || response.data
+    return response.data
   },
 
   getOffer: async (id: string): Promise<JobOffer> => {

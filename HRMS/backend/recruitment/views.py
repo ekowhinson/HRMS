@@ -102,6 +102,21 @@ class ApplicantViewSet(viewsets.ModelViewSet):
         except Exception:
             pass  # Don't fail applicant creation if auto-shortlist errors
 
+    @action(detail=True, methods=['post'], url_path='update_status')
+    def update_status(self, request, pk=None):
+        """Update applicant status to any valid status."""
+        applicant = self.get_object()
+        new_status = request.data.get('status')
+        valid_statuses = [s.value for s in Applicant.Status]
+        if not new_status or new_status not in valid_statuses:
+            return Response(
+                {'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        applicant.status = new_status
+        applicant.save()
+        return Response(ApplicantSerializer(applicant).data)
+
     @action(detail=True, methods=['post'])
     def shortlist(self, request, pk=None):
         """Shortlist an applicant."""
