@@ -3,9 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { employeeService } from '@/services/employees'
+import { reportsService } from '@/services/reports'
+import type { ExportFormat } from '@/services/reports'
 import api from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
+import ExportMenu from '@/components/ui/ExportMenu'
 import type { Employee } from '@/types'
 
 interface HistoryRecord {
@@ -24,6 +27,17 @@ interface HistoryRecord {
 export default function EmploymentHistoryReportPage() {
   const [search, setSearch] = useState('')
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    if (!selectedEmployee) return
+    setExporting(true)
+    try {
+      await reportsService.exportEmploymentHistory(selectedEmployee.id, format)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const { data: employeesData, isLoading: loadingEmployees } = useQuery({
     queryKey: ['employees-lookup', search],
@@ -43,16 +57,19 @@ export default function EmploymentHistoryReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Employment History Report</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            View position, department, and grade changes for an employee
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Employment History Report</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              View position, department, and grade changes for an employee
+            </p>
+          </div>
         </div>
+        <ExportMenu onExport={handleExport} loading={exporting} disabled={!selectedEmployee} />
       </div>
 
       {/* Employee Search */}

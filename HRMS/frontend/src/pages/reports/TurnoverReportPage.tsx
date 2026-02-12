@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
+import type { ExportFormat } from '@/services/reports'
 import { Card, CardContent } from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import { StatsCard } from '@/components/ui/StatsCard'
@@ -10,10 +11,21 @@ import { LineChartCard } from '@/components/charts/LineChartCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { PieChartCard } from '@/components/charts/PieChartCard'
 import { chartColors } from '@/lib/design-tokens'
+import ExportMenu from '@/components/ui/ExportMenu'
 
 export default function TurnoverReportPage() {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(String(currentYear))
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    setExporting(true)
+    try {
+      await reportsService.exportTurnover({ year }, format)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => {
     const y = currentYear - i
@@ -64,12 +76,15 @@ export default function TurnoverReportPage() {
             </p>
           </div>
         </div>
-        <div className="w-32">
-          <Select
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            options={yearOptions}
-          />
+        <div className="flex items-center gap-3">
+          <div className="w-32">
+            <Select
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              options={yearOptions}
+            />
+          </div>
+          <ExportMenu onExport={handleExport} loading={exporting} />
         </div>
       </div>
 

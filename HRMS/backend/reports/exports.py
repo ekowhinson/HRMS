@@ -21,10 +21,12 @@ from reportlab.lib.units import inch, cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
-from employees.models import Employee
+from employees.models import Employee, EmploymentHistory
 from payroll.models import PayrollRun, PayrollItem, PayrollItemDetail
 from leave.models import LeaveBalance, LeaveRequest
 from benefits.models import LoanAccount
+from performance.models import Appraisal
+from training.models import TrainingProgram, TrainingSession
 
 
 def decimal_to_float(obj):
@@ -1903,6 +1905,441 @@ def generate_payroll_master_pdf(data: list, headers: list, column_keys: list, fi
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+# =============================================================================
+# HR Report Data Extraction & Export Functions
+# =============================================================================
+
+def get_turnover_data(year=None):
+    """Get turnover report data."""
+    from django.utils import timezone
+    from django.db.models.functions import TruncMonth
+
+    if not year:
+        year = timezone.now().year
+
+    exits = Employee.objects.filter(
+        status='SEPARATED',
+        date_of_exit__year=year
+    )
+
+    by_month = exits.annotate(
+        month=TruncMonth('date_of_exit')
+    ).values('month').annotate(count=Count('id')).order_by('month')
+
+    by_reason = exits.values('exit_reason').annotate(count=Count('id'))
+
+    by_department = exits.values(
+        department_name=F('department__name')
+    ).annotate(count=Count('id')).order_by('-count')
+
+    headers = ['Month', 'Exits', 'Exit Reason', 'Department']
+
+    data = []
+    for row in by_month:
+        data.append({
+            'month': row['month'].strftime('%B %Y') if row['month'] else '',
+            'exits': row['count'],
+            'exit_reason': '',
+            'department': '',
+        })
+    for row in by_reason:
+        data.append({
+            'month': '',
+            'exits': row['count'],
+            'exit_reason': row['exit_reason'] or 'Unknown',
+            'department': '',
+        })
+    for row in by_department:
+        data.append({
+            'month': '',
+            'exits': row['count'],
+            'exit_reason': '',
+            'department': row['department_name'] or 'Unassigned',
+        })
+
+    return data, headers
+
+
+def export_turnover(year=None, format='csv'):
+    """Export turnover report."""
+    data, headers = get_turnover_data(year)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "Turnover Report"
+
+    if format == 'excel':
+        return generate_excel_response(data, headers, f'turnover_{timestamp}.xlsx', title)
+    elif format == 'pdf':
+        return generate_pdf_response(data, headers, f'turnover_{timestamp}.pdf', title)
+    else:
+        return generate_csv_response(data, headers, f'turnover_{timestamp}.csv')
+
+
+def get_demographics_data():
+    """Get demographics report data."""
+    from django.utils import timezone
+
+    queryset = Employee.objects.filter(status='ACTIVE')
+    today = timezone.now().date()
+    current_year = today.year
+
+    headers = ['Category', 'Value', 'Count']
+
+    data = []
+
+    # By gender
+    by_gender = queryset.values('gender').annotate(count=Count('id'))
+    for row in by_gender:
+        data.append({
+            'category': 'Gender',
+            'value': row['gender'] or 'Not Specified',
+            'count': row['count'],
+        })
+
+    # By marital status
+    by_marital = queryset.values('marital_status').annotate(count=Count('id'))
+    for row in by_marital:
+        data.append({
+            'category': 'Marital Status',
+            'value': row['marital_status'] or 'Not Specified',
+            'count': row['count'],
+        })
+
+    # By age bracket
+    age_brackets = {
+        '18-25': 0, '26-30': 0, '31-35': 0, '36-40': 0,
+        '41-45': 0, '46-50': 0, '51-55': 0, '56-60': 0, '60+': 0,
+    }
+    for dob in queryset.filter(date_of_birth__isnull=False).values_list('date_of_birth', flat=True):
+        age = current_year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        if age <= 25:
+            age_brackets['18-25'] += 1
+        elif age <= 30:
+            age_brackets['26-30'] += 1
+        elif age <= 35:
+            age_brackets['31-35'] += 1
+        elif age <= 40:
+            age_brackets['36-40'] += 1
+        elif age <= 45:
+            age_brackets['41-45'] += 1
+        elif age <= 50:
+            age_brackets['46-50'] += 1
+        elif age <= 55:
+            age_brackets['51-55'] += 1
+        elif age <= 60:
+            age_brackets['56-60'] += 1
+        else:
+            age_brackets['60+'] += 1
+
+    for bracket, count in age_brackets.items():
+        data.append({
+            'category': 'Age Bracket',
+            'value': bracket,
+            'count': count,
+        })
+
+    return data, headers
+
+
+def export_demographics(format='csv'):
+    """Export demographics report."""
+    data, headers = get_demographics_data()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "Demographics Report"
+
+    if format == 'excel':
+        return generate_excel_response(data, headers, f'demographics_{timestamp}.xlsx', title)
+    elif format == 'pdf':
+        return generate_pdf_response(data, headers, f'demographics_{timestamp}.pdf', title)
+    else:
+        return generate_csv_response(data, headers, f'demographics_{timestamp}.csv')
+
+
+def get_leave_utilization_data(year=None):
+    """Get leave utilization report data."""
+    from django.utils import timezone
+    from django.db.models.functions import TruncMonth
+
+    if not year:
+        year = timezone.now().year
+
+    by_month = LeaveRequest.objects.filter(
+        start_date__year=year,
+        status='APPROVED'
+    ).annotate(
+        month=TruncMonth('start_date')
+    ).values('month').annotate(
+        count=Count('id'),
+        total_days=Sum('number_of_days')
+    ).order_by('month')
+
+    by_leave_type = LeaveRequest.objects.filter(
+        start_date__year=year,
+        status='APPROVED'
+    ).values(
+        leave_type_name=F('leave_type__name')
+    ).annotate(
+        count=Count('id'),
+        total_days=Sum('number_of_days')
+    )
+
+    by_department = LeaveRequest.objects.filter(
+        start_date__year=year,
+        status='APPROVED'
+    ).values(
+        department_name=F('employee__department__name')
+    ).annotate(
+        count=Count('id'),
+        total_days=Sum('number_of_days')
+    ).order_by('-total_days')
+
+    headers = ['Section', 'Name', 'Requests', 'Total Days']
+
+    data = []
+    for row in by_month:
+        data.append({
+            'section': 'Monthly',
+            'name': row['month'].strftime('%B %Y') if row['month'] else '',
+            'requests': row['count'],
+            'total_days': float(row['total_days'] or 0),
+        })
+    for row in by_leave_type:
+        data.append({
+            'section': 'Leave Type',
+            'name': row['leave_type_name'] or 'Unknown',
+            'requests': row['count'],
+            'total_days': float(row['total_days'] or 0),
+        })
+    for row in by_department:
+        data.append({
+            'section': 'Department',
+            'name': row['department_name'] or 'Unassigned',
+            'requests': row['count'],
+            'total_days': float(row['total_days'] or 0),
+        })
+
+    return data, headers
+
+
+def export_leave_utilization(year=None, format='csv'):
+    """Export leave utilization report."""
+    data, headers = get_leave_utilization_data(year)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "Leave Utilization Report"
+
+    if format == 'excel':
+        return generate_excel_response(data, headers, f'leave_utilization_{timestamp}.xlsx', title)
+    elif format == 'pdf':
+        return generate_pdf_response(data, headers, f'leave_utilization_{timestamp}.pdf', title)
+    else:
+        return generate_csv_response(data, headers, f'leave_utilization_{timestamp}.csv')
+
+
+def get_employment_history_data(employee_id=None):
+    """Get employment history report data for an employee."""
+    queryset = EmploymentHistory.objects.select_related(
+        'employee', 'previous_department', 'new_department',
+        'previous_position', 'new_position',
+        'previous_grade', 'new_grade',
+    )
+
+    if employee_id:
+        queryset = queryset.filter(employee_id=employee_id)
+
+    queryset = queryset.order_by('-effective_date')
+
+    headers = [
+        'Employee', 'Change Type', 'Effective Date',
+        'Previous Department', 'New Department',
+        'Previous Position', 'New Position',
+        'Previous Grade', 'New Grade', 'Reason'
+    ]
+
+    data = []
+    for record in queryset:
+        data.append({
+            'employee': record.employee.full_name if record.employee else '',
+            'change_type': record.change_type or '',
+            'effective_date': record.effective_date.strftime('%Y-%m-%d') if record.effective_date else '',
+            'previous_department': record.previous_department.name if record.previous_department else '',
+            'new_department': record.new_department.name if record.new_department else '',
+            'previous_position': record.previous_position.title if record.previous_position else '',
+            'new_position': record.new_position.title if record.new_position else '',
+            'previous_grade': record.previous_grade.name if record.previous_grade else '',
+            'new_grade': record.new_grade.name if record.new_grade else '',
+            'reason': record.reason or '',
+        })
+
+    return data, headers
+
+
+def export_employment_history(employee_id=None, format='csv'):
+    """Export employment history report."""
+    data, headers = get_employment_history_data(employee_id)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "Employment History Report"
+
+    if format == 'excel':
+        return generate_excel_response(data, headers, f'employment_history_{timestamp}.xlsx', title)
+    elif format == 'pdf':
+        return generate_pdf_response(data, headers, f'employment_history_{timestamp}.pdf', title, landscape_mode=True)
+    else:
+        return generate_csv_response(data, headers, f'employment_history_{timestamp}.csv')
+
+
+def get_kpi_data():
+    """Get KPI tracking report data."""
+    headers = ['Category', 'KPI Name', 'Value']
+
+    data = []
+
+    # Performance KPIs
+    total_employees = Employee.objects.filter(status='ACTIVE').count()
+    completed = Appraisal.objects.filter(status__in=['COMPLETED', 'ACKNOWLEDGED']).count()
+    total_appraisals = Appraisal.objects.count()
+    completion_rate = (completed / total_appraisals * 100) if total_appraisals > 0 else 0
+    avg_rating = Appraisal.objects.filter(
+        overall_final_rating__isnull=False
+    ).aggregate(avg=Avg('overall_final_rating'))['avg']
+
+    data.append({'category': 'Performance', 'kpi_name': 'Total Employees', 'value': total_employees})
+    data.append({'category': 'Performance', 'kpi_name': 'Completed Appraisals', 'value': completed})
+    data.append({'category': 'Performance', 'kpi_name': 'Completion Rate (%)', 'value': round(completion_rate, 1)})
+    data.append({'category': 'Performance', 'kpi_name': 'Average Rating', 'value': round(float(avg_rating), 1) if avg_rating else 'N/A'})
+
+    # Training KPIs
+    total_programs = TrainingProgram.objects.filter(is_active=True).count()
+    total_sessions = TrainingSession.objects.count()
+    completed_sessions = TrainingSession.objects.filter(status='COMPLETED').count()
+    session_completion = (completed_sessions / total_sessions * 100) if total_sessions > 0 else 0
+
+    data.append({'category': 'Training', 'kpi_name': 'Active Programs', 'value': total_programs})
+    data.append({'category': 'Training', 'kpi_name': 'Total Sessions', 'value': total_sessions})
+    data.append({'category': 'Training', 'kpi_name': 'Completed Sessions', 'value': completed_sessions})
+    data.append({'category': 'Training', 'kpi_name': 'Session Completion Rate (%)', 'value': round(session_completion, 1)})
+
+    # Recruitment KPIs
+    from django.utils import timezone
+    current_year = timezone.now().year
+    new_hires = Employee.objects.filter(date_of_joining__year=current_year).count()
+    exits = Employee.objects.filter(status='SEPARATED', date_of_exit__year=current_year).count()
+    active = Employee.objects.filter(status='ACTIVE').count()
+    turnover_rate = (exits / active * 100) if active > 0 else 0
+
+    data.append({'category': 'Recruitment', 'kpi_name': 'New Hires (This Year)', 'value': new_hires})
+    data.append({'category': 'Recruitment', 'kpi_name': 'Exits (This Year)', 'value': exits})
+    data.append({'category': 'Recruitment', 'kpi_name': 'Turnover Rate (%)', 'value': round(turnover_rate, 1)})
+
+    return data, headers
+
+
+def export_kpi_tracking(format='csv'):
+    """Export KPI tracking report."""
+    data, headers = get_kpi_data()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "KPI Tracking Report"
+
+    if format == 'excel':
+        return generate_excel_response(data, headers, f'kpi_tracking_{timestamp}.xlsx', title)
+    elif format == 'pdf':
+        return generate_pdf_response(data, headers, f'kpi_tracking_{timestamp}.pdf', title)
+    else:
+        return generate_csv_response(data, headers, f'kpi_tracking_{timestamp}.csv')
+
+
+def get_performance_appraisals_data(filters=None):
+    """Get performance appraisals report data."""
+    queryset = Appraisal.objects.select_related(
+        'employee', 'employee__department', 'appraisal_cycle'
+    ).order_by('-appraisal_cycle__year', 'employee__last_name')
+
+    if filters:
+        if filters.get('cycle'):
+            queryset = queryset.filter(appraisal_cycle_id=filters['cycle'])
+        if filters.get('status'):
+            queryset = queryset.filter(status=filters['status'])
+        if filters.get('search'):
+            search = filters['search']
+            queryset = queryset.filter(
+                Q(employee__first_name__icontains=search) |
+                Q(employee__last_name__icontains=search) |
+                Q(employee__employee_number__icontains=search)
+            )
+
+    headers = [
+        'Employee', 'Employee Number', 'Department', 'Cycle',
+        'Status', 'Self Rating', 'Manager Rating', 'Final Rating'
+    ]
+
+    data = []
+    for a in queryset:
+        data.append({
+            'employee': a.employee.full_name if a.employee else '',
+            'employee_number': a.employee.employee_number if a.employee else '',
+            'department': a.employee.department.name if a.employee and a.employee.department else '',
+            'cycle': a.appraisal_cycle.name if a.appraisal_cycle else '',
+            'status': a.get_status_display() if hasattr(a, 'get_status_display') else a.status,
+            'self_rating': float(a.overall_self_rating) if a.overall_self_rating else '',
+            'manager_rating': float(a.overall_manager_rating) if a.overall_manager_rating else '',
+            'final_rating': float(a.overall_final_rating) if a.overall_final_rating else '',
+        })
+
+    return data, headers
+
+
+def export_performance_appraisals(filters=None, format='csv'):
+    """Export performance appraisals report."""
+    data, headers = get_performance_appraisals_data(filters)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "Performance Appraisals Report"
+
+    if format == 'excel':
+        return generate_excel_response(data, headers, f'performance_appraisals_{timestamp}.xlsx', title)
+    elif format == 'pdf':
+        return generate_pdf_response(data, headers, f'performance_appraisals_{timestamp}.pdf', title, landscape_mode=True)
+    else:
+        return generate_csv_response(data, headers, f'performance_appraisals_{timestamp}.csv')
+
+
+def get_training_data():
+    """Get training & development report data."""
+    programs = TrainingProgram.objects.all().order_by('name')
+    sessions = TrainingSession.objects.select_related('program').all()
+
+    headers = [
+        'Program Code', 'Program Name', 'Category', 'Type',
+        'Duration Hours', 'Sessions', 'Mandatory'
+    ]
+
+    data = []
+    for p in programs:
+        session_count = sessions.filter(program=p).count()
+        data.append({
+            'program_code': p.code,
+            'program_name': p.name,
+            'category': p.get_category_display() if hasattr(p, 'get_category_display') else p.category,
+            'type': p.get_training_type_display() if hasattr(p, 'get_training_type_display') else p.training_type,
+            'duration_hours': float(p.duration_hours) if p.duration_hours else 0,
+            'sessions': session_count,
+            'mandatory': 'Yes' if p.is_mandatory else 'No',
+        })
+
+    return data, headers
+
+
+def export_training(format='csv'):
+    """Export training & development report."""
+    data, headers = get_training_data()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "Training & Development Report"
+
+    if format == 'excel':
+        return generate_excel_response(data, headers, f'training_{timestamp}.xlsx', title)
+    elif format == 'pdf':
+        return generate_pdf_response(data, headers, f'training_{timestamp}.pdf', title, landscape_mode=True)
+    else:
+        return generate_csv_response(data, headers, f'training_{timestamp}.csv')
 
 
 class ReportExporter:

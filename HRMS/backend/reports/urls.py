@@ -74,6 +74,13 @@ urlpatterns = [
     path('export/dues/', views.ExportDuesReportView.as_view(), name='export-dues'),
     path('export/journal/', views.ExportPayrollJournalView.as_view(), name='export-journal'),
     path('export/salary-reconciliation/', views.ExportSalaryReconciliationView.as_view(), name='export-salary-reconciliation'),
+    path('export/turnover/', views.ExportTurnoverView.as_view(), name='export-turnover'),
+    path('export/demographics/', views.ExportDemographicsView.as_view(), name='export-demographics'),
+    path('export/leave-utilization/', views.ExportLeaveUtilizationView.as_view(), name='export-leave-utilization'),
+    path('export/employment-history/', views.ExportEmploymentHistoryView.as_view(), name='export-employment-history'),
+    path('export/kpi-tracking/', views.ExportKPITrackingView.as_view(), name='export-kpi-tracking'),
+    path('export/performance-appraisals/', views.ExportPerformanceAppraisalsView.as_view(), name='export-performance-appraisals'),
+    path('export/training/', views.ExportTrainingView.as_view(), name='export-training'),
 
     # Analytics KPI endpoints
     path('analytics/master/', views.MasterAnalyticsDashboardView.as_view(), name='analytics-master'),

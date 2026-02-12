@@ -186,6 +186,93 @@ export const reportsService = {
     downloadFile(response.data, `leave_balance_${Date.now()}.${getFileExtension(format)}`)
   },
 
+  // Turnover reports
+  async exportTurnover(
+    filters?: ReportFilters,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+
+    const response = await api.get(`/reports/export/turnover/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `turnover_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportDemographics(
+    filters?: ReportFilters,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+
+    const response = await api.get(`/reports/export/demographics/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `demographics_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportLeaveUtilization(
+    filters?: ReportFilters,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+
+    const response = await api.get(`/reports/export/leave-utilization/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `leave_utilization_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportEmploymentHistory(
+    employeeId: string,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    params.append('employee_id', employeeId)
+    params.append('file_format', format)
+
+    const response = await api.get(`/reports/export/employment-history/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `employment_history_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportKPITracking(
+    filters?: ReportFilters,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+
+    const response = await api.get(`/reports/export/kpi-tracking/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `kpi_tracking_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportPerformanceAppraisals(
+    filters?: ReportFilters,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+
+    const response = await api.get(`/reports/export/performance-appraisals/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `performance_appraisals_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportTraining(
+    filters?: ReportFilters,
+    format: ExportFormat = 'csv'
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+
+    const response = await api.get(`/reports/export/training/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `training_${Date.now()}.${getFileExtension(format)}`)
+  },
+
   // Loan reports
   async exportLoanOutstanding(
     filters?: ReportFilters,

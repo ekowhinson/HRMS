@@ -1,15 +1,29 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
+import type { ExportFormat } from '@/services/reports'
 import { Card, CardContent } from '@/components/ui/Card'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { PieChartCard } from '@/components/charts/PieChartCard'
-import { BarChartCard } from '@/components/charts/BarChartCard'
+import { AreaChartCard } from '@/components/charts/AreaChartCard'
 import { UsersIcon } from '@heroicons/react/24/outline'
 import { chartColors } from '@/lib/design-tokens'
+import ExportMenu from '@/components/ui/ExportMenu'
 
 export default function DemographicsReportPage() {
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    setExporting(true)
+    try {
+      await reportsService.exportDemographics(undefined, format)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const { data, isLoading } = useQuery({
     queryKey: ['hr-report-demographics'],
     queryFn: () => reportsService.getDemographics(),
@@ -18,7 +32,8 @@ export default function DemographicsReportPage() {
   const totalEmployees: number = data?.total_employees || 0
   const byGender: { gender: string; count: number }[] = data?.by_gender || []
   const byMarital: { marital_status: string; count: number }[] = data?.by_marital_status || []
-  const byNationality: { nationality: string; count: number }[] = data?.by_nationality || []
+  const byAge: { bracket: string; count: number }[] = data?.by_age || []
+  const averageAge: number = data?.average_age || 0
 
   const genderData = byGender.map((g) => ({
     name: g.gender || 'Not Specified',
@@ -30,26 +45,26 @@ export default function DemographicsReportPage() {
     value: m.count,
   }))
 
-  const nationalityData = byNationality
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 15)
-    .map((n) => ({
-      name: n.nationality || 'Not Specified',
-      value: n.count,
-    }))
+  const ageChartData = byAge.map((a) => ({
+    name: a.bracket,
+    value: a.count,
+  }))
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Demographics Report</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Workforce demographics by gender, marital status, and nationality
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Demographics Report</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Workforce demographics by gender, marital status, and age distribution
+            </p>
+          </div>
         </div>
+        <ExportMenu onExport={handleExport} loading={exporting} />
       </div>
 
       {isLoading ? (
@@ -71,7 +86,7 @@ export default function DemographicsReportPage() {
             />
             <StatsCard title="Gender Groups" value={byGender.length} variant="info" />
             <StatsCard title="Marital Statuses" value={byMarital.length} variant="warning" />
-            <StatsCard title="Nationalities" value={byNationality.length} variant="default" />
+            <StatsCard title="Average Age" value={averageAge ? averageAge : 'N/A'} variant="default" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -89,14 +104,15 @@ export default function DemographicsReportPage() {
             />
           </div>
 
-          {nationalityData.length > 0 && (
-            <BarChartCard
-              title="By Nationality"
-              subtitle={`Top ${nationalityData.length} nationalities`}
-              data={nationalityData}
-              layout="horizontal"
-              height={Math.max(250, nationalityData.length * 30)}
-              colors={chartColors.palette as unknown as string[]}
+          {ageChartData.length > 0 && (
+            <AreaChartCard
+              title="Age Distribution"
+              subtitle={`Average age: ${averageAge}`}
+              data={ageChartData}
+              color={chartColors.primary}
+              gradient
+              height={300}
+              tooltipLabel="Employees"
             />
           )}
 
@@ -116,15 +132,16 @@ export default function DemographicsReportPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {byGender.map((g) => (
-                      <tr key={g.gender} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">{g.gender || 'Not Specified'}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium">{g.count.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-500">
-                          {totalEmployees > 0 ? ((g.count / totalEmployees) * 100).toFixed(1) : 0}%
-                        </td>
-                      </tr>
-                    ))}
+                    {byGender.map((g) => {
+                      const pct = totalEmployees > 0 ? ((g.count / totalEmployees) * 100).toFixed(1) : '0'
+                      return (
+                        <tr key={g.gender} className="hover:bg-gray-50" title={`${g.gender || 'Not Specified'}: ${g.count.toLocaleString()} employees (${pct}%)`}>
+                          <td className="px-4 py-3 text-sm text-gray-900">{g.gender || 'Not Specified'}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium">{g.count.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-500">{pct}%</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </CardContent>
@@ -143,15 +160,16 @@ export default function DemographicsReportPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {byMarital.map((m) => (
-                      <tr key={m.marital_status} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">{m.marital_status || 'Not Specified'}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium">{m.count.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-500">
-                          {totalEmployees > 0 ? ((m.count / totalEmployees) * 100).toFixed(1) : 0}%
-                        </td>
-                      </tr>
-                    ))}
+                    {byMarital.map((m) => {
+                      const pct = totalEmployees > 0 ? ((m.count / totalEmployees) * 100).toFixed(1) : '0'
+                      return (
+                        <tr key={m.marital_status} className="hover:bg-gray-50" title={`${m.marital_status || 'Not Specified'}: ${m.count.toLocaleString()} employees (${pct}%)`}>
+                          <td className="px-4 py-3 text-sm text-gray-900">{m.marital_status || 'Not Specified'}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium">{m.count.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-500">{pct}%</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </CardContent>

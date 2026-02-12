@@ -6,12 +6,14 @@ import {
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
+import type { ExportFormat } from '@/services/reports'
 import { Card, CardContent } from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { chartColors } from '@/lib/design-tokens'
+import ExportMenu from '@/components/ui/ExportMenu'
 
 interface LeaveBalanceEntry {
   employee__employee_number: string
@@ -36,6 +38,16 @@ export default function LeaveBalanceReportPage() {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(String(currentYear))
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    setExporting(true)
+    try {
+      await reportsService.exportLeaveBalance({ year }, format)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => {
     const y = currentYear - i
@@ -80,12 +92,15 @@ export default function LeaveBalanceReportPage() {
             </p>
           </div>
         </div>
-        <div className="w-32">
-          <Select
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            options={yearOptions}
-          />
+        <div className="flex items-center gap-3">
+          <div className="w-32">
+            <Select
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              options={yearOptions}
+            />
+          </div>
+          <ExportMenu onExport={handleExport} loading={exporting} />
         </div>
       </div>
 

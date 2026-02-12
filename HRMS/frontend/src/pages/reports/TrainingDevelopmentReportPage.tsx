@@ -1,12 +1,27 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { trainingService } from '@/services/training'
+import { reportsService } from '@/services/reports'
+import type { ExportFormat } from '@/services/reports'
 import { Card, CardContent } from '@/components/ui/Card'
 import { StatsCard } from '@/components/ui/StatsCard'
+import ExportMenu from '@/components/ui/ExportMenu'
 import type { TrainingProgram, TrainingSession, TrainingDashboardData } from '@/types'
 
 export default function TrainingDevelopmentReportPage() {
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    setExporting(true)
+    try {
+      await reportsService.exportTraining(undefined, format)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const { data: dashboard, isLoading: loadingDashboard } = useQuery({
     queryKey: ['training-dashboard-report'],
     queryFn: () => trainingService.getDashboard(),
@@ -37,16 +52,19 @@ export default function TrainingDevelopmentReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Training & Development Report</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Overview of training programs, sessions, and completion metrics
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Training & Development Report</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Overview of training programs, sessions, and completion metrics
+            </p>
+          </div>
         </div>
+        <ExportMenu onExport={handleExport} loading={exporting} />
       </div>
 
       {isLoading ? (

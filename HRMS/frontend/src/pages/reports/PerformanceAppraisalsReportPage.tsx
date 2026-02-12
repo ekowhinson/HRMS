@@ -3,11 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { performanceService } from '@/services/performance'
+import { reportsService } from '@/services/reports'
+import type { ExportFormat } from '@/services/reports'
 import type { Appraisal, AppraisalCycle } from '@/services/performance'
 import { Card, CardContent } from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import { StatsCard } from '@/components/ui/StatsCard'
+import ExportMenu from '@/components/ui/ExportMenu'
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700',
@@ -28,6 +31,19 @@ export default function PerformanceAppraisalsReportPage() {
   const [cycleFilter, setCycleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    setExporting(true)
+    try {
+      await reportsService.exportPerformanceAppraisals(
+        { cycle: cycleFilter || undefined, status: statusFilter || undefined, search: search || undefined },
+        format
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const { data: cyclesData } = useQuery({
     queryKey: ['appraisal-cycles'],
@@ -68,16 +84,19 @@ export default function PerformanceAppraisalsReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Performance Appraisals Report</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            View and filter appraisals by cycle, status, and employee
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Performance Appraisals Report</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              View and filter appraisals by cycle, status, and employee
+            </p>
+          </div>
         </div>
+        <ExportMenu onExport={handleExport} loading={exporting} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

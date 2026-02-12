@@ -1,14 +1,28 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
+import type { ExportFormat } from '@/services/reports'
 import { Card, CardContent } from '@/components/ui/Card'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { PieChartCard } from '@/components/charts/PieChartCard'
 import { chartColors } from '@/lib/design-tokens'
+import ExportMenu from '@/components/ui/ExportMenu'
 
 export default function KPITrackingReportPage() {
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    setExporting(true)
+    try {
+      await reportsService.exportKPITracking(undefined, format)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const { data: perfData, isLoading: loadingPerf } = useQuery({
     queryKey: ['kpi-performance'],
     queryFn: () => reportsService.getPerformanceKPIs(),
@@ -65,16 +79,19 @@ export default function KPITrackingReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">KPI Tracking Report</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Key performance indicators across Performance, Training, and Recruitment
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">KPI Tracking Report</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Key performance indicators across Performance, Training, and Recruitment
+            </p>
+          </div>
         </div>
+        <ExportMenu onExport={handleExport} loading={exporting} />
       </div>
 
       {isLoading ? (

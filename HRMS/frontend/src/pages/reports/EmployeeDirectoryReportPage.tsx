@@ -6,11 +6,13 @@ import {
   ArrowLeftIcon,
 } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
+import type { ExportFormat } from '@/services/reports'
 import { Card, CardContent } from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { UsersIcon } from '@heroicons/react/24/outline'
+import ExportMenu from '@/components/ui/ExportMenu'
 
 interface EmployeeRecord {
   employee_number: string
@@ -29,6 +31,16 @@ export default function EmployeeDirectoryReportPage() {
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    setExporting(true)
+    try {
+      await reportsService.exportEmployeeMaster({ employee_code: search }, format)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['hr-report-employee-directory'],
@@ -56,16 +68,19 @@ export default function EmployeeDirectoryReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Employee Directory Report</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Complete employee directory with search and filtering
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Employee Directory Report</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Complete employee directory with search and filtering
+            </p>
+          </div>
         </div>
+        <ExportMenu onExport={handleExport} loading={exporting} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

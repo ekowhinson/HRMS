@@ -302,6 +302,16 @@ class HeadcountReportView(APIView):
     def get(self, request):
         queryset = Employee.objects.filter(status='ACTIVE')
 
+        # By division
+        by_division = queryset.values(
+            division_name=F('division__name')
+        ).annotate(count=Count('id')).order_by('-count')
+
+        # By directorate
+        by_directorate = queryset.values(
+            directorate_name=F('directorate__name')
+        ).annotate(count=Count('id')).order_by('-count')
+
         # By department
         by_department = queryset.values(
             department_name=F('department__name')
@@ -325,6 +335,8 @@ class HeadcountReportView(APIView):
 
         return Response({
             'total_headcount': queryset.count(),
+            'by_division': list(by_division),
+            'by_directorate': list(by_directorate),
             'by_department': list(by_department),
             'by_grade': list(by_grade),
             'by_employment_type': list(by_employment_type),
@@ -409,14 +421,48 @@ class DemographicsReportView(APIView):
         # By nationality
         by_nationality = queryset.values('nationality').annotate(count=Count('id'))
 
-        # Age distribution (simplified calculation)
-        # Note: For accurate age calculation, use database-specific age functions
+        # Age distribution
+        current_year = today.year
+        age_brackets = {
+            '18-25': 0, '26-30': 0, '31-35': 0, '36-40': 0,
+            '41-45': 0, '46-50': 0, '51-55': 0, '56-60': 0, '60+': 0,
+        }
+        ages = []
+        for emp in queryset.filter(date_of_birth__isnull=False).values_list('date_of_birth', flat=True):
+            age = current_year - emp.year - (
+                (today.month, today.day) < (emp.month, emp.day)
+            )
+            ages.append(age)
+            if age <= 25:
+                age_brackets['18-25'] += 1
+            elif age <= 30:
+                age_brackets['26-30'] += 1
+            elif age <= 35:
+                age_brackets['31-35'] += 1
+            elif age <= 40:
+                age_brackets['36-40'] += 1
+            elif age <= 45:
+                age_brackets['41-45'] += 1
+            elif age <= 50:
+                age_brackets['46-50'] += 1
+            elif age <= 55:
+                age_brackets['51-55'] += 1
+            elif age <= 60:
+                age_brackets['56-60'] += 1
+            else:
+                age_brackets['60+'] += 1
+
+        avg_age = round(sum(ages) / len(ages), 1) if ages else 0
+
+        by_age = [{'bracket': k, 'count': v} for k, v in age_brackets.items()]
 
         return Response({
             'total_employees': queryset.count(),
             'by_gender': list(by_gender),
             'by_marital_status': list(by_marital_status),
             'by_nationality': list(by_nationality),
+            'by_age': by_age,
+            'average_age': avg_age,
             'generated_at': timezone.now()
         })
 
@@ -1700,7 +1746,10 @@ from .exports import (
     export_employee_master, export_headcount, export_payroll_summary,
     export_paye_report, export_ssnit_report, export_bank_advice,
     export_leave_balance, export_loan_outstanding, export_payroll_master,
-    export_paye_gra_report
+    export_paye_gra_report,
+    export_turnover, export_demographics, export_leave_utilization,
+    export_employment_history, export_kpi_tracking,
+    export_performance_appraisals, export_training,
 )
 
 
@@ -3755,3 +3804,67 @@ class AsyncExportView(APIView):
             'status_url': f'/api/v1/core/tasks/{result.id}/status/',
             'download_url': f'/api/v1/core/tasks/{result.id}/download/',
         }, status=status.HTTP_202_ACCEPTED)
+
+
+class ExportTurnoverView(APIView):
+    """Export turnover report to CSV/Excel/PDF."""
+
+    def get(self, request):
+        year = request.query_params.get('year')
+        file_format = request.query_params.get('file_format', 'csv')
+        return export_turnover(year=year, format=file_format)
+
+
+class ExportDemographicsView(APIView):
+    """Export demographics report to CSV/Excel/PDF."""
+
+    def get(self, request):
+        file_format = request.query_params.get('file_format', 'csv')
+        return export_demographics(format=file_format)
+
+
+class ExportLeaveUtilizationView(APIView):
+    """Export leave utilization report to CSV/Excel/PDF."""
+
+    def get(self, request):
+        year = request.query_params.get('year')
+        file_format = request.query_params.get('file_format', 'csv')
+        return export_leave_utilization(year=year, format=file_format)
+
+
+class ExportEmploymentHistoryView(APIView):
+    """Export employment history report to CSV/Excel/PDF."""
+
+    def get(self, request):
+        employee_id = request.query_params.get('employee_id')
+        file_format = request.query_params.get('file_format', 'csv')
+        return export_employment_history(employee_id=employee_id, format=file_format)
+
+
+class ExportKPITrackingView(APIView):
+    """Export KPI tracking report to CSV/Excel/PDF."""
+
+    def get(self, request):
+        file_format = request.query_params.get('file_format', 'csv')
+        return export_kpi_tracking(format=file_format)
+
+
+class ExportPerformanceAppraisalsView(APIView):
+    """Export performance appraisals report to CSV/Excel/PDF."""
+
+    def get(self, request):
+        filters = {
+            'cycle': request.query_params.get('cycle'),
+            'status': request.query_params.get('status'),
+            'search': request.query_params.get('search'),
+        }
+        file_format = request.query_params.get('file_format', 'csv')
+        return export_performance_appraisals(filters=filters, format=file_format)
+
+
+class ExportTrainingView(APIView):
+    """Export training & development report to CSV/Excel/PDF."""
+
+    def get(self, request):
+        file_format = request.query_params.get('file_format', 'csv')
+        return export_training(format=file_format)
