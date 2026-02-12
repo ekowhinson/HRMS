@@ -26,8 +26,8 @@ export default function LeaveUtilizationReportPage() {
   })
 
   const byMonth: { month: string; count: number }[] = data?.by_month || []
-  const byLeaveType: { leave_type: string; count: number }[] = data?.by_leave_type || []
-  const byDepartment: { department: string; count: number }[] = data?.by_department || []
+  const byLeaveType: { leave_type_name: string; count: number; total_days: number }[] = data?.by_leave_type || []
+  const byDepartment: { department_name: string; count: number; total_days: number }[] = data?.by_department || []
 
   const totalUtilized = byLeaveType.reduce((s, t) => s + t.count, 0)
 
@@ -37,7 +37,7 @@ export default function LeaveUtilizationReportPage() {
   }))
 
   const typeData = byLeaveType.map((t) => ({
-    name: t.leave_type,
+    name: t.leave_type_name,
     value: t.count,
   }))
 
@@ -45,7 +45,7 @@ export default function LeaveUtilizationReportPage() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 15)
     .map((d) => ({
-      name: d.department || 'Unknown',
+      name: d.department_name || 'Unknown',
       value: d.count,
     }))
 
@@ -152,8 +152,8 @@ export default function LeaveUtilizationReportPage() {
                     {byLeaveType
                       .sort((a, b) => b.count - a.count)
                       .map((t) => (
-                        <tr key={t.leave_type} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900">{t.leave_type}</td>
+                        <tr key={t.leave_type_name} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">{t.leave_type_name}</td>
                           <td className="px-4 py-3 text-sm text-right font-medium">{t.count.toLocaleString()}</td>
                           <td className="px-4 py-3 text-sm text-right text-gray-500">
                             {totalUtilized > 0 ? ((t.count / totalUtilized) * 100).toFixed(1) : 0}%

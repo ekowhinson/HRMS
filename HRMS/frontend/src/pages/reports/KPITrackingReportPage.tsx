@@ -26,31 +26,42 @@ export default function KPITrackingReportPage() {
 
   const isLoading = loadingPerf || loadingTraining || loadingRecruit
 
-  // Performance KPIs
-  const totalAppraisals = perfData?.total_appraisals ?? 0
-  const avgRating = perfData?.average_rating ?? 0
-  const completedAppraisals = perfData?.completed ?? 0
-  const ratingDistribution: { rating: string; count: number }[] = perfData?.rating_distribution || perfData?.by_status || []
+  // Performance KPIs (nested under appraisal_completion and rating_distribution)
+  const appraisalCompletion = perfData?.appraisal_completion ?? {}
+  const ratingDist = perfData?.rating_distribution ?? {}
+  const totalEmployees = appraisalCompletion.total_employees ?? 0
+  const completedAppraisals = appraisalCompletion.completed ?? 0
+  const appraisalCompletionRate = appraisalCompletion.completion_rate ?? 0
+  const avgRating = ratingDist.average_rating ?? 0
+  const ratingDistribution: Record<string, number> = ratingDist.distribution ?? {}
 
-  // Training KPIs
-  const totalTraining = trainingData?.total_programs ?? trainingData?.total ?? 0
-  const completionRate = trainingData?.completion_rate ?? 0
-  const trainingByCategory: { category: string; count: number }[] = trainingData?.by_category || []
+  // Training KPIs (nested under completion_rate and cost_per_employee)
+  const trainingCompletion = trainingData?.completion_rate ?? {}
+  const trainingCost = trainingData?.cost_per_employee ?? {}
+  const totalActivities = trainingCompletion.total_activities ?? 0
+  const trainingCompletionRate = trainingCompletion.completion_rate ?? 0
+  const costPerEmployee = trainingCost.cost_per_employee ?? 0
 
-  // Recruitment KPIs
-  const openVacancies = recruitData?.open_vacancies ?? recruitData?.total ?? 0
-  const applicationsReceived = recruitData?.applications_received ?? 0
-  const avgTimeToFill = recruitData?.avg_time_to_fill ?? 0
+  // Recruitment KPIs (nested under vacancy_summary, time_to_fill, fte, hiring_rate)
+  const vacancySummary = recruitData?.vacancy_summary ?? {}
+  const timeToFill = recruitData?.time_to_fill ?? {}
+  const fte = recruitData?.fte ?? {}
+  const hiringRate = recruitData?.hiring_rate ?? {}
+  const openVacancies = vacancySummary.open_vacancies ?? 0
+  const totalApplicants = vacancySummary.total_applicants ?? 0
+  const avgTimeToFill = timeToFill.average_days ?? 0
 
-  const ratingChartData = ratingDistribution.map((r) => ({
-    name: r.rating || (r as any).status || 'Unknown',
-    value: r.count,
-  }))
+  // Rating distribution chart data (convert object to array)
+  const ratingChartData = Object.entries(ratingDistribution)
+    .filter(([, count]) => count > 0)
+    .map(([name, count]) => ({ name, value: count }))
 
-  const trainingCategoryData = trainingByCategory.map((t) => ({
-    name: t.category || 'Other',
-    value: t.count,
-  }))
+  // Training needs chart data
+  const trainingNeeds = trainingData?.training_needs ?? {}
+  const needsByStatus: Record<string, number> = trainingNeeds.by_status ?? {}
+  const trainingNeedsData = Object.entries(needsByStatus)
+    .filter(([, count]) => count > 0)
+    .map(([name, count]) => ({ name, value: count }))
 
   return (
     <div className="space-y-6">
@@ -79,30 +90,33 @@ export default function KPITrackingReportPage() {
           {/* Performance Section */}
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Performance</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <StatsCard title="Total Appraisals" value={totalAppraisals} variant="primary" />
-              <StatsCard title="Average Rating" value={avgRating ? Number(avgRating).toFixed(1) : 'N/A'} variant="info" />
-              <StatsCard title="Completed" value={completedAppraisals} variant="success" />
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <StatsCard title="Total Employees" value={totalEmployees} variant="primary" />
+              <StatsCard title="Completed Appraisals" value={completedAppraisals} variant="success" />
+              <StatsCard title="Completion Rate" value={`${Number(appraisalCompletionRate).toFixed(1)}%`} variant="info" />
+              <StatsCard title="Average Rating" value={avgRating ? Number(avgRating).toFixed(1) : 'N/A'} variant="warning" />
             </div>
           </div>
 
           {/* Training Section */}
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Training</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <StatsCard title="Training Programs" value={totalTraining} variant="primary" />
-              <StatsCard title="Completion Rate" value={`${Number(completionRate).toFixed(0)}%`} variant="info" />
-              <StatsCard title="Open Vacancies" value={openVacancies} variant="warning" />
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <StatsCard title="Total Activities" value={totalActivities} variant="primary" />
+              <StatsCard title="Completed" value={trainingCompletion.completed ?? 0} variant="success" />
+              <StatsCard title="Completion Rate" value={`${Number(trainingCompletionRate).toFixed(1)}%`} variant="info" />
+              <StatsCard title="Cost per Employee" value={costPerEmployee ? `$${Number(costPerEmployee).toFixed(0)}` : 'N/A'} variant="default" />
             </div>
           </div>
 
           {/* Recruitment Section */}
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Recruitment</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <StatsCard title="Open Vacancies" value={openVacancies} variant="primary" />
-              <StatsCard title="Applications Received" value={applicationsReceived} variant="info" />
+              <StatsCard title="Total Applicants" value={totalApplicants} variant="info" />
               <StatsCard title="Avg. Time to Fill (days)" value={avgTimeToFill ? Number(avgTimeToFill).toFixed(0) : 'N/A'} variant="default" />
+              <StatsCard title="FTE Count" value={fte.fte ?? hiringRate.average_headcount ?? 'N/A'} variant="warning" />
             </div>
           </div>
 
@@ -110,15 +124,15 @@ export default function KPITrackingReportPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {ratingChartData.length > 0 && (
               <BarChartCard
-                title="Appraisal Status Distribution"
+                title="Performance Rating Distribution"
                 data={ratingChartData}
                 color={chartColors.primary}
               />
             )}
-            {trainingCategoryData.length > 0 && (
+            {trainingNeedsData.length > 0 && (
               <PieChartCard
-                title="Training by Category"
-                data={trainingCategoryData}
+                title="Training Needs by Status"
+                data={trainingNeedsData}
                 colors={[...chartColors.palette]}
               />
             )}

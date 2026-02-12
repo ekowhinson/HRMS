@@ -17,7 +17,7 @@ export default function DemographicsReportPage() {
 
   const totalEmployees: number = data?.total_employees || 0
   const byGender: { gender: string; count: number }[] = data?.by_gender || []
-  const byMarital: { status: string; count: number }[] = data?.by_marital_status || []
+  const byMarital: { marital_status: string; count: number }[] = data?.by_marital_status || []
   const byNationality: { nationality: string; count: number }[] = data?.by_nationality || []
 
   const genderData = byGender.map((g) => ({
@@ -26,7 +26,7 @@ export default function DemographicsReportPage() {
   }))
 
   const maritalData = byMarital.map((m) => ({
-    name: m.status || 'Not Specified',
+    name: m.marital_status || 'Not Specified',
     value: m.count,
   }))
 
@@ -144,8 +144,8 @@ export default function DemographicsReportPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {byMarital.map((m) => (
-                      <tr key={m.status} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">{m.status || 'Not Specified'}</td>
+                      <tr key={m.marital_status} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">{m.marital_status || 'Not Specified'}</td>
                         <td className="px-4 py-3 text-sm text-right font-medium">{m.count.toLocaleString()}</td>
                         <td className="px-4 py-3 text-sm text-right text-gray-500">
                           {totalEmployees > 0 ? ((m.count / totalEmployees) * 100).toFixed(1) : 0}%

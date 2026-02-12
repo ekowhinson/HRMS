@@ -14,20 +14,22 @@ import { BarChartCard } from '@/components/charts/BarChartCard'
 import { chartColors } from '@/lib/design-tokens'
 
 interface LeaveBalanceEntry {
-  employee_number: string
-  employee_name: string
-  department: string
-  leave_type: string
-  entitled: number
+  employee__employee_number: string
+  employee__first_name: string
+  employee__last_name: string
+  leave_type_name: string
+  opening_balance: number
+  earned: number
   taken: number
-  balance: number
+  pending: number
+  carried_forward: number
 }
 
 interface LeaveSummary {
-  leave_type: string
+  leave_type_name: string
   total_entitled: number
   total_taken: number
-  total_balance: number
+  total_pending: number
 }
 
 export default function LeaveBalanceReportPage() {
@@ -51,15 +53,16 @@ export default function LeaveBalanceReportPage() {
   const filtered = balances.filter((b) => {
     if (!search) return true
     const term = search.toLowerCase()
+    const fullName = `${b.employee__first_name || ''} ${b.employee__last_name || ''}`.toLowerCase()
     return (
-      b.employee_name?.toLowerCase().includes(term) ||
-      b.employee_number?.toLowerCase().includes(term) ||
-      b.department?.toLowerCase().includes(term)
+      fullName.includes(term) ||
+      b.employee__employee_number?.toLowerCase().includes(term) ||
+      b.leave_type_name?.toLowerCase().includes(term)
     )
   })
 
   const summaryChartData = summary.map((s) => ({
-    name: s.leave_type,
+    name: s.leave_type_name,
     value: s.total_taken,
   }))
 
@@ -104,8 +107,8 @@ export default function LeaveBalanceReportPage() {
               variant="warning"
             />
             <StatsCard
-              title="Total Balance"
-              value={summary.reduce((s, r) => s + r.total_balance, 0).toLocaleString()}
+              title="Total Pending"
+              value={summary.reduce((s, r) => s + r.total_pending, 0).toLocaleString()}
               variant="success"
             />
           </div>
@@ -134,16 +137,16 @@ export default function LeaveBalanceReportPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Entitled</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Taken</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pending</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {summary.map((s) => (
-                      <tr key={s.leave_type} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{s.leave_type}</td>
+                      <tr key={s.leave_type_name} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{s.leave_type_name}</td>
                         <td className="px-4 py-3 text-sm text-right">{s.total_entitled.toLocaleString()}</td>
                         <td className="px-4 py-3 text-sm text-right text-orange-600 font-medium">{s.total_taken.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">{s.total_balance.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">{s.total_pending.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -172,23 +175,23 @@ export default function LeaveBalanceReportPage() {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Entitled</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Opening</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Earned</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Taken</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pending</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {filtered.slice(0, 100).map((b, idx) => (
-                      <tr key={`${b.employee_number}-${b.leave_type}-${idx}`} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{b.employee_number}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{b.employee_name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{b.department || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{b.leave_type}</td>
-                        <td className="px-4 py-3 text-sm text-right">{b.entitled}</td>
+                      <tr key={`${b.employee__employee_number}-${b.leave_type_name}-${idx}`} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{b.employee__employee_number}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{`${b.employee__first_name || ''} ${b.employee__last_name || ''}`.trim()}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{b.leave_type_name}</td>
+                        <td className="px-4 py-3 text-sm text-right">{b.opening_balance}</td>
+                        <td className="px-4 py-3 text-sm text-right">{b.earned}</td>
                         <td className="px-4 py-3 text-sm text-right text-orange-600">{b.taken}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-green-600">{b.balance}</td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-green-600">{b.pending}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -29,8 +29,8 @@ export default function TurnoverReportPage() {
   const newHires: number = data?.new_hires || 0
   const turnoverRate: number = data?.turnover_rate || 0
   const exitsByMonth: { month: string; count: number }[] = data?.exits_by_month || []
-  const exitsByReason: { reason: string; count: number }[] = data?.exits_by_reason || []
-  const exitsByDepartment: { department: string; count: number }[] = data?.exits_by_department || []
+  const exitsByReason: { exit_reason: string; count: number }[] = data?.exits_by_reason || []
+  const exitsByDepartment: { department_name: string; count: number }[] = data?.exits_by_department || []
 
   const monthlyData = exitsByMonth.map((m) => ({
     name: m.month,
@@ -38,7 +38,7 @@ export default function TurnoverReportPage() {
   }))
 
   const reasonData = exitsByReason.map((r) => ({
-    name: r.reason || 'Unknown',
+    name: r.exit_reason || 'Unknown',
     value: r.count,
   }))
 
@@ -46,7 +46,7 @@ export default function TurnoverReportPage() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
     .map((d) => ({
-      name: d.department || 'Unknown',
+      name: d.department_name || 'Unknown',
       value: d.count,
     }))
 
