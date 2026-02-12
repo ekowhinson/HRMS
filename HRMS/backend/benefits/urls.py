@@ -18,7 +18,7 @@ router.register(r'benefit-claims', views.BenefitClaimViewSet, basename='benefit-
 router.register(r'expense-types', views.ExpenseTypeViewSet, basename='expense-type')
 router.register(r'expense-claims', views.ExpenseClaimViewSet, basename='expense-claim')
 
-# NHIA Specific Benefits
+# Organization Benefits
 router.register(r'funeral-grant-types', views.FuneralGrantTypeViewSet, basename='funeral-grant-type')
 router.register(r'funeral-grants', views.FuneralGrantClaimViewSet, basename='funeral-grant')
 router.register(r'medical-lens-benefits', views.MedicalLensBenefitViewSet, basename='medical-lens-benefit')
@@ -26,6 +26,10 @@ router.register(r'medical-lens-claims', views.MedicalLensClaimViewSet, basename=
 router.register(r'professional-subscription-types', views.ProfessionalSubscriptionTypeViewSet, basename='professional-subscription-type')
 router.register(r'professional-subscriptions', views.ProfessionalSubscriptionViewSet, basename='professional-subscription')
 router.register(r'eligibility-records', views.BenefitEligibilityRecordViewSet, basename='eligibility-record')
+
+# Generic Configurable Benefits
+router.register(r'custom-types', views.CustomBenefitTypeViewSet, basename='custom-benefit-type')
+router.register(r'custom-claims', views.CustomBenefitClaimViewSet, basename='custom-benefit-claim')
 
 # Third-Party Loans/Deductions
 router.register(r'third-party-lenders', views.ThirdPartyLenderViewSet, basename='third-party-lender')

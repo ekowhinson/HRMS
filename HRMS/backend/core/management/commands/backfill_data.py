@@ -1,5 +1,5 @@
 """
-Resumable batch data backfill command for NHIA HRMS.
+Resumable batch data backfill command for HRMS.
 
 Processes records in configurable batches with progress reporting, ETA,
 and resume capability. Designed for large-table operations on 1M+ records.

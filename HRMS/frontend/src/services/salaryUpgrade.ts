@@ -2,12 +2,14 @@ import api from '@/lib/api'
 
 export interface SalaryUpgradeCreateData {
   employee: string
-  new_notch: string
+  new_notch?: string
   new_grade?: string
   new_position?: string
   reason: string
   effective_from: string
   description?: string
+  increment_type?: 'PERCENTAGE' | 'AMOUNT' | null
+  increment_value?: number | null
 }
 
 export interface SalaryUpgradeBulkData {
@@ -21,12 +23,14 @@ export interface SalaryUpgradeBulkData {
   district?: string
   work_location?: string
   staff_category?: string
-  new_notch: string
+  new_notch?: string
   new_grade?: string
   new_position?: string
   reason: string
   effective_from: string
   description?: string
+  increment_type?: 'PERCENTAGE' | 'AMOUNT' | null
+  increment_value?: number | null
 }
 
 export interface SalaryUpgradePreview {
@@ -42,11 +46,14 @@ export interface SalaryUpgradePreview {
   new_band: string
   new_level: string
   new_notch: string
+  new_notch_id?: string
   new_amount: number
   new_grade: string
   new_position: string
   salary_diff: number
   processing_period: string | null
+  increment_type?: 'PERCENTAGE' | 'AMOUNT'
+  increment_value?: number
 }
 
 export interface SalaryUpgradeRequest {
@@ -79,6 +86,8 @@ export interface SalaryUpgradeRequest {
   approved_by_name: string | null
   approved_at: string | null
   rejection_reason: string
+  increment_type: 'PERCENTAGE' | 'AMOUNT' | null
+  increment_value: number | null
   processing_period: string | null
   processing_period_name: string | null
   created_at: string
@@ -129,9 +138,11 @@ export const salaryUpgradeService = {
 
   preview: async (data: {
     employee: string
-    new_notch: string
+    new_notch?: string
     new_grade?: string
     new_position?: string
+    increment_type?: 'PERCENTAGE' | 'AMOUNT' | null
+    increment_value?: number | null
   }): Promise<SalaryUpgradePreview> => {
     const response = await api.post('/payroll/salary-upgrades/preview/', data)
     return response.data

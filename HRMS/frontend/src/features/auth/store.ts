@@ -43,7 +43,7 @@ export const useAuthStore = create<AuthState>()(
         })),
     }),
     {
-      name: 'nhia-auth-storage',
+      name: 'hrms-auth-storage',
       partialize: (state) => ({
         user: state.user,
         tokens: state.tokens,

@@ -18,6 +18,7 @@ import {
   CheckCircleIcon,
   LockClosedIcon,
   ArrowPathIcon,
+  ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline'
 import {
   payrollSetupService,
@@ -28,6 +29,8 @@ import {
   SalaryLevel,
   SalaryNotch,
   type PayrollPeriod,
+  type SalaryIncrementPreviewRequest,
+  type SalaryIncrementPreviewResult,
 } from '@/services/payrollSetup'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -78,6 +81,19 @@ export default function PayrollSetupPage() {
   // Create Year state
   const [createYearValue, setCreateYearValue] = useState(new Date().getFullYear())
   const [showCreateYearConfirm, setShowCreateYearConfirm] = useState(false)
+
+  // Global Increment state
+  const [showIncrementModal, setShowIncrementModal] = useState(false)
+  const [incrementStep, setIncrementStep] = useState<'form' | 'preview' | 'confirm'>('form')
+  const [incrementForm, setIncrementForm] = useState<SalaryIncrementPreviewRequest>({
+    increment_type: 'PERCENTAGE',
+    value: 0,
+    effective_date: new Date().toISOString().slice(0, 10),
+    band_id: null,
+    level_id: null,
+  })
+  const [incrementDescription, setIncrementDescription] = useState('')
+  const [incrementPreview, setIncrementPreview] = useState<SalaryIncrementPreviewResult | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -390,6 +406,44 @@ export default function PayrollSetupPage() {
     },
     onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to create calendar months'),
   })
+
+  // Global Increment mutations
+  const previewIncrementMutation = useMutation({
+    mutationFn: payrollSetupService.previewGlobalIncrement,
+    onSuccess: (data) => {
+      setIncrementPreview(data)
+      setIncrementStep('preview')
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to preview increment'),
+  })
+
+  const applyIncrementMutation = useMutation({
+    mutationFn: payrollSetupService.applyGlobalIncrement,
+    onSuccess: (data) => {
+      toast.success(`Salary increment ${data.reference_number} applied successfully! ${data.notches_affected} notches and ${data.employees_affected} employees updated.`)
+      queryClient.invalidateQueries({ queryKey: ['salary-notches'] })
+      queryClient.invalidateQueries({ queryKey: ['salary-levels'] })
+      queryClient.invalidateQueries({ queryKey: ['salary-bands'] })
+      setShowIncrementModal(false)
+      setIncrementStep('form')
+      setIncrementPreview(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to apply increment'),
+  })
+
+  const openIncrementModal = () => {
+    setIncrementForm({
+      increment_type: 'PERCENTAGE',
+      value: 0,
+      effective_date: new Date().toISOString().slice(0, 10),
+      band_id: null,
+      level_id: null,
+    })
+    setIncrementDescription('')
+    setIncrementPreview(null)
+    setIncrementStep('form')
+    setShowIncrementModal(true)
+  }
 
   const openModal = (item?: any) => {
     if (item) {
@@ -929,7 +983,7 @@ export default function PayrollSetupPage() {
       )}
 
       {activeTab === 'notches' && (
-        <div className="flex gap-4">
+        <div className="flex items-center gap-4">
           <Select
             value={selectedLevel}
             onChange={(e) => setSelectedLevel(e.target.value)}
@@ -939,6 +993,10 @@ export default function PayrollSetupPage() {
             ]}
             className="w-64"
           />
+          <Button variant="outline" onClick={openIncrementModal}>
+            <ArrowTrendingUpIcon className="h-4 w-4 mr-2" />
+            Global Increment
+          </Button>
         </div>
       )}
 
@@ -1671,6 +1729,207 @@ export default function PayrollSetupPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Global Increment Modal */}
+      <Modal
+        isOpen={showIncrementModal}
+        onClose={() => { setShowIncrementModal(false); setIncrementStep('form'); setIncrementPreview(null) }}
+        title={
+          incrementStep === 'form' ? 'Global Salary Increment' :
+          incrementStep === 'preview' ? 'Preview Changes' :
+          'Confirm Increment'
+        }
+        size="lg"
+      >
+        {incrementStep === 'form' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Increment Type</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIncrementForm({ ...incrementForm, increment_type: 'PERCENTAGE' })}
+                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                    incrementForm.increment_type === 'PERCENTAGE'
+                      ? 'bg-primary-50 border-primary-500 text-primary-700'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Percentage (%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIncrementForm({ ...incrementForm, increment_type: 'AMOUNT' })}
+                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                    incrementForm.increment_type === 'AMOUNT'
+                      ? 'bg-primary-50 border-primary-500 text-primary-700'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Fixed Amount (GHS)
+                </button>
+              </div>
+            </div>
+
+            <Input
+              label={incrementForm.increment_type === 'PERCENTAGE' ? 'Percentage (%)' : 'Amount (GHS)'}
+              type="number"
+              step={incrementForm.increment_type === 'PERCENTAGE' ? '0.1' : '0.01'}
+              placeholder={incrementForm.increment_type === 'PERCENTAGE' ? 'e.g. 10 for 10%' : 'e.g. 500.00'}
+              value={incrementForm.value || ''}
+              onChange={(e) => setIncrementForm({ ...incrementForm, value: parseFloat(e.target.value) || 0 })}
+              required
+            />
+
+            <Input
+              label="Effective Date"
+              type="date"
+              value={incrementForm.effective_date}
+              onChange={(e) => setIncrementForm({ ...incrementForm, effective_date: e.target.value })}
+              required
+            />
+
+            <Select
+              label="Filter by Band (optional)"
+              value={incrementForm.band_id || ''}
+              onChange={(e) => setIncrementForm({ ...incrementForm, band_id: e.target.value || null, level_id: null })}
+              options={[
+                { value: '', label: 'All Bands' },
+                ...bands.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` })),
+              ]}
+            />
+
+            <Select
+              label="Filter by Level (optional)"
+              value={incrementForm.level_id || ''}
+              onChange={(e) => setIncrementForm({ ...incrementForm, level_id: e.target.value || null })}
+              options={[
+                { value: '', label: 'All Levels' },
+                ...levels
+                  .filter((l) => !incrementForm.band_id || l.band === incrementForm.band_id)
+                  .map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` })),
+              ]}
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+              <textarea
+                value={incrementDescription}
+                onChange={(e) => setIncrementDescription(e.target.value)}
+                placeholder="e.g. Annual salary revision for 2026"
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                rows={2}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setShowIncrementModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => previewIncrementMutation.mutate(incrementForm)}
+                isLoading={previewIncrementMutation.isPending}
+                disabled={!incrementForm.value}
+              >
+                Preview Changes
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {incrementStep === 'preview' && incrementPreview && (
+          <div className="space-y-4">
+            {/* Summary cards */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-blue-50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-blue-700">{incrementPreview.summary.notches_affected}</p>
+                <p className="text-xs text-blue-600">Notches Affected</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-green-700">{incrementPreview.summary.employees_affected}</p>
+                <p className="text-xs text-green-600">Employees Affected</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-amber-700">{formatCurrency(incrementPreview.summary.total_difference)}</p>
+                <p className="text-xs text-amber-600">Total Increase</p>
+              </div>
+            </div>
+
+            {/* Preview table */}
+            <div className="max-h-64 overflow-auto border rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-500">Notch</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-500">Old Amount</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-500">New Amount</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-500">Difference</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-500">Employees</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {incrementPreview.items.map((item) => (
+                    <tr key={item.notch_id}>
+                      <td className="px-4 py-2 font-mono text-xs">{item.full_code}</td>
+                      <td className="px-4 py-2 text-right">{formatCurrency(item.old_amount)}</td>
+                      <td className="px-4 py-2 text-right font-medium">{formatCurrency(item.new_amount)}</td>
+                      <td className={`px-4 py-2 text-right ${item.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.difference >= 0 ? '+' : ''}{formatCurrency(item.difference)}
+                      </td>
+                      <td className="px-4 py-2 text-right">{item.employee_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={() => setIncrementStep('form')}>
+                Back to Form
+              </Button>
+              <Button onClick={() => setIncrementStep('confirm')}>
+                Apply Increment
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {incrementStep === 'confirm' && incrementPreview && (
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <ArrowTrendingUpIcon className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div className="text-sm text-amber-800">
+                  <p className="font-medium mb-1">This action will:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Update <strong>{incrementPreview.summary.notches_affected}</strong> salary notch amounts</li>
+                    <li>Create new salary records for <strong>{incrementPreview.summary.employees_affected}</strong> employees</li>
+                    <li>Recalculate level and band salary ranges</li>
+                    <li>Total monthly increase: <strong>{formatCurrency(incrementPreview.summary.total_difference)}</strong></li>
+                  </ul>
+                  <p className="mt-2 font-medium">This action cannot be undone.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setIncrementStep('preview')}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => applyIncrementMutation.mutate({
+                  ...incrementForm,
+                  description: incrementDescription,
+                })}
+                isLoading={applyIncrementMutation.isPending}
+              >
+                Confirm & Apply
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Delete Confirmation Modal */}

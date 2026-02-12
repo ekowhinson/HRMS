@@ -38,6 +38,26 @@ class SoftDeleteManager(models.Manager):
         return super().get_queryset().filter(is_deleted=True)
 
 
+class TenantAwareManager(SoftDeleteManager):
+    """Manager that filters by both soft-delete AND current tenant."""
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        from core.middleware import get_current_tenant
+        tenant = get_current_tenant()
+        if tenant is not None:
+            qs = qs.filter(tenant=tenant)
+        return qs
+
+    def for_tenant(self, tenant):
+        """Explicitly query for a specific tenant (admin use)."""
+        return super().get_queryset().filter(tenant=tenant)
+
+    def all_tenants(self):
+        """Query across all tenants (superadmin only)."""
+        return super().get_queryset()
+
+
 class SoftDeleteModel(models.Model):
     """
     Abstract base model with soft delete functionality.
@@ -116,9 +136,28 @@ class BaseModel(UUIDModel, AuditModel):
     Full-featured base model combining UUID, timestamps, soft delete, and audit fields.
     Use this as the base for most HRMS models.
     """
+    tenant = models.ForeignKey(
+        'organization.Organization',
+        on_delete=models.CASCADE,
+        related_name='%(app_label)s_%(class)s_set',
+        db_index=True,
+        null=True,
+    )
+
+    objects = TenantAwareManager()
+    all_objects = models.Manager()
+
     class Meta:
         abstract = True
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.tenant_id:
+            from core.middleware import get_current_tenant
+            tenant = get_current_tenant()
+            if tenant is not None:
+                self.tenant = tenant
+        super().save(*args, **kwargs)
 
 
 class BinaryFileMixin(models.Model):
@@ -803,3 +842,7 @@ class AnnouncementAttachment(BaseModel):
             encoded = base64.b64encode(self.file_data).decode('utf-8')
             return f"data:{self.mime_type};base64,{encoded}"
         return None
+
+
+# Import backup models so Django discovers them for migrations
+from core.backup_models import TenantBackup, TenantRestore, BackupSchedule  # noqa: E402, F401

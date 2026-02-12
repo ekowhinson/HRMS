@@ -9,7 +9,7 @@ from rest_framework import status
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404
 
-logger = logging.getLogger('nhia_hrms')
+logger = logging.getLogger('hrms')
 
 
 class HRMSException(Exception):

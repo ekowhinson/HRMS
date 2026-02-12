@@ -1,5 +1,5 @@
 """
-Exit/Offboarding models for NHIA HRMS.
+Exit/Offboarding models for HRMS.
 Handles resignations, retirements, terminations, exit interviews, and clearances.
 """
 

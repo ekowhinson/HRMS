@@ -28,8 +28,8 @@ def get_org_settings():
     """Get organization settings from Django settings."""
     payroll_settings = getattr(settings, 'PAYROLL', {})
     return {
-        'name': payroll_settings.get('ORGANIZATION_NAME', 'NATIONAL HEALTH INSURANCE'),
-        'code': payroll_settings.get('ORGANIZATION_CODE', 'NHIS'),
+        'name': payroll_settings.get('ORGANIZATION_NAME', settings.HRMS_SETTINGS.get('ORGANIZATION_NAME', 'Your Organization')),
+        'code': payroll_settings.get('ORGANIZATION_CODE', settings.HRMS_SETTINGS.get('ORGANIZATION_CODE', 'ORG')),
     }
 
 

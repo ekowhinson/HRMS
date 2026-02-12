@@ -113,7 +113,7 @@ export default function BenefitsPage() {
     queryFn: benefitsService.getBenefitTypes,
   })
 
-  // NHIA Benefit Queries
+  // Organization Benefit Queries
   const { data: funeralGrantTypes } = useQuery({
     queryKey: ['funeral-grant-types'],
     queryFn: benefitsService.getFuneralGrantTypes,
@@ -393,9 +393,9 @@ export default function BenefitsPage() {
             <GiftIcon className="h-4 w-4 mr-2" />
             Benefits
           </TabsTrigger>
-          <TabsTrigger value="nhia">
+          <TabsTrigger value="custom">
             <HeartIcon className="h-4 w-4 mr-2" />
-            NHIA Benefits
+            Custom Benefits
           </TabsTrigger>
           <TabsTrigger value="deductions">
             <BuildingOfficeIcon className="h-4 w-4 mr-2" />
@@ -519,8 +519,8 @@ export default function BenefitsPage() {
           </div>
         </TabsContent>
 
-        {/* NHIA Benefits Tab */}
-        <TabsContent value="nhia" className="mt-4">
+        {/* Custom Benefits Tab */}
+        <TabsContent value="custom" className="mt-4">
           <div className="space-y-6">
             {/* Funeral Grants */}
             <Card>

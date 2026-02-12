@@ -333,7 +333,7 @@ export const benefitsService = {
     return response.data
   },
 
-  // ==================== NHIA-Specific Benefits ====================
+  // ==================== Organization Benefits ====================
 
   // Funeral Grant Types
   getFuneralGrantTypes: async () => {

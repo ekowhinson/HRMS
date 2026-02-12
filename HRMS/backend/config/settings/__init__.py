@@ -1,5 +1,5 @@
 """
-Django settings package for NHIA HRMS.
+Django settings package for HRMS.
 
 Routes to the correct settings module based on the DJANGO_ENV environment variable:
   - "production"  -> config.settings.production

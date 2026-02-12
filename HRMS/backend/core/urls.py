@@ -27,6 +27,11 @@ from .views import (
     TaskStatusView,
     TaskDownloadView,
 )
+from .backup_views import (
+    TenantBackupViewSet,
+    TenantRestoreViewSet,
+    BackupScheduleViewSet,
+)
 
 app_name = 'core'
 
@@ -44,6 +49,11 @@ router.register(r'audit-logs', AuditLogViewSet, basename='audit-log')
 
 # Notifications
 router.register(r'notifications', NotificationViewSet, basename='notification')
+
+# Backup & Restore
+router.register(r'backups', TenantBackupViewSet, basename='backup')
+router.register(r'restores', TenantRestoreViewSet, basename='restore')
+router.register(r'backup-schedules', BackupScheduleViewSet, basename='backup-schedule')
 
 
 @api_view(['GET'])

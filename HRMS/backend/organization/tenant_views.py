@@ -1,0 +1,141 @@
+"""Views for tenant/organization administration."""
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from .models import Organization
+from .tenant_serializers import (
+    OrganizationSerializer, OrganizationCreateSerializer,
+    OrganizationConfigSerializer, OrganizationBrandingSerializer,
+    OrganizationStatsSerializer,
+)
+
+
+class TenantSetupViewSet(viewsets.ModelViewSet):
+    """Superadmin management of organizations."""
+    serializer_class = OrganizationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Superadmins (no org) can see all, org admins see only their own
+        if user.organization is None:
+            return Organization.objects.all()
+        return Organization.objects.filter(id=user.organization_id)
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return OrganizationCreateSerializer
+        return OrganizationSerializer
+
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        """Activate an organization."""
+        org = self.get_object()
+        org.is_active = True
+        org.save(update_fields=['is_active'])
+        return Response({'status': 'activated'})
+
+    @action(detail=True, methods=['post'])
+    def deactivate(self, request, pk=None):
+        """Deactivate an organization."""
+        org = self.get_object()
+        org.is_active = False
+        org.save(update_fields=['is_active'])
+        return Response({'status': 'deactivated'})
+
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Get usage statistics for an organization."""
+        org = self.get_object()
+
+        from employees.models import Employee
+        from accounts.models import User
+        from core.middleware import set_current_tenant, get_current_tenant
+
+        prev_tenant = get_current_tenant()
+        set_current_tenant(org)
+        try:
+            employee_count = Employee.objects.count()
+            user_count = User.objects.filter(organization=org, is_active=True).count()
+        finally:
+            set_current_tenant(prev_tenant)
+
+        data = {
+            'organization': OrganizationSerializer(org).data,
+            'employee_count': employee_count,
+            'user_count': user_count,
+            'max_employees': org.max_employees,
+            'max_users': org.max_users,
+            'employee_utilization': round(
+                employee_count / org.max_employees * 100, 1
+            ) if org.max_employees else 0,
+            'user_utilization': round(
+                user_count / org.max_users * 100, 1
+            ) if org.max_users else 0,
+        }
+        return Response(data)
+
+    @action(detail=True, methods=['post'])
+    def modules(self, request, pk=None):
+        """Enable/disable modules for an organization."""
+        org = self.get_object()
+        modules = request.data.get('modules_enabled', [])
+        org.modules_enabled = modules
+        org.save(update_fields=['modules_enabled'])
+        return Response({'modules_enabled': org.modules_enabled})
+
+
+class TenantConfigViewSet(viewsets.ViewSet):
+    """Current tenant's configuration management."""
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """Get current tenant's config."""
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response(
+                {'error': 'No tenant context'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = OrganizationConfigSerializer(tenant)
+        return Response(serializer.data)
+
+    def create(self, request):
+        """Update current tenant's config."""
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response(
+                {'error': 'No tenant context'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = OrganizationConfigSerializer(tenant, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def branding(self, request):
+        """Update branding (logo, colors)."""
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response(
+                {'error': 'No tenant context'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Handle logo upload
+        logo = request.FILES.get('logo')
+        if logo:
+            tenant.logo_data = logo.read()
+            tenant.logo_name = logo.name
+            tenant.logo_mime_type = logo.content_type
+
+        primary_color = request.data.get('primary_color')
+        if primary_color:
+            tenant.primary_color = primary_color
+
+        tenant.save()
+        return Response(OrganizationBrandingSerializer(tenant).data)

@@ -58,7 +58,8 @@ class LeavePolicyViewSet(viewsets.ModelViewSet):
 class LeaveRequestViewSet(viewsets.ModelViewSet):
     """ViewSet for Leave Requests."""
     queryset = LeaveRequest.objects.select_related(
-        'employee', 'leave_type', 'reliever', 'approved_by'
+        'employee', 'leave_type', 'approved_by', 'handover_to',
+        'reliever_validation',
     )
     permission_classes = [IsAuthenticated, IsOwnerOrManager]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -585,7 +586,7 @@ class YearEndProcessView(APIView):
 class LeavePlanViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Leave Plans - Annual leave planning for employees.
-    Supports mandatory annual leave planning per NHIA SRS.
+    Supports mandatory annual leave planning.
     """
     queryset = LeavePlan.objects.select_related('employee', 'approved_by').prefetch_related('entries')
     permission_classes = [IsAuthenticated]

@@ -10,7 +10,7 @@ from django.utils.deprecation import MiddlewareMixin
 
 from core.logging import set_log_context, clear_log_context, request_stats
 
-logger = logging.getLogger('nhia_hrms')
+logger = logging.getLogger('hrms')
 
 # Thread-local storage for request context
 _request_local = threading.local()
@@ -52,6 +52,16 @@ def get_current_user():
 def set_current_user(user):
     """Explicitly set the current user in thread-local storage."""
     _request_local.user = user
+
+
+def get_current_tenant():
+    """Get the current tenant from thread-local storage."""
+    return getattr(_request_local, 'tenant', None)
+
+
+def set_current_tenant(tenant):
+    """Set the current tenant in thread-local storage."""
+    _request_local.tenant = tenant
 
 
 def get_current_request():
@@ -321,3 +331,49 @@ class CacheControlMiddleware(MiddlewareMixin):
             response['Cache-Control'] = 'private, no-cache'
 
         return response
+
+
+class TenantMiddleware:
+    """
+    Resolve tenant from request and store in thread-local.
+
+    Resolution order:
+    1. X-Tenant-ID header (API clients)
+    2. Authenticated user's organization
+    3. Default organization (single-tenant fallback)
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        tenant = self._resolve_tenant(request)
+        set_current_tenant(tenant)
+        request.tenant = tenant
+        try:
+            response = self.get_response(request)
+        finally:
+            set_current_tenant(None)
+        return response
+
+    def _resolve_tenant(self, request):
+        from organization.models import Organization
+
+        # 1. Header
+        tenant_id = request.META.get('HTTP_X_TENANT_ID')
+        if tenant_id:
+            try:
+                return Organization.objects.get(id=tenant_id, is_active=True)
+            except (Organization.DoesNotExist, ValueError):
+                pass
+
+        # 2. Authenticated user's organization
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            org = getattr(request.user, 'organization', None)
+            if org is not None:
+                return org
+
+        # 3. Default org (single-tenant backward compatibility)
+        try:
+            return Organization.objects.filter(is_active=True).first()
+        except Exception:
+            return None

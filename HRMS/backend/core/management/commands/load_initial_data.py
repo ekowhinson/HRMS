@@ -1,5 +1,5 @@
 """
-Management command to load initial data for NHIA HRMS.
+Management command to load initial data for HRMS.
 """
 
 from django.core.management.base import BaseCommand
@@ -14,7 +14,7 @@ from discipline.models import MisconductCategory, GrievanceCategory
 
 
 class Command(BaseCommand):
-    help = 'Load initial data for NHIA HRMS'
+    help = 'Load initial data for HRMS'
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -98,7 +98,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  Loaded {len(permissions)} permissions')
 
     def load_job_grades(self):
-        """Load NHIA job grades."""
+        """Load sample job grades."""
         grades = [
             ('GS-1', 'Grade 1 - Entry Level', 1, Decimal('2500'), Decimal('3500')),
             ('GS-2', 'Grade 2 - Junior Officer', 2, Decimal('3500'), Decimal('5000')),

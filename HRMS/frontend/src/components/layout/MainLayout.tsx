@@ -47,6 +47,17 @@ import {
   ChatBubbleLeftRightIcon,
   InboxStackIcon,
   ArrowTrendingUpIcon,
+  DocumentChartBarIcon,
+  TruckIcon,
+  ArchiveBoxIcon,
+  CubeIcon,
+  RectangleGroupIcon,
+  TableCellsIcon,
+  CloudArrowDownIcon,
+  WalletIcon,
+  PresentationChartBarIcon,
+  ClipboardDocumentListIcon,
+  FolderIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
@@ -200,11 +211,89 @@ const payrollSections: NavSection[] = [
   },
 ];
 
+// Finance Section - Top level items
+const financeNavigation: NavItem[] = [
+  { name: 'Chart of Accounts', href: '/finance/accounts', icon: TableCellsIcon },
+  { name: 'Journal Entries', href: '/finance/journal-entries', icon: DocumentChartBarIcon },
+  { name: 'Financial Reports', href: '/finance/reports', icon: PresentationChartBarIcon },
+];
+
+// Finance Section - Collapsible sub-sections
+const financeSections: NavSection[] = [
+  {
+    name: 'Budgets',
+    icon: WalletIcon,
+    items: [
+      { name: 'Budget Management', href: '/finance/budgets', icon: WalletIcon },
+    ],
+  },
+  {
+    name: 'Accounts Payable',
+    icon: CurrencyDollarIcon,
+    items: [
+      { name: 'Vendors', href: '/finance/vendors', icon: TruckIcon },
+      { name: 'Vendor Invoices', href: '/finance/vendor-invoices', icon: DocumentTextIcon },
+      { name: 'Payments', href: '/finance/payments', icon: BanknotesIcon },
+    ],
+  },
+  {
+    name: 'Accounts Receivable',
+    icon: CreditCardIcon,
+    items: [
+      { name: 'Customers', href: '/finance/customers', icon: UserGroupIcon },
+      { name: 'Customer Invoices', href: '/finance/customer-invoices', icon: DocumentTextIcon },
+    ],
+  },
+  {
+    name: 'Banking',
+    icon: BuildingOfficeIcon,
+    items: [
+      { name: 'Bank Accounts', href: '/finance/bank-accounts', icon: BuildingOfficeIcon },
+      { name: 'Reconciliation', href: '/finance/reconciliation', icon: ArrowPathIcon },
+    ],
+  },
+];
+
+// Procurement Section - Top level items
+const procurementNavigation: NavItem[] = [
+  { name: 'Requisitions', href: '/procurement/requisitions', icon: ClipboardDocumentListIcon },
+  { name: 'Purchase Orders', href: '/procurement/purchase-orders', icon: DocumentTextIcon },
+  { name: 'Goods Receipt', href: '/procurement/goods-receipt', icon: TruckIcon },
+  { name: 'Contracts', href: '/procurement/contracts', icon: DocumentChartBarIcon },
+];
+
+// Inventory Section - Top level items
+const inventoryNavigation: NavItem[] = [
+  { name: 'Items', href: '/inventory/items', icon: CubeIcon },
+  { name: 'Stock Movements', href: '/inventory/stock', icon: ArrowPathIcon },
+  { name: 'Warehouses', href: '/inventory/warehouses', icon: ArchiveBoxIcon },
+];
+
+// Inventory Section - Collapsible sub-sections
+const inventorySections: NavSection[] = [
+  {
+    name: 'Fixed Assets',
+    icon: RectangleGroupIcon,
+    items: [
+      { name: 'Asset Register', href: '/inventory/assets', icon: RectangleGroupIcon },
+      { name: 'Depreciation', href: '/inventory/depreciation', icon: ArrowTrendingUpIcon },
+    ],
+  },
+];
+
+// Projects Section - Top level items
+const projectsNavigation: NavItem[] = [
+  { name: 'Projects', href: '/projects', icon: FolderIcon },
+  { name: 'Timesheets', href: '/projects/timesheets', icon: ClockIcon },
+  { name: 'Resources', href: '/projects/resources', icon: UserGroupIcon },
+];
+
 // Administration Section - Top level items
 const adminNavigation: NavItem[] = [
   { name: 'Approval Workflows', href: '/admin/approval-workflows', icon: ClipboardDocumentCheckIcon },
   { name: 'Company Policies', href: '/admin/policies', icon: DocumentTextIcon },
   { name: 'Announcements', href: '/admin/announcements', icon: MegaphoneIcon },
+  { name: 'Report Builder', href: '/reports/builder', icon: PresentationChartBarIcon },
 ];
 
 // Administration Section - Collapsible sub-sections
@@ -215,6 +304,14 @@ const adminSections: NavSection[] = [
     items: [
       { name: 'Data Import', href: '/admin/data-import', icon: DocumentArrowUpIcon },
       { name: 'Data Analyzer', href: '/admin/data-analyzer', icon: SparklesIcon },
+      { name: 'Saved Reports', href: '/reports/saved', icon: DocumentChartBarIcon },
+    ],
+  },
+  {
+    name: 'Backup & Restore',
+    icon: CloudArrowDownIcon,
+    items: [
+      { name: 'Backups', href: '/admin/backups', icon: CloudArrowDownIcon },
     ],
   },
   {
@@ -550,7 +647,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { user, logout } = useAuthStore();
 
   // Combine all collapsible sections for easier lookup
-  const allSections = useMemo(() => [...hrSections, ...payrollSections, ...adminSections], []);
+  const allSections = useMemo(() => [...hrSections, ...payrollSections, ...financeSections, ...inventorySections, ...adminSections], []);
 
   // Determine which sections should be open based on current path
   const getInitialOpenSections = useMemo(() => {
@@ -696,6 +793,96 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   onToggle={() => toggleSection(section.name)}
                   location={location}
                   onLinkClick={onLinkClick}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Finance Section - For finance admins */}
+        {isHROrAdmin && (
+          <>
+            <SectionDivider label="Finance" icon={<CurrencyDollarIcon className="h-3.5 w-3.5" />} />
+            <div className="px-2 space-y-0.5">
+              {financeNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  item={item}
+                  isActive={location.pathname === item.href ||
+                    (location.pathname.startsWith(item.href) && item.href !== '/finance/reports')}
+                  onClick={onLinkClick}
+                />
+              ))}
+              {financeSections.map((section) => (
+                <CollapsibleSection
+                  key={section.name}
+                  section={section}
+                  isOpen={openSections[section.name] ?? false}
+                  onToggle={() => toggleSection(section.name)}
+                  location={location}
+                  onLinkClick={onLinkClick}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Procurement Section */}
+        {isHROrAdmin && (
+          <>
+            <SectionDivider label="Procurement" icon={<TruckIcon className="h-3.5 w-3.5" />} />
+            <div className="px-2 space-y-0.5">
+              {procurementNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  item={item}
+                  isActive={location.pathname === item.href || location.pathname.startsWith(item.href)}
+                  onClick={onLinkClick}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Inventory & Assets Section */}
+        {isHROrAdmin && (
+          <>
+            <SectionDivider label="Inventory" icon={<ArchiveBoxIcon className="h-3.5 w-3.5" />} />
+            <div className="px-2 space-y-0.5">
+              {inventoryNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  item={item}
+                  isActive={location.pathname === item.href || location.pathname.startsWith(item.href)}
+                  onClick={onLinkClick}
+                />
+              ))}
+              {inventorySections.map((section) => (
+                <CollapsibleSection
+                  key={section.name}
+                  section={section}
+                  isOpen={openSections[section.name] ?? false}
+                  onToggle={() => toggleSection(section.name)}
+                  location={location}
+                  onLinkClick={onLinkClick}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Projects Section */}
+        {isHROrAdmin && (
+          <>
+            <SectionDivider label="Projects" icon={<FolderIcon className="h-3.5 w-3.5" />} />
+            <div className="px-2 space-y-0.5">
+              {projectsNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  item={item}
+                  isActive={location.pathname === item.href ||
+                    (item.href !== '/projects' && location.pathname.startsWith(item.href))}
+                  onClick={onLinkClick}
                 />
               ))}
             </div>

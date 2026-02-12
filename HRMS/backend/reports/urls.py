@@ -2,13 +2,16 @@
 Reports and Analytics URL configuration.
 """
 
-from django.urls import path
+from django.urls import path, include
 
 from . import views
 
 app_name = 'reports'
 
 urlpatterns = [
+    # Ad-hoc report builder
+    path('builder/', include('reports.builder_urls')),
+
     # Dashboard
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
     path('dashboard/hr/', views.HRDashboardView.as_view(), name='hr-dashboard'),

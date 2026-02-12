@@ -1,6 +1,5 @@
 """
 Comprehensive Analytics and KPI calculations for HRMS Dashboard.
-Based on NHIA SRS requirements.
 """
 
 from django.db.models import Count, Sum, Avg, F, Q, Value, Case, When

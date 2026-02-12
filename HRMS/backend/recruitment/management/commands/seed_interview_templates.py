@@ -1,5 +1,5 @@
 """
-Seed command for NHIA interview scoring templates.
+Seed command for interview scoring templates.
 """
 
 from django.core.management.base import BaseCommand
@@ -7,7 +7,7 @@ from recruitment.models import InterviewScoreTemplate, InterviewScoreCategory
 
 
 class Command(BaseCommand):
-    help = 'Seed standard interview scoring templates per NHIA SRS'
+    help = 'Seed standard interview scoring templates'
 
     def handle(self, *args, **options):
         templates = [
@@ -85,7 +85,7 @@ Pass mark: 60 points (60%)
                      'description': 'Proactive approach and innovative thinking',
                      'scoring_guide': '1-3: Reactive, 4-6: Moderate, 7-8: Proactive, 9-10: Highly innovative'},
                     {'name': 'Organizational Knowledge', 'max_score': 10, 'weight': 1.0,
-                     'description': 'Understanding of NHIA operations and policies',
+                     'description': 'Understanding of organizational operations and policies',
                      'scoring_guide': '1-3: Limited, 4-6: Basic, 7-8: Good, 9-10: Comprehensive'},
                     {'name': 'Peer Relationships', 'max_score': 5, 'weight': 1.0,
                      'description': 'Working relationships with colleagues',

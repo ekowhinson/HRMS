@@ -203,7 +203,7 @@ class DevelopmentPlanAdmin(admin.ModelAdmin):
     inlines = [DevelopmentActivityInline]
 
 
-# New NHIA models
+# Additional models
 
 @admin.register(CoreValue)
 class CoreValueAdmin(admin.ModelAdmin):

@@ -1,5 +1,5 @@
 """
-Seed command for NHIA-specific loan types.
+Seed command for standard loan types.
 """
 
 from django.core.management.base import BaseCommand
@@ -7,7 +7,7 @@ from benefits.models import LoanType
 
 
 class Command(BaseCommand):
-    help = 'Seed standard NHIA loan types'
+    help = 'Seed standard loan types'
 
     def handle(self, *args, **options):
         loan_types = [

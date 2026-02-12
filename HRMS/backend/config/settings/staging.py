@@ -1,5 +1,5 @@
 """
-Staging settings for NHIA HRMS.
+Staging settings for HRMS.
 
 Loaded when DJANGO_ENV="staging".
 Mirrors production security with shorter HSTS and more verbose logging.
@@ -32,7 +32,7 @@ SIMPLE_JWT['SIGNING_KEY'] = SECRET_KEY
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'nhia_hrms'),
+        'NAME': os.environ.get('DB_NAME', 'hrms'),
         'USER': os.environ.get('DB_USER', 'postgres'),
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
@@ -201,12 +201,12 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
-        'nhia_hrms': {
+        'hrms': {
             'handlers': ['stdout'],
             'level': 'INFO',
             'propagate': False,
         },
-        'nhia_hrms.sql.slow': {
+        'hrms.sql.slow': {
             'handlers': ['stdout'],
             'level': 'WARNING',
             'propagate': False,

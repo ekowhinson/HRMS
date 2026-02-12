@@ -1,5 +1,5 @@
 """
-Employee management models for NHIA HRMS.
+Employee management models for HRMS.
 """
 
 import base64

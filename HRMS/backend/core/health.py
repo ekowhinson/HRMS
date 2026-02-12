@@ -1,5 +1,5 @@
 """
-Health check views for NHIA HRMS.
+Health check views for HRMS.
 
 Three tiers of health endpoints:
   /healthz/     Liveness  — always 200 if the process is alive (no DB/Redis)
@@ -18,7 +18,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 
-logger = logging.getLogger('nhia_hrms')
+logger = logging.getLogger('hrms')
 
 # Process start time for uptime calculation
 _process_start = time.monotonic()
@@ -100,7 +100,7 @@ def system_status(request):
     from core.logging import request_stats
 
     status = {
-        'service': 'NHIA HRMS API',
+        'service': 'HRMS API',
         'version': getattr(settings, 'VERSION', '1.0.0'),
         'environment': getattr(settings, 'DJANGO_ENV', 'unknown'),
         'django_version': django.get_version(),

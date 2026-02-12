@@ -1,5 +1,5 @@
 """
-Leave management models for NHIA HRMS.
+Leave management models for HRMS.
 """
 
 import base64
@@ -768,7 +768,7 @@ class LeaveReminder(BaseModel):
 class LeaveApprovalWorkflowTemplate(BaseModel):
     """
     Templates for leave approval workflows by location type.
-    Per NHIA SRS:
+    Approval chains by location type:
     - District: Staff → District Manager → Regional Director
     - Regional: Officers → Unit Head → Regional Director
     - CPC: Officers → Supervisors → Deputy Director

@@ -1,5 +1,5 @@
 """
-Management command to set up NHIA approval workflows per the SRS.
+Management command to set up approval workflows.
 
 Based on the Software Requirement Specification, the following approval
 processes are defined:
@@ -70,7 +70,7 @@ REQUIRED_ROLES = [
     {'code': 'FINANCE_DIRECTOR', 'name': 'Finance Director', 'level': 70,
      'description': 'Director of Finance - approves payroll and financial transactions'},
     {'code': 'CEO', 'name': 'Chief Executive Officer', 'level': 100,
-     'description': 'Chief Executive Officer of NHIA'},
+     'description': 'Chief Executive Officer'},
     {'code': 'DCE', 'name': 'Deputy Chief Executive', 'level': 90,
      'description': 'Deputy Chief Executive (Admin & HR, Finance, or Operations)'},
 ]
@@ -912,7 +912,7 @@ WORKFLOWS = [
 
 
 class Command(BaseCommand):
-    help = 'Set up NHIA approval workflows per the SRS requirements'
+    help = 'Set up approval workflows per the SRS requirements'
 
     def add_arguments(self, parser):
         parser.add_argument(

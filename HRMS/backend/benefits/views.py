@@ -3,7 +3,7 @@ Benefits and Loans views.
 """
 
 from decimal import Decimal
-from rest_framework import viewsets, generics, status
+from rest_framework import viewsets, generics, status, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -18,7 +18,8 @@ from .models import (
     FuneralGrantType, FuneralGrantClaim,
     MedicalLensBenefit, MedicalLensClaim,
     ProfessionalSubscriptionType, ProfessionalSubscription,
-    BenefitEligibilityRecord
+    BenefitEligibilityRecord,
+    CustomBenefitType, CustomBenefitClaim
 )
 from .serializers import (
     LoanTypeSerializer, LoanAccountSerializer, LoanAccountCreateSerializer,
@@ -28,7 +29,8 @@ from .serializers import (
     FuneralGrantTypeSerializer, FuneralGrantClaimSerializer, FuneralGrantClaimCreateSerializer,
     MedicalLensBenefitSerializer, MedicalLensClaimSerializer, MedicalLensClaimCreateSerializer,
     ProfessionalSubscriptionTypeSerializer, ProfessionalSubscriptionSerializer,
-    ProfessionalSubscriptionCreateSerializer, BenefitEligibilityRecordSerializer
+    ProfessionalSubscriptionCreateSerializer, BenefitEligibilityRecordSerializer,
+    CustomBenefitTypeSerializer, CustomBenefitClaimSerializer
 )
 from .services import LoanEligibilityService, LoanApprovalService
 
@@ -434,7 +436,7 @@ class EmployeeBenefitSummaryView(APIView):
 
 
 # ========================================
-# NHIA Specific Benefits Views
+# Organization Benefits Views
 # ========================================
 
 class FuneralGrantTypeViewSet(viewsets.ModelViewSet):
@@ -1326,3 +1328,74 @@ class RentDeductionViewSet(viewsets.ModelViewSet):
                 by_type[housing_type]['total_deduction'] += rent.fixed_amount
 
         return Response(by_type)
+
+
+# ========================================
+# Generic Configurable Benefits Views
+# ========================================
+
+class CustomBenefitTypeViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing custom benefit types (admin CRUD)."""
+    queryset = CustomBenefitType.objects.filter(is_active=True)
+    serializer_class = CustomBenefitTypeSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'is_active', 'is_taxable']
+    search_fields = ['code', 'name', 'description']
+    ordering = ['category', 'name']
+
+
+class CustomBenefitClaimViewSet(viewsets.ModelViewSet):
+    """ViewSet for employee benefit claims."""
+    serializer_class = CustomBenefitClaimSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['benefit_type', 'status', 'employee']
+    search_fields = ['claim_number', 'employee__first_name', 'employee__last_name']
+    ordering = ['-claim_date']
+
+    def get_queryset(self):
+        return CustomBenefitClaim.objects.select_related(
+            'employee', 'benefit_type', 'approved_by'
+        )
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        claim = self.get_object()
+        if claim.status != CustomBenefitClaim.ClaimStatus.DRAFT:
+            return Response(
+                {'error': 'Only draft claims can be submitted'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        claim.status = CustomBenefitClaim.ClaimStatus.SUBMITTED
+        claim.save()
+        return Response(self.get_serializer(claim).data)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        claim = self.get_object()
+        if claim.status != CustomBenefitClaim.ClaimStatus.SUBMITTED:
+            return Response(
+                {'error': 'Only submitted claims can be approved'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        approved_amount = request.data.get('approved_amount', claim.claimed_amount)
+        claim.status = CustomBenefitClaim.ClaimStatus.APPROVED
+        claim.approved_amount = approved_amount
+        claim.approved_by = request.user
+        claim.approved_at = timezone.now()
+        claim.save()
+        return Response(self.get_serializer(claim).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        claim = self.get_object()
+        if claim.status != CustomBenefitClaim.ClaimStatus.SUBMITTED:
+            return Response(
+                {'error': 'Only submitted claims can be rejected'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        claim.status = CustomBenefitClaim.ClaimStatus.REJECTED
+        claim.rejection_reason = request.data.get('reason', '')
+        claim.save()
+        return Response(self.get_serializer(claim).data)

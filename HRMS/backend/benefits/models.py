@@ -1,5 +1,5 @@
 """
-Benefits, Loans, and Reimbursements models for NHIA HRMS.
+Benefits, Loans, and Reimbursements models for HRMS.
 """
 
 from django.db import models
@@ -589,7 +589,7 @@ class ExpenseClaimItem(BaseModel):
 
 
 # ========================================
-# NHIA Specific Benefits
+# Organization Specific Benefits
 # ========================================
 
 class FuneralGrantType(BaseModel):
@@ -1622,3 +1622,159 @@ class RentDeduction(BaseModel):
 
     def __str__(self):
         return f"{self.employee.full_name} - {self.housing_type} - {self.property_address[:30] if self.property_address else 'N/A'}"
+
+
+# ========================================
+# Generic Configurable Benefits System
+# ========================================
+
+class CustomBenefitType(BaseModel):
+    """
+    Configurable benefit type that organizations can define.
+    Replaces hardcoded benefit models with a flexible system.
+    """
+    class BenefitCategory(models.TextChoices):
+        GRANT = 'GRANT', 'Grant'
+        REIMBURSEMENT = 'REIMBURSEMENT', 'Reimbursement'
+        SUBSCRIPTION = 'SUBSCRIPTION', 'Subscription'
+        MEDICAL = 'MEDICAL', 'Medical'
+        OTHER = 'OTHER', 'Other'
+
+    class AmountCalculation(models.TextChoices):
+        FIXED = 'FIXED', 'Fixed Amount'
+        VARIABLE = 'VARIABLE', 'Variable Amount'
+        SALARY_PERCENT = 'SALARY_PERCENT', 'Percentage of Salary'
+
+    code = models.CharField(max_length=30, unique=True)
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    category = models.CharField(
+        max_length=20,
+        choices=BenefitCategory.choices,
+        default=BenefitCategory.OTHER
+    )
+    max_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    amount_calculation = models.CharField(
+        max_length=20,
+        choices=AmountCalculation.choices,
+        default=AmountCalculation.VARIABLE
+    )
+    eligibility_period_months = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text='Cooldown between claims in months'
+    )
+    max_occurrences = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text='Lifetime limit on claims'
+    )
+    max_per_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    min_service_months = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Minimum months of service required'
+    )
+    eligible_grades = models.ManyToManyField(
+        'organization.JobGrade',
+        blank=True,
+        related_name='eligible_benefit_types'
+    )
+    eligibility_rules = models.JSONField(
+        default=dict, blank=True,
+        help_text='Extensible custom eligibility rules'
+    )
+    required_documents = models.JSONField(
+        default=list, blank=True,
+        help_text='List of required document type names'
+    )
+    requires_receipt = models.BooleanField(default=True)
+    custom_fields = models.JSONField(
+        default=list, blank=True,
+        help_text='Dynamic form field definitions'
+    )
+    is_taxable = models.BooleanField(default=False)
+    auto_post_to_payroll = models.BooleanField(default=False)
+    pay_component = models.ForeignKey(
+        'payroll.PayComponent',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='custom_benefit_types'
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'custom_benefit_types'
+        ordering = ['category', 'name']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class CustomBenefitClaim(BaseModel):
+    """
+    Employee claim against a CustomBenefitType.
+    Supports configurable workflow and dynamic fields.
+    """
+    class ClaimStatus(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+        PAID = 'PAID', 'Paid'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.CASCADE,
+        related_name='custom_benefit_claims'
+    )
+    benefit_type = models.ForeignKey(
+        CustomBenefitType,
+        on_delete=models.PROTECT,
+        related_name='claims'
+    )
+    claim_number = models.CharField(max_length=30, unique=True, editable=False)
+    claim_date = models.DateField()
+    claimed_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    approved_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=ClaimStatus.choices,
+        default=ClaimStatus.DRAFT
+    )
+    custom_data = models.JSONField(
+        default=dict, blank=True,
+        help_text='Values for custom fields defined on benefit type'
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_custom_claims'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+    payment_reference = models.CharField(max_length=100, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'custom_benefit_claims'
+        ordering = ['-claim_date', '-created_at']
+        indexes = [
+            models.Index(fields=['employee', 'benefit_type', 'status']),
+            models.Index(fields=['status', '-claim_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.claim_number} - {self.benefit_type.name} ({self.employee})"
+
+    def save(self, *args, **kwargs):
+        if not self.claim_number:
+            from django.utils import timezone
+            now = timezone.now()
+            prefix = self.benefit_type.code if self.benefit_type_id else 'CB'
+            count = CustomBenefitClaim.all_objects.filter(
+                claim_date__year=now.year,
+            ).count() + 1
+            self.claim_number = f"CB-{prefix}-{now.year}-{count:05d}"
+        super().save(*args, **kwargs)

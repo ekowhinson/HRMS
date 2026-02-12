@@ -14,7 +14,7 @@ from celery.schedules import crontab
 from celery.signals import task_failure, task_prerun, task_postrun, task_retry
 from django.conf import settings
 
-logger = logging.getLogger('nhia_hrms')
+logger = logging.getLogger('hrms')
 
 # Set the default Django settings module
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
@@ -31,7 +31,7 @@ app.conf.update(
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',
-    timezone='Africa/Accra',
+    timezone=settings.TIME_ZONE,
     enable_utc=True,
 
     # Task execution settings
@@ -52,6 +52,8 @@ app.conf.update(
         'imports.tasks.*': {'queue': 'imports'},
         'reports.tasks.*': {'queue': 'reports'},
         'payroll.tasks.*': {'queue': 'payroll'},
+        'finance.tasks.*': {'queue': 'finance'},
+        'procurement.tasks.*': {'queue': 'procurement'},
     },
 
     # Default queue
@@ -102,11 +104,27 @@ app.conf.update(
             'task': 'core.tasks.check_appraisal_deadlines',
             'schedule': crontab(hour=0, minute=30),  # Daily at 00:30
         },
+
+        # ── Backup & Restore ──────────────────────────────────────
+        'cleanup-expired-backups': {
+            'task': 'core.backup_tasks.cleanup_expired_backups_task',
+            'schedule': crontab(hour=3, minute=0),  # Daily at 3:00 AM
+        },
+        'check-backup-schedules': {
+            'task': 'core.backup_tasks.check_backup_schedules_task',
+            'schedule': crontab(minute='*/30'),  # Every 30 minutes
+        },
+
+        # ── Report Scheduling ─────────────────────────────────────
+        'check-scheduled-reports': {
+            'task': 'reports.tasks.check_scheduled_reports',
+            'schedule': crontab(minute='*/15'),  # Every 15 minutes
+        },
     },
 )
 
 # Auto-discover tasks from all installed apps
-app.autodiscover_tasks(['imports', 'core', 'payroll', 'reports', 'training'])
+app.autodiscover_tasks(['imports', 'core', 'payroll', 'reports', 'training', 'finance', 'procurement', 'inventory', 'projects'])
 
 
 # ── Task lifecycle signal handlers ──────────────────────────────────────────

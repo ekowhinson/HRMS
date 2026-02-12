@@ -1,5 +1,5 @@
 """
-Payroll setup processor for NHIA HRMS.
+Payroll setup processor for HRMS.
 
 Implements 5 phases of payroll data import:
 1. Update Employee Data (grades, NIA, bank accounts)

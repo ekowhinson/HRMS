@@ -74,6 +74,11 @@ export default function SalaryUpgradePage() {
   const [rejectTarget, setRejectTarget] = useState<SalaryUpgradeRequest | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
 
+  // Upgrade mode: 'notch' = select specific notch, 'increment' = percentage/amount
+  const [upgradeMode, setUpgradeMode] = useState<'notch' | 'increment'>('notch')
+  const [incrementType, setIncrementType] = useState<'PERCENTAGE' | 'AMOUNT'>('PERCENTAGE')
+  const [incrementValue, setIncrementValue] = useState<number>(0)
+
   // Create form state
   const [createForm, setCreateForm] = useState({
     employee: '',
@@ -278,15 +283,27 @@ export default function SalaryUpgradePage() {
     },
   })
 
-  // Auto-preview when employee + notch are selected
+  // Auto-preview when employee + notch/increment are selected
   const handlePreview = () => {
-    if (!createForm.employee || !createForm.new_notch) return
-    previewMutation.mutate({
-      employee: createForm.employee,
-      new_notch: createForm.new_notch,
-      new_grade: createForm.new_grade || undefined,
-      new_position: createForm.new_position || undefined,
-    })
+    if (!createForm.employee) return
+    if (upgradeMode === 'notch') {
+      if (!createForm.new_notch) return
+      previewMutation.mutate({
+        employee: createForm.employee,
+        new_notch: createForm.new_notch,
+        new_grade: createForm.new_grade || undefined,
+        new_position: createForm.new_position || undefined,
+      })
+    } else {
+      if (!incrementValue) return
+      previewMutation.mutate({
+        employee: createForm.employee,
+        increment_type: incrementType,
+        increment_value: incrementValue,
+        new_grade: createForm.new_grade || undefined,
+        new_position: createForm.new_position || undefined,
+      })
+    }
   }
 
   const resetCreateForm = () => {
@@ -295,6 +312,9 @@ export default function SalaryUpgradePage() {
       new_grade: '', new_position: '', effective_from: '', description: '',
     })
     setPreview(null)
+    setUpgradeMode('notch')
+    setIncrementType('PERCENTAGE')
+    setIncrementValue(0)
   }
 
   const resetBulkForm = () => {
@@ -304,6 +324,9 @@ export default function SalaryUpgradePage() {
       reason: '', new_band: '', new_level: '', new_notch: '',
       new_grade: '', new_position: '', effective_from: '', description: '',
     })
+    setUpgradeMode('notch')
+    setIncrementType('PERCENTAGE')
+    setIncrementValue(0)
   }
 
   const handleCreateSubmit = () => {
@@ -318,21 +341,36 @@ export default function SalaryUpgradePage() {
 
   const handleConfirm = () => {
     if (pendingSubmit === 'individual') {
-      createMutation.mutate({
+      const data: any = {
         employee: createForm.employee,
-        new_notch: createForm.new_notch,
-        new_grade: createForm.new_grade || undefined,
-        new_position: createForm.new_position || undefined,
         reason: createForm.reason,
         effective_from: createForm.effective_from,
         description: createForm.description,
-      })
+      }
+      if (upgradeMode === 'notch') {
+        data.new_notch = createForm.new_notch
+      } else {
+        // Use resolved notch from preview if available, otherwise let backend resolve
+        if (preview?.new_notch_id) {
+          data.new_notch = preview.new_notch_id
+        }
+        data.increment_type = incrementType
+        data.increment_value = incrementValue
+      }
+      if (createForm.new_grade) data.new_grade = createForm.new_grade
+      if (createForm.new_position) data.new_position = createForm.new_position
+      createMutation.mutate(data)
     } else if (pendingSubmit === 'bulk') {
       const data: any = {
-        new_notch: bulkForm.new_notch,
         reason: bulkForm.reason,
         effective_from: bulkForm.effective_from,
         description: bulkForm.description,
+      }
+      if (upgradeMode === 'notch') {
+        data.new_notch = bulkForm.new_notch
+      } else {
+        data.increment_type = incrementType
+        data.increment_value = incrementValue
       }
       if (bulkForm.new_grade) data.new_grade = bulkForm.new_grade
       if (bulkForm.new_position) data.new_position = bulkForm.new_position
@@ -541,7 +579,14 @@ export default function SalaryUpgradePage() {
                         <div className="text-xs text-gray-400">{item.employee_number}</div>
                       </td>
                       <td className="px-4 py-3.5 text-xs text-gray-600">
-                        {item.reason_display}
+                        <div>{item.reason_display}</div>
+                        {item.increment_type && (
+                          <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700">
+                            {item.increment_type === 'PERCENTAGE'
+                              ? `${item.increment_value}%`
+                              : `GHS ${item.increment_value?.toLocaleString()}`}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5 text-xs text-gray-600">
                         {item.current_grade_name && item.new_grade_name && item.current_grade_name !== item.new_grade_name ? (
@@ -665,6 +710,35 @@ export default function SalaryUpgradePage() {
             />
           </div>
 
+          {/* Upgrade Mode Toggle */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Upgrade Method</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setUpgradeMode('notch'); setPreview(null) }}
+                className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                  upgradeMode === 'notch'
+                    ? 'bg-primary-50 border-primary-500 text-primary-700'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Select Notch
+              </button>
+              <button
+                type="button"
+                onClick={() => { setUpgradeMode('increment'); setPreview(null) }}
+                className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                  upgradeMode === 'increment'
+                    ? 'bg-primary-50 border-primary-500 text-primary-700'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Percentage / Amount
+              </button>
+            </div>
+          </div>
+
           {/* Grade Selector (for PROMOTION / GRADE_UPGRADE) */}
           {showGradeSelector(createForm.reason) && (
             <div>
@@ -699,56 +773,99 @@ export default function SalaryUpgradePage() {
             </div>
           )}
 
-          {/* Cascading Notch Selectors */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Band *</label>
-              <select
-                value={createForm.new_band}
-                onChange={(e) => setCreateForm({ ...createForm, new_band: e.target.value, new_level: '', new_notch: '' })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="">Select band...</option>
-                {(salaryBands || []).map((b: any) => (
-                  <option key={b.id} value={b.id}>{b.code} — {b.name}</option>
-                ))}
-              </select>
+          {/* Increment Mode: Percentage / Amount */}
+          {upgradeMode === 'increment' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Increment Type</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIncrementType('PERCENTAGE'); setPreview(null) }}
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                      incrementType === 'PERCENTAGE'
+                        ? 'bg-primary-50 border-primary-500 text-primary-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Percentage (%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIncrementType('AMOUNT'); setPreview(null) }}
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                      incrementType === 'AMOUNT'
+                        ? 'bg-primary-50 border-primary-500 text-primary-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Fixed Amount (GHS)
+                  </button>
+                </div>
+              </div>
+              <Input
+                label={incrementType === 'PERCENTAGE' ? 'Percentage (%)' : 'Amount (GHS)'}
+                type="number"
+                step={incrementType === 'PERCENTAGE' ? '0.1' : '0.01'}
+                placeholder={incrementType === 'PERCENTAGE' ? 'e.g. 10 for 10%' : 'e.g. 500.00'}
+                value={incrementValue || ''}
+                onChange={(e) => { setIncrementValue(parseFloat(e.target.value) || 0); setPreview(null) }}
+              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Level *</label>
-              <select
-                value={createForm.new_level}
-                onChange={(e) => setCreateForm({ ...createForm, new_level: e.target.value, new_notch: '' })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                disabled={!createForm.new_band}
-              >
-                <option value="">Select level...</option>
-                {(salaryLevels || []).map((l: any) => (
-                  <option key={l.id} value={l.id}>{l.code} — {l.name}</option>
-                ))}
-              </select>
+          )}
+
+          {/* Notch Mode: Cascading Selectors */}
+          {upgradeMode === 'notch' && (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Band *</label>
+                <select
+                  value={createForm.new_band}
+                  onChange={(e) => setCreateForm({ ...createForm, new_band: e.target.value, new_level: '', new_notch: '' })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Select band...</option>
+                  {(salaryBands || []).map((b: any) => (
+                    <option key={b.id} value={b.id}>{b.code} — {b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Level *</label>
+                <select
+                  value={createForm.new_level}
+                  onChange={(e) => setCreateForm({ ...createForm, new_level: e.target.value, new_notch: '' })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={!createForm.new_band}
+                >
+                  <option value="">Select level...</option>
+                  {(salaryLevels || []).map((l: any) => (
+                    <option key={l.id} value={l.id}>{l.code} — {l.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Notch *</label>
+                <select
+                  value={createForm.new_notch}
+                  onChange={(e) => {
+                    setCreateForm({ ...createForm, new_notch: e.target.value })
+                    setPreview(null)
+                  }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={!createForm.new_level}
+                >
+                  <option value="">Select notch...</option>
+                  {(salaryNotches || []).map((n: any) => (
+                    <option key={n.id} value={n.id}>{n.code} — {n.name} ({formatCurrency(n.amount)})</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Notch *</label>
-              <select
-                value={createForm.new_notch}
-                onChange={(e) => {
-                  setCreateForm({ ...createForm, new_notch: e.target.value })
-                  setPreview(null)
-                }}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                disabled={!createForm.new_level}
-              >
-                <option value="">Select notch...</option>
-                {(salaryNotches || []).map((n: any) => (
-                  <option key={n.id} value={n.id}>{n.code} — {n.name} ({formatCurrency(n.amount)})</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          )}
 
           {/* Preview Button */}
-          {createForm.employee && createForm.new_notch && (
+          {createForm.employee && (upgradeMode === 'notch' ? createForm.new_notch : incrementValue > 0) && (
             <Button
               variant="secondary"
               size="sm"
@@ -833,7 +950,13 @@ export default function SalaryUpgradePage() {
             </Button>
             <Button
               variant="primary"
-              disabled={!createForm.employee || !createForm.new_notch || !createForm.reason || !createForm.effective_from || createMutation.isPending}
+              disabled={
+                !createForm.employee ||
+                !createForm.reason ||
+                !createForm.effective_from ||
+                (upgradeMode === 'notch' ? !createForm.new_notch : !incrementValue) ||
+                createMutation.isPending
+              }
               onClick={handleCreateSubmit}
             >
               {createMutation.isPending ? 'Submitting...' : 'Submit for Approval'}
@@ -982,6 +1105,35 @@ export default function SalaryUpgradePage() {
             />
           </div>
 
+          {/* Upgrade Mode Toggle */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Upgrade Method</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setUpgradeMode('notch')}
+                className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                  upgradeMode === 'notch'
+                    ? 'bg-primary-50 border-primary-500 text-primary-700'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Select Notch
+              </button>
+              <button
+                type="button"
+                onClick={() => setUpgradeMode('increment')}
+                className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                  upgradeMode === 'increment'
+                    ? 'bg-primary-50 border-primary-500 text-primary-700'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Percentage / Amount
+              </button>
+            </div>
+          </div>
+
           {/* Grade (for PROMOTION / GRADE_UPGRADE) */}
           {showGradeSelector(bulkForm.reason) && (
             <div>
@@ -1016,50 +1168,93 @@ export default function SalaryUpgradePage() {
             </div>
           )}
 
-          {/* Cascading Notch Selectors */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Band *</label>
-              <select
-                value={bulkForm.new_band}
-                onChange={(e) => setBulkForm({ ...bulkForm, new_band: e.target.value, new_level: '', new_notch: '' })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="">Select band...</option>
-                {(salaryBands || []).map((b: any) => (
-                  <option key={b.id} value={b.id}>{b.code} — {b.name}</option>
-                ))}
-              </select>
+          {/* Increment Mode: Percentage / Amount */}
+          {upgradeMode === 'increment' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Increment Type</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIncrementType('PERCENTAGE')}
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                      incrementType === 'PERCENTAGE'
+                        ? 'bg-primary-50 border-primary-500 text-primary-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Percentage (%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIncrementType('AMOUNT')}
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                      incrementType === 'AMOUNT'
+                        ? 'bg-primary-50 border-primary-500 text-primary-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Fixed Amount (GHS)
+                  </button>
+                </div>
+              </div>
+              <Input
+                label={incrementType === 'PERCENTAGE' ? 'Percentage (%)' : 'Amount (GHS)'}
+                type="number"
+                step={incrementType === 'PERCENTAGE' ? '0.1' : '0.01'}
+                placeholder={incrementType === 'PERCENTAGE' ? 'e.g. 10 for 10%' : 'e.g. 500.00'}
+                value={incrementValue || ''}
+                onChange={(e) => setIncrementValue(parseFloat(e.target.value) || 0)}
+              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Level *</label>
-              <select
-                value={bulkForm.new_level}
-                onChange={(e) => setBulkForm({ ...bulkForm, new_level: e.target.value, new_notch: '' })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                disabled={!bulkForm.new_band}
-              >
-                <option value="">Select level...</option>
-                {(salaryLevels || []).map((l: any) => (
-                  <option key={l.id} value={l.id}>{l.code} — {l.name}</option>
-                ))}
-              </select>
+          )}
+
+          {/* Notch Mode: Cascading Selectors */}
+          {upgradeMode === 'notch' && (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Band *</label>
+                <select
+                  value={bulkForm.new_band}
+                  onChange={(e) => setBulkForm({ ...bulkForm, new_band: e.target.value, new_level: '', new_notch: '' })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Select band...</option>
+                  {(salaryBands || []).map((b: any) => (
+                    <option key={b.id} value={b.id}>{b.code} — {b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Level *</label>
+                <select
+                  value={bulkForm.new_level}
+                  onChange={(e) => setBulkForm({ ...bulkForm, new_level: e.target.value, new_notch: '' })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={!bulkForm.new_band}
+                >
+                  <option value="">Select level...</option>
+                  {(salaryLevels || []).map((l: any) => (
+                    <option key={l.id} value={l.id}>{l.code} — {l.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Notch *</label>
+                <select
+                  value={bulkForm.new_notch}
+                  onChange={(e) => setBulkForm({ ...bulkForm, new_notch: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={!bulkForm.new_level}
+                >
+                  <option value="">Select notch...</option>
+                  {(salaryNotches || []).map((n: any) => (
+                    <option key={n.id} value={n.id}>{n.code} — {n.name} ({formatCurrency(n.amount)})</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Notch *</label>
-              <select
-                value={bulkForm.new_notch}
-                onChange={(e) => setBulkForm({ ...bulkForm, new_notch: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                disabled={!bulkForm.new_level}
-              >
-                <option value="">Select notch...</option>
-                {(salaryNotches || []).map((n: any) => (
-                  <option key={n.id} value={n.id}>{n.code} — {n.name} ({formatCurrency(n.amount)})</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          )}
 
           {/* Effective From */}
           <div>
@@ -1090,7 +1285,12 @@ export default function SalaryUpgradePage() {
             </Button>
             <Button
               variant="primary"
-              disabled={!bulkForm.new_notch || !bulkForm.reason || !bulkForm.effective_from || bulkMutation.isPending}
+              disabled={
+                !bulkForm.reason ||
+                !bulkForm.effective_from ||
+                (upgradeMode === 'notch' ? !bulkForm.new_notch : !incrementValue) ||
+                bulkMutation.isPending
+              }
               onClick={handleBulkSubmit}
             >
               {bulkMutation.isPending ? 'Submitting...' : 'Submit Bulk for Approval'}

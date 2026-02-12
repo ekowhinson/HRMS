@@ -25,6 +25,7 @@ from .models import (
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
     SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings,
     BackpayRequest, BackpayDetail, SalaryUpgradeRequest,
+    SalaryIncrementHistory,
 )
 from .serializers import (
     PayComponentSerializer, SalaryStructureSerializer,
@@ -46,6 +47,8 @@ from .serializers import (
     SalaryUpgradeCreateSerializer, SalaryUpgradeBulkSerializer,
     SalaryUpgradePreviewSerializer, SalaryUpgradeRequestSerializer,
     SalaryUpgradeRejectSerializer,
+    SalaryIncrementPreviewSerializer, SalaryIncrementApplySerializer,
+    SalaryIncrementHistorySerializer,
 )
 from .services import PayrollService
 from .salary_upgrade_service import SalaryUpgradeService
@@ -1553,6 +1556,72 @@ class SalaryNotchViewSet(viewsets.ModelViewSet):
     ordering_fields = ['sort_order', 'code', 'name', 'amount', 'created_at']
     ordering = ['level__band__sort_order', 'level__sort_order', 'sort_order', 'code']
 
+    def _has_role(self, user, role_codes):
+        """Check if user has any of the given role codes (or is staff/superuser)."""
+        if user.is_staff or user.is_superuser:
+            return True
+        return user.user_roles.filter(
+            role__code__in=role_codes,
+            is_active=True,
+        ).exists()
+
+    @action(detail=False, methods=['post'], url_path='global-increment/preview')
+    def global_increment_preview(self, request):
+        """Preview the effect of a global salary increment (read-only)."""
+        serializer = SalaryIncrementPreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        from .salary_increment_service import SalaryIncrementService
+        result = SalaryIncrementService.preview(
+            increment_type=data['increment_type'],
+            value=data['value'],
+            effective_date=data['effective_date'],
+            band_id=data.get('band_id'),
+            level_id=data.get('level_id'),
+        )
+        return Response(result)
+
+    @action(detail=False, methods=['post'], url_path='global-increment/apply')
+    def global_increment_apply(self, request):
+        """Apply a global salary increment. Requires PAYROLL_ADMIN role."""
+        if not self._has_role(request.user, ['PAYROLL_ADMIN']):
+            return Response(
+                {'error': 'You do not have permission to apply salary increments.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = SalaryIncrementApplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        from .salary_increment_service import SalaryIncrementService
+        try:
+            history = SalaryIncrementService.apply(
+                increment_type=data['increment_type'],
+                value=data['value'],
+                effective_date=data['effective_date'],
+                user=request.user,
+                band_id=data.get('band_id'),
+                level_id=data.get('level_id'),
+                description=data.get('description', ''),
+            )
+            return Response(
+                SalaryIncrementHistorySerializer(history).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], url_path='global-increment/history')
+    def global_increment_history(self, request):
+        """List past global salary increments."""
+        qs = SalaryIncrementHistory.objects.select_related(
+            'band', 'level', 'applied_by'
+        ).prefetch_related('details', 'details__notch').order_by('-applied_at')
+        serializer = SalaryIncrementHistorySerializer(qs, many=True)
+        return Response(serializer.data)
+
 
 # ============================================
 # Backpay ViewSet
@@ -2419,12 +2488,14 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
         try:
             req = SalaryUpgradeService.create_request(
                 employee_id=data['employee'],
-                new_notch_id=data['new_notch'],
+                new_notch_id=data.get('new_notch'),
                 reason=data['reason'],
                 effective_from=data['effective_from'],
                 description=data.get('description', ''),
                 new_grade_id=data.get('new_grade'),
                 new_position_id=data.get('new_position'),
+                increment_type=data.get('increment_type'),
+                increment_value=data.get('increment_value'),
             )
             out = SalaryUpgradeRequestSerializer(req).data
             return Response(out, status=status.HTTP_201_CREATED)
@@ -2498,12 +2569,14 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
         try:
             result = SalaryUpgradeService.bulk_create(
                 filters=filter_fields,
-                new_notch_id=data['new_notch'],
+                new_notch_id=data.get('new_notch'),
                 reason=data['reason'],
                 effective_from=data['effective_from'],
                 description=data.get('description', ''),
                 new_grade_id=data.get('new_grade'),
                 new_position_id=data.get('new_position'),
+                increment_type=data.get('increment_type'),
+                increment_value=data.get('increment_value'),
             )
             return Response(result, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -2519,9 +2592,11 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
         try:
             result = SalaryUpgradeService.preview_upgrade(
                 employee_id=data['employee'],
-                new_notch_id=data['new_notch'],
+                new_notch_id=data.get('new_notch'),
                 new_grade_id=data.get('new_grade'),
                 new_position_id=data.get('new_position'),
+                increment_type=data.get('increment_type'),
+                increment_value=data.get('increment_value'),
             )
             return Response(result)
         except Exception as e:

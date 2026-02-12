@@ -1,5 +1,5 @@
 """
-Payroll management models for NHIA HRMS.
+Payroll management models for HRMS.
 Includes salary structures, payroll processing, and statutory compliance.
 """
 
@@ -2130,6 +2130,26 @@ class SalaryUpgradeRequest(BaseModel):
         db_index=True,
     )
 
+    # Increment tracking (when upgrade was created via percentage/amount mode)
+    class IncrementType(models.TextChoices):
+        PERCENTAGE = 'PERCENTAGE', 'Percentage'
+        AMOUNT = 'AMOUNT', 'Fixed Amount'
+
+    increment_type = models.CharField(
+        max_length=20,
+        choices=IncrementType.choices,
+        null=True,
+        blank=True,
+        help_text='Set when upgrade was created via percentage or amount increment mode.',
+    )
+    increment_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='The percentage or amount value used for the increment.',
+    )
+
     # Bulk tracking
     is_bulk = models.BooleanField(default=False)
     bulk_reference = models.CharField(max_length=50, blank=True, default='', db_index=True)
@@ -2178,3 +2198,93 @@ class SalaryUpgradeRequest(BaseModel):
         prefix = datetime.now().strftime('%Y%m')
         suffix = uuid.uuid4().hex[:8].upper()
         return f"SU-{prefix}-{suffix}"
+
+
+class SalaryIncrementHistory(BaseModel):
+    """
+    Tracks each global salary increment operation applied to notches.
+    """
+    class IncrementType(models.TextChoices):
+        PERCENTAGE = 'PERCENTAGE', 'Percentage'
+        AMOUNT = 'AMOUNT', 'Fixed Amount'
+
+    reference_number = models.CharField(max_length=30, unique=True, db_index=True)
+    increment_type = models.CharField(max_length=10, choices=IncrementType.choices)
+    value = models.DecimalField(max_digits=12, decimal_places=2)
+    effective_date = models.DateField()
+    band = models.ForeignKey(
+        SalaryBand,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='increment_history',
+        help_text='If set, only notches in this band were affected',
+    )
+    level = models.ForeignKey(
+        SalaryLevel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='increment_history',
+        help_text='If set, only notches in this level were affected',
+    )
+    status = models.CharField(max_length=10, default='APPLIED')
+    notches_affected = models.PositiveIntegerField(default=0)
+    employees_affected = models.PositiveIntegerField(default=0)
+    total_old_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_new_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    applied_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='salary_increments_applied',
+    )
+    applied_at = models.DateTimeField(auto_now_add=True)
+    description = models.TextField(blank=True, default='')
+
+    class Meta:
+        db_table = 'salary_increment_history'
+        ordering = ['-applied_at']
+
+    def __str__(self):
+        return f"{self.reference_number} - {self.get_increment_type_display()} {self.value}"
+
+    def save(self, *args, **kwargs):
+        if not self.reference_number:
+            self.reference_number = self.generate_reference_number()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generate_reference_number(cls) -> str:
+        import uuid
+        from datetime import datetime
+        prefix = datetime.now().strftime('%Y%m')
+        suffix = uuid.uuid4().hex[:4].upper()
+        return f"SI-{prefix}-{suffix}"
+
+
+class SalaryIncrementDetail(BaseModel):
+    """
+    Per-notch before/after snapshot for a global salary increment.
+    """
+    increment = models.ForeignKey(
+        SalaryIncrementHistory,
+        on_delete=models.CASCADE,
+        related_name='details',
+    )
+    notch = models.ForeignKey(
+        SalaryNotch,
+        on_delete=models.CASCADE,
+        related_name='increment_details',
+    )
+    old_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    new_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    difference = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        db_table = 'salary_increment_details'
+        unique_together = ['increment', 'notch']
+
+    def __str__(self):
+        return f"{self.increment.reference_number} - {self.notch} ({self.old_amount} -> {self.new_amount})"

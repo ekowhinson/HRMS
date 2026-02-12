@@ -15,6 +15,7 @@ from .models import (
     OvertimeBonusTaxConfig, Bank, BankBranch, StaffCategory,
     SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings,
     BackpayRequest, BackpayDetail, SalaryUpgradeRequest,
+    SalaryIncrementHistory, SalaryIncrementDetail,
 )
 
 
@@ -1006,15 +1007,23 @@ SALARY_UPGRADE_REASONS = [
 ]
 
 
+INCREMENT_TYPE_CHOICES = [
+    ('PERCENTAGE', 'Percentage'),
+    ('AMOUNT', 'Fixed Amount'),
+]
+
+
 class SalaryUpgradeCreateSerializer(serializers.Serializer):
     """Serializer for creating an individual salary upgrade."""
     employee = serializers.UUIDField()
-    new_notch = serializers.UUIDField()
+    new_notch = serializers.UUIDField(required=False, allow_null=True)
     new_grade = serializers.UUIDField(required=False, allow_null=True)
     new_position = serializers.UUIDField(required=False, allow_null=True)
     reason = serializers.ChoiceField(choices=SALARY_UPGRADE_REASONS)
     effective_from = serializers.DateField()
     description = serializers.CharField(required=False, allow_blank=True, default='')
+    increment_type = serializers.ChoiceField(choices=INCREMENT_TYPE_CHOICES, required=False, allow_null=True)
+    increment_value = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
 
     def validate_employee(self, value):
         from employees.models import Employee
@@ -1027,6 +1036,8 @@ class SalaryUpgradeCreateSerializer(serializers.Serializer):
         return value
 
     def validate_new_notch(self, value):
+        if value is None:
+            return value
         try:
             SalaryNotch.objects.get(pk=value)
         except SalaryNotch.DoesNotExist:
@@ -1034,6 +1045,18 @@ class SalaryUpgradeCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
+        has_notch = bool(data.get('new_notch'))
+        has_increment = bool(data.get('increment_type') and data.get('increment_value'))
+
+        if not has_notch and not has_increment:
+            raise serializers.ValidationError(
+                'Provide either new_notch or both increment_type and increment_value.'
+            )
+
+        if has_increment:
+            if data['increment_value'] <= 0:
+                raise serializers.ValidationError({'increment_value': 'Must be greater than zero.'})
+
         if data.get('new_grade'):
             from organization.models import JobGrade
             try:
@@ -1067,12 +1090,14 @@ class SalaryUpgradeBulkSerializer(serializers.Serializer):
     work_location = serializers.UUIDField(required=False, allow_null=True)
     staff_category = serializers.UUIDField(required=False, allow_null=True)
     # Upgrade fields
-    new_notch = serializers.UUIDField()
+    new_notch = serializers.UUIDField(required=False, allow_null=True)
     new_grade = serializers.UUIDField(required=False, allow_null=True)
     new_position = serializers.UUIDField(required=False, allow_null=True)
     reason = serializers.ChoiceField(choices=SALARY_UPGRADE_REASONS)
     effective_from = serializers.DateField()
     description = serializers.CharField(required=False, allow_blank=True, default='')
+    increment_type = serializers.ChoiceField(choices=INCREMENT_TYPE_CHOICES, required=False, allow_null=True)
+    increment_value = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
 
     FILTER_FIELDS = [
         'division', 'directorate', 'department', 'grade',
@@ -1088,15 +1113,38 @@ class SalaryUpgradeBulkSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 'Provide all_active, employee_ids, or at least one filter field.'
             )
+
+        has_notch = bool(data.get('new_notch'))
+        has_increment = bool(data.get('increment_type') and data.get('increment_value'))
+
+        if not has_notch and not has_increment:
+            raise serializers.ValidationError(
+                'Provide either new_notch or both increment_type and increment_value.'
+            )
+
+        if has_increment and data['increment_value'] <= 0:
+            raise serializers.ValidationError({'increment_value': 'Must be greater than zero.'})
+
         return data
 
 
 class SalaryUpgradePreviewSerializer(serializers.Serializer):
     """Input serializer for preview endpoint."""
     employee = serializers.UUIDField()
-    new_notch = serializers.UUIDField()
+    new_notch = serializers.UUIDField(required=False, allow_null=True)
     new_grade = serializers.UUIDField(required=False, allow_null=True)
     new_position = serializers.UUIDField(required=False, allow_null=True)
+    increment_type = serializers.ChoiceField(choices=INCREMENT_TYPE_CHOICES, required=False, allow_null=True)
+    increment_value = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
+
+    def validate(self, data):
+        has_notch = bool(data.get('new_notch'))
+        has_increment = bool(data.get('increment_type') and data.get('increment_value'))
+        if not has_notch and not has_increment:
+            raise serializers.ValidationError(
+                'Provide either new_notch or both increment_type and increment_value.'
+            )
+        return data
 
 
 class SalaryUpgradeRequestSerializer(serializers.ModelSerializer):
@@ -1137,6 +1185,7 @@ class SalaryUpgradeRequestSerializer(serializers.ModelSerializer):
             'is_bulk', 'bulk_reference',
             'approved_by', 'approved_by_name', 'approved_at',
             'rejection_reason',
+            'increment_type', 'increment_value',
             'processing_period', 'processing_period_name',
             'created_at', 'updated_at',
         ]
@@ -1177,3 +1226,59 @@ class SalaryUpgradeRequestSerializer(serializers.ModelSerializer):
 class SalaryUpgradeRejectSerializer(serializers.Serializer):
     """Input serializer for rejecting a salary upgrade request."""
     rejection_reason = serializers.CharField(required=True, min_length=1)
+
+
+# ============================================
+# Global Salary Increment Serializers
+# ============================================
+
+class SalaryIncrementPreviewSerializer(serializers.Serializer):
+    """Input serializer for previewing a global salary increment."""
+    increment_type = serializers.ChoiceField(choices=['PERCENTAGE', 'AMOUNT'])
+    value = serializers.DecimalField(max_digits=12, decimal_places=2)
+    effective_date = serializers.DateField()
+    band_id = serializers.UUIDField(required=False, allow_null=True)
+    level_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class SalaryIncrementApplySerializer(SalaryIncrementPreviewSerializer):
+    """Input serializer for applying a global salary increment."""
+    description = serializers.CharField(required=False, default='', allow_blank=True)
+
+
+class SalaryIncrementDetailSerializer(serializers.ModelSerializer):
+    """Output serializer for per-notch increment detail."""
+    notch_code = serializers.CharField(source='notch.full_code', read_only=True)
+    notch_name = serializers.CharField(source='notch.name', read_only=True)
+
+    class Meta:
+        model = SalaryIncrementDetail
+        fields = [
+            'id', 'notch', 'notch_code', 'notch_name',
+            'old_amount', 'new_amount', 'difference',
+        ]
+
+
+class SalaryIncrementHistorySerializer(serializers.ModelSerializer):
+    """Output serializer for salary increment history records."""
+    details = SalaryIncrementDetailSerializer(many=True, read_only=True)
+    applied_by_name = serializers.SerializerMethodField()
+    band_name = serializers.CharField(source='band.name', read_only=True, default=None)
+    level_name = serializers.CharField(source='level.name', read_only=True, default=None)
+
+    class Meta:
+        model = SalaryIncrementHistory
+        fields = [
+            'id', 'reference_number', 'increment_type', 'value',
+            'effective_date', 'band', 'band_name', 'level', 'level_name',
+            'status', 'notches_affected', 'employees_affected',
+            'total_old_amount', 'total_new_amount',
+            'applied_by', 'applied_by_name', 'applied_at',
+            'description', 'details',
+        ]
+
+    def get_applied_by_name(self, obj):
+        if obj.applied_by:
+            name = f"{obj.applied_by.first_name} {obj.applied_by.last_name}".strip()
+            return name or obj.applied_by.email
+        return None

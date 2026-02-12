@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
-Sample data creation script for NHIA HRMS.
-Creates 5 records for each model with realistic Ghana-specific data.
+Sample data creation script for HRMS.
+Creates 5 records for each model with realistic sample data.
 """
 
 import os
@@ -142,7 +142,7 @@ def create_employees(departments, positions, grades, locations):
     print("Creating Employees...")
     employees_data = [
         {
-            'employee_number': 'NHIA001',
+            'employee_number': 'EMP001',
             'first_name': 'Kwame',
             'last_name': 'Asante',
             'gender': 'M',
@@ -163,7 +163,7 @@ def create_employees(departments, positions, grades, locations):
             'employment_type': 'PERMANENT',
         },
         {
-            'employee_number': 'NHIA002',
+            'employee_number': 'EMP002',
             'first_name': 'Akosua',
             'last_name': 'Mensah',
             'gender': 'F',
@@ -184,7 +184,7 @@ def create_employees(departments, positions, grades, locations):
             'employment_type': 'PERMANENT',
         },
         {
-            'employee_number': 'NHIA003',
+            'employee_number': 'EMP003',
             'first_name': 'Yaw',
             'last_name': 'Owusu',
             'gender': 'M',
@@ -205,7 +205,7 @@ def create_employees(departments, positions, grades, locations):
             'employment_type': 'PERMANENT',
         },
         {
-            'employee_number': 'NHIA004',
+            'employee_number': 'EMP004',
             'first_name': 'Ama',
             'last_name': 'Boateng',
             'gender': 'F',
@@ -226,7 +226,7 @@ def create_employees(departments, positions, grades, locations):
             'employment_type': 'PERMANENT',
         },
         {
-            'employee_number': 'NHIA005',
+            'employee_number': 'EMP005',
             'first_name': 'Kofi',
             'last_name': 'Adjei',
             'gender': 'M',
@@ -617,7 +617,7 @@ def create_holidays():
 def main():
     """Run all sample data creation."""
     print("=" * 60)
-    print("NHIA HRMS - Sample Data Creation Script")
+    print("HRMS - Sample Data Creation Script")
     print("=" * 60)
     print()
 

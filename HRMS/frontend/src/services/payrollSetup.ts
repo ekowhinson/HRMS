@@ -82,6 +82,70 @@ export interface SalaryNotch {
   employee_count?: number
 }
 
+// Global Salary Increment Types
+export interface SalaryIncrementPreviewRequest {
+  increment_type: 'PERCENTAGE' | 'AMOUNT'
+  value: number
+  effective_date: string
+  band_id?: string | null
+  level_id?: string | null
+}
+
+export interface SalaryIncrementPreviewItem {
+  notch_id: string
+  full_code: string
+  notch_name: string
+  old_amount: number
+  new_amount: number
+  difference: number
+  employee_count: number
+}
+
+export interface SalaryIncrementPreviewResult {
+  items: SalaryIncrementPreviewItem[]
+  summary: {
+    notches_affected: number
+    employees_affected: number
+    total_old_amount: number
+    total_new_amount: number
+    total_difference: number
+  }
+}
+
+export interface SalaryIncrementApplyRequest extends SalaryIncrementPreviewRequest {
+  description?: string
+}
+
+export interface SalaryIncrementHistoryItem {
+  id: string
+  reference_number: string
+  increment_type: 'PERCENTAGE' | 'AMOUNT'
+  value: number
+  effective_date: string
+  band?: string | null
+  band_name?: string | null
+  level?: string | null
+  level_name?: string | null
+  status: string
+  notches_affected: number
+  employees_affected: number
+  total_old_amount: number
+  total_new_amount: number
+  applied_by?: string | null
+  applied_by_name?: string | null
+  applied_at: string
+  description: string
+  details: {
+    id: string
+    notch: string
+    notch_code: string
+    notch_name: string
+    old_amount: number
+    new_amount: number
+    difference: number
+  }[]
+}
+
 export interface PayrollCalendar {
   id: string
   name: string
@@ -346,6 +410,22 @@ export const payrollSetupService = {
 
   async reopenPeriod(periodId: string, force?: boolean, reason?: string): Promise<any> {
     const response = await api.post(`/payroll/periods/${periodId}/reopen/`, { force, reason })
+    return response.data
+  },
+
+  // Global Salary Increment
+  async previewGlobalIncrement(data: SalaryIncrementPreviewRequest): Promise<SalaryIncrementPreviewResult> {
+    const response = await api.post<SalaryIncrementPreviewResult>('/payroll/salary-notches/global-increment/preview/', data)
+    return response.data
+  },
+
+  async applyGlobalIncrement(data: SalaryIncrementApplyRequest): Promise<SalaryIncrementHistoryItem> {
+    const response = await api.post<SalaryIncrementHistoryItem>('/payroll/salary-notches/global-increment/apply/', data)
+    return response.data
+  },
+
+  async getGlobalIncrementHistory(): Promise<SalaryIncrementHistoryItem[]> {
+    const response = await api.get<SalaryIncrementHistoryItem[]>('/payroll/salary-notches/global-increment/history/')
     return response.data
   },
 }

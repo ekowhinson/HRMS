@@ -105,7 +105,7 @@ class ExpenseClaimAdmin(admin.ModelAdmin):
 
 
 # ========================================
-# NHIA Specific Benefits
+# Organization Benefits
 # ========================================
 
 @admin.register(FuneralGrantType)

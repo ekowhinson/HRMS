@@ -1,5 +1,5 @@
 """
-Custom User model and authentication-related models for NHIA HRMS.
+Custom User model and authentication-related models for HRMS.
 """
 
 import uuid
@@ -190,6 +190,15 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     )
     two_factor_secret = models.CharField(max_length=32, null=True, blank=True)
     backup_codes = models.JSONField(null=True, blank=True)
+
+    # Organization (tenant)
+    organization = models.ForeignKey(
+        'organization.Organization',
+        on_delete=models.CASCADE,
+        related_name='users',
+        null=True,
+        blank=True,
+    )
 
     # Profile
     phone_number = models.CharField(max_length=20, null=True, blank=True)

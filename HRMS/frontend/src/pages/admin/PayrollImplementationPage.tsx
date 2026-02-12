@@ -238,7 +238,7 @@ function UploadStep({
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition-colors">
               <CloudArrowUpIcon className="h-10 w-10 mx-auto text-gray-400 mb-3" />
               <p className="text-sm font-medium text-gray-700 mb-1">Allowances Structure File</p>
-              <p className="text-xs text-gray-500 mb-3">NHIA Staff Allowances at all Bands.xlsx</p>
+              <p className="text-xs text-gray-500 mb-3">Staff Allowances at all Bands.xlsx</p>
               <label className="cursor-pointer">
                 <input
                   type="file"

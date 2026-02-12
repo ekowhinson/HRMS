@@ -81,6 +81,11 @@ const PayrollReconciliationPage = React.lazy(() => import('./pages/admin/Payroll
 const PayrollJournalPage = React.lazy(() => import('./pages/admin/PayrollJournalPage'))
 const SalaryReconciliationPage = React.lazy(() => import('./pages/admin/SalaryReconciliationPage'))
 
+// Report Builder pages
+const ReportBuilderPage = React.lazy(() => import('./pages/reports/ReportBuilderPage'))
+const SavedReportsPage = React.lazy(() => import('./pages/reports/SavedReportsPage'))
+const ReportViewerPage = React.lazy(() => import('./pages/reports/ReportViewerPage'))
+
 // Policy pages
 const PoliciesPage = React.lazy(() => import('./pages/admin/PoliciesPage'))
 const PolicyDetailPage = React.lazy(() => import('./pages/admin/PolicyDetailPage'))
@@ -113,6 +118,39 @@ const UserManagementPage = React.lazy(() => import('./pages/admin/UserManagement
 const RoleManagementPage = React.lazy(() => import('./pages/admin/RoleManagementPage'))
 const AuthProvidersPage = React.lazy(() => import('./pages/admin/AuthProvidersPage'))
 const AuditLogsPage = React.lazy(() => import('./pages/admin/AuditLogsPage'))
+
+// Backup & Restore
+const BackupManagementPage = React.lazy(() => import('./pages/admin/BackupManagementPage'))
+const RestoreProgressPage = React.lazy(() => import('./pages/admin/RestoreProgressPage'))
+
+// Finance pages
+const ChartOfAccountsPage = React.lazy(() => import('./pages/finance/ChartOfAccountsPage'))
+const JournalEntryPage = React.lazy(() => import('./pages/finance/JournalEntryPage'))
+const BudgetPage = React.lazy(() => import('./pages/finance/BudgetPage'))
+const VendorPage = React.lazy(() => import('./pages/finance/VendorPage'))
+const CustomerPage = React.lazy(() => import('./pages/finance/CustomerPage'))
+const FinancePaymentsPage = React.lazy(() => import('./pages/finance/PaymentsPage'))
+const BankReconciliationPage = React.lazy(() => import('./pages/finance/BankReconciliationPage'))
+const FinancialReportsPage = React.lazy(() => import('./pages/finance/FinancialReportsPage'))
+
+// Procurement pages
+const RequisitionsPage = React.lazy(() => import('./pages/procurement/RequisitionsPage'))
+const PurchaseOrdersPage = React.lazy(() => import('./pages/procurement/PurchaseOrdersPage'))
+const GoodsReceiptPage = React.lazy(() => import('./pages/procurement/GoodsReceiptPage'))
+const ContractsPage = React.lazy(() => import('./pages/procurement/ContractsPage'))
+
+// Inventory & Asset pages
+const ItemsPage = React.lazy(() => import('./pages/inventory/ItemsPage'))
+const StockPage = React.lazy(() => import('./pages/inventory/StockPage'))
+const WarehousesPage = React.lazy(() => import('./pages/inventory/WarehousesPage'))
+const AssetRegisterPage = React.lazy(() => import('./pages/inventory/AssetRegisterPage'))
+const AssetDepreciationPage = React.lazy(() => import('./pages/inventory/AssetDepreciationPage'))
+
+// Project pages
+const ProjectsPage = React.lazy(() => import('./pages/projects/ProjectsPage'))
+const ProjectDetailPage = React.lazy(() => import('./pages/projects/ProjectDetailPage'))
+const TimesheetsPage = React.lazy(() => import('./pages/projects/TimesheetsPage'))
+const ResourceAllocationPage = React.lazy(() => import('./pages/projects/ResourceAllocationPage'))
 
 // Approval Workflow
 const ApprovalWorkflowPage = React.lazy(() => import('./pages/admin/ApprovalWorkflowPage'))
@@ -306,6 +344,9 @@ function App() {
                     <Route path="/reports/reconciliation" element={<PayrollRoute><PayrollReconciliationPage /></PayrollRoute>} />
                     <Route path="/reports/journal" element={<PayrollRoute><PayrollJournalPage /></PayrollRoute>} />
                     <Route path="/reports/salary-reconciliation" element={<PayrollRoute><SalaryReconciliationPage /></PayrollRoute>} />
+                    <Route path="/reports/builder" element={<AdminRoute><ReportBuilderPage /></AdminRoute>} />
+                    <Route path="/reports/saved" element={<AdminRoute><SavedReportsPage /></AdminRoute>} />
+                    <Route path="/reports/view/:id" element={<AdminRoute><ReportViewerPage /></AdminRoute>} />
 
                     {/* Settings - Available to all authenticated users */}
                     <Route path="/settings" element={<SettingsPage />} />
@@ -380,6 +421,42 @@ function App() {
                     <Route path="/admin/roles" element={<SystemAdminRoute><RoleManagementPage /></SystemAdminRoute>} />
                     <Route path="/admin/auth-providers" element={<SystemAdminRoute><AuthProvidersPage /></SystemAdminRoute>} />
                     <Route path="/admin/audit-logs" element={<SystemAdminRoute><AuditLogsPage /></SystemAdminRoute>} />
+
+                    {/* Finance Routes - Admin only */}
+                    <Route path="/finance/accounts" element={<AdminRoute><ChartOfAccountsPage /></AdminRoute>} />
+                    <Route path="/finance/journal-entries" element={<AdminRoute><JournalEntryPage /></AdminRoute>} />
+                    <Route path="/finance/budgets" element={<AdminRoute><BudgetPage /></AdminRoute>} />
+                    <Route path="/finance/vendors" element={<AdminRoute><VendorPage /></AdminRoute>} />
+                    <Route path="/finance/vendor-invoices" element={<AdminRoute><VendorPage /></AdminRoute>} />
+                    <Route path="/finance/customers" element={<AdminRoute><CustomerPage /></AdminRoute>} />
+                    <Route path="/finance/customer-invoices" element={<AdminRoute><CustomerPage /></AdminRoute>} />
+                    <Route path="/finance/payments" element={<AdminRoute><FinancePaymentsPage /></AdminRoute>} />
+                    <Route path="/finance/bank-accounts" element={<AdminRoute><BankReconciliationPage /></AdminRoute>} />
+                    <Route path="/finance/reconciliation" element={<AdminRoute><BankReconciliationPage /></AdminRoute>} />
+                    <Route path="/finance/reports" element={<AdminRoute><FinancialReportsPage /></AdminRoute>} />
+
+                    {/* Procurement Routes - Admin only */}
+                    <Route path="/procurement/requisitions" element={<AdminRoute><RequisitionsPage /></AdminRoute>} />
+                    <Route path="/procurement/purchase-orders" element={<AdminRoute><PurchaseOrdersPage /></AdminRoute>} />
+                    <Route path="/procurement/goods-receipt" element={<AdminRoute><GoodsReceiptPage /></AdminRoute>} />
+                    <Route path="/procurement/contracts" element={<AdminRoute><ContractsPage /></AdminRoute>} />
+
+                    {/* Inventory & Asset Routes - Admin only */}
+                    <Route path="/inventory/items" element={<AdminRoute><ItemsPage /></AdminRoute>} />
+                    <Route path="/inventory/stock" element={<AdminRoute><StockPage /></AdminRoute>} />
+                    <Route path="/inventory/warehouses" element={<AdminRoute><WarehousesPage /></AdminRoute>} />
+                    <Route path="/inventory/assets" element={<AdminRoute><AssetRegisterPage /></AdminRoute>} />
+                    <Route path="/inventory/depreciation" element={<AdminRoute><AssetDepreciationPage /></AdminRoute>} />
+
+                    {/* Project Routes - Admin only */}
+                    <Route path="/projects" element={<AdminRoute><ProjectsPage /></AdminRoute>} />
+                    <Route path="/projects/timesheets" element={<AdminRoute><TimesheetsPage /></AdminRoute>} />
+                    <Route path="/projects/resources" element={<AdminRoute><ResourceAllocationPage /></AdminRoute>} />
+                    <Route path="/projects/:id" element={<AdminRoute><ProjectDetailPage /></AdminRoute>} />
+
+                    {/* Backup & Restore Routes - System Admin only */}
+                    <Route path="/admin/backup" element={<SystemAdminRoute><BackupManagementPage /></SystemAdminRoute>} />
+                    <Route path="/admin/backup/restore/:id" element={<SystemAdminRoute><RestoreProgressPage /></SystemAdminRoute>} />
 
                     {/* Catch-all redirect */}
                     <Route path="*" element={<DefaultRedirect />} />

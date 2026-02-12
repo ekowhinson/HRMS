@@ -1,5 +1,5 @@
 """
-Development settings for NHIA HRMS.
+Development settings for HRMS.
 
 Loaded when DJANGO_ENV is unset or set to "development".
 Preserves existing USE_POSTGRES / USE_REDIS toggles for local flexibility.
@@ -24,7 +24,7 @@ if os.getenv('USE_POSTGRES', 'false').lower() == 'true':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'nhia_hrms'),
+            'NAME': os.getenv('DB_NAME', 'hrms'),
             'USER': os.getenv('DB_USER', 'postgres'),
             'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
             'HOST': os.getenv('DB_HOST', 'localhost'),
@@ -149,7 +149,7 @@ LOGGING = {
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
             'propagate': False,
         },
-        'nhia_hrms': {
+        'hrms': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': False,

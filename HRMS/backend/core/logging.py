@@ -1,5 +1,5 @@
 """
-Structured logging utilities for NHIA HRMS.
+Structured logging utilities for HRMS.
 
 Provides:
 - HRMSJsonFormatter: Custom JSON formatter that injects request_id and trace_id
@@ -90,7 +90,7 @@ class SQLQueryLogger(logging.Handler):
         super().__init__(**kwargs)
         self.warning_ms = warning_ms
         self.error_ms = error_ms
-        self._slow_logger = logging.getLogger('nhia_hrms.sql.slow')
+        self._slow_logger = logging.getLogger('hrms.sql.slow')
 
     def emit(self, record):
         # django.db.backends logs contain 'duration' and 'sql' in the params

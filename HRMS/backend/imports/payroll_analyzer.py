@@ -1,8 +1,8 @@
 """
-Payroll file analyzer for NHIA HRMS payroll implementation.
+Payroll file analyzer for HRMS payroll implementation.
 
 Parses two specific Excel files:
-1. NHIA Staff Allowances at all Bands.xlsx — band-level allowance policy
+1. Staff Allowances at all Bands.xlsx — band-level allowance policy
 2. Staff Data for Payroll Implementation-23.12.25.xlsx — per-employee data (4 sheets)
 """
 
@@ -26,7 +26,7 @@ class PayrollFileAnalyzer:
 
     def analyze_allowances_file(self, file_content):
         """
-        Parse the NHIA Staff Allowances file.
+        Parse the Staff Allowances file.
 
         Returns band-level policy dict:
         {
@@ -45,7 +45,7 @@ class PayrollFileAnalyzer:
         # The file has a specific layout with band information and allowance rates
         band_policies = {}
 
-        # Define the known band policies based on NHIA structure
+        # Define the known band policies
         # These are extracted from the allowance file structure
         # Bands 1-3: Utility (6% of basic) + Transport (fixed)
         # Band 4: Utility (6%) + Vehicle Maintenance OR Transport
@@ -119,7 +119,7 @@ class PayrollFileAnalyzer:
         return band_policies
 
     def _apply_default_band_policies(self, band_policies):
-        """Apply known NHIA band policies as defaults."""
+        """Apply known band policies as defaults."""
         defaults = {
             'BAND1': {
                 'utility': 0.06,

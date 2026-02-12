@@ -1,3 +1,4 @@
 from django.db import models
 
-# Create your models here.
+# Import builder models so Django discovers them for migrations
+from reports.builder_models import ReportDefinition, ScheduledReport, ReportExecution  # noqa: E402, F401

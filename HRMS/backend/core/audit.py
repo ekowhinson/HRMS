@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from django.db.models.signals import pre_save, post_save, post_delete
 
-logger = logging.getLogger('nhia_hrms')
+logger = logging.getLogger('hrms')
 
 # Models that should NOT be audit-logged
 EXCLUDED_MODELS = {

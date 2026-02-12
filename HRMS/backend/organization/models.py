@@ -1,11 +1,81 @@
 """
-Organization structure models for NHIA HRMS.
+Organization structure models for HRMS.
 """
 
 from django.db import models
 from django.conf import settings
 
-from core.models import BaseModel, Region
+from core.models import BaseModel, Region, UUIDModel, TimeStampedModel
+
+
+class Organization(UUIDModel, TimeStampedModel):
+    """
+    Top-level tenant model. Every data record belongs to one Organization.
+    This is the multi-tenancy boundary.
+    """
+    name = models.CharField(max_length=200)
+    code = models.CharField(max_length=20, unique=True)
+    slug = models.SlugField(max_length=50, unique=True)
+
+    # Branding
+    logo_data = models.BinaryField(null=True, blank=True)
+    logo_name = models.CharField(max_length=255, null=True, blank=True)
+    logo_mime_type = models.CharField(max_length=100, null=True, blank=True)
+    primary_color = models.CharField(max_length=7, default='#1a365d')
+
+    # Configuration
+    country = models.CharField(max_length=3, blank=True)
+    currency = models.CharField(max_length=3, default='USD')
+    currency_symbol = models.CharField(max_length=5, default='$')
+    timezone = models.CharField(max_length=50, default='UTC')
+    date_format = models.CharField(max_length=20, default='DD/MM/YYYY')
+    financial_year_start_month = models.PositiveSmallIntegerField(default=1)
+    leave_year_start_month = models.PositiveSmallIntegerField(default=1)
+    payroll_processing_day = models.PositiveSmallIntegerField(default=25)
+
+    # Contact
+    email_domain = models.CharField(max_length=100, blank=True)
+    website = models.URLField(blank=True)
+    address = models.TextField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+
+    # Email settings
+    from_email = models.EmailField(default='noreply@example.com')
+
+    # Subscription/Status
+    is_active = models.BooleanField(default=True)
+    subscription_plan = models.CharField(
+        max_length=20,
+        choices=[
+            ('FREE', 'Free'),
+            ('STANDARD', 'Standard'),
+            ('PREMIUM', 'Premium'),
+            ('ENTERPRISE', 'Enterprise'),
+        ],
+        default='STANDARD'
+    )
+    max_employees = models.PositiveIntegerField(default=500)
+    max_users = models.PositiveIntegerField(default=100)
+    trial_expires_at = models.DateTimeField(null=True, blank=True)
+
+    # Feature flags
+    modules_enabled = models.JSONField(default=list)
+
+    # Metadata
+    setup_completed = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'organizations'
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            from django.utils.text import slugify
+            self.slug = slugify(self.code)
+        super().save(*args, **kwargs)
 
 
 class Division(BaseModel):

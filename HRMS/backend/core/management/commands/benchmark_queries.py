@@ -1,5 +1,5 @@
 """
-Database query benchmark command for NHIA HRMS.
+Database query benchmark command for HRMS.
 
 Profiles common queries against each major model, reports timing,
 row counts, and flags slow queries. Useful for identifying performance
@@ -147,7 +147,7 @@ class Command(BaseCommand):
             '=' * 70
         ))
         self.stdout.write(self.style.HTTP_INFO(
-            '  NHIA HRMS — Database Query Benchmark'
+            '  HRMS — Database Query Benchmark'
         ))
         self.stdout.write(self.style.HTTP_INFO(
             '=' * 70

@@ -1,5 +1,5 @@
 """
-URL configuration for NHIA HRMS project.
+URL configuration for HRMS project.
 """
 
 from django.contrib import admin
@@ -40,6 +40,10 @@ urlpatterns = [
         path('discipline/', include('discipline.urls')),  # Discipline & Grievance management
         path('workflow/', include('workflow.urls')),  # Approval workflow engine
         path('training/', include('training.urls')),  # Training & Development
+        path('finance/', include('finance.urls')),  # Finance & GL
+        path('procurement/', include('procurement.urls')),  # Procurement & AP
+        path('inventory/', include('inventory.urls')),  # Inventory & Assets
+        path('projects/', include('projects.urls')),  # Projects & Timesheets
     ])),
 
     # Legacy health check (kept for backwards compatibility)

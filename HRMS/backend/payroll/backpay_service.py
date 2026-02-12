@@ -671,7 +671,7 @@ class BackpayService:
             )
         except Exception:
             import logging
-            logging.getLogger('nhia_hrms').warning(
+            logging.getLogger('hrms').warning(
                 'Failed to create backpay application audit log', exc_info=True
             )
 

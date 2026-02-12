@@ -11,7 +11,8 @@ from .models import (
     FuneralGrantType, FuneralGrantClaim,
     MedicalLensBenefit, MedicalLensClaim,
     ProfessionalSubscriptionType, ProfessionalSubscription,
-    BenefitEligibilityRecord
+    BenefitEligibilityRecord,
+    CustomBenefitType, CustomBenefitClaim
 )
 
 
@@ -177,7 +178,7 @@ class ExpenseClaimSerializer(serializers.ModelSerializer):
 
 
 # ========================================
-# NHIA Specific Benefits Serializers
+# Organization Benefits Serializers
 # ========================================
 
 class FuneralGrantTypeSerializer(serializers.ModelSerializer):
@@ -637,3 +638,35 @@ class RentDeductionCreateSerializer(serializers.ModelSerializer):
             'deduction_percentage', 'fixed_amount', 'occupancy_start_date',
             'occupancy_end_date', 'notes'
         ]
+
+
+# ========================================
+# Generic Configurable Benefits Serializers
+# ========================================
+
+class CustomBenefitTypeSerializer(serializers.ModelSerializer):
+    """Serializer for CustomBenefitType model."""
+    claims_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomBenefitType
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_claims_count(self, obj):
+        return obj.claims.filter(is_deleted=False).count()
+
+
+class CustomBenefitClaimSerializer(serializers.ModelSerializer):
+    """Serializer for CustomBenefitClaim model."""
+    employee_name = serializers.SerializerMethodField()
+    benefit_type_name = serializers.CharField(source='benefit_type.name', read_only=True)
+
+    class Meta:
+        model = CustomBenefitClaim
+        fields = '__all__'
+        read_only_fields = ['id', 'claim_number', 'status', 'approved_by', 'approved_at',
+                           'approved_amount', 'paid_at', 'payment_reference', 'created_at', 'updated_at']
+
+    def get_employee_name(self, obj):
+        return f"{obj.employee.first_name} {obj.employee.last_name}"

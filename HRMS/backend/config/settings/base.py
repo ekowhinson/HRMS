@@ -1,5 +1,5 @@
 """
-Base Django settings for NHIA HRMS.
+Base Django settings for HRMS.
 
 Contains all environment-agnostic configuration. Environment-specific settings
 (SECRET_KEY, DEBUG, DATABASES, CACHES, CORS, LOGGING, security flags) are
@@ -52,6 +52,10 @@ INSTALLED_APPS = [
     'policies.apps.PoliciesConfig',
     'exits.apps.ExitsConfig',
     'training.apps.TrainingConfig',
+    'finance.apps.FinanceConfig',
+    'procurement.apps.ProcurementConfig',
+    'inventory.apps.InventoryConfig',
+    'projects.apps.ProjectsConfig',
 ]
 
 MIDDLEWARE = [
@@ -61,6 +65,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.TenantMiddleware',
     'core.middleware.CurrentUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -120,7 +125,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Africa/Accra'  # Ghana timezone
+TIME_ZONE = os.getenv('TIME_ZONE', 'UTC')
 USE_I18N = True
 USE_TZ = True
 
@@ -206,6 +211,10 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Recruitment', 'description': 'Recruitment and hiring'},
         {'name': 'Discipline', 'description': 'Discipline and grievances'},
         {'name': 'Reports', 'description': 'Reporting and analytics'},
+        {'name': 'Finance', 'description': 'General ledger, AP/AR, budgets, and banking'},
+        {'name': 'Procurement', 'description': 'Purchase requisitions, orders, and contracts'},
+        {'name': 'Inventory', 'description': 'Stock management and fixed assets'},
+        {'name': 'Projects', 'description': 'Project management and timesheets'},
     ],
 }
 
@@ -227,7 +236,7 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@nhia.gov.gh')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@example.com')
 
 # File Upload Settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -237,15 +246,15 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 # Admin URL path (obscured for security)
-ADMIN_URL_PATH = os.getenv('ADMIN_URL_PATH', 'nhia-sys-admin/')
+ADMIN_URL_PATH = os.getenv('ADMIN_URL_PATH', 'sys-admin/')
 
 # HRMS Specific Settings
 HRMS_SETTINGS = {
-    'ORGANIZATION_NAME': 'Your Organization',
-    'ORGANIZATION_CODE': 'ORG',
-    'COUNTRY': 'Ghana',
-    'CURRENCY': 'GHS',
-    'CURRENCY_SYMBOL': 'GH¢',
+    'ORGANIZATION_NAME': os.getenv('ORG_NAME', 'Your Organization'),
+    'ORGANIZATION_CODE': os.getenv('ORG_CODE', 'ORG'),
+    'COUNTRY': os.getenv('ORG_COUNTRY', ''),
+    'CURRENCY': os.getenv('ORG_CURRENCY', 'USD'),
+    'CURRENCY_SYMBOL': os.getenv('ORG_CURRENCY_SYMBOL', '$'),
     'FINANCIAL_YEAR_START_MONTH': 1,  # January
     'LEAVE_YEAR_START_MONTH': 1,  # January
     'PAYROLL_PROCESSING_DAY': 25,  # Day of month
@@ -255,20 +264,13 @@ HRMS_SETTINGS = {
     'SESSION_TIMEOUT_MINUTES': 30,
 }
 
-# Ghana Tax Configuration (PAYE)
-GHANA_TAX_BRACKETS = [
-    {'min': 0, 'max': 490, 'rate': 0},
-    {'min': 490, 'max': 600, 'rate': 5},
-    {'min': 600, 'max': 730, 'rate': 10},
-    {'min': 730, 'max': 3896.67, 'rate': 17.5},
-    {'min': 3896.67, 'max': 20000, 'rate': 25},
-    {'min': 20000, 'max': 50000, 'rate': 30},
-    {'min': 50000, 'max': float('inf'), 'rate': 35},
-]
-
-# SSNIT Configuration
-SSNIT_RATES = {
-    'TIER_1_EMPLOYER': 13.0,  # 13% of basic salary
-    'TIER_1_EMPLOYEE': 5.5,   # 5.5% of basic salary
-    'TIER_2_EMPLOYER': 5.0,   # 5% of basic salary
+# Backup & Restore Settings
+BACKUP_SETTINGS = {
+    'STORAGE_BACKEND': os.getenv('BACKUP_STORAGE', 'local'),
+    'LOCAL_PATH': os.getenv('BACKUP_PATH', '/var/backups/hrms/'),
+    'S3_BUCKET': os.getenv('BACKUP_S3_BUCKET', ''),
+    'S3_PREFIX': os.getenv('BACKUP_S3_PREFIX', 'backups/'),
+    'MAX_INLINE_SIZE_MB': 50,
+    'DEFAULT_RETENTION_DAYS': 90,
+    'COMPRESSION': 'gzip',
 }

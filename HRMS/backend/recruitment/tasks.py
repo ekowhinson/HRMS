@@ -8,6 +8,11 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
+def _get_org_name():
+    """Get organization name from settings."""
+    return settings.HRMS_SETTINGS.get('ORGANIZATION_NAME', 'Our Organization')
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def send_application_confirmation_email(self, applicant_id: str, portal_token: str = ''):
     """Send confirmation email to applicant after application submission."""
@@ -21,6 +26,7 @@ def send_application_confirmation_email(self, applicant_id: str, portal_token: s
 
     vacancy = applicant.vacancy
     frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+    org_name = _get_org_name()
 
     # Build portal link
     portal_link = ''
@@ -32,7 +38,7 @@ def send_application_confirmation_email(self, applicant_id: str, portal_token: s
     message = (
         f"Dear {applicant.first_name} {applicant.last_name},\n\n"
         f"Thank you for your application for the position of {vacancy.job_title} "
-        f"at the National Health Insurance Authority (NHIA).\n\n"
+        f"at {org_name}.\n\n"
         f"Your application has been received and is being reviewed. "
         f"Here are your application details:\n\n"
         f"  Application Number: {applicant.applicant_number}\n"
@@ -55,7 +61,7 @@ def send_application_confirmation_email(self, applicant_id: str, portal_token: s
         f"  3. You can check your application status anytime via the portal link above.\n\n"
         f"If you have any questions, please do not hesitate to contact our HR department.\n\n"
         f"Best regards,\n"
-        f"NHIA Human Resource Department\n"
+        f"{org_name} Human Resource Department\n"
     )
 
     # HTML version
@@ -69,7 +75,7 @@ def send_application_confirmation_email(self, applicant_id: str, portal_token: s
             <p>Dear <strong>{applicant.first_name} {applicant.last_name}</strong>,</p>
 
             <p>Thank you for your application for the position of
-            <strong>{vacancy.job_title}</strong> at the National Health Insurance Authority (NHIA).</p>
+            <strong>{vacancy.job_title}</strong> at {org_name}.</p>
 
             <p>Your application has been received and is being reviewed.</p>
 
@@ -120,12 +126,12 @@ def send_application_confirmation_email(self, applicant_id: str, portal_token: s
 
             <p style="color: #4b5563;">
                 Best regards,<br>
-                <strong>NHIA Human Resource Department</strong>
+                <strong>{org_name} Human Resource Department</strong>
             </p>
         </div>
 
         <div style="text-align: center; padding: 16px; font-size: 12px; color: #9ca3af;">
-            National Health Insurance Authority &mdash; Human Resource Management System
+            {org_name} &mdash; Human Resource Management System
         </div>
     </div>
     """

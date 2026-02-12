@@ -25,6 +25,70 @@ class SalaryUpgradeService:
     """Orchestrates salary upgrades with an approval workflow."""
 
     # ──────────────────────────────────────────────
+    # Notch resolution from increment
+    # ──────────────────────────────────────────────
+
+    @staticmethod
+    def resolve_notch_from_increment(employee, increment_type, increment_value):
+        """
+        Given an employee and increment params, calculate the target salary
+        and find the closest notch at or above that amount.
+
+        For PERCENTAGE: target = current + (current * value / 100)
+        For AMOUNT: target = current + value
+
+        Returns the resolved SalaryNotch.
+        Raises ValueError if no suitable notch is found.
+        """
+        current_notch = employee.salary_notch
+        if not current_notch:
+            raise ValueError('Employee has no current salary notch assigned.')
+
+        current_amount = current_notch.amount
+        increment_value = Decimal(str(increment_value))
+
+        if increment_type == 'PERCENTAGE':
+            target_amount = current_amount + (current_amount * increment_value / Decimal('100'))
+        else:  # AMOUNT
+            target_amount = current_amount + increment_value
+
+        # First try: find notch in same level with amount >= target, closest match
+        same_level_notches = SalaryNotch.objects.filter(
+            level=current_notch.level,
+            is_active=True,
+            amount__gte=target_amount,
+        ).order_by('amount')
+
+        if same_level_notches.exists():
+            return same_level_notches.first()
+
+        # Second try: find next higher notch in same level (any above current)
+        higher_in_level = SalaryNotch.objects.filter(
+            level=current_notch.level,
+            is_active=True,
+            amount__gt=current_amount,
+        ).order_by('amount')
+
+        if higher_in_level.exists():
+            return higher_in_level.last()  # highest in same level
+
+        # Third try: look in higher levels within the same band
+        if current_notch.level and current_notch.level.band:
+            higher_levels = SalaryNotch.objects.filter(
+                level__band=current_notch.level.band,
+                is_active=True,
+                amount__gte=target_amount,
+            ).order_by('amount')
+
+            if higher_levels.exists():
+                return higher_levels.first()
+
+        raise ValueError(
+            f'No suitable notch found for target amount {target_amount:.2f}. '
+            f'Please select a specific notch manually.'
+        )
+
+    # ──────────────────────────────────────────────
     # Public: create / approve / reject
     # ──────────────────────────────────────────────
 
@@ -32,24 +96,36 @@ class SalaryUpgradeService:
     @transaction.atomic
     def create_request(
         employee_id,
-        new_notch_id,
-        reason,
-        effective_from,
+        new_notch_id=None,
+        reason='SALARY_REVISION',
+        effective_from=None,
         description='',
         new_grade_id=None,
         new_position_id=None,
+        increment_type=None,
+        increment_value=None,
     ):
         """
         Create a PENDING salary upgrade request. No side-effects on Employee
         or salary records.
+
+        Either new_notch_id or (increment_type + increment_value) must be provided.
+        When increment params are given, the target notch is auto-resolved.
         """
         employee = Employee.objects.select_related(
             'salary_notch', 'salary_notch__level', 'salary_notch__level__band',
             'grade', 'position',
         ).get(pk=employee_id)
 
-        new_notch = SalaryNotch.objects.select_related('level', 'level__band').get(pk=new_notch_id)
-        if employee.salary_notch_id and str(employee.salary_notch_id) == str(new_notch_id):
+        # Resolve notch from increment if needed
+        if increment_type and increment_value and not new_notch_id:
+            new_notch = SalaryUpgradeService.resolve_notch_from_increment(
+                employee, increment_type, increment_value,
+            )
+        else:
+            new_notch = SalaryNotch.objects.select_related('level', 'level__band').get(pk=new_notch_id)
+
+        if employee.salary_notch_id and str(employee.salary_notch_id) == str(new_notch.id):
             raise ValueError('New notch is the same as the current notch.')
 
         new_grade = None
@@ -71,6 +147,8 @@ class SalaryUpgradeService:
             description=description,
             status=SalaryUpgradeRequest.Status.PENDING,
             processing_period=active_period,
+            increment_type=increment_type,
+            increment_value=Decimal(str(increment_value)) if increment_value else None,
         )
         return request
 
@@ -125,18 +203,25 @@ class SalaryUpgradeService:
     @staticmethod
     def bulk_create(
         filters,
-        new_notch_id,
-        reason,
-        effective_from,
+        new_notch_id=None,
+        reason='SALARY_REVISION',
+        effective_from=None,
         description='',
         new_grade_id=None,
         new_position_id=None,
+        increment_type=None,
+        increment_value=None,
     ):
         """
         Create multiple PENDING requests sharing a bulk_reference.
         Returns summary with created count, skipped, and errors.
+
+        When increment_type/increment_value are provided, each employee's
+        target notch is individually resolved based on their current salary.
         """
-        qs = Employee.objects.filter(status='ACTIVE', is_deleted=False)
+        qs = Employee.objects.filter(status='ACTIVE', is_deleted=False).select_related(
+            'salary_notch', 'salary_notch__level', 'salary_notch__level__band',
+        )
 
         if filters.get('all_active'):
             pass
@@ -159,6 +244,7 @@ class SalaryUpgradeService:
                     qs = qs.filter(**{lookup: val})
 
         bulk_ref = f"BU-{datetime.now().strftime('%Y%m')}-{uuid.uuid4().hex[:8].upper()}"
+        use_increment = bool(increment_type and increment_value)
 
         created = []
         skipped = []
@@ -166,7 +252,7 @@ class SalaryUpgradeService:
 
         for emp in qs.iterator():
             try:
-                if emp.salary_notch_id and str(emp.salary_notch_id) == str(new_notch_id):
+                if not use_increment and emp.salary_notch_id and str(emp.salary_notch_id) == str(new_notch_id):
                     skipped.append({
                         'id': str(emp.id),
                         'employee_number': emp.employee_number,
@@ -177,12 +263,14 @@ class SalaryUpgradeService:
 
                 req = SalaryUpgradeService.create_request(
                     employee_id=emp.id,
-                    new_notch_id=new_notch_id,
+                    new_notch_id=new_notch_id if not use_increment else None,
                     reason=reason,
                     effective_from=effective_from,
                     description=description,
                     new_grade_id=new_grade_id,
                     new_position_id=new_position_id,
+                    increment_type=increment_type if use_increment else None,
+                    increment_value=increment_value if use_increment else None,
                 )
                 req.is_bulk = True
                 req.bulk_reference = bulk_ref
@@ -209,14 +297,28 @@ class SalaryUpgradeService:
     # ──────────────────────────────────────────────
 
     @staticmethod
-    def preview_upgrade(employee_id, new_notch_id, new_grade_id=None, new_position_id=None):
+    def preview_upgrade(
+        employee_id,
+        new_notch_id=None,
+        new_grade_id=None,
+        new_position_id=None,
+        increment_type=None,
+        increment_value=None,
+    ):
         """Return current vs new salary/grade/position comparison without saving."""
         employee = Employee.objects.select_related(
             'salary_notch', 'salary_notch__level', 'salary_notch__level__band',
             'grade', 'position',
         ).get(pk=employee_id)
 
-        new_notch = SalaryNotch.objects.select_related('level', 'level__band').get(pk=new_notch_id)
+        # Resolve notch from increment if needed
+        if increment_type and increment_value and not new_notch_id:
+            new_notch = SalaryUpgradeService.resolve_notch_from_increment(
+                employee, increment_type, increment_value,
+            )
+        else:
+            new_notch = SalaryNotch.objects.select_related('level', 'level__band').get(pk=new_notch_id)
+
         active_period = PayrollSettings.get_active_period()
 
         current_notch = employee.salary_notch
@@ -247,7 +349,7 @@ class SalaryUpgradeService:
             except JobPosition.DoesNotExist:
                 pass
 
-        return {
+        result = {
             'employee_id': str(employee.id),
             'employee_number': employee.employee_number,
             'employee_name': employee.full_name,
@@ -260,12 +362,19 @@ class SalaryUpgradeService:
             'new_band': new_band,
             'new_level': new_level,
             'new_notch': new_notch.name,
+            'new_notch_id': str(new_notch.id),
             'new_amount': float(new_notch.amount),
             'new_grade': new_grade_name,
             'new_position': new_position_name,
             'salary_diff': float(new_notch.amount - current_amount),
             'processing_period': active_period.name if active_period else None,
         }
+
+        if increment_type:
+            result['increment_type'] = increment_type
+            result['increment_value'] = float(increment_value)
+
+        return result
 
     # ──────────────────────────────────────────────
     # Private: apply the actual upgrade

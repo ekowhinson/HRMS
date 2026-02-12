@@ -76,7 +76,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                     to_attr='active_bank_accounts',
                 ),
                 Prefetch(
-                    'leavebalance_set',
+                    'leave_balances',
                     queryset=LeaveBalance.objects.filter(
                         year=timezone.now().year
                     ).select_related('leave_type'),

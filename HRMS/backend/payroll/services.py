@@ -1,5 +1,5 @@
 """
-Payroll computation services for NHIA HRMS.
+Payroll computation services for HRMS.
 Handles Ghana PAYE tax calculation, SSNIT contributions, and payroll processing.
 """
 
@@ -968,7 +968,7 @@ class PayrollService:
             )
         except Exception:
             import logging
-            logging.getLogger('nhia_hrms').warning(
+            logging.getLogger('hrms').warning(
                 'Failed to create payroll computation audit log', exc_info=True
             )
 
@@ -1247,7 +1247,7 @@ class PayrollService:
             )
         except Exception:
             import logging
-            logging.getLogger('nhia_hrms').warning(
+            logging.getLogger('hrms').warning(
                 'Failed to create payslip generation audit log', exc_info=True
             )
 
@@ -1318,8 +1318,8 @@ class PayrollService:
         period_name = self.period.name if self.period else 'N/A'
 
         # Get organization name from settings
-        org_name = getattr(settings, 'PAYROLL', {}).get('ORGANIZATION_NAME', 'NATIONAL HEALTH INSURANCE')
-        org_code = getattr(settings, 'PAYROLL', {}).get('ORGANIZATION_CODE', 'NHIS')
+        org_name = getattr(settings, 'PAYROLL', {}).get('ORGANIZATION_NAME', settings.HRMS_SETTINGS.get('ORGANIZATION_NAME', 'Your Organization'))
+        org_code = getattr(settings, 'PAYROLL', {}).get('ORGANIZATION_CODE', settings.HRMS_SETTINGS.get('ORGANIZATION_CODE', 'ORG'))
 
         # Get salary notch info
         old_notch = ''

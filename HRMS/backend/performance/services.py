@@ -10,7 +10,7 @@ from django.utils import timezone
 
 
 class AppraisalScoreCalculator:
-    """Calculate weighted appraisal scores based on NHIA requirements."""
+    """Calculate weighted appraisal scores."""
 
     def __init__(self, appraisal):
         self.appraisal = appraisal
