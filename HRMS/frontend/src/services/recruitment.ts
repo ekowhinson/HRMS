@@ -505,6 +505,21 @@ export const recruitmentService = {
     return response.data
   },
 
+  setInterviewResult: async (id: string, result: string): Promise<Interview> => {
+    const response = await api.post(`/recruitment/interviews/${id}/set_result/`, { result })
+    return response.data
+  },
+
+  getInterviewScoringSummary: async (id: string): Promise<any> => {
+    const response = await api.get(`/recruitment/interviews/${id}/scoring_summary/`)
+    return response.data
+  },
+
+  getInterviewScoringSheets: async (params?: { interview?: string }): Promise<any> => {
+    const response = await api.get('/recruitment/scoring-sheets/', { params })
+    return response.data.results || response.data
+  },
+
   // ==================== Interview Panels ====================
 
   addPanelMember: async (interviewId: string, data: {

@@ -113,6 +113,7 @@ const RecruitmentPage = React.lazy(() => import('./pages/admin/RecruitmentPage')
 const VacancyFormPage = React.lazy(() => import('./pages/admin/VacancyFormPage'))
 const VacancyDetailPage = React.lazy(() => import('./pages/admin/VacancyDetailPage'))
 const ApplicantDetailPage = React.lazy(() => import('./pages/admin/ApplicantDetailPage'))
+const InterviewDetailPage = React.lazy(() => import('./pages/admin/InterviewDetailPage'))
 
 // Discipline & Grievance pages
 const DisciplinaryPage = React.lazy(() => import('./pages/admin/DisciplinaryPage'))
@@ -433,6 +434,7 @@ function App() {
                     <Route path="/admin/recruitment/vacancies/:id" element={<AdminRoute><VacancyDetailPage /></AdminRoute>} />
                     <Route path="/admin/recruitment/vacancies/:id/edit" element={<AdminRoute><VacancyFormPage /></AdminRoute>} />
                     <Route path="/admin/recruitment/applicants/:id" element={<AdminRoute><ApplicantDetailPage /></AdminRoute>} />
+                    <Route path="/admin/recruitment/interviews/:id" element={<AdminRoute><InterviewDetailPage /></AdminRoute>} />
 
                     {/* Discipline & Grievance Routes */}
                     <Route path="/admin/disciplinary" element={<AdminRoute><DisciplinaryPage /></AdminRoute>} />
