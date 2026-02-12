@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from django.http import HttpResponse
-from django.db.models import Sum, Count, F
+from django.db.models import Sum, Count, F, Avg
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
@@ -18,7 +18,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
 from employees.models import Employee, EmploymentHistory
@@ -27,6 +27,10 @@ from leave.models import LeaveBalance, LeaveRequest
 from benefits.models import LoanAccount
 from performance.models import Appraisal
 from training.models import TrainingProgram, TrainingSession
+
+from openpyxl.chart import PieChart as XlPieChart, BarChart as XlBarChart, LineChart as XlLineChart, AreaChart as XlAreaChart, Reference as XlReference
+
+from reports.chart_utils import generate_pie_chart, generate_bar_chart, generate_line_chart, generate_area_chart
 
 
 def decimal_to_float(obj):
@@ -235,6 +239,349 @@ def generate_pdf_response(data: list, headers: list, filename: str, title: str =
 
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+# =============================================================================
+# PDF/Excel with Charts Export Functions
+# =============================================================================
+
+def _render_chart_image(section):
+    """Render a chart section dict to a BytesIO PNG image using chart_utils."""
+    chart_type = section.get('chart_type')
+    data = section.get('data', [])
+    title = section.get('title', '')
+    options = section.get('options', {})
+
+    if not data:
+        return None
+
+    if chart_type == 'pie':
+        return generate_pie_chart(data, title, donut=options.get('donut', False),
+                                  center_label=options.get('center_label'))
+    elif chart_type == 'bar':
+        return generate_bar_chart(data, title, horizontal=options.get('horizontal', False),
+                                  color=options.get('color'))
+    elif chart_type == 'line':
+        return generate_line_chart(data, title)
+    elif chart_type == 'area':
+        return generate_area_chart(data, title, fill_color=options.get('fill_color'))
+    return None
+
+
+def generate_pdf_with_charts_response(sections: list, filename: str, title: str = None,
+                                       landscape_mode: bool = False) -> HttpResponse:
+    """
+    Generate a PDF with embedded chart images and data tables.
+
+    sections: list of dicts, each one of:
+        {'type': 'table', 'data': [...], 'headers': [...], 'subtitle': '...'}
+        {'type': 'chart', 'chart_type': 'pie|bar|line|area', 'data': [...], 'title': '...', 'options': {...}}
+        {'type': 'stats', 'items': [{'label': '...', 'value': '...'}]}
+    """
+    buffer = io.BytesIO()
+
+    page_size = landscape(A4) if landscape_mode else A4
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=0.5 * inch,
+        leftMargin=0.5 * inch,
+        topMargin=0.5 * inch,
+        bottomMargin=0.5 * inch
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Title
+    if title:
+        title_style = ParagraphStyle(
+            'CustomTitle', parent=styles['Heading1'],
+            fontSize=16, alignment=TA_CENTER, spaceAfter=10
+        )
+        elements.append(Paragraph(title, title_style))
+
+    # Date
+    subtitle_style = ParagraphStyle(
+        'Subtitle', parent=styles['Normal'],
+        fontSize=10, alignment=TA_CENTER, spaceAfter=10
+    )
+    elements.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
+    elements.append(Spacer(1, 0.2 * inch))
+
+    # Section styles
+    section_title_style = ParagraphStyle(
+        'SectionTitle', parent=styles['Heading2'],
+        fontSize=12, spaceAfter=8, spaceBefore=12
+    )
+    header_cell_style = ParagraphStyle(
+        'HeaderCell', parent=styles['Normal'], fontSize=8,
+        leading=10, fontName='Helvetica-Bold', alignment=TA_CENTER,
+        textColor=colors.whitesmoke, wordWrap='CJK'
+    )
+    cell_style = ParagraphStyle(
+        'Cell', parent=styles['Normal'], fontSize=8,
+        leading=10, wordWrap='CJK'
+    )
+    cell_style_right = ParagraphStyle(
+        'CellRight', parent=styles['Normal'], fontSize=8,
+        leading=10, wordWrap='CJK', alignment=TA_RIGHT
+    )
+    stats_label_style = ParagraphStyle(
+        'StatsLabel', parent=styles['Normal'], fontSize=10,
+        leading=14, fontName='Helvetica-Bold'
+    )
+    stats_value_style = ParagraphStyle(
+        'StatsValue', parent=styles['Normal'], fontSize=10,
+        leading=14, alignment=TA_RIGHT
+    )
+
+    for section in sections:
+        if section['type'] == 'chart':
+            chart_image = _render_chart_image(section)
+            if chart_image:
+                img = RLImage(chart_image, width=5 * inch, height=3.5 * inch)
+                elements.append(img)
+                elements.append(Spacer(1, 0.3 * inch))
+
+        elif section['type'] == 'table':
+            if section.get('subtitle'):
+                elements.append(Paragraph(section['subtitle'], section_title_style))
+
+            table_headers = section['headers']
+            table_data = section['data']
+
+            header_row = [Paragraph(str(h), header_cell_style) for h in table_headers]
+            rows = [header_row]
+
+            for row in table_data:
+                row_cells = []
+                for header in table_headers:
+                    key = header.lower().replace(' ', '_').replace('(', '').replace(')', '').replace('%', '')
+                    value = decimal_to_float(row.get(key, ''))
+                    if isinstance(value, float):
+                        row_cells.append(Paragraph(f"{value:,.2f}", cell_style_right))
+                    else:
+                        row_cells.append(Paragraph(str(value) if value else '', cell_style))
+                rows.append(row_cells)
+
+            available_width = page_size[0] - 1 * inch
+            col_widths = [available_width / len(table_headers)] * len(table_headers)
+
+            table = Table(rows, colWidths=col_widths, repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F2F2F2')]),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.3 * inch))
+
+        elif section['type'] == 'stats':
+            if section.get('subtitle'):
+                elements.append(Paragraph(section['subtitle'], section_title_style))
+            stat_rows = []
+            for item in section['items']:
+                stat_rows.append([
+                    Paragraph(str(item['label']), stats_label_style),
+                    Paragraph(str(item['value']), stats_value_style),
+                ])
+            if stat_rows:
+                stat_table = Table(stat_rows, colWidths=[3.5 * inch, 2 * inch])
+                stat_table.setStyle(TableStyle([
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
+                    ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F8F8F8')),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ]))
+                elements.append(stat_table)
+                elements.append(Spacer(1, 0.3 * inch))
+
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def generate_excel_with_charts_response(sections: list, filename: str, title: str = None) -> HttpResponse:
+    """
+    Generate an Excel file with native charts and data tables.
+
+    sections: list of dicts, each one of:
+        {'type': 'table', 'data': [...], 'headers': [...], 'subtitle': '...'}
+        {'type': 'chart', 'chart_type': 'pie|bar|line|area', 'data': [...], 'title': '...', 'options': {...}}
+    """
+    wb = Workbook()
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_border = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
+    )
+
+    # --- Data sheet ---
+    ws = wb.active
+    ws.title = "Report"
+    current_row = 1
+
+    if title:
+        # Find the max column count from table sections
+        max_cols = 2
+        for s in sections:
+            if s['type'] == 'table' and s.get('headers'):
+                max_cols = max(max_cols, len(s['headers']))
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max_cols)
+        title_cell = ws.cell(row=1, column=1, value=title)
+        title_cell.font = Font(bold=True, size=14)
+        title_cell.alignment = Alignment(horizontal="center")
+        current_row = 3
+
+    for section in sections:
+        if section['type'] != 'table':
+            continue
+
+        table_headers = section.get('headers', [])
+        table_data = section.get('data', [])
+        subtitle = section.get('subtitle')
+
+        if subtitle:
+            ws.cell(row=current_row, column=1, value=subtitle).font = Font(bold=True, size=11)
+            current_row += 1
+
+        # Write headers
+        for col, header in enumerate(table_headers, 1):
+            cell = ws.cell(row=current_row, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = thin_border
+
+        # Write data
+        for row_idx, row in enumerate(table_data, current_row + 1):
+            for col_idx, header in enumerate(table_headers, 1):
+                key = header.lower().replace(' ', '_').replace('(', '').replace(')', '').replace('%', '')
+                value = decimal_to_float(row.get(key, ''))
+                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell.border = thin_border
+                if isinstance(value, (int, float)):
+                    cell.alignment = Alignment(horizontal="right")
+                    if any(k in key for k in ['salary', 'amount', 'balance', 'paye', 'ssnit',
+                                               'deduction', 'earning', 'net', 'gross']):
+                        cell.number_format = '#,##0.00'
+
+        current_row += len(table_data) + 3
+
+        # Auto-adjust column widths
+        for col in range(1, len(table_headers) + 1):
+            max_length = len(str(table_headers[col - 1]))
+            column_letter = get_column_letter(col)
+            for r in range(current_row - len(table_data) - 2, current_row - 2):
+                cell = ws.cell(row=r, column=col)
+                try:
+                    if cell.value:
+                        max_length = max(max_length, len(str(cell.value)))
+                except Exception:
+                    pass
+            ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
+
+    # --- Charts sheet ---
+    chart_sections = [s for s in sections if s['type'] == 'chart' and s.get('data')]
+    if chart_sections:
+        cs = wb.create_sheet("Charts")
+        chart_data_row = 1
+        chart_placement_col = 5  # Column E - where charts are placed
+        chart_y_offset = 0
+
+        for section in chart_sections:
+            chart_data = section['data']
+            chart_type = section['chart_type']
+            chart_title = section.get('title', '')
+            options = section.get('options', {})
+
+            if not chart_data:
+                continue
+
+            # Write chart source data
+            cs.cell(row=chart_data_row, column=1, value='Name').font = Font(bold=True)
+            cs.cell(row=chart_data_row, column=2, value='Value').font = Font(bold=True)
+            data_start = chart_data_row + 1
+            for i, item in enumerate(chart_data):
+                cs.cell(row=data_start + i, column=1, value=str(item.get('name', '')))
+                cs.cell(row=data_start + i, column=2, value=item.get('value', 0))
+            data_end = data_start + len(chart_data) - 1
+
+            # Auto-width for label column
+            max_label_len = max((len(str(item.get('name', ''))) for item in chart_data), default=10)
+            cs.column_dimensions['A'].width = max(cs.column_dimensions['A'].width or 10, min(max_label_len + 2, 40))
+            cs.column_dimensions['B'].width = 12
+
+            # Create native chart
+            chart = None
+            if chart_type == 'pie':
+                chart = XlPieChart()
+                chart.style = 10
+                data_ref = XlReference(cs, min_col=2, min_row=chart_data_row, max_row=data_end)
+                cats = XlReference(cs, min_col=1, min_row=data_start, max_row=data_end)
+                chart.add_data(data_ref, titles_from_data=True)
+                chart.set_categories(cats)
+            elif chart_type == 'bar':
+                chart = XlBarChart()
+                if options.get('horizontal'):
+                    chart.type = "bar"
+                chart.style = 10
+                data_ref = XlReference(cs, min_col=2, min_row=chart_data_row, max_row=data_end)
+                cats = XlReference(cs, min_col=1, min_row=data_start, max_row=data_end)
+                chart.add_data(data_ref, titles_from_data=True)
+                chart.set_categories(cats)
+                chart.legend = None
+            elif chart_type == 'line':
+                chart = XlLineChart()
+                chart.style = 10
+                data_ref = XlReference(cs, min_col=2, min_row=chart_data_row, max_row=data_end)
+                cats = XlReference(cs, min_col=1, min_row=data_start, max_row=data_end)
+                chart.add_data(data_ref, titles_from_data=True)
+                chart.set_categories(cats)
+                chart.legend = None
+            elif chart_type == 'area':
+                chart = XlAreaChart()
+                chart.style = 10
+                data_ref = XlReference(cs, min_col=2, min_row=chart_data_row, max_row=data_end)
+                cats = XlReference(cs, min_col=1, min_row=data_start, max_row=data_end)
+                chart.add_data(data_ref, titles_from_data=True)
+                chart.set_categories(cats)
+                chart.legend = None
+
+            if chart:
+                chart.title = chart_title
+                chart.width = 18
+                chart.height = 12
+                # Place charts in column E, stacked vertically
+                placement_cell = f"E{chart_data_row}"
+                cs.add_chart(chart, placement_cell)
+
+            chart_data_row = data_end + 3
+
+    # Create response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
     return response
 
 
@@ -1231,17 +1578,58 @@ def export_employee_master(filters: dict = None, format: str = 'csv') -> HttpRes
 
 
 def export_headcount(filters: dict = None, format: str = 'csv') -> HttpResponse:
-    """Export headcount report."""
+    """Export headcount report with chart visualizations for PDF/Excel."""
     data, headers = get_headcount_data(filters)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     title = "Headcount Report"
 
-    if format == 'excel':
-        return generate_excel_response(data, headers, f'headcount_{timestamp}.xlsx', title)
-    elif format == 'pdf':
-        return generate_pdf_response(data, headers, f'headcount_{timestamp}.pdf', title)
-    else:
+    if format == 'csv':
         return generate_csv_response(data, headers, f'headcount_{timestamp}.csv')
+
+    # Gather chart breakdown data
+    queryset = Employee.objects.filter(status='ACTIVE')
+    queryset = apply_employee_filters(queryset, filters)
+
+    by_division = [
+        {'name': row['name'] or 'Unassigned', 'value': row['value']}
+        for row in queryset.values(name=F('division__name')).annotate(value=Count('id')).order_by('-value')
+    ]
+    by_directorate = [
+        {'name': row['name'] or 'Unassigned', 'value': row['value']}
+        for row in queryset.values(name=F('directorate__name')).annotate(value=Count('id')).order_by('-value')
+    ]
+    by_grade = [
+        {'name': row['name'] or 'Unassigned', 'value': row['value']}
+        for row in queryset.values(name=F('grade__name')).annotate(value=Count('id')).order_by('-value')
+    ]
+    by_location = [
+        {'name': row['name'] or 'Unassigned', 'value': row['value']}
+        for row in queryset.values(name=F('work_location__name')).annotate(value=Count('id')).order_by('-value')
+    ]
+    by_emp_type = [
+        {'name': row['name'] or 'Not Specified', 'value': row['value']}
+        for row in queryset.values(name=F('employment_type')).annotate(value=Count('id')).order_by('-value')
+    ]
+
+    total = str(queryset.count())
+    sections = [
+        {'type': 'table', 'data': data, 'headers': headers, 'subtitle': 'Headcount by Department'},
+        {'type': 'chart', 'chart_type': 'pie', 'data': by_division, 'title': 'Headcount by Division',
+         'options': {'donut': True, 'center_label': total}},
+        {'type': 'chart', 'chart_type': 'pie', 'data': by_directorate, 'title': 'Headcount by Directorate',
+         'options': {'donut': True, 'center_label': total}},
+        {'type': 'chart', 'chart_type': 'pie', 'data': by_grade, 'title': 'Headcount by Grade',
+         'options': {'donut': True, 'center_label': total}},
+        {'type': 'chart', 'chart_type': 'pie', 'data': by_location, 'title': 'Headcount by Location',
+         'options': {'donut': True, 'center_label': total}},
+        {'type': 'chart', 'chart_type': 'bar', 'data': by_emp_type, 'title': 'Headcount by Employment Type',
+         'options': {}},
+    ]
+
+    if format == 'pdf':
+        return generate_pdf_with_charts_response(sections, f'headcount_{timestamp}.pdf', title)
+    else:
+        return generate_excel_with_charts_response(sections, f'headcount_{timestamp}.xlsx', title)
 
 
 def export_payroll_summary(payroll_run_id: str = None, filters: dict = None, format: str = 'csv') -> HttpResponse:
@@ -1301,17 +1689,34 @@ def export_bank_advice(payroll_run_id: str = None, filters: dict = None, format:
 
 
 def export_leave_balance(filters: dict = None, format: str = 'csv') -> HttpResponse:
-    """Export leave balance report."""
+    """Export leave balance report with chart visualizations for PDF/Excel."""
     data, headers = get_leave_balance_data(filters)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     title = "Leave Balance Report"
 
-    if format == 'excel':
-        return generate_excel_response(data, headers, f'leave_balance_{timestamp}.xlsx', title)
-    elif format == 'pdf':
-        return generate_pdf_response(data, headers, f'leave_balance_{timestamp}.pdf', title, landscape_mode=True)
-    else:
+    if format == 'csv':
         return generate_csv_response(data, headers, f'leave_balance_{timestamp}.csv')
+
+    # Aggregate leave taken by type for bar chart
+    by_leave_type = {}
+    for row in data:
+        lt = row.get('leave_type', 'Unknown')
+        by_leave_type[lt] = by_leave_type.get(lt, 0) + float(row.get('taken', 0))
+
+    leave_type_chart = [{'name': k, 'value': v} for k, v in
+                        sorted(by_leave_type.items(), key=lambda x: -x[1])]
+
+    sections = [
+        {'type': 'table', 'data': data, 'headers': headers, 'subtitle': 'Leave Balances'},
+        {'type': 'chart', 'chart_type': 'bar', 'data': leave_type_chart,
+         'title': 'Leave Days Taken by Type', 'options': {}},
+    ]
+
+    if format == 'pdf':
+        return generate_pdf_with_charts_response(sections, f'leave_balance_{timestamp}.pdf', title,
+                                                  landscape_mode=True)
+    else:
+        return generate_excel_with_charts_response(sections, f'leave_balance_{timestamp}.xlsx', title)
 
 
 def export_loan_outstanding(filters: dict = None, format: str = 'csv') -> HttpResponse:
@@ -1963,17 +2368,33 @@ def get_turnover_data(year=None):
 
 
 def export_turnover(year=None, format='csv'):
-    """Export turnover report."""
+    """Export turnover report with chart visualizations for PDF/Excel."""
     data, headers = get_turnover_data(year)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     title = "Turnover Report"
 
-    if format == 'excel':
-        return generate_excel_response(data, headers, f'turnover_{timestamp}.xlsx', title)
-    elif format == 'pdf':
-        return generate_pdf_response(data, headers, f'turnover_{timestamp}.pdf', title)
-    else:
+    if format == 'csv':
         return generate_csv_response(data, headers, f'turnover_{timestamp}.csv')
+
+    # Extract chart data from the mixed flat data structure
+    monthly_data = [{'name': r['month'], 'value': r['exits']} for r in data if r.get('month')]
+    reason_data = [{'name': r['exit_reason'], 'value': r['exits']} for r in data if r.get('exit_reason')]
+    dept_data = [{'name': r['department'], 'value': r['exits']} for r in data if r.get('department')]
+
+    sections = [
+        {'type': 'table', 'data': data, 'headers': headers, 'subtitle': 'Turnover Data'},
+        {'type': 'chart', 'chart_type': 'line', 'data': monthly_data,
+         'title': 'Monthly Exit Trend', 'options': {}},
+        {'type': 'chart', 'chart_type': 'pie', 'data': reason_data,
+         'title': 'Exits by Reason', 'options': {'donut': True}},
+        {'type': 'chart', 'chart_type': 'bar', 'data': dept_data[:10],
+         'title': 'Top 10 Departments by Exits', 'options': {'horizontal': True}},
+    ]
+
+    if format == 'pdf':
+        return generate_pdf_with_charts_response(sections, f'turnover_{timestamp}.pdf', title)
+    else:
+        return generate_excel_with_charts_response(sections, f'turnover_{timestamp}.xlsx', title)
 
 
 def get_demographics_data():
@@ -2043,17 +2464,33 @@ def get_demographics_data():
 
 
 def export_demographics(format='csv'):
-    """Export demographics report."""
+    """Export demographics report with chart visualizations for PDF/Excel."""
     data, headers = get_demographics_data()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     title = "Demographics Report"
 
-    if format == 'excel':
-        return generate_excel_response(data, headers, f'demographics_{timestamp}.xlsx', title)
-    elif format == 'pdf':
-        return generate_pdf_response(data, headers, f'demographics_{timestamp}.pdf', title)
-    else:
+    if format == 'csv':
         return generate_csv_response(data, headers, f'demographics_{timestamp}.csv')
+
+    # Extract chart data from the flat category-based structure
+    gender_data = [{'name': r['value'], 'value': r['count']} for r in data if r.get('category') == 'Gender']
+    marital_data = [{'name': r['value'], 'value': r['count']} for r in data if r.get('category') == 'Marital Status']
+    age_data = [{'name': r['value'], 'value': r['count']} for r in data if r.get('category') == 'Age Bracket']
+
+    sections = [
+        {'type': 'table', 'data': data, 'headers': headers, 'subtitle': 'Demographics Data'},
+        {'type': 'chart', 'chart_type': 'pie', 'data': gender_data,
+         'title': 'Gender Distribution', 'options': {'donut': True}},
+        {'type': 'chart', 'chart_type': 'pie', 'data': marital_data,
+         'title': 'Marital Status Distribution', 'options': {'donut': True}},
+        {'type': 'chart', 'chart_type': 'area', 'data': age_data,
+         'title': 'Age Distribution', 'options': {}},
+    ]
+
+    if format == 'pdf':
+        return generate_pdf_with_charts_response(sections, f'demographics_{timestamp}.pdf', title)
+    else:
+        return generate_excel_with_charts_response(sections, f'demographics_{timestamp}.xlsx', title)
 
 
 def get_leave_utilization_data(year=None):
@@ -2123,17 +2560,36 @@ def get_leave_utilization_data(year=None):
 
 
 def export_leave_utilization(year=None, format='csv'):
-    """Export leave utilization report."""
+    """Export leave utilization report with chart visualizations for PDF/Excel."""
     data, headers = get_leave_utilization_data(year)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     title = "Leave Utilization Report"
 
-    if format == 'excel':
-        return generate_excel_response(data, headers, f'leave_utilization_{timestamp}.xlsx', title)
-    elif format == 'pdf':
-        return generate_pdf_response(data, headers, f'leave_utilization_{timestamp}.pdf', title)
-    else:
+    if format == 'csv':
         return generate_csv_response(data, headers, f'leave_utilization_{timestamp}.csv')
+
+    # Extract chart data from the section-based flat structure
+    monthly_data = [{'name': r['name'], 'value': float(r['total_days'])}
+                    for r in data if r.get('section') == 'Monthly']
+    type_data = [{'name': r['name'], 'value': float(r['total_days'])}
+                 for r in data if r.get('section') == 'Leave Type']
+    dept_data = [{'name': r['name'], 'value': float(r['total_days'])}
+                 for r in data if r.get('section') == 'Department']
+
+    sections = [
+        {'type': 'table', 'data': data, 'headers': headers, 'subtitle': 'Leave Utilization Data'},
+        {'type': 'chart', 'chart_type': 'line', 'data': monthly_data,
+         'title': 'Monthly Leave Trend (Days)', 'options': {}},
+        {'type': 'chart', 'chart_type': 'pie', 'data': type_data,
+         'title': 'Leave Days by Type', 'options': {'donut': True}},
+        {'type': 'chart', 'chart_type': 'bar', 'data': dept_data[:15],
+         'title': 'Top 15 Departments by Leave Days', 'options': {'horizontal': True}},
+    ]
+
+    if format == 'pdf':
+        return generate_pdf_with_charts_response(sections, f'leave_utilization_{timestamp}.pdf', title)
+    else:
+        return generate_excel_with_charts_response(sections, f'leave_utilization_{timestamp}.xlsx', title)
 
 
 def get_employment_history_data(employee_id=None):
@@ -2235,17 +2691,54 @@ def get_kpi_data():
 
 
 def export_kpi_tracking(format='csv'):
-    """Export KPI tracking report."""
+    """Export KPI tracking report with chart visualizations for PDF/Excel."""
     data, headers = get_kpi_data()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     title = "KPI Tracking Report"
 
-    if format == 'excel':
-        return generate_excel_response(data, headers, f'kpi_tracking_{timestamp}.xlsx', title)
-    elif format == 'pdf':
-        return generate_pdf_response(data, headers, f'kpi_tracking_{timestamp}.pdf', title)
-    else:
+    if format == 'csv':
         return generate_csv_response(data, headers, f'kpi_tracking_{timestamp}.csv')
+
+    # Rating distribution bar chart - bucket appraisals by rating
+    rating_buckets = {'Outstanding (4.5-5.0)': 0, 'Exceeds (3.5-4.5)': 0,
+                      'Meets (2.5-3.5)': 0, 'Needs Improvement (1.5-2.5)': 0,
+                      'Unsatisfactory (0-1.5)': 0}
+    for rating in Appraisal.objects.filter(
+        overall_final_rating__isnull=False
+    ).values_list('overall_final_rating', flat=True):
+        r = float(rating)
+        if r >= 4.5:
+            rating_buckets['Outstanding (4.5-5.0)'] += 1
+        elif r >= 3.5:
+            rating_buckets['Exceeds (3.5-4.5)'] += 1
+        elif r >= 2.5:
+            rating_buckets['Meets (2.5-3.5)'] += 1
+        elif r >= 1.5:
+            rating_buckets['Needs Improvement (1.5-2.5)'] += 1
+        else:
+            rating_buckets['Unsatisfactory (0-1.5)'] += 1
+
+    rating_chart = [{'name': k, 'value': v} for k, v in rating_buckets.items() if v > 0]
+
+    # Training programs by category for pie chart
+    training_by_cat = [
+        {'name': row['category'] or 'Uncategorized', 'value': row['count']}
+        for row in TrainingProgram.objects.filter(is_active=True)
+        .values('category').annotate(count=Count('id')).order_by('-count')
+    ]
+
+    sections = [
+        {'type': 'table', 'data': data, 'headers': headers, 'subtitle': 'KPI Metrics'},
+        {'type': 'chart', 'chart_type': 'bar', 'data': rating_chart,
+         'title': 'Performance Rating Distribution', 'options': {}},
+        {'type': 'chart', 'chart_type': 'pie', 'data': training_by_cat,
+         'title': 'Active Training Programs by Category', 'options': {'donut': True}},
+    ]
+
+    if format == 'pdf':
+        return generate_pdf_with_charts_response(sections, f'kpi_tracking_{timestamp}.pdf', title)
+    else:
+        return generate_excel_with_charts_response(sections, f'kpi_tracking_{timestamp}.xlsx', title)
 
 
 def get_performance_appraisals_data(filters=None):
