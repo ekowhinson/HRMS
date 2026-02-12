@@ -1,3 +1,20 @@
+// Organization Types
+export interface Organization {
+  id: string
+  name: string
+  code: string
+  logo_data?: string
+  primary_color?: string
+}
+
+export interface UserOrganizationMembership {
+  id: string
+  name: string
+  code: string
+  role: string
+  is_default: boolean
+}
+
 // User & Auth Types
 export interface User {
   id: string
@@ -11,6 +28,8 @@ export interface User {
   is_superuser?: boolean
   employee?: Employee
   roles: Role[]
+  active_organization?: Organization
+  organizations?: UserOrganizationMembership[]
 }
 
 export interface Role {

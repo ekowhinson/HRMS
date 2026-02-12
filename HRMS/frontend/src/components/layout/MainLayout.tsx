@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import OrganizationSwitcher from './OrganizationSwitcher';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationService, type Notification as NotificationType } from '@/services/notifications';
 import {
@@ -1044,6 +1045,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           <div className="flex flex-1 justify-end gap-2">
+            {/* Organization Switcher */}
+            <OrganizationSwitcher />
+
             {/* Notification button with dropdown */}
             <NotificationBell />
 

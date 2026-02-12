@@ -418,6 +418,52 @@ class UserRole(TimeStampedModel):
         return True
 
 
+class UserOrganization(TimeStampedModel):
+    """
+    Many-to-many through model linking users to organizations.
+    Allows a user to belong to multiple organizations and switch between them.
+    """
+    class OrgRole(models.TextChoices):
+        MEMBER = 'member', 'Member'
+        ADMIN = 'admin', 'Admin'
+        VIEWER = 'viewer', 'Viewer'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_organizations')
+    organization = models.ForeignKey(
+        'organization.Organization',
+        on_delete=models.CASCADE,
+        related_name='organization_users',
+    )
+    role = models.CharField(
+        max_length=50,
+        choices=OrgRole.choices,
+        default=OrgRole.MEMBER,
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text='Default organization selected on login',
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'user_organizations'
+        unique_together = ('user', 'organization')
+        ordering = ['-is_default', 'organization__name']
+
+    def __str__(self):
+        return f"{self.user.email} - {self.organization.name} ({self.role})"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one default org per user
+        if self.is_default:
+            UserOrganization.objects.filter(
+                user=self.user,
+                is_default=True,
+            ).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+
 class UserSession(TimeStampedModel):
     """
     Track user sessions for security and audit.

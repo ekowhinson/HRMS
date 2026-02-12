@@ -15,14 +15,15 @@ from django.template.loader import render_to_string
 
 from django.db import models
 
-from .models import User, Role, Permission, UserRole, UserSession, AuthenticationLog, EmailVerificationToken
+from .models import User, Role, Permission, UserRole, UserSession, AuthenticationLog, EmailVerificationToken, UserOrganization
 from .serializers import (
     LoginSerializer, UserSerializer, UserCreateSerializer, UserUpdateSerializer,
     ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
     RoleSerializer, RoleUpdateSerializer, PermissionSerializer, UserRoleSerializer,
     UserRoleDetailSerializer, UserRoleAssignSerializer, UserSessionSerializer,
     AuthenticationLogSerializer, EmployeeSignupSerializer,
-    VerifyEmailTokenSerializer, CompleteSignupSerializer, EmployeeInfoSerializer
+    VerifyEmailTokenSerializer, CompleteSignupSerializer, EmployeeInfoSerializer,
+    OrganizationBriefSerializer, UserOrganizationSerializer, SwitchOrganizationSerializer,
 )
 
 
@@ -799,6 +800,138 @@ class RevokeSessionView(APIView):
                 {'error': 'Session not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+# ============================================
+# Organization Switching Views
+# ============================================
+
+
+class MyOrganizationsView(APIView):
+    """List organizations the current user belongs to."""
+
+    def get(self, request):
+        memberships = UserOrganization.objects.filter(
+            user=request.user,
+        ).select_related('organization')
+        serializer = UserOrganizationSerializer(memberships, many=True)
+        return Response(serializer.data)
+
+
+class SwitchOrganizationView(APIView):
+    """
+    Switch the user's active organization.
+    Returns new JWT tokens scoped to the selected org.
+    """
+
+    def post(self, request):
+        serializer = SwitchOrganizationSerializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        org_id = serializer.validated_data['organization_id']
+
+        # Update user's active organization
+        user = request.user
+        user.organization_id = org_id
+        user.save(update_fields=['organization_id'])
+
+        # Generate fresh tokens with updated org claim
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data,
+        })
+
+
+class UserOrganizationsView(APIView):
+    """Admin: manage a user's organization memberships."""
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request, pk):
+        """List a user's organization memberships."""
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        memberships = UserOrganization.objects.filter(
+            user=user,
+        ).select_related('organization')
+        serializer = UserOrganizationSerializer(memberships, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, pk):
+        """Add a user to an organization."""
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UserOrganizationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        org_id = serializer.validated_data['organization_id']
+
+        if UserOrganization.objects.filter(user=user, organization_id=org_id).exists():
+            return Response(
+                {'error': 'User is already a member of this organization.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from organization.models import Organization
+        org = Organization.objects.get(id=org_id)
+
+        membership = UserOrganization.objects.create(
+            user=user,
+            organization=org,
+            role=serializer.validated_data.get('role', 'member'),
+            is_default=serializer.validated_data.get('is_default', False),
+        )
+
+        # If this is the user's first org, set it as active
+        if user.organization_id is None:
+            user.organization = org
+            user.save(update_fields=['organization_id'])
+
+        return Response(
+            UserOrganizationSerializer(membership).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def delete(self, request, pk):
+        """Remove a user from an organization."""
+        org_id = request.query_params.get('organization_id')
+        if not org_id:
+            return Response(
+                {'error': 'organization_id query parameter is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            membership = UserOrganization.objects.get(user_id=pk, organization_id=org_id)
+        except UserOrganization.DoesNotExist:
+            return Response(
+                {'error': 'Membership not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        membership.delete()
+
+        # If the removed org was the user's active org, switch to default or first available
+        user = User.objects.get(pk=pk)
+        if str(user.organization_id) == str(org_id):
+            next_membership = UserOrganization.objects.filter(
+                user=user,
+            ).order_by('-is_default').first()
+            user.organization = next_membership.organization if next_membership else None
+            user.save(update_fields=['organization_id'])
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SignupRateThrottle(AnonRateThrottle):

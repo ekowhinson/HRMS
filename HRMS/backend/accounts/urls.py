@@ -34,6 +34,10 @@ urlpatterns = [
     # User profile
     path('me/', views.CurrentUserView.as_view(), name='current-user'),
     path('me/update/', views.UpdateProfileView.as_view(), name='update-profile'),
+    path('me/organizations/', views.MyOrganizationsView.as_view(), name='my-organizations'),
+
+    # Organization switching
+    path('switch-organization/', views.SwitchOrganizationView.as_view(), name='switch-organization'),
 
     # User management (admin)
     path('users/', views.UserListView.as_view(), name='user-list'),
@@ -43,6 +47,7 @@ urlpatterns = [
     path('users/<uuid:pk>/reset-password/', views.UserResetPasswordView.as_view(), name='user-reset-password'),
     path('users/<uuid:pk>/unlock/', views.UserUnlockView.as_view(), name='user-unlock'),
     path('users/<uuid:pk>/sessions/', views.UserSessionsView.as_view(), name='user-sessions'),
+    path('users/<uuid:pk>/organizations/', views.UserOrganizationsView.as_view(), name='user-organizations'),
 
     # Role management
     path('roles/', views.RoleListView.as_view(), name='role-list'),

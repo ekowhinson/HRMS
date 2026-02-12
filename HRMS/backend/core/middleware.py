@@ -358,15 +358,29 @@ class TenantMiddleware:
     def _resolve_tenant(self, request):
         from organization.models import Organization
 
-        # 1. Header
+        # 1. Header — verify user is a member of the requested org
         tenant_id = request.META.get('HTTP_X_TENANT_ID')
         if tenant_id:
             try:
-                return Organization.objects.get(id=tenant_id, is_active=True)
+                org = Organization.objects.get(id=tenant_id, is_active=True)
+                # Verify membership if user is authenticated
+                if hasattr(request, 'user') and request.user.is_authenticated:
+                    from accounts.models import UserOrganization
+                    if UserOrganization.objects.filter(
+                        user=request.user,
+                        organization=org,
+                    ).exists():
+                        return org
+                    # Superusers can access any org
+                    if request.user.is_superuser:
+                        return org
+                    # Not a member — fall through to user's active org
+                else:
+                    return org
             except (Organization.DoesNotExist, ValueError):
                 pass
 
-        # 2. Authenticated user's organization
+        # 2. Authenticated user's active organization
         if hasattr(request, 'user') and request.user.is_authenticated:
             org = getattr(request.user, 'organization', None)
             if org is not None:

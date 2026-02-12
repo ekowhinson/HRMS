@@ -8,8 +8,9 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.db.models import Q
 
-from .models import User, Role, Permission, UserRole, UserSession, EmailVerificationToken
+from .models import User, Role, Permission, UserRole, UserSession, EmailVerificationToken, UserOrganization
 from employees.models import Employee
+from organization.models import Organization
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -26,6 +27,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add roles
         roles = user.user_roles.filter(is_active=True).values_list('role__code', flat=True)
         token['roles'] = list(roles)
+
+        # Add active organization
+        if user.organization_id:
+            token['organization_id'] = str(user.organization_id)
 
         return token
 
@@ -71,12 +76,55 @@ class UserRoleDetailSerializer(serializers.ModelSerializer):
         ]
 
 
+class OrganizationBriefSerializer(serializers.ModelSerializer):
+    """Brief serializer for Organization — used in auth responses."""
+
+    class Meta:
+        model = Organization
+        fields = ['id', 'name', 'code', 'logo_data', 'primary_color']
+
+
+class UserOrganizationSerializer(serializers.ModelSerializer):
+    """Serializer for UserOrganization membership."""
+    organization = OrganizationBriefSerializer(read_only=True)
+    organization_id = serializers.UUIDField(write_only=True)
+
+    class Meta:
+        model = UserOrganization
+        fields = ['id', 'organization', 'organization_id', 'role', 'is_default', 'joined_at']
+        read_only_fields = ['id', 'joined_at']
+
+    def validate_organization_id(self, value):
+        try:
+            Organization.objects.get(id=value, is_active=True)
+        except Organization.DoesNotExist:
+            raise serializers.ValidationError('Organization not found or inactive.')
+        return value
+
+
+class SwitchOrganizationSerializer(serializers.Serializer):
+    """Serializer for switching active organization."""
+    organization_id = serializers.UUIDField()
+
+    def validate_organization_id(self, value):
+        user = self.context['request'].user
+        if not UserOrganization.objects.filter(user=user, organization_id=value).exists():
+            raise serializers.ValidationError('You are not a member of this organization.')
+        try:
+            org = Organization.objects.get(id=value, is_active=True)
+        except Organization.DoesNotExist:
+            raise serializers.ValidationError('Organization not found or inactive.')
+        return value
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model."""
     full_name = serializers.ReadOnlyField()
     roles = serializers.SerializerMethodField()
     profile_photo_url = serializers.SerializerMethodField()
     employee = serializers.SerializerMethodField()
+    active_organization = serializers.SerializerMethodField()
+    organizations = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -85,7 +133,8 @@ class UserSerializer(serializers.ModelSerializer):
             'full_name', 'phone_number', 'profile_photo_url', 'is_active', 'is_verified',
             'is_staff', 'is_superuser', 'two_factor_enabled', 'two_factor_method',
             'must_change_password', 'failed_login_attempts', 'lockout_until',
-            'last_login_at', 'last_login_ip', 'created_at', 'updated_at', 'roles', 'employee'
+            'last_login_at', 'last_login_ip', 'created_at', 'updated_at',
+            'roles', 'employee', 'active_organization', 'organizations'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'last_login_at', 'last_login_ip',
@@ -119,6 +168,23 @@ class UserSerializer(serializers.ModelSerializer):
         except Employee.DoesNotExist:
             pass
         return None
+
+    def get_active_organization(self, obj):
+        """Return the user's active organization."""
+        if obj.organization:
+            return OrganizationBriefSerializer(obj.organization).data
+        return None
+
+    def get_organizations(self, obj):
+        """Return all organizations the user belongs to."""
+        memberships = obj.user_organizations.select_related('organization').all()
+        return [{
+            'id': str(m.organization.id),
+            'name': m.organization.name,
+            'code': m.organization.code,
+            'role': m.role,
+            'is_default': m.is_default,
+        } for m in memberships]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
