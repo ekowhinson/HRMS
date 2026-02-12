@@ -240,8 +240,14 @@ def _redis_delete_pattern(cache, pattern: str):
     Works with Django's native RedisCache which lacks delete_pattern().
     """
     try:
-        # Access the underlying Redis client
-        client = cache._cache
+        # Django's native RedisCache stores a RedisCacheClient at _cache;
+        # the raw redis.Redis instance is obtained via get_client().
+        cache_client = cache._cache
+        if hasattr(cache_client, 'get_client'):
+            client = cache_client.get_client(write=True)
+        else:
+            # Fallback for django-redis or other backends
+            client = cache_client
         cursor = 0
         deleted = 0
         while True:
