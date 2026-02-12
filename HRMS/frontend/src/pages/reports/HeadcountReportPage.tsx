@@ -16,25 +16,25 @@ export default function HeadcountReportPage() {
   })
 
   const totalHeadcount: number = data?.total_headcount || 0
-  const byDepartment: { name: string; count: number }[] = data?.by_department || []
-  const byGrade: { name: string; count: number }[] = data?.by_grade || []
-  const byType: { name: string; count: number }[] = data?.by_employment_type || []
-  const byLocation: { name: string; count: number }[] = data?.by_location || []
+  const byDepartment: { department_name: string; count: number }[] = data?.by_department || []
+  const byGrade: { grade_name: string; count: number }[] = data?.by_grade || []
+  const byType: { employment_type: string; count: number }[] = data?.by_employment_type || []
+  const byLocation: { location_name: string; count: number }[] = data?.by_location || []
 
-  const deptChartData = byDepartment
+  const deptChartData = [...byDepartment]
     .sort((a, b) => b.count - a.count)
     .slice(0, 15)
-    .map((d) => ({ name: d.name, value: d.count }))
+    .map((d) => ({ name: d.department_name || 'Unknown', value: d.count }))
 
-  const gradeChartData = byGrade
+  const gradeChartData = [...byGrade]
     .sort((a, b) => b.count - a.count)
-    .map((d) => ({ name: d.name, value: d.count }))
+    .map((d) => ({ name: d.grade_name || 'Unknown', value: d.count }))
 
-  const typeChartData = byType.map((d) => ({ name: d.name, value: d.count }))
-  const locationChartData = byLocation
+  const typeChartData = byType.map((d) => ({ name: d.employment_type || 'Unknown', value: d.count }))
+  const locationChartData = [...byLocation]
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
-    .map((d) => ({ name: d.name, value: d.count }))
+    .map((d) => ({ name: d.location_name || 'Unknown', value: d.count }))
 
   return (
     <div className="space-y-6">
@@ -125,11 +125,11 @@ export default function HeadcountReportPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {byDepartment
+                    {[...byDepartment]
                       .sort((a, b) => b.count - a.count)
                       .map((dept) => (
-                        <tr key={dept.name} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900">{dept.name}</td>
+                        <tr key={dept.department_name} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">{dept.department_name || 'Unknown'}</td>
                           <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">{dept.count.toLocaleString()}</td>
                           <td className="px-4 py-3 text-sm text-gray-500 text-right">
                             {totalHeadcount > 0 ? ((dept.count / totalHeadcount) * 100).toFixed(1) : 0}%
