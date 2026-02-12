@@ -81,7 +81,7 @@ class RecruitmentAnalytics:
 
         # Exits in the period
         exits = ExitRequest.objects.filter(
-            last_working_date__year=year,
+            actual_last_day__year=year,
             status='COMPLETED'
         ).count()
 
@@ -115,7 +115,7 @@ class RecruitmentAnalytics:
         # Get closed vacancies with both opening and closing dates
         closed_vacancies = Vacancy.objects.filter(
             status='CLOSED',
-            opening_date__isnull=False,
+            publish_date__isnull=False,
             closing_date__isnull=False
         )
 
@@ -123,9 +123,9 @@ class RecruitmentAnalytics:
             return {'average_days': 0, 'vacancies_analyzed': 0}
 
         total_days = sum(
-            (v.closing_date - v.opening_date).days
+            (v.closing_date - v.publish_date).days
             for v in closed_vacancies
-            if v.closing_date and v.opening_date
+            if v.closing_date and v.publish_date
         )
 
         count = closed_vacancies.count()
@@ -147,7 +147,7 @@ class RecruitmentAnalytics:
         return {
             'vacancies_by_status': list(vacancies),
             'applicants_by_status': list(applicants),
-            'open_vacancies': Vacancy.objects.filter(status='OPEN').count(),
+            'open_vacancies': Vacancy.objects.filter(status='PUBLISHED').count(),
             'total_applicants': Applicant.objects.count()
         }
 
@@ -722,10 +722,10 @@ class ExitAnalytics:
 
         # Get exits by month
         monthly_exits = ExitRequest.objects.filter(
-            last_working_date__year=year,
+            actual_last_day__year=year,
             status='COMPLETED'
         ).annotate(
-            month=ExtractMonth('last_working_date')
+            month=ExtractMonth('actual_last_day')
         ).values('month').annotate(count=Count('id'))
 
         # Average headcount for the year
@@ -764,7 +764,7 @@ class ExitAnalytics:
             year = timezone.now().year
 
         exits = ExitRequest.objects.filter(
-            last_working_date__year=year,
+            actual_last_day__year=year,
             status='COMPLETED'
         )
 

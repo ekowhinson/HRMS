@@ -190,9 +190,9 @@ export default function PerformanceAppraisalsReportPage() {
                         {a.status_display}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{a.overall_self_rating?.toFixed(1) ?? '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{a.overall_manager_rating?.toFixed(1) ?? '-'}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{a.overall_final_rating?.toFixed(1) ?? '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{a.overall_self_rating != null ? Number(a.overall_self_rating).toFixed(1) : '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{a.overall_manager_rating != null ? Number(a.overall_manager_rating).toFixed(1) : '-'}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{a.overall_final_rating != null ? Number(a.overall_final_rating).toFixed(1) : '-'}</td>
                   </tr>
                 ))}
               </tbody>

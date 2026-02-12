@@ -14,7 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
-from core.pagination import LargeResultsSetPagination
+from core.pagination import LargeResultsSetPagination, StandardResultsSetPagination
 from core.caching import cached_view
 
 from django.http import HttpResponse
@@ -1505,7 +1505,8 @@ class BankBranchViewSet(viewsets.ModelViewSet):
     filterset_fields = ['bank', 'is_active', 'region']
     search_fields = ['code', 'name', 'city', 'bank__name']
     ordering_fields = ['code', 'name', 'bank__name', 'created_at']
-    ordering = ['bank__name', 'name']
+    pagination_class = StandardResultsSetPagination
+    ordering = ['name']
 
 
 class StaffCategoryViewSet(viewsets.ModelViewSet):

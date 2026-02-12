@@ -8,6 +8,7 @@ from rest_framework.response import Response
 
 from core.models import Region, District
 from core.caching import CachedModelMixin, cached_view
+from core.pagination import StandardResultsSetPagination
 from .models import (
     Division, Directorate, OrganizationUnit, Department, JobGrade, JobCategory,
     JobPosition, CostCenter, WorkLocation, Holiday
@@ -110,7 +111,8 @@ class JobPositionViewSet(CachedModelMixin, viewsets.ModelViewSet):
     serializer_class = JobPositionSerializer
     filterset_fields = ['is_active', 'grade', 'department', 'is_supervisor']
     search_fields = ['code', 'title']
-    ordering = ['grade__level', 'title']
+    pagination_class = StandardResultsSetPagination
+    ordering = ['title']
     cache_timeout = 3600
     cache_alias = 'long'
     cache_key_prefix = 'jobposition'

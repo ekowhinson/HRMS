@@ -165,7 +165,7 @@ export default function PayrollMasterReportPage() {
                 onChange={(e) => setSelectedDepartment(e.target.value)}
                 options={[
                   { value: '', label: 'All Departments' },
-                  ...(departments?.results || departments || []).map((d: Department) => ({
+                  ...(Array.isArray(departments?.results) ? departments.results : Array.isArray(departments) ? departments : []).map((d: Department) => ({
                     value: d.id,
                     label: d.name,
                   })),
