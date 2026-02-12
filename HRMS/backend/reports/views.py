@@ -279,11 +279,13 @@ class EmployeeMasterReportView(APIView):
             queryset = queryset.filter(work_location__region_id=region)
 
         data = queryset.values(
-            'employee_number', 'first_name', 'last_name', 'email',
-            'phone_primary', 'date_of_joining', 'employment_type',
+            'employee_number', 'first_name', 'last_name',
+            'date_of_joining', 'employment_type',
             department_name=F('department__name'),
             grade_name=F('grade__name'),
             position_name=F('position__title'),
+            email=F('work_email'),
+            phone_primary=F('mobile_phone'),
         )
 
         return Response({
