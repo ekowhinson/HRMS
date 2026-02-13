@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -14,13 +14,23 @@ import {
   TrashIcon,
   LockClosedIcon,
   ExclamationTriangleIcon,
+  ChartBarIcon,
+  ListBulletIcon,
+  CurrencyDollarIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
 } from '@heroicons/react/24/outline'
 import { payrollService } from '@/services/payroll'
+import { dashboardService } from '@/services/dashboard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
+import StatsCard from '@/components/ui/StatsCard'
+import BarChartCard from '@/components/charts/BarChartCard'
+import PieChartCard from '@/components/charts/PieChartCard'
+import { chartColors } from '@/lib/design-tokens'
 import { formatCurrency } from '@/lib/utils'
 import type { PayrollRun, PayrollPeriod } from '@/types'
 
@@ -39,6 +49,7 @@ const statusSteps = ['DRAFT', 'COMPUTED', 'APPROVED', 'PAID']
 
 export default function PayrollProcessingPage() {
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview')
   const [selectedPeriod, setSelectedPeriod] = useState('')
   const [newRunPeriod, setNewRunPeriod] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -116,6 +127,75 @@ export default function PayrollProcessingPage() {
     queryKey: ['payroll-runs', selectedPeriod],
     queryFn: () => payrollService.getRuns(selectedPeriod || undefined),
   })
+
+  const { data: dashboardData } = useQuery({
+    queryKey: ['payroll-dashboard'],
+    queryFn: dashboardService.getPayrollDashboard,
+  })
+
+  // Prepare chart data from trends
+  const trendChartData = useMemo(() => {
+    if (!dashboardData?.payroll_trends?.length) return []
+    return dashboardData.payroll_trends.map((t) => ({
+      name: new Date(t.month).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      total_gross: t.total_gross || 0,
+      total_net: t.total_net || 0,
+      total_deductions: t.total_deductions || 0,
+      total_employer_cost: t.total_employer_cost || 0,
+      employee_count: t.employee_count || 0,
+    }))
+  }, [dashboardData?.payroll_trends])
+
+  // Gross payments Jan-Dec — use the year from the latest trends data
+  const grossByMonthData = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const trends = dashboardData?.payroll_trends || []
+    // Determine the most recent year present in the data
+    const latestYear = trends.length > 0
+      ? new Date(trends[trends.length - 1].month).getFullYear()
+      : new Date().getFullYear()
+    const monthMap = new Map<number, number>()
+    trends.forEach((t) => {
+      const d = new Date(t.month)
+      if (d.getFullYear() === latestYear) {
+        monthMap.set(d.getMonth(), (monthMap.get(d.getMonth()) || 0) + (t.total_gross || 0))
+      }
+    })
+    return { year: latestYear, data: months.map((name, i) => ({ name, value: monthMap.get(i) || 0 })) }
+  }, [dashboardData?.payroll_trends])
+
+  const deductionBarData = useMemo(() => {
+    if (!dashboardData?.deduction_breakdown?.length) return []
+    return dashboardData.deduction_breakdown
+      .filter((d) => d.amount > 0)
+      .map((d) => ({ name: d.name, value: d.amount }))
+  }, [dashboardData?.deduction_breakdown])
+
+  // Compute month-over-month trend percentages for stats cards
+  const monthTrends = useMemo(() => {
+    const trends = dashboardData?.payroll_trends
+    if (!trends || trends.length < 2) return { gross: 0, deductions: 0, net: 0, paye: 0 }
+    const curr = trends[trends.length - 1]
+    const prev = trends[trends.length - 2]
+    const pct = (c: number, p: number) => p > 0 ? Math.round(((c - p) / p) * 100) : 0
+    return {
+      gross: pct(curr.total_gross, prev.total_gross),
+      deductions: pct(curr.total_deductions, prev.total_deductions),
+      net: pct(curr.total_net, prev.total_net),
+      paye: pct(curr.total_paye, prev.total_paye),
+    }
+  }, [dashboardData?.payroll_trends])
+
+  // Sparkline data from trends
+  const sparklines = useMemo(() => {
+    const trends = dashboardData?.payroll_trends || []
+    return {
+      gross: trends.map((t) => t.total_gross || 0),
+      deductions: trends.map((t) => t.total_deductions || 0),
+      net: trends.map((t) => t.total_net || 0),
+      paye: trends.map((t) => t.total_paye || 0),
+    }
+  }, [dashboardData?.payroll_trends])
 
   const createRunMutation = useMutation({
     mutationFn: (periodId: string) => payrollService.createPayrollRun(periodId),
@@ -309,27 +389,35 @@ export default function PayrollProcessingPage() {
     deleteMutation.isPending ||
     closePeriodMutation.isPending
 
+  const ytd = dashboardData?.year_to_date
+  const latestPayroll = dashboardData?.latest_payroll
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Payroll Processing</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Create and process payroll runs
+            Dashboard analytics and payroll run management
           </p>
         </div>
         <div className="flex gap-3">
-          <Select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            options={[
-              { value: '', label: 'All Periods' },
-              ...(periods?.map((p: PayrollPeriod) => ({
-                value: p.id,
-                label: p.name,
-              })) || []),
-            ]}
-          />
+          {activeTab === 'runs' && (
+            <>
+              <Select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                options={[
+                  { value: '', label: 'All Periods' },
+                  ...(periods?.map((p: PayrollPeriod) => ({
+                    value: p.id,
+                    label: p.name,
+                  })) || []),
+                ]}
+              />
+            </>
+          )}
           <Button onClick={() => setShowCreateModal(true)}>
             <PlayIcon className="h-4 w-4 mr-2" />
             New Payroll Run
@@ -337,7 +425,211 @@ export default function PayrollProcessingPage() {
         </div>
       </div>
 
-      {/* Active Payroll Runs */}
+      {/* Tab Toggle */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'overview'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <ChartBarIcon className="h-4 w-4" />
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('runs')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'runs'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <ListBulletIcon className="h-4 w-4" />
+          Payroll Runs
+        </button>
+      </div>
+
+      {/* ===== OVERVIEW TAB ===== */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* YTD Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard
+              title="Gross Pay (YTD)"
+              value={formatCurrency(ytd?.total_gross || 0)}
+              icon={<CurrencyDollarIcon className="h-6 w-6" />}
+              variant="success"
+              sparkline={sparklines.gross}
+              trend={{
+                value: monthTrends.gross,
+                label: 'vs last month',
+              }}
+            />
+            <StatsCard
+              title="Deductions (YTD)"
+              value={formatCurrency(ytd?.total_deductions || 0)}
+              icon={<ArrowTrendingDownIcon className="h-6 w-6" />}
+              variant="danger"
+              sparkline={sparklines.deductions}
+              trend={{
+                value: monthTrends.deductions,
+                label: 'vs last month',
+              }}
+            />
+            <StatsCard
+              title="Net Pay (YTD)"
+              value={formatCurrency(ytd?.total_net || 0)}
+              icon={<BanknotesIcon className="h-6 w-6" />}
+              variant="info"
+              sparkline={sparklines.net}
+              trend={{
+                value: monthTrends.net,
+                label: 'vs last month',
+              }}
+            />
+            <StatsCard
+              title="PAYE Tax (YTD)"
+              value={formatCurrency(ytd?.total_paye || 0)}
+              icon={<ArrowTrendingUpIcon className="h-6 w-6" />}
+              variant="warning"
+              sparkline={sparklines.paye}
+              trend={{
+                value: monthTrends.paye,
+                label: 'vs last month',
+              }}
+            />
+          </div>
+
+          {/* Gross Payments Jan-Dec */}
+          <BarChartCard
+            title={`Gross Payments — ${grossByMonthData.year}`}
+            subtitle="Monthly gross pay from January to December"
+            data={grossByMonthData.data}
+            color={chartColors.primary}
+            height={300}
+            valueFormatter={(v) => formatCurrency(v)}
+          />
+
+          {/* Charts Row 1: Payroll Trends (grouped bars) + Deduction Breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <BarChartCard
+                title="Payroll Trends"
+                subtitle="Monthly gross, net, and deductions comparison"
+                data={trendChartData}
+                height={320}
+                valueFormatter={(v) => formatCurrency(v)}
+                bars={[
+                  { dataKey: 'total_gross', name: 'Gross Pay', color: chartColors.primary },
+                  { dataKey: 'total_net', name: 'Net Pay', color: chartColors.secondary },
+                  { dataKey: 'total_deductions', name: 'Deductions', color: '#ef4444' },
+                ]}
+              />
+            </div>
+            <PieChartCard
+              title="Deduction Breakdown"
+              subtitle="Latest payroll deductions"
+              data={deductionBarData}
+              donut
+              height={280}
+              valueFormatter={(v) => formatCurrency(v)}
+              centerLabel={deductionBarData.length > 0 ? {
+                value: formatCurrency(deductionBarData.reduce((s, d) => s + d.value, 0)),
+                label: 'Total',
+              } : undefined}
+              colors={[...chartColors.palette]}
+            />
+          </div>
+
+          {/* Charts Row 2: Employees Processed + Cost to Company */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <BarChartCard
+              title="Employees Processed"
+              subtitle="Monthly headcount per payroll run"
+              data={trendChartData.map((d) => ({ name: d.name, value: d.employee_count }))}
+              color={chartColors.secondary}
+              height={280}
+            />
+            <BarChartCard
+              title="Cost to Company"
+              subtitle="Total employer cost per month"
+              data={trendChartData.map((d) => ({ name: d.name, value: d.total_employer_cost }))}
+              color="#8b5cf6"
+              height={280}
+              valueFormatter={(v) => formatCurrency(v)}
+            />
+          </div>
+
+          {/* Latest Payroll Summary Card */}
+          {latestPayroll && latestPayroll.run_number && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <BanknotesIcon className="h-5 w-5 text-gray-500" />
+                    Latest Payroll Summary
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={statusColors[latestPayroll.status] || 'default'}>
+                      {latestPayroll.status}
+                    </Badge>
+                    <span className="text-sm text-gray-500">
+                      {latestPayroll.period} &middot; Run #{latestPayroll.run_number}
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-600 font-medium">Employees</p>
+                    <p className="text-lg font-bold text-blue-700">{latestPayroll.total_employees}</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <p className="text-xs text-green-600 font-medium">Gross Pay</p>
+                    <p className="text-lg font-bold text-green-700">{formatCurrency(latestPayroll.total_gross)}</p>
+                  </div>
+                  <div className="p-3 bg-red-50 rounded-lg">
+                    <p className="text-xs text-red-600 font-medium">Total Deductions</p>
+                    <p className="text-lg font-bold text-red-700">{formatCurrency(latestPayroll.total_deductions)}</p>
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded-lg">
+                    <p className="text-xs text-purple-600 font-medium">Net Pay</p>
+                    <p className="text-lg font-bold text-purple-700">{formatCurrency(latestPayroll.total_net)}</p>
+                  </div>
+                  <div className="p-3 bg-orange-50 rounded-lg">
+                    <p className="text-xs text-orange-600 font-medium">Employer Cost</p>
+                    <p className="text-lg font-bold text-orange-700">{formatCurrency(latestPayroll.total_employer_cost)}</p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">PAYE</span>
+                    <p className="font-medium">{formatCurrency(latestPayroll.total_paye)}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">SSNIT (Employee)</span>
+                    <p className="font-medium">{formatCurrency(latestPayroll.total_ssnit_employee)}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">SSNIT (Employer)</span>
+                    <p className="font-medium">{formatCurrency(latestPayroll.total_ssnit_employer)}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Tier 2 (Employer)</span>
+                    <p className="font-medium">{formatCurrency(latestPayroll.total_tier2_employer)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ===== PAYROLL RUNS TAB ===== */}
+      {activeTab === 'runs' && (
       <div className="grid gap-6">
         {isLoading ? (
           <Card>
@@ -691,6 +983,7 @@ export default function PayrollProcessingPage() {
           </Card>
         )}
       </div>
+      )}
 
       {/* Create Payroll Run Modal */}
       <Modal

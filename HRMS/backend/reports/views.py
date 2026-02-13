@@ -132,29 +132,35 @@ class PayrollDashboardView(APIView):
     def get(self, request):
         current_year = timezone.now().year
 
-        # Monthly payroll trends (last 12 months)
+        # Monthly payroll trends (last 12 months) — group by period start_date
         payroll_trends = PayrollRun.objects.filter(
-            status='APPROVED',
-            run_date__year__gte=current_year - 1
+            status__in=['APPROVED', 'PAID'],
+            payroll_period__isnull=False,
+            payroll_period__start_date__gte=timezone.now().date().replace(month=1, day=1) - timezone.timedelta(days=365),
         ).annotate(
-            month=TruncMonth('run_date')
+            month=TruncMonth('payroll_period__start_date')
         ).values('month').annotate(
             total_gross=Sum('total_gross'),
             total_net=Sum('total_net'),
+            total_deductions=Sum('total_deductions'),
             total_paye=Sum('total_paye'),
-            total_ssnit=Sum('total_ssnit_employee')
+            total_ssnit=Sum('total_ssnit_employee'),
+            total_employer_cost=Sum('total_employer_cost'),
+            employee_count=Sum('total_employees'),
         ).order_by('month')[:12]
 
-        # Latest payroll summary
+        # Latest payroll summary — by period date
         latest_payroll = PayrollRun.objects.filter(
-            status='APPROVED'
-        ).order_by('-run_date').first()
+            status__in=['APPROVED', 'PAID']
+        ).order_by('-payroll_period__start_date', '-run_date').first()
 
         latest_summary = {}
         if latest_payroll:
             latest_summary = {
                 'run_number': latest_payroll.run_number,
                 'period': latest_payroll.payroll_period.name if latest_payroll.payroll_period else None,
+                'status': latest_payroll.status,
+                'run_date': latest_payroll.run_date.isoformat() if latest_payroll.run_date else None,
                 'total_employees': latest_payroll.total_employees,
                 'total_gross': float(latest_payroll.total_gross or 0),
                 'total_deductions': float(latest_payroll.total_deductions or 0),
@@ -162,6 +168,9 @@ class PayrollDashboardView(APIView):
                 'total_paye': float(latest_payroll.total_paye or 0),
                 'total_ssnit_employee': float(latest_payroll.total_ssnit_employee or 0),
                 'total_ssnit_employer': float(latest_payroll.total_ssnit_employer or 0),
+                'total_tier2_employer': float(latest_payroll.total_tier2_employer or 0),
+                'total_overtime_tax': float(latest_payroll.total_overtime_tax or 0),
+                'total_bonus_tax': float(latest_payroll.total_bonus_tax or 0),
                 'total_employer_cost': float(latest_payroll.total_employer_cost or 0),
             }
 
@@ -170,10 +179,47 @@ class PayrollDashboardView(APIView):
             status__in=['DRAFT', 'PENDING']
         ).count()
 
+        # Year-to-date aggregation — use the latest period's year
+        latest_period_year = current_year
+        if latest_payroll and latest_payroll.payroll_period:
+            latest_period_year = latest_payroll.payroll_period.year or current_year
+        ytd = PayrollRun.objects.filter(
+            status__in=['APPROVED', 'PAID'],
+            payroll_period__year=latest_period_year,
+        ).aggregate(
+            total_gross=Sum('total_gross'),
+            total_net=Sum('total_net'),
+            total_deductions=Sum('total_deductions'),
+            total_paye=Sum('total_paye'),
+            total_employer_cost=Sum('total_employer_cost'),
+        )
+        year_to_date = {
+            'total_gross': float(ytd['total_gross'] or 0),
+            'total_net': float(ytd['total_net'] or 0),
+            'total_deductions': float(ytd['total_deductions'] or 0),
+            'total_paye': float(ytd['total_paye'] or 0),
+            'total_employer_cost': float(ytd['total_employer_cost'] or 0),
+        }
+
+        # Deduction breakdown from latest payroll
+        deduction_breakdown = []
+        if latest_payroll:
+            total_ot_bonus = float(latest_payroll.total_overtime_tax or 0) + float(latest_payroll.total_bonus_tax or 0)
+            deduction_breakdown = [
+                {'name': 'PAYE', 'amount': float(latest_payroll.total_paye or 0)},
+                {'name': 'SSNIT (Employee)', 'amount': float(latest_payroll.total_ssnit_employee or 0)},
+                {'name': 'SSNIT (Employer)', 'amount': float(latest_payroll.total_ssnit_employer or 0)},
+                {'name': 'Tier 2', 'amount': float(latest_payroll.total_tier2_employer or 0)},
+            ]
+            if total_ot_bonus > 0:
+                deduction_breakdown.append({'name': 'OT & Bonus Tax', 'amount': total_ot_bonus})
+
         return Response({
             'payroll_trends': list(payroll_trends),
             'latest_payroll': latest_summary,
             'pending_runs': pending_runs,
+            'year_to_date': year_to_date,
+            'deduction_breakdown': deduction_breakdown,
             'generated_at': timezone.now()
         })
 

@@ -5,6 +5,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   Cell,
 } from 'recharts';
@@ -13,9 +14,15 @@ import { chartColors } from '../../lib/design-tokens';
 
 export interface BarChartDataPoint {
   name: string;
-  value: number;
+  value?: number;
   color?: string;
   [key: string]: string | number | undefined;
+}
+
+export interface BarConfig {
+  dataKey: string;
+  name: string;
+  color?: string;
 }
 
 export interface BarChartCardProps {
@@ -23,6 +30,7 @@ export interface BarChartCardProps {
   subtitle?: string;
   data: BarChartDataPoint[];
   dataKey?: string;
+  bars?: BarConfig[];
   color?: string;
   colors?: string[];
   height?: number;
@@ -30,6 +38,7 @@ export interface BarChartCardProps {
   showGrid?: boolean;
   showXAxis?: boolean;
   showYAxis?: boolean;
+  showLegend?: boolean;
   barSize?: number;
   radius?: number;
   className?: string;
@@ -44,6 +53,7 @@ export function BarChartCard({
   subtitle,
   data,
   dataKey = 'value',
+  bars,
   color = chartColors.primary,
   colors,
   height = 250,
@@ -51,12 +61,19 @@ export function BarChartCard({
   showGrid = true,
   showXAxis = true,
   showYAxis = true,
+  showLegend = false,
   barSize = 20,
   radius = 4,
   className,
   valueFormatter = (value) => value.toLocaleString(),
 }: BarChartCardProps) {
   const isHorizontal = layout === 'horizontal';
+  const isMultiBar = bars && bars.length > 0;
+
+  // Recharts layout naming is inverted from intuitive naming:
+  // Recharts "horizontal" = standard vertical bars (category on X, value on Y)
+  // Recharts "vertical"   = horizontal bars (category on Y, value on X)
+  const rechartsLayout = isHorizontal ? 'vertical' : 'horizontal';
 
   return (
     <div
@@ -78,7 +95,7 @@ export function BarChartCard({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
-            layout={layout}
+            layout={rechartsLayout}
             margin={
               isHorizontal
                 ? { top: 5, right: 30, left: 0, bottom: 5 }
@@ -152,25 +169,51 @@ export function BarChartCard({
                 padding: '8px 12px',
               }}
               labelStyle={{ color: '#374151', fontWeight: 600, marginBottom: 4 }}
-              formatter={(value: number) => [valueFormatter(value), 'Count']}
+              formatter={(value: number, name: string) => [
+                valueFormatter(value),
+                isMultiBar ? name : 'Count',
+              ]}
               cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
             />
 
-            <Bar
-              dataKey={dataKey}
-              barSize={barSize}
-              radius={[radius, radius, radius, radius]}
-            >
-              {data.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={
-                    entry.color ||
-                    (colors ? colors[index % colors.length] : color)
-                  }
+            {(isMultiBar || showLegend) && (
+              <Legend
+                verticalAlign="top"
+                height={36}
+                iconType="circle"
+                iconSize={8}
+                wrapperStyle={{ fontSize: 12, color: '#6b7280' }}
+              />
+            )}
+
+            {isMultiBar ? (
+              bars.map((bar, i) => (
+                <Bar
+                  key={bar.dataKey}
+                  dataKey={bar.dataKey}
+                  name={bar.name}
+                  fill={bar.color || chartColors.palette[i % chartColors.palette.length]}
+                  barSize={barSize}
+                  radius={[radius, radius, 0, 0]}
                 />
-              ))}
-            </Bar>
+              ))
+            ) : (
+              <Bar
+                dataKey={dataKey}
+                barSize={barSize}
+                radius={[radius, radius, radius, radius]}
+              >
+                {data.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={
+                      entry.color ||
+                      (colors ? colors[index % colors.length] : color)
+                    }
+                  />
+                ))}
+              </Bar>
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>

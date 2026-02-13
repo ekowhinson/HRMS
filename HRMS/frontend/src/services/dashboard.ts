@@ -6,6 +6,9 @@ export interface PayrollTrend {
   total_gross: number
   total_net: number
   total_deductions: number
+  total_paye: number
+  total_ssnit: number
+  total_employer_cost: number
   employee_count: number
 }
 
@@ -73,17 +76,27 @@ export const dashboardService = {
     latest_payroll: {
       run_number: string
       period: string
+      status: string
+      run_date: string
       total_employees: number
       total_gross: number
       total_net: number
       total_deductions: number
-      status: string
+      total_paye: number
+      total_ssnit_employee: number
+      total_ssnit_employer: number
+      total_tier2_employer: number
+      total_overtime_tax: number
+      total_bonus_tax: number
+      total_employer_cost: number
     }
     pending_runs: number
     year_to_date: {
       total_gross: number
       total_net: number
       total_deductions: number
+      total_paye: number
+      total_employer_cost: number
     }
     deduction_breakdown: { name: string; amount: number }[]
   }> => {
