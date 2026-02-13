@@ -1263,12 +1263,13 @@ class PayrollReconciliationReportView(APIView):
             'ssnit_employer': calc_variance(curr_totals['ssnit_employer'], prev_totals['ssnit_employer']),
         }
 
-        # Impact summary
+        # Impact summary — use net_salary for new/separated so the reconciliation balances:
+        # prev_net + new_employees_cost - separated_savings + changed_impact = current_net
         impact = {
             'new_employees_count': len(new_employees),
-            'new_employees_cost': sum(e['gross_earnings'] for e in new_employees),
+            'new_employees_cost': sum(e['net_salary'] for e in new_employees),
             'separated_employees_count': len(separated_employees),
-            'separated_employees_savings': sum(e['gross_earnings'] for e in separated_employees),
+            'separated_employees_savings': sum(e['net_salary'] for e in separated_employees),
             'changed_employees_count': len(changed_employees),
             'net_salary_impact': sum(e['net_diff'] for e in changed_employees),
             'unchanged_employees_count': len(unchanged_employees),
