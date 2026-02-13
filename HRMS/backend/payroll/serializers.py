@@ -1254,6 +1254,21 @@ class SalaryIncrementApplySerializer(SalaryIncrementPreviewSerializer):
     description = serializers.CharField(required=False, default='', allow_blank=True)
 
 
+class SalaryIncrementForecastSerializer(SalaryIncrementApplySerializer):
+    """Input serializer for forecasting (test run) a global salary increment."""
+    pass
+
+
+class SalaryIncrementReverseSerializer(serializers.Serializer):
+    """Input serializer for reversing a salary increment."""
+    increment_id = serializers.UUIDField()
+
+
+class SalaryIncrementPromoteSerializer(serializers.Serializer):
+    """Input serializer for promoting a forecast to applied."""
+    increment_id = serializers.UUIDField()
+
+
 class SalaryIncrementDetailSerializer(serializers.ModelSerializer):
     """Output serializer for per-notch increment detail."""
     notch_code = serializers.CharField(source='notch.full_code', read_only=True)
@@ -1271,6 +1286,7 @@ class SalaryIncrementHistorySerializer(serializers.ModelSerializer):
     """Output serializer for salary increment history records."""
     details = SalaryIncrementDetailSerializer(many=True, read_only=True)
     applied_by_name = serializers.SerializerMethodField()
+    reversed_by_name = serializers.SerializerMethodField()
     band_name = serializers.CharField(source='band.name', read_only=True, default=None)
     level_name = serializers.CharField(source='level.name', read_only=True, default=None)
 
@@ -1279,9 +1295,10 @@ class SalaryIncrementHistorySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'reference_number', 'increment_type', 'value',
             'effective_date', 'band', 'band_name', 'level', 'level_name',
-            'status', 'notches_affected', 'employees_affected',
+            'status', 'is_forecast', 'notches_affected', 'employees_affected',
             'total_old_amount', 'total_new_amount',
             'applied_by', 'applied_by_name', 'applied_at',
+            'reversed_by', 'reversed_by_name', 'reversed_at',
             'description', 'details',
         ]
 
@@ -1289,6 +1306,12 @@ class SalaryIncrementHistorySerializer(serializers.ModelSerializer):
         if obj.applied_by:
             name = f"{obj.applied_by.first_name} {obj.applied_by.last_name}".strip()
             return name or obj.applied_by.email
+        return None
+
+    def get_reversed_by_name(self, obj):
+        if obj.reversed_by:
+            name = f"{obj.reversed_by.first_name} {obj.reversed_by.last_name}".strip()
+            return name or obj.reversed_by.email
         return None
 
 

@@ -50,7 +50,8 @@ from .serializers import (
     SalaryUpgradePreviewSerializer, SalaryUpgradeRequestSerializer,
     SalaryUpgradeRejectSerializer,
     SalaryIncrementPreviewSerializer, SalaryIncrementApplySerializer,
-    SalaryIncrementHistorySerializer,
+    SalaryIncrementForecastSerializer, SalaryIncrementReverseSerializer,
+    SalaryIncrementPromoteSerializer, SalaryIncrementHistorySerializer,
     RemovalReasonCategorySerializer, PayrollValidationListSerializer,
     PayrollValidationDetailSerializer, EmployeePayrollFlagSerializer,
     EmployeePayrollFlagCreateSerializer, ValidationDashboardSerializer,
@@ -1660,12 +1661,105 @@ class SalaryNotchViewSet(viewsets.ModelViewSet):
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['post'], url_path='global-increment/forecast')
+    def global_increment_forecast(self, request):
+        """Apply a forecast (test run) salary increment. Requires PAYROLL_ADMIN role."""
+        if not self._has_role(request.user, ['PAYROLL_ADMIN']):
+            return Response(
+                {'error': 'You do not have permission to forecast salary increments.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = SalaryIncrementForecastSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        from .salary_increment_service import SalaryIncrementService
+        try:
+            SalaryIncrementService.validate_can_forecast()
+            history = SalaryIncrementService.apply(
+                increment_type=data['increment_type'],
+                value=data['value'],
+                effective_date=data['effective_date'],
+                user=request.user,
+                band_id=data.get('band_id'),
+                level_id=data.get('level_id'),
+                description=data.get('description', ''),
+                is_forecast=True,
+            )
+            return Response(
+                SalaryIncrementHistorySerializer(history).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='global-increment/reverse')
+    def global_increment_reverse(self, request):
+        """Reverse a salary increment (forecast or applied). Requires PAYROLL_ADMIN role."""
+        if not self._has_role(request.user, ['PAYROLL_ADMIN']):
+            return Response(
+                {'error': 'You do not have permission to reverse salary increments.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = SalaryIncrementReverseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from .salary_increment_service import SalaryIncrementService
+        try:
+            history = SalaryIncrementService.reverse(
+                history_id=serializer.validated_data['increment_id'],
+                user=request.user,
+            )
+            return Response(SalaryIncrementHistorySerializer(history).data)
+        except SalaryIncrementHistory.DoesNotExist:
+            return Response(
+                {'error': 'Increment record not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='global-increment/promote')
+    def global_increment_promote(self, request):
+        """Promote a forecast increment to applied. Requires PAYROLL_ADMIN role."""
+        if not self._has_role(request.user, ['PAYROLL_ADMIN']):
+            return Response(
+                {'error': 'You do not have permission to promote salary increments.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = SalaryIncrementPromoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from .salary_increment_service import SalaryIncrementService
+        try:
+            history = SalaryIncrementService.promote_forecast(
+                history_id=serializer.validated_data['increment_id'],
+                user=request.user,
+            )
+            return Response(SalaryIncrementHistorySerializer(history).data)
+        except SalaryIncrementHistory.DoesNotExist:
+            return Response(
+                {'error': 'Increment record not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=False, methods=['get'], url_path='global-increment/history')
     def global_increment_history(self, request):
         """List past global salary increments."""
         qs = SalaryIncrementHistory.objects.select_related(
-            'band', 'level', 'applied_by'
+            'band', 'level', 'applied_by', 'reversed_by'
         ).prefetch_related('details', 'details__notch').order_by('-applied_at')
+
+        # Optional status filter
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
         serializer = SalaryIncrementHistorySerializer(qs, many=True)
         return Response(serializer.data)
 

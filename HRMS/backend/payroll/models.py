@@ -2232,6 +2232,11 @@ class SalaryIncrementHistory(BaseModel):
         PERCENTAGE = 'PERCENTAGE', 'Percentage'
         AMOUNT = 'AMOUNT', 'Fixed Amount'
 
+    class Status(models.TextChoices):
+        FORECAST = 'FORECAST', 'Forecast (Test Run)'
+        APPLIED = 'APPLIED', 'Applied'
+        REVERSED = 'REVERSED', 'Reversed'
+
     reference_number = models.CharField(max_length=30, unique=True, db_index=True)
     increment_type = models.CharField(max_length=10, choices=IncrementType.choices)
     value = models.DecimalField(max_digits=12, decimal_places=2)
@@ -2252,7 +2257,13 @@ class SalaryIncrementHistory(BaseModel):
         related_name='increment_history',
         help_text='If set, only notches in this level were affected',
     )
-    status = models.CharField(max_length=10, default='APPLIED')
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.APPLIED,
+        db_index=True,
+    )
+    is_forecast = models.BooleanField(default=False, db_index=True)
     notches_affected = models.PositiveIntegerField(default=0)
     employees_affected = models.PositiveIntegerField(default=0)
     total_old_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
@@ -2265,6 +2276,14 @@ class SalaryIncrementHistory(BaseModel):
         related_name='salary_increments_applied',
     )
     applied_at = models.DateTimeField(auto_now_add=True)
+    reversed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='salary_increments_reversed',
+    )
+    reversed_at = models.DateTimeField(null=True, blank=True)
     description = models.TextField(blank=True, default='')
 
     class Meta:

@@ -19,6 +19,8 @@ import {
   LockClosedIcon,
   ArrowPathIcon,
   ArrowTrendingUpIcon,
+  ArrowUturnLeftIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline'
 import {
   payrollSetupService,
@@ -31,6 +33,7 @@ import {
   type PayrollPeriod,
   type SalaryIncrementPreviewRequest,
   type SalaryIncrementPreviewResult,
+  type SalaryIncrementHistoryItem,
 } from '@/services/payrollSetup'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -98,6 +101,10 @@ export default function PayrollSetupPage() {
   const [incrementDescription, setIncrementDescription] = useState('')
   const [incrementPreview, setIncrementPreview] = useState<SalaryIncrementPreviewResult | null>(null)
 
+  // Reversal / Promote state
+  const [showReverseModal, setShowReverseModal] = useState<SalaryIncrementHistoryItem | null>(null)
+  const [showPromoteModal, setShowPromoteModal] = useState<SalaryIncrementHistoryItem | null>(null)
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
@@ -138,6 +145,13 @@ export default function PayrollSetupPage() {
   const { data: notches = [], isLoading: loadingNotches } = useQuery({
     queryKey: ['salary-notches', selectedLevel],
     queryFn: () => payrollSetupService.getSalaryNotches(selectedLevel || undefined),
+  })
+
+  // Increment History Query
+  const { data: incrementHistory = [] } = useQuery({
+    queryKey: ['increment-history'],
+    queryFn: payrollSetupService.getGlobalIncrementHistory,
+    enabled: activeTab === 'notches',
   })
 
   // Payroll Settings Query
@@ -427,11 +441,50 @@ export default function PayrollSetupPage() {
       queryClient.invalidateQueries({ queryKey: ['salary-notches'] })
       queryClient.invalidateQueries({ queryKey: ['salary-levels'] })
       queryClient.invalidateQueries({ queryKey: ['salary-bands'] })
+      queryClient.invalidateQueries({ queryKey: ['increment-history'] })
       setShowIncrementModal(false)
       setIncrementStep('form')
       setIncrementPreview(null)
     },
     onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to apply increment'),
+  })
+
+  const forecastIncrementMutation = useMutation({
+    mutationFn: payrollSetupService.forecastGlobalIncrement,
+    onSuccess: (data) => {
+      toast.success(`Forecast ${data.reference_number} created! ${data.notches_affected} notches and ${data.employees_affected} employees updated (reversible).`)
+      queryClient.invalidateQueries({ queryKey: ['salary-notches'] })
+      queryClient.invalidateQueries({ queryKey: ['salary-levels'] })
+      queryClient.invalidateQueries({ queryKey: ['salary-bands'] })
+      queryClient.invalidateQueries({ queryKey: ['increment-history'] })
+      setShowIncrementModal(false)
+      setIncrementStep('form')
+      setIncrementPreview(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to create forecast'),
+  })
+
+  const reverseIncrementMutation = useMutation({
+    mutationFn: payrollSetupService.reverseGlobalIncrement,
+    onSuccess: (data) => {
+      toast.success(`Increment ${data.reference_number} reversed successfully.`)
+      queryClient.invalidateQueries({ queryKey: ['salary-notches'] })
+      queryClient.invalidateQueries({ queryKey: ['salary-levels'] })
+      queryClient.invalidateQueries({ queryKey: ['salary-bands'] })
+      queryClient.invalidateQueries({ queryKey: ['increment-history'] })
+      setShowReverseModal(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to reverse increment'),
+  })
+
+  const promoteIncrementMutation = useMutation({
+    mutationFn: payrollSetupService.promoteGlobalIncrement,
+    onSuccess: (data) => {
+      toast.success(`Forecast ${data.reference_number} promoted to applied.`)
+      queryClient.invalidateQueries({ queryKey: ['increment-history'] })
+      setShowPromoteModal(null)
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to promote forecast'),
   })
 
   const openIncrementModal = () => {
@@ -1409,6 +1462,173 @@ export default function PayrollSetupPage() {
         </Card>
       )}
 
+      {/* Increment History Table — shown on Notches tab */}
+      {activeTab === 'notches' && incrementHistory.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <ArrowTrendingUpIcon className="h-5 w-5 mr-2 text-primary-600" />
+              Increment History
+            </CardTitle>
+          </CardHeader>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effective Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notches</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employees</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {incrementHistory.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-mono">{item.reference_number}</td>
+                    <td className="px-4 py-3 text-sm">{item.increment_type === 'PERCENTAGE' ? 'Percentage' : 'Fixed Amount'}</td>
+                    <td className="px-4 py-3 text-sm font-medium">
+                      {item.increment_type === 'PERCENTAGE' ? `${item.value}%` : formatCurrency(item.value)}
+                    </td>
+                    <td className="px-4 py-3 text-sm">{item.effective_date}</td>
+                    <td className="px-4 py-3 text-sm">{item.notches_affected}</td>
+                    <td className="px-4 py-3 text-sm">{item.employees_affected}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <Badge variant={
+                        item.status === 'FORECAST' ? 'info' :
+                        item.status === 'APPLIED' ? 'success' : 'default'
+                      }>
+                        {item.status === 'FORECAST' ? 'Forecast' :
+                         item.status === 'APPLIED' ? 'Applied' : 'Reversed'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {item.status === 'FORECAST' && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowPromoteModal(item)}
+                            className="text-green-600 border-green-300 hover:bg-green-50"
+                          >
+                            <CheckCircleIcon className="h-4 w-4 mr-1" />
+                            Accept
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowReverseModal(item)}
+                            className="text-red-600 border-red-300 hover:bg-red-50"
+                          >
+                            <ArrowUturnLeftIcon className="h-4 w-4 mr-1" />
+                            Reverse
+                          </Button>
+                        </div>
+                      )}
+                      {item.status === 'APPLIED' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowReverseModal(item)}
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          <ArrowUturnLeftIcon className="h-4 w-4 mr-1" />
+                          Reverse
+                        </Button>
+                      )}
+                      {item.status === 'REVERSED' && (
+                        <span className="text-xs text-gray-500">
+                          Reversed {item.reversed_at ? new Date(item.reversed_at).toLocaleDateString() : ''}{' '}
+                          {item.reversed_by_name ? `by ${item.reversed_by_name}` : ''}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Reverse Confirmation Modal */}
+      <Modal
+        isOpen={!!showReverseModal}
+        onClose={() => setShowReverseModal(null)}
+        title="Reverse Salary Increment"
+      >
+        {showReverseModal && (
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <ArrowUturnLeftIcon className="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div className="text-sm text-red-800">
+                  <p className="font-medium mb-1">Reversing {showReverseModal.reference_number} will:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Restore <strong>{showReverseModal.notches_affected}</strong> notch amounts to their previous values</li>
+                    <li>Remove salary records created for <strong>{showReverseModal.employees_affected}</strong> employees</li>
+                    <li>Re-activate previous salary records</li>
+                    <li>Recalculate level and band salary ranges</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setShowReverseModal(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => reverseIncrementMutation.mutate({ increment_id: showReverseModal.id })}
+                isLoading={reverseIncrementMutation.isPending}
+              >
+                Confirm Reversal
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Promote Confirmation Modal */}
+      <Modal
+        isOpen={!!showPromoteModal}
+        onClose={() => setShowPromoteModal(null)}
+        title="Accept Forecast"
+      >
+        {showPromoteModal && (
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <CheckCircleIcon className="h-5 w-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div className="text-sm text-green-800">
+                  <p className="font-medium mb-1">Accept {showPromoteModal.reference_number} as permanent?</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>The forecast will become an applied increment</li>
+                    <li><strong>{showPromoteModal.notches_affected}</strong> notch amounts will remain at their updated values</li>
+                    <li>Salary records for <strong>{showPromoteModal.employees_affected}</strong> employees will be retained</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setShowPromoteModal(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => promoteIncrementMutation.mutate({ increment_id: showPromoteModal.id })}
+                isLoading={promoteIncrementMutation.isPending}
+              >
+                Accept & Apply Permanently
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Add/Edit Modal */}
       <Modal isOpen={showModal} onClose={closeModal} title={getModalTitle()}>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -1911,7 +2131,7 @@ export default function PayrollSetupPage() {
                     <li>Recalculate level and band salary ranges</li>
                     <li>Total monthly increase: <strong>{formatCurrency(incrementPreview.summary.total_difference)}</strong></li>
                   </ul>
-                  <p className="mt-2 font-medium">This action cannot be undone.</p>
+                  <p className="mt-2 text-sm text-amber-700">Forecasts can be reversed. Applied increments can also be reversed if needed.</p>
                 </div>
               </div>
             </div>
@@ -1921,6 +2141,17 @@ export default function PayrollSetupPage() {
                 Cancel
               </Button>
               <Button
+                variant="outline"
+                onClick={() => forecastIncrementMutation.mutate({
+                  ...incrementForm,
+                  description: incrementDescription,
+                })}
+                isLoading={forecastIncrementMutation.isPending}
+              >
+                <ClockIcon className="h-4 w-4 mr-1" />
+                Test Run (Forecast)
+              </Button>
+              <Button
                 variant="primary"
                 onClick={() => applyIncrementMutation.mutate({
                   ...incrementForm,
@@ -1928,7 +2159,7 @@ export default function PayrollSetupPage() {
                 })}
                 isLoading={applyIncrementMutation.isPending}
               >
-                Confirm & Apply
+                Apply Permanently
               </Button>
             </div>
           </div>
