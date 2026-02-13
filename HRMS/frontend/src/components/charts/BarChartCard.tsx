@@ -43,6 +43,7 @@ export interface BarChartCardProps {
   radius?: number;
   className?: string;
   valueFormatter?: (value: number) => string;
+  onBarClick?: (data: BarChartDataPoint, index: number) => void;
 }
 
 // Default colors from design tokens
@@ -66,6 +67,7 @@ export function BarChartCard({
   radius = 4,
   className,
   valueFormatter = (value) => value.toLocaleString(),
+  onBarClick,
 }: BarChartCardProps) {
   const isHorizontal = layout === 'horizontal';
   const isMultiBar = bars && bars.length > 0;
@@ -195,6 +197,8 @@ export function BarChartCard({
                   fill={bar.color || chartColors.palette[i % chartColors.palette.length]}
                   barSize={barSize}
                   radius={[radius, radius, 0, 0]}
+                  onClick={onBarClick ? (_d: unknown, index: number) => onBarClick(data[index], index) : undefined}
+                  style={onBarClick ? { cursor: 'pointer' } : undefined}
                 />
               ))
             ) : (
@@ -202,6 +206,8 @@ export function BarChartCard({
                 dataKey={dataKey}
                 barSize={barSize}
                 radius={[radius, radius, radius, radius]}
+                onClick={onBarClick ? (_d: unknown, index: number) => onBarClick(data[index], index) : undefined}
+                style={onBarClick ? { cursor: 'pointer' } : undefined}
               >
                 {data.map((entry, index) => (
                   <Cell

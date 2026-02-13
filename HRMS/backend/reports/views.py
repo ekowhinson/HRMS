@@ -502,6 +502,44 @@ class DemographicsReportView(APIView):
 
         by_age = [{'bracket': k, 'count': v} for k, v in age_brackets.items()]
 
+        # Retirement tracking
+        retirement_cutoff = today.replace(year=today.year - 60)
+        approaching_cutoff = today.replace(year=today.year - 55)
+
+        retirement_fields = (
+            'employee_number', 'first_name', 'last_name',
+            'date_of_birth', 'department__name', 'position__title',
+        )
+
+        over_60_qs = queryset.filter(
+            date_of_birth__isnull=False,
+            date_of_birth__lt=retirement_cutoff,
+        ).values(*retirement_fields).order_by('date_of_birth')
+
+        approaching_qs = queryset.filter(
+            date_of_birth__isnull=False,
+            date_of_birth__gte=retirement_cutoff,
+            date_of_birth__lt=approaching_cutoff,
+        ).values(*retirement_fields).order_by('date_of_birth')
+
+        def serialize_retirement(emp):
+            dob = emp['date_of_birth']
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            retirement_date = dob.replace(year=dob.year + 60)
+            return {
+                'employee_id': emp['employee_number'],
+                'first_name': emp['first_name'],
+                'last_name': emp['last_name'],
+                'age': age,
+                'department': emp['department__name'] or '',
+                'position': emp['position__title'] or '',
+                'retirement_date': retirement_date.isoformat(),
+                'years_to_60': max(0, 60 - age),
+            }
+
+        retirement_over_60 = [serialize_retirement(e) for e in over_60_qs]
+        retirement_approaching = [serialize_retirement(e) for e in approaching_qs]
+
         return Response({
             'total_employees': queryset.count(),
             'by_gender': list(by_gender),
@@ -509,6 +547,10 @@ class DemographicsReportView(APIView):
             'by_nationality': list(by_nationality),
             'by_age': by_age,
             'average_age': avg_age,
+            'retirement_over_60': retirement_over_60,
+            'retirement_approaching': retirement_approaching,
+            'retirement_over_60_count': len(retirement_over_60),
+            'retirement_approaching_count': len(retirement_approaching),
             'generated_at': timezone.now()
         })
 
