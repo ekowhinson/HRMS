@@ -66,7 +66,7 @@ import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
 import {
-  HR_ROLES, PAYROLL_ROLES, FINANCE_ROLES, PROCUREMENT_ROLES,
+  HR_ROLES, PAYROLL_ROLES, PAYROLL_SETUP_ROLES, FINANCE_ROLES, PROCUREMENT_ROLES,
   INVENTORY_ROLES, PROJECT_ROLES, MANUFACTURING_ROLES, SYSTEM_ADMIN_ROLES,
   hasRole,
 } from '@/lib/roles';
@@ -83,6 +83,8 @@ interface NavSection {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
   items: NavItem[];
+  /** If set, this section is only visible to users with one of these roles */
+  minRoles?: readonly string[];
 }
 
 // Self-Service Navigation - Available to all users
@@ -215,6 +217,7 @@ const payrollSections: NavSection[] = [
   {
     name: 'Data Loading',
     icon: DocumentArrowUpIcon,
+    minRoles: PAYROLL_SETUP_ROLES,
     items: [
       { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
     ],
@@ -222,6 +225,7 @@ const payrollSections: NavSection[] = [
   {
     name: 'Validation',
     icon: ClipboardDocumentCheckIcon,
+    minRoles: PAYROLL_SETUP_ROLES,
     items: [
       { name: 'Payroll Validation', href: '/admin/payroll-validation', icon: ClipboardDocumentCheckIcon },
     ],
@@ -229,6 +233,7 @@ const payrollSections: NavSection[] = [
   {
     name: 'Setup',
     icon: WrenchScrewdriverIcon,
+    minRoles: PAYROLL_SETUP_ROLES,
     items: [
       { name: 'Period Setup', href: '/admin/payroll-setup?tab=settings', icon: CalendarDaysIcon },
       { name: 'Banks', href: '/admin/payroll-setup?tab=banks', icon: BuildingOfficeIcon },
@@ -947,7 +952,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     onClick={onLinkClick}
                   />
                 ))}
-                {payrollSections.map((section) => (
+                {payrollSections
+                  .filter((section) => !section.minRoles || isStaffOrSuper || hasRole(userRoles, section.minRoles))
+                  .map((section) => (
                   <CollapsibleSection
                     key={section.name}
                     section={section}
