@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import OrganizationSwitcher from './OrganizationSwitcher';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationService, type Notification as NotificationType } from '@/services/notifications';
+import ActivePeriodIndicator from './ActivePeriodIndicator';
 import {
   HomeIcon,
   UsersIcon,
@@ -1254,7 +1255,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </div>
           </div>
 
-          <div className="flex flex-1 justify-end gap-2">
+          <div className="flex flex-1 justify-end items-center gap-2">
+            {/* Active Payroll Period */}
+            {isPayrollAdmin && <ActivePeriodIndicator />}
+
             {/* Organization Switcher */}
             <OrganizationSwitcher />
 
