@@ -205,7 +205,7 @@ const PortalDashboardPage = React.lazy(() => import('./pages/careers/PortalDashb
 const PortalOfferPage = React.lazy(() => import('./pages/careers/PortalOfferPage'))
 const PortalDocumentsPage = React.lazy(() => import('./pages/careers/PortalDocumentsPage'))
 
-import { HR_ROLES, PAYROLL_ROLES, SYSTEM_ADMIN_ROLES } from '@/lib/roles'
+import { HR_ROLES, PAYROLL_ROLES, SYSTEM_ADMIN_ROLES, hasRole } from '@/lib/roles'
 
 function useUserRoles() {
   const user = useAuthStore((state) => state.user)
@@ -226,7 +226,7 @@ function useIsHROrAdmin() {
   const userRoles = useUserRoles()
   if (!user) return false
   if (user.is_staff || user.is_superuser) return true
-  return userRoles.some((role) => (HR_ROLES as readonly string[]).includes(role))
+  return hasRole(userRoles, HR_ROLES)
 }
 
 function useIsPayrollAdmin() {
@@ -234,7 +234,7 @@ function useIsPayrollAdmin() {
   const userRoles = useUserRoles()
   if (!user) return false
   if (user.is_staff || user.is_superuser) return true
-  return userRoles.some((role) => (PAYROLL_ROLES as readonly string[]).includes(role))
+  return hasRole(userRoles, PAYROLL_ROLES)
 }
 
 function useIsSystemAdmin() {
@@ -242,7 +242,7 @@ function useIsSystemAdmin() {
   const userRoles = useUserRoles()
   if (!user) return false
   if (user.is_staff || user.is_superuser) return true
-  return userRoles.some((role) => (SYSTEM_ADMIN_ROLES as readonly string[]).includes(role))
+  return hasRole(userRoles, SYSTEM_ADMIN_ROLES)
 }
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {

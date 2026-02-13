@@ -65,7 +65,11 @@ import {
 import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
-import { HR_ROLES, PAYROLL_ROLES, SYSTEM_ADMIN_ROLES } from '@/lib/roles';
+import {
+  HR_ROLES, PAYROLL_ROLES, FINANCE_ROLES, PROCUREMENT_ROLES,
+  INVENTORY_ROLES, PROJECT_ROLES, MANUFACTURING_ROLES, SYSTEM_ADMIN_ROLES,
+  hasRole,
+} from '@/lib/roles';
 import { CountBadge } from '@/components/ui/Badge';
 
 interface NavItem {
@@ -763,26 +767,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
     return roles
   }, [user])
 
-  // Check if user has HR/Admin access (Self Service + HR + Payroll sections)
-  const isHROrAdmin = (() => {
-    if (!user) return false
-    if (user.is_staff || user.is_superuser) return true
-    return userRoles.some((role) => (HR_ROLES as readonly string[]).includes(role))
-  })();
+  const isStaffOrSuper = user?.is_staff || user?.is_superuser || false;
 
-  // Check if user has Payroll access
-  const isPayrollAdmin = (() => {
-    if (!user) return false
-    if (user.is_staff || user.is_superuser) return true
-    return userRoles.some((role) => (PAYROLL_ROLES as readonly string[]).includes(role))
-  })();
-
-  // Check if user has full Admin access (Administration section - system settings, user mgmt, etc.)
-  const isSystemAdmin = (() => {
-    if (!user) return false
-    if (user.is_staff || user.is_superuser) return true
-    return userRoles.some((role) => (SYSTEM_ADMIN_ROLES as readonly string[]).includes(role))
-  })();
+  // Per-module access checks
+  const isHROrAdmin = isStaffOrSuper || hasRole(userRoles, HR_ROLES);
+  const isPayrollAdmin = isStaffOrSuper || hasRole(userRoles, PAYROLL_ROLES);
+  const isFinanceUser = isStaffOrSuper || hasRole(userRoles, FINANCE_ROLES);
+  const isProcurementUser = isStaffOrSuper || hasRole(userRoles, PROCUREMENT_ROLES);
+  const isInventoryUser = isStaffOrSuper || hasRole(userRoles, INVENTORY_ROLES);
+  const isProjectUser = isStaffOrSuper || hasRole(userRoles, PROJECT_ROLES);
+  const isManufacturingUser = isStaffOrSuper || hasRole(userRoles, MANUFACTURING_ROLES);
+  const isSystemAdmin = isStaffOrSuper || hasRole(userRoles, SYSTEM_ADMIN_ROLES);
 
   // Strictly superuser check (for Tenants / Licensing)
   const isSuperuser = user?.is_superuser === true;
@@ -967,8 +962,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Finance Section - For finance admins + module enabled */}
-        {isHROrAdmin && isModuleEnabled('finance') && (
+        {/* Finance Section - For finance roles + module enabled */}
+        {isFinanceUser && isModuleEnabled('finance') && (
           <>
             <SectionDivider label="Finance" icon={<CurrencyDollarIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Finance')} isOpen={openModules['Finance']} />
             <div
@@ -1003,7 +998,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Procurement Section */}
-        {isHROrAdmin && isModuleEnabled('procurement') && (
+        {isProcurementUser && isModuleEnabled('procurement') && (
           <>
             <SectionDivider label="Procurement" icon={<TruckIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Procurement')} isOpen={openModules['Procurement']} />
             <div
@@ -1027,7 +1022,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Inventory & Assets Section */}
-        {isHROrAdmin && isModuleEnabled('inventory') && (
+        {isInventoryUser && isModuleEnabled('inventory') && (
           <>
             <SectionDivider label="Inventory" icon={<ArchiveBoxIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Inventory')} isOpen={openModules['Inventory']} />
             <div
@@ -1061,7 +1056,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Projects Section */}
-        {isHROrAdmin && isModuleEnabled('projects') && (
+        {isProjectUser && isModuleEnabled('projects') && (
           <>
             <SectionDivider label="Projects" icon={<FolderIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Projects')} isOpen={openModules['Projects']} />
             <div
@@ -1086,7 +1081,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Manufacturing Section */}
-        {isHROrAdmin && isModuleEnabled('manufacturing') && (
+        {isManufacturingUser && isModuleEnabled('manufacturing') && (
           <>
             <SectionDivider label="Manufacturing" icon={<WrenchScrewdriverIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Manufacturing')} isOpen={openModules['Manufacturing']} />
             <div
