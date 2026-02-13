@@ -10,6 +10,10 @@ export interface BackpayFilters {
   page?: number
 }
 
+export interface BackpayListResponse extends PaginatedResponse<BackpayRequest> {
+  status_counts?: Record<string, number>
+}
+
 export interface BackpayCreateData {
   employee: string
   reason: string
@@ -91,7 +95,7 @@ export interface AutoCreateRetropayResult {
 }
 
 export const backpayService = {
-  getRequests: async (params?: BackpayFilters): Promise<PaginatedResponse<BackpayRequest>> => {
+  getRequests: async (params?: BackpayFilters): Promise<BackpayListResponse> => {
     const response = await api.get('/payroll/backpay/', { params })
     return response.data
   },

@@ -134,12 +134,25 @@ class PayrollService:
         return qs
 
     def get_employee_salary(self, employee: Employee) -> Optional[EmployeeSalary]:
-        """Get the current salary for an employee."""
-        return EmployeeSalary.objects.filter(
+        """Get the current salary for an employee.
+
+        Prefers the record effective within the period, but falls back to the
+        most recent current record if none match (e.g. when a forecast creates
+        salary records with a future effective date).
+        """
+        salary = EmployeeSalary.objects.filter(
             employee=employee,
             is_current=True,
             effective_from__lte=self.period.end_date
         ).order_by('-effective_from').first()
+
+        if not salary:
+            salary = EmployeeSalary.objects.filter(
+                employee=employee,
+                is_current=True,
+            ).order_by('-effective_from').first()
+
+        return salary
 
     def get_adhoc_payments(self, employee: Employee) -> list[AdHocPayment]:
         """Get approved ad-hoc payments for the employee in this period."""

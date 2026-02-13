@@ -217,6 +217,9 @@ class SalaryIncrementService:
 
         # Create new EmployeeSalary records for affected employees
         from employees.models import Employee
+        from .models import PayrollSettings
+        active_period = PayrollSettings.get_active_period()
+
         affected_notch_ids = [n.id for n in notches_to_update]
         affected_employees = Employee.objects.filter(
             status='ACTIVE',
@@ -239,6 +242,7 @@ class SalaryIncrementService:
                 is_current=True,
                 reason=f'Global salary increment {history.reference_number}',
                 reference_number=history.reference_number,
+                processing_period=active_period,
             )
             employees_updated += 1
 

@@ -1804,6 +1804,17 @@ class BackpayRequestViewSet(viewsets.ModelViewSet):
             return BackpayBulkCreateSerializer
         return BackpayRequestSerializer
 
+    def list(self, request, *args, **kwargs):
+        """Override list to include status_counts across all records (not just current page)."""
+        response = super().list(request, *args, **kwargs)
+        # Add global status counts independent of pagination/filters
+        all_counts = BackpayRequest.objects.values('status').annotate(
+            cnt=Count('id')
+        )
+        status_counts = {row['status']: row['cnt'] for row in all_counts}
+        response.data['status_counts'] = status_counts
+        return response
+
     def perform_create(self, serializer):
         active_period = PayrollSettings.get_active_period()
         serializer.save(payroll_period=active_period)
@@ -2205,6 +2216,7 @@ class BackpayRequestViewSet(viewsets.ModelViewSet):
                 })
                 continue
 
+            from core.middleware import get_current_tenant
             bp = BackpayRequest(
                 employee_id=employee_id,
                 reason=reason,
@@ -2214,6 +2226,7 @@ class BackpayRequestViewSet(viewsets.ModelViewSet):
                 reference_number=BackpayRequest.generate_reference_number(),
                 status=BackpayRequest.Status.DRAFT,
                 payroll_period=active_period,
+                tenant=get_current_tenant(),
             )
             created.append(bp)
 

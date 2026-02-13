@@ -122,16 +122,18 @@ export default function BackpayPage() {
   const requests = requestsData?.results || []
   const totalItems = requestsData?.count || 0
   const totalPages = Math.ceil(totalItems / pageSize)
+  const statusCounts = requestsData?.status_counts || {}
   const employees = employeesData?.results || []
 
-  // Derive summary stats from current page data
+  // Derive summary stats from global status_counts (not just current page)
   const stats = useMemo(() => {
-    const draftCount = requests.filter((r) => r.status === 'DRAFT').length
-    const previewedCount = requests.filter((r) => r.status === 'PREVIEWED').length
-    const approvedCount = requests.filter((r) => r.status === 'APPROVED').length
+    const draftCount = statusCounts['DRAFT'] || 0
+    const previewedCount = statusCounts['PREVIEWED'] || 0
+    const approvedCount = statusCounts['APPROVED'] || 0
+    // totalNetArrears still from current page since it requires per-record data
     const totalNetArrears = requests.reduce((sum, r) => sum + (Number(r.net_arrears) || 0), 0)
     return { draftCount, previewedCount, approvedCount, totalNetArrears }
-  }, [requests])
+  }, [statusCounts, requests])
 
   // Fetch filter options for bulk modal
   const { data: divisions } = useQuery({
@@ -357,15 +359,11 @@ export default function BackpayPage() {
     }
   }, [processingBatchId])
 
-  // Count eligible requests for the Process All button
-  const eligibleCount = requests.filter(
-    (r) => r.status === 'DRAFT' || r.status === 'PREVIEWED'
-  ).length
+  // Count eligible requests for the Process All button (from global status_counts, not current page)
+  const eligibleCount = (statusCounts['DRAFT'] || 0) + (statusCounts['PREVIEWED'] || 0)
 
-  // Count approvable requests (PREVIEWED with net_arrears > 0)
-  const approvableCount = requests.filter(
-    (r) => r.status === 'PREVIEWED' && Number(r.net_arrears) > 0
-  ).length
+  // Count approvable requests — PREVIEWED count from global status_counts
+  const approvableCount = statusCounts['PREVIEWED'] || 0
 
   const handleConfirmAction = () => {
     if (!showConfirmModal) return
