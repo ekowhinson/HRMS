@@ -28,7 +28,26 @@ class ProductionRoutingSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class BOMSerializer(serializers.ModelSerializer):
+class BOMListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for BOM list views."""
+    finished_product_name = serializers.CharField(source='finished_product.name', read_only=True)
+    finished_product_code = serializers.CharField(source='finished_product.code', read_only=True)
+    lines_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BillOfMaterials
+        fields = [
+            'id', 'code', 'name', 'finished_product', 'finished_product_name',
+            'finished_product_code', 'version', 'is_active', 'yield_qty',
+            'status', 'lines_count', 'created_at', 'updated_at',
+        ]
+
+    def get_lines_count(self, obj):
+        return obj.lines.count()
+
+
+class BOMDetailSerializer(serializers.ModelSerializer):
+    """Full serializer for BOM detail views with nested lines and routings."""
     lines = BOMLineSerializer(many=True, read_only=True)
     routings = ProductionRoutingSerializer(many=True, read_only=True)
     finished_product_name = serializers.CharField(source='finished_product.name', read_only=True)
@@ -88,7 +107,28 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'batch_number', 'stock_entry', 'journal_entry', 'created_at', 'updated_at']
 
 
-class WorkOrderSerializer(serializers.ModelSerializer):
+class WorkOrderListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for work order list views."""
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_code = serializers.CharField(source='product.code', read_only=True)
+    bom_code = serializers.CharField(source='bom.code', read_only=True)
+    completion_percent = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = WorkOrder
+        fields = [
+            'id', 'work_order_number', 'bom', 'bom_code',
+            'product', 'product_name', 'product_code',
+            'planned_qty', 'completed_qty', 'rejected_qty',
+            'planned_start', 'planned_end', 'actual_start', 'actual_end',
+            'status', 'priority', 'completion_percent',
+            'estimated_cost', 'actual_cost',
+            'created_at', 'updated_at',
+        ]
+
+
+class WorkOrderDetailSerializer(serializers.ModelSerializer):
+    """Full serializer for work order detail with nested operations, materials, quality, batches."""
     operations = WorkOrderOperationSerializer(many=True, read_only=True)
     material_consumptions = MaterialConsumptionSerializer(many=True, read_only=True)
     quality_checks = QualityCheckSerializer(many=True, read_only=True)

@@ -53,7 +53,24 @@ class JournalLineSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class JournalEntrySerializer(serializers.ModelSerializer):
+class JournalEntryListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for journal entry list views."""
+    period_name = serializers.CharField(source='fiscal_period.name', read_only=True)
+
+    class Meta:
+        model = JournalEntry
+        fields = [
+            'id', 'entry_number', 'journal_date', 'description',
+            'status', 'source', 'source_reference',
+            'total_debit', 'total_credit',
+            'fiscal_period', 'period_name',
+            'posted_by', 'posted_at',
+            'created_at', 'updated_at',
+        ]
+
+
+class JournalEntryDetailSerializer(serializers.ModelSerializer):
+    """Full serializer for journal entry detail with nested lines."""
     lines = JournalLineSerializer(many=True, read_only=True)
     period_name = serializers.CharField(source='fiscal_period.name', read_only=True)
 
@@ -64,7 +81,28 @@ class JournalEntrySerializer(serializers.ModelSerializer):
                            'posted_by', 'posted_at', 'created_at', 'updated_at']
 
 
-class BudgetSerializer(serializers.ModelSerializer):
+# Keep BudgetSerializer alias for backward compatibility in other modules
+class JournalEntrySerializer(JournalEntryDetailSerializer):
+    """Alias — prefer JournalEntryDetailSerializer for new code."""
+    pass
+
+
+class BudgetListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for budget list views."""
+    account_code = serializers.CharField(source='account.code', read_only=True)
+    account_name = serializers.CharField(source='account.name', read_only=True)
+
+    class Meta:
+        model = Budget
+        fields = [
+            'id', 'fiscal_year', 'account', 'account_code', 'account_name',
+            'department', 'cost_center', 'original_amount', 'current_amount',
+            'status', 'created_at', 'updated_at',
+        ]
+
+
+class BudgetDetailSerializer(serializers.ModelSerializer):
+    """Full serializer for budget detail with computed amounts."""
     account_code = serializers.CharField(source='account.code', read_only=True)
     account_name = serializers.CharField(source='account.name', read_only=True)
     committed_amount = serializers.SerializerMethodField()
@@ -81,6 +119,11 @@ class BudgetSerializer(serializers.ModelSerializer):
     def get_available_amount(self, obj):
         committed = self.get_committed_amount(obj)
         return obj.current_amount - committed
+
+
+class BudgetSerializer(BudgetDetailSerializer):
+    """Alias — prefer BudgetDetailSerializer for new code."""
+    pass
 
 
 class BudgetCommitmentSerializer(serializers.ModelSerializer):

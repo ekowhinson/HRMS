@@ -13,6 +13,40 @@ logger = logging.getLogger('hrms')
 ZERO = Decimal('0.00')
 
 
+def post_journal_entry(entry, user):
+    """Post a draft journal entry after validating debits equal credits.
+
+    Args:
+        entry: JournalEntry instance
+        user: User performing the posting
+
+    Returns:
+        The updated JournalEntry
+
+    Raises:
+        ValueError: If entry is not DRAFT or debits != credits
+    """
+    from .models import JournalEntry
+
+    if entry.status != JournalEntry.EntryStatus.DRAFT:
+        raise ValueError("Only draft entries can be posted")
+
+    totals = entry.lines.aggregate(
+        total_debit=Sum('debit_amount'),
+        total_credit=Sum('credit_amount')
+    )
+    if totals['total_debit'] != totals['total_credit']:
+        raise ValueError("Total debits must equal total credits")
+
+    entry.status = JournalEntry.EntryStatus.POSTED
+    entry.posted_by = user
+    entry.posted_at = timezone.now()
+    entry.total_debit = totals['total_debit'] or 0
+    entry.total_credit = totals['total_credit'] or 0
+    entry.save()
+    return entry
+
+
 class FinancialStatementService:
     """Generate financial statements from GL data."""
 

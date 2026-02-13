@@ -2,10 +2,21 @@
 
 import logging
 from decimal import Decimal
+from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger('hrms')
+
+
+def _get_inventory_model(model_name):
+    """Resolve an inventory model by name without direct import."""
+    return apps.get_model('inventory', model_name)
+
+
+def _get_finance_model(model_name):
+    """Resolve a finance model by name without direct import."""
+    return apps.get_model('finance', model_name)
 
 
 def _generate_wo_number(tenant=None):
@@ -44,6 +55,64 @@ def _generate_batch_number(tenant=None):
     else:
         seq = 1
     return f"{base}-{seq:04d}"
+
+
+def copy_bom_version(bom):
+    """Create a new version of a BOM, copying all lines and routings."""
+    from .models import BillOfMaterials, BOMLine, ProductionRouting
+
+    new_version = BillOfMaterials.objects.filter(
+        finished_product=bom.finished_product, tenant=bom.tenant
+    ).count() + 1
+
+    new_bom = BillOfMaterials(
+        tenant=bom.tenant,
+        code=f"{bom.code}-v{new_version}",
+        name=bom.name,
+        description=bom.description,
+        finished_product=bom.finished_product,
+        version=new_version,
+        yield_qty=bom.yield_qty,
+        status=BillOfMaterials.Status.DRAFT,
+    )
+    new_bom.save()
+
+    for line in bom.lines.all():
+        BOMLine.objects.create(
+            tenant=bom.tenant, bom=new_bom,
+            raw_material=line.raw_material,
+            quantity=line.quantity,
+            unit_of_measure=line.unit_of_measure,
+            scrap_percent=line.scrap_percent,
+            sort_order=line.sort_order,
+        )
+
+    for routing in bom.routings.all():
+        ProductionRouting.objects.create(
+            tenant=bom.tenant, bom=new_bom,
+            operation_number=routing.operation_number,
+            name=routing.name,
+            description=routing.description,
+            work_center=routing.work_center,
+            setup_time_minutes=routing.setup_time_minutes,
+            run_time_minutes=routing.run_time_minutes,
+            sort_order=routing.sort_order,
+        )
+
+    return new_bom
+
+
+def start_work_order(wo_id):
+    """Transition a released work order to IN_PROGRESS."""
+    from .models import WorkOrder
+
+    wo = WorkOrder.objects.get(pk=wo_id)
+    if wo.status != WorkOrder.Status.RELEASED:
+        raise ValueError("Only released orders can be started")
+    wo.status = WorkOrder.Status.IN_PROGRESS
+    wo.actual_start = timezone.now()
+    wo.save(update_fields=['status', 'actual_start', 'updated_at'])
+    return wo
 
 
 def release_work_order(wo_id):
@@ -104,7 +173,8 @@ def release_work_order(wo_id):
 def issue_materials(wo_id):
     """Create StockEntry ISSUE for each MaterialConsumption line."""
     from .models import WorkOrder, MaterialConsumption
-    from inventory.models import StockEntry, StockLedger
+    StockEntry = _get_inventory_model('StockEntry')
+    StockLedger = _get_inventory_model('StockLedger')
 
     wo = WorkOrder.objects.get(pk=wo_id)
     if wo.status not in (WorkOrder.Status.RELEASED, WorkOrder.Status.IN_PROGRESS):
@@ -154,7 +224,9 @@ def issue_materials(wo_id):
 def report_production(wo_id, qty, batch_data=None):
     """Record production output — create ProductionBatch and StockEntry RECEIPT."""
     from .models import WorkOrder, ProductionBatch
-    from inventory.models import StockEntry, StockLedger
+    StockEntry = _get_inventory_model('StockEntry')
+    StockLedger = _get_inventory_model('StockLedger')
+    Warehouse = _get_inventory_model('Warehouse')
 
     wo = WorkOrder.objects.get(pk=wo_id)
     if wo.status not in (WorkOrder.Status.IN_PROGRESS, WorkOrder.Status.RELEASED):
@@ -173,7 +245,6 @@ def report_production(wo_id, qty, batch_data=None):
             if last_routing and last_routing.work_center.warehouse:
                 warehouse = last_routing.work_center.warehouse
         if not warehouse:
-            from inventory.models import Warehouse
             warehouse = Warehouse.objects.filter(is_active=True).first()
 
         if not warehouse:
@@ -262,9 +333,13 @@ def close_work_order(wo_id):
     # Calculate final cost
     cost_data = calculate_production_cost(wo_id)
 
-    # Post to GL
-    from finance.tasks import post_production_to_gl
-    post_production_to_gl.delay(str(wo_id))
+    # Post to GL via Celery task (resolved through app registry, not direct import)
+    try:
+        app = apps.get_app_config('finance')
+        task_module = __import__(f'{app.name}.tasks', fromlist=['post_production_to_gl'])
+        task_module.post_production_to_gl.delay(str(wo_id))
+    except (LookupError, ImportError, AttributeError) as e:
+        logger.warning(f"Could not dispatch GL posting for WO {wo_id}: {e}")
 
     wo.status = WorkOrder.Status.COMPLETED
     wo.actual_end = timezone.now()

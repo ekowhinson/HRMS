@@ -5,11 +5,17 @@ from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 
 from celery import shared_task
+from django.apps import apps
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
 logger = logging.getLogger('hrms')
+
+
+def _get_model(app_label, model_name):
+    """Resolve a model by app_label and name without direct import."""
+    return apps.get_model(app_label, model_name)
 
 # ---------------------------------------------------------------------------
 # Default GL account code mapping used when a PayComponent has no gl_account
@@ -62,7 +68,7 @@ def _resolve_account(component, side='expense', tenant=None):
     If the component has no gl_account configured, we fall back to
     DEFAULT_ACCOUNT_CODES based on the component's category/type.
     """
-    from payroll.models import PayComponent
+    PayComponent = _get_model('payroll', 'PayComponent')
 
     # 1. Try explicit GL account on the component
     if side == 'employer' and component.employer_gl_account_id:
@@ -140,7 +146,10 @@ def post_payroll_to_gl(self, payroll_run_id, tenant_id=None):
         CREDIT lines - liability / payable accounts (PAYE, SSNIT, net pay)
     """
     from finance.models import JournalEntry, JournalLine, Account, FiscalPeriod
-    from payroll.models import PayrollRun, PayrollItem, PayrollItemDetail, PayComponent
+    PayrollRun = _get_model('payroll', 'PayrollRun')
+    PayrollItem = _get_model('payroll', 'PayrollItem')
+    PayrollItemDetail = _get_model('payroll', 'PayrollItemDetail')
+    PayComponent = _get_model('payroll', 'PayComponent')
 
     logger.info(f"Posting payroll run {payroll_run_id} to GL")
 
@@ -424,7 +433,8 @@ def calculate_depreciation(self, fiscal_period_id, tenant_id=None):
         - SUM_OF_YEARS:      standard SYD formula
     """
     from finance.models import JournalEntry, JournalLine, Account, FiscalPeriod
-    from inventory.models import Asset, AssetDepreciation
+    Asset = _get_model('inventory', 'Asset')
+    AssetDepreciation = _get_model('inventory', 'AssetDepreciation')
 
     logger.info(f"Calculating depreciation for fiscal period {fiscal_period_id}")
 
@@ -835,7 +845,7 @@ def post_benefit_claim_to_gl(self, claim_id, tenant_id=None):
 def post_inventory_movement_to_gl(self, stock_entry_id, tenant_id=None):
     """Debit/Credit Inventory + COGS accounts based on stock entry type."""
     from finance.models import JournalEntry, JournalLine, FiscalPeriod
-    from inventory.models import StockEntry
+    StockEntry = _get_model('inventory', 'StockEntry')
 
     entry = StockEntry.all_objects.get(pk=stock_entry_id)
     tenant = entry.tenant
@@ -900,7 +910,7 @@ def post_inventory_movement_to_gl(self, stock_entry_id, tenant_id=None):
 def post_asset_disposal_to_gl(self, asset_disposal_id, tenant_id=None):
     """Post asset disposal to GL — Debit Bank/Loss, Credit Asset + Accumulated Depr."""
     from finance.models import JournalEntry, JournalLine, FiscalPeriod
-    from inventory.models import AssetDisposal
+    AssetDisposal = _get_model('inventory', 'AssetDisposal')
 
     disposal = AssetDisposal.all_objects.select_related('asset').get(pk=asset_disposal_id)
     tenant = disposal.tenant
@@ -1045,7 +1055,7 @@ def post_production_to_gl(self, work_order_id, tenant_id=None):
     from finance.models import JournalEntry, JournalLine, FiscalPeriod
 
     # Lazy import to avoid circular dependency
-    from manufacturing.models import WorkOrder
+    WorkOrder = _get_model('manufacturing', 'WorkOrder')
 
     wo = WorkOrder.all_objects.get(pk=work_order_id)
     tenant = wo.tenant

@@ -7,14 +7,13 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.utils import timezone
-from django.db import transaction
 
 from .models import (
     ItemCategory, Item, Warehouse, StockEntry, StockLedger,
     Asset, AssetDepreciation, AssetTransfer, MaintenanceSchedule,
     AssetDisposal, CycleCount, CycleCountItem,
 )
+from . import services
 from .serializers import (
     ItemCategorySerializer, ItemSerializer, WarehouseSerializer,
     StockEntrySerializer, StockLedgerSerializer,
@@ -106,44 +105,7 @@ class StockEntryViewSet(viewsets.ModelViewSet):
     def approve(self, request, pk=None):
         """Approve a stock entry and update stock ledger."""
         stock_entry = self.get_object()
-
-        with transaction.atomic():
-            # Update or create ledger entry for the source warehouse
-            ledger, created = StockLedger.objects.get_or_create(
-                item=stock_entry.item,
-                warehouse=stock_entry.warehouse,
-                defaults={'balance_qty': 0, 'valuation_amount': 0},
-            )
-
-            if stock_entry.entry_type in [StockEntry.EntryType.RECEIPT, StockEntry.EntryType.RETURN]:
-                ledger.balance_qty += stock_entry.quantity
-                ledger.valuation_amount += stock_entry.total_cost
-            elif stock_entry.entry_type == StockEntry.EntryType.ISSUE:
-                ledger.balance_qty -= stock_entry.quantity
-                ledger.valuation_amount -= stock_entry.total_cost
-            elif stock_entry.entry_type == StockEntry.EntryType.TRANSFER:
-                ledger.balance_qty -= stock_entry.quantity
-                ledger.valuation_amount -= stock_entry.total_cost
-
-                # Credit the destination warehouse
-                if stock_entry.to_warehouse:
-                    to_ledger, created = StockLedger.objects.get_or_create(
-                        item=stock_entry.item,
-                        warehouse=stock_entry.to_warehouse,
-                        defaults={'balance_qty': 0, 'valuation_amount': 0},
-                    )
-                    to_ledger.balance_qty += stock_entry.quantity
-                    to_ledger.valuation_amount += stock_entry.total_cost
-                    to_ledger.last_movement_date = stock_entry.entry_date
-                    to_ledger.save()
-            elif stock_entry.entry_type == StockEntry.EntryType.ADJUSTMENT:
-                # Adjustment sets the quantity directly as a delta
-                ledger.balance_qty += stock_entry.quantity
-                ledger.valuation_amount += stock_entry.total_cost
-
-            ledger.last_movement_date = stock_entry.entry_date
-            ledger.save()
-
+        services.approve_stock_entry(stock_entry)
         serializer = self.get_serializer(stock_entry)
         return Response({'message': 'Stock entry approved and ledger updated', 'data': serializer.data})
 
@@ -318,29 +280,10 @@ class AssetTransferViewSet(viewsets.ModelViewSet):
     def approve(self, request, pk=None):
         """Approve and complete an asset transfer."""
         transfer = self.get_object()
-
-        if transfer.status != AssetTransfer.Status.PENDING:
-            return Response(
-                {'error': 'Only pending transfers can be approved'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        with transaction.atomic():
-            transfer.status = AssetTransfer.Status.COMPLETED
-            transfer.approved_by = request.user
-            transfer.approved_at = timezone.now()
-            transfer.save()
-
-            # Update the asset's location, custodian, and department
-            asset = transfer.asset
-            if transfer.to_location:
-                asset.location = transfer.to_location
-            if transfer.to_custodian:
-                asset.custodian = transfer.to_custodian
-            if transfer.to_department:
-                asset.department = transfer.to_department
-            asset.save()
-
+        try:
+            services.approve_asset_transfer(transfer, request.user)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         serializer = self.get_serializer(transfer)
         return Response({'message': 'Transfer approved and completed', 'data': serializer.data})
 
@@ -348,26 +291,16 @@ class AssetTransferViewSet(viewsets.ModelViewSet):
     def reject(self, request, pk=None):
         """Reject an asset transfer."""
         transfer = self.get_object()
-
-        if transfer.status != AssetTransfer.Status.PENDING:
-            return Response(
-                {'error': 'Only pending transfers can be rejected'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         reason = request.data.get('reason', '')
         if not reason:
             return Response(
                 {'error': 'Rejection reason is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        transfer.status = AssetTransfer.Status.REJECTED
-        transfer.approved_by = request.user
-        transfer.approved_at = timezone.now()
-        transfer.reason = f"{transfer.reason}\nRejected: {reason}" if transfer.reason else f"Rejected: {reason}"
-        transfer.save()
-
+        try:
+            services.reject_asset_transfer(transfer, reason, request.user)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         serializer = self.get_serializer(transfer)
         return Response({'message': 'Transfer rejected', 'data': serializer.data})
 
@@ -389,29 +322,8 @@ class MaintenanceScheduleViewSet(viewsets.ModelViewSet):
     def complete(self, request, pk=None):
         """Mark a maintenance schedule as completed and set next due date."""
         schedule = self.get_object()
-        from datetime import timedelta
-        from django.utils import timezone as tz
-
-        completed_date = request.data.get('completed_date', tz.now().date())
-        schedule.last_completed = completed_date
-
-        # Calculate next due date based on frequency
-        frequency_days = {
-            MaintenanceSchedule.Frequency.DAILY: 1,
-            MaintenanceSchedule.Frequency.WEEKLY: 7,
-            MaintenanceSchedule.Frequency.MONTHLY: 30,
-            MaintenanceSchedule.Frequency.QUARTERLY: 90,
-            MaintenanceSchedule.Frequency.SEMI_ANNUAL: 182,
-            MaintenanceSchedule.Frequency.ANNUAL: 365,
-        }
-
-        days = frequency_days.get(schedule.frequency, 30)
-        if isinstance(completed_date, str):
-            from datetime import date as dt_date
-            completed_date = dt_date.fromisoformat(completed_date)
-        schedule.next_due_date = completed_date + timedelta(days=days)
-        schedule.save()
-
+        completed_date = request.data.get('completed_date')
+        services.complete_maintenance(schedule, completed_date)
         serializer = self.get_serializer(schedule)
         return Response({'message': 'Maintenance completed', 'data': serializer.data})
 
@@ -435,59 +347,31 @@ class AssetDisposalViewSet(viewsets.ModelViewSet):
     def submit(self, request, pk=None):
         """Submit a draft disposal for approval."""
         disposal = self.get_object()
-        if disposal.status != AssetDisposal.Status.DRAFT:
-            return Response(
-                {'error': 'Only draft disposals can be submitted.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        disposal.status = AssetDisposal.Status.PENDING
-        disposal.save(update_fields=['status', 'updated_at'])
+        try:
+            services.submit_asset_disposal(disposal)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(disposal).data)
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         """Approve an asset disposal and trigger GL posting."""
         disposal = self.get_object()
-        if disposal.status != AssetDisposal.Status.PENDING:
-            return Response(
-                {'error': 'Only pending disposals can be approved.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        with transaction.atomic():
-            disposal.status = AssetDisposal.Status.APPROVED
-            disposal.approved_by = request.user
-            disposal.save(update_fields=['status', 'approved_by', 'updated_at'])
-
-            # Update the asset status
-            asset = disposal.asset
-            asset.status = Asset.Status.DISPOSED
-            asset.disposal_date = disposal.disposal_date
-            asset.disposal_value = disposal.proceeds
-            asset.save(update_fields=['status', 'disposal_date', 'disposal_value', 'updated_at'])
-
-            # Trigger GL posting
-            try:
-                from finance.tasks import post_asset_disposal_to_gl
-                post_asset_disposal_to_gl.delay(str(disposal.pk))
-            except Exception:
-                pass  # GL posting is async; failure doesn't block approval
-
+        try:
+            services.approve_asset_disposal(disposal, request.user)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(disposal).data)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         """Reject an asset disposal."""
         disposal = self.get_object()
-        if disposal.status != AssetDisposal.Status.PENDING:
-            return Response(
-                {'error': 'Only pending disposals can be rejected.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
         reason = request.data.get('reason', '')
-        disposal.status = AssetDisposal.Status.REJECTED
-        disposal.reason = f"{disposal.reason}\nRejected: {reason}" if disposal.reason else f"Rejected: {reason}"
-        disposal.save(update_fields=['status', 'reason', 'updated_at'])
+        try:
+            services.reject_asset_disposal(disposal, reason)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(disposal).data)
 
 
@@ -510,85 +394,30 @@ class CycleCountViewSet(viewsets.ModelViewSet):
     def start(self, request, pk=None):
         """Start a planned cycle count and populate system quantities."""
         cycle_count = self.get_object()
-        if cycle_count.status != CycleCount.Status.PLANNED:
-            return Response(
-                {'error': 'Only planned cycle counts can be started.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        with transaction.atomic():
-            cycle_count.status = CycleCount.Status.IN_PROGRESS
-            cycle_count.save(update_fields=['status', 'updated_at'])
-
-            # Auto-populate system quantities from StockLedger
-            ledger_entries = StockLedger.objects.filter(
-                warehouse=cycle_count.warehouse
-            ).select_related('item')
-
-            for ledger in ledger_entries:
-                CycleCountItem.objects.get_or_create(
-                    cycle_count=cycle_count,
-                    item=ledger.item,
-                    defaults={'system_qty': ledger.balance_qty, 'counted_qty': 0},
-                )
-
+        try:
+            services.start_cycle_count(cycle_count)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(cycle_count).data)
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
         """Complete a cycle count."""
         cycle_count = self.get_object()
-        if cycle_count.status != CycleCount.Status.IN_PROGRESS:
-            return Response(
-                {'error': 'Only in-progress cycle counts can be completed.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        cycle_count.status = CycleCount.Status.COMPLETED
-        cycle_count.save(update_fields=['status', 'updated_at'])
+        try:
+            services.complete_cycle_count(cycle_count)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(cycle_count).data)
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         """Approve a completed cycle count and create adjustment entries."""
         cycle_count = self.get_object()
-        if cycle_count.status != CycleCount.Status.COMPLETED:
-            return Response(
-                {'error': 'Only completed cycle counts can be approved.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        with transaction.atomic():
-            cycle_count.status = CycleCount.Status.APPROVED
-            cycle_count.approved_by = request.user
-            cycle_count.save(update_fields=['status', 'approved_by', 'updated_at'])
-
-            # Create stock adjustment entries for items with variance
-            for count_item in cycle_count.items.filter(adjustment_entry__isnull=True).exclude(variance=0):
-                adjustment = StockEntry.objects.create(
-                    entry_type=StockEntry.EntryType.ADJUSTMENT,
-                    entry_date=cycle_count.count_date,
-                    item=count_item.item,
-                    warehouse=cycle_count.warehouse,
-                    quantity=count_item.variance,
-                    unit_cost=count_item.item.standard_cost,
-                    source='CYCLE_COUNT',
-                    source_reference=str(cycle_count.pk),
-                    notes=f"Cycle count adjustment: system={count_item.system_qty}, counted={count_item.counted_qty}",
-                )
-                count_item.adjustment_entry = adjustment
-                count_item.save(update_fields=['adjustment_entry', 'updated_at'])
-
-                # Update stock ledger
-                ledger, _ = StockLedger.objects.get_or_create(
-                    item=count_item.item,
-                    warehouse=cycle_count.warehouse,
-                    defaults={'balance_qty': 0, 'valuation_amount': 0},
-                )
-                ledger.balance_qty += count_item.variance
-                ledger.valuation_amount += count_item.variance * count_item.item.standard_cost
-                ledger.last_movement_date = cycle_count.count_date
-                ledger.save()
-
+        try:
+            services.approve_cycle_count(cycle_count, request.user)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(cycle_count).data)
 
     @action(detail=True, methods=['get'])

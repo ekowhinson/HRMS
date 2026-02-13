@@ -16,17 +16,21 @@ from .models import (
     VendorScorecard, VendorBlacklist
 )
 from .serializers import (
-    PurchaseRequisitionSerializer, RequisitionItemSerializer,
-    PurchaseOrderSerializer, PurchaseOrderItemSerializer,
-    GoodsReceiptNoteSerializer, GRNItemSerializer,
-    ContractSerializer, ContractMilestoneSerializer,
-    RequestForQuotationSerializer, RFQVendorSerializer, RFQItemSerializer,
+    PurchaseRequisitionListSerializer, PurchaseRequisitionDetailSerializer,
+    RequisitionItemSerializer,
+    PurchaseOrderListSerializer, PurchaseOrderDetailSerializer,
+    PurchaseOrderItemSerializer,
+    GoodsReceiptNoteListSerializer, GoodsReceiptNoteDetailSerializer,
+    GRNItemSerializer,
+    ContractListSerializer, ContractDetailSerializer,
+    ContractMilestoneSerializer,
+    RequestForQuotationListSerializer, RequestForQuotationDetailSerializer,
+    RFQVendorSerializer, RFQItemSerializer,
     VendorScorecardSerializer, VendorBlacklistSerializer
 )
 
 
 class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
-    serializer_class = PurchaseRequisitionSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'department', 'requested_by', 'cost_center']
@@ -34,7 +38,16 @@ class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
     ordering_fields = ['requisition_date', 'required_date', 'total_estimated', 'created_at']
     ordering = ['-requisition_date']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return PurchaseRequisitionListSerializer
+        return PurchaseRequisitionDetailSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            return PurchaseRequisition.objects.select_related(
+                'requested_by', 'department', 'cost_center'
+            )
         return PurchaseRequisition.objects.select_related(
             'requested_by', 'department', 'cost_center', 'approved_by'
         ).prefetch_related('items__item', 'items__budget')
@@ -101,7 +114,6 @@ class RequisitionItemViewSet(viewsets.ModelViewSet):
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
-    serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'vendor', 'requisition']
@@ -109,7 +121,14 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     ordering_fields = ['order_date', 'delivery_date', 'total_amount', 'created_at']
     ordering = ['-order_date']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return PurchaseOrderListSerializer
+        return PurchaseOrderDetailSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            return PurchaseOrder.objects.select_related('vendor', 'requisition')
         return PurchaseOrder.objects.select_related(
             'vendor', 'requisition', 'approved_by'
         ).prefetch_related('items__item', 'items__requisition_item')
@@ -175,7 +194,6 @@ class PurchaseOrderItemViewSet(viewsets.ModelViewSet):
 
 
 class GoodsReceiptNoteViewSet(viewsets.ModelViewSet):
-    serializer_class = GoodsReceiptNoteSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'purchase_order', 'received_by', 'warehouse']
@@ -183,7 +201,16 @@ class GoodsReceiptNoteViewSet(viewsets.ModelViewSet):
     ordering_fields = ['receipt_date', 'created_at']
     ordering = ['-receipt_date']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return GoodsReceiptNoteListSerializer
+        return GoodsReceiptNoteDetailSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            return GoodsReceiptNote.objects.select_related(
+                'purchase_order', 'received_by', 'warehouse'
+            )
         return GoodsReceiptNote.objects.select_related(
             'purchase_order__vendor', 'received_by', 'warehouse'
         ).prefetch_related('items__po_item')
@@ -200,7 +227,6 @@ class GRNItemViewSet(viewsets.ModelViewSet):
 
 
 class ContractViewSet(viewsets.ModelViewSet):
-    serializer_class = ContractSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'contract_type', 'vendor', 'auto_renew']
@@ -208,7 +234,14 @@ class ContractViewSet(viewsets.ModelViewSet):
     ordering_fields = ['start_date', 'end_date', 'value', 'created_at']
     ordering = ['-start_date']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ContractListSerializer
+        return ContractDetailSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            return Contract.objects.select_related('vendor')
         return Contract.objects.select_related(
             'vendor', 'signed_by'
         ).prefetch_related('milestones')
@@ -229,14 +262,20 @@ class ContractMilestoneViewSet(viewsets.ModelViewSet):
 # ---- RFQ ViewSets ----
 
 class RequestForQuotationViewSet(viewsets.ModelViewSet):
-    serializer_class = RequestForQuotationSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'requisition']
     search_fields = ['rfq_number', 'notes']
     ordering = ['-created_at']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return RequestForQuotationListSerializer
+        return RequestForQuotationDetailSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            return RequestForQuotation.objects.select_related('requisition')
         return RequestForQuotation.objects.select_related(
             'requisition'
         ).prefetch_related('items', 'vendors__vendor')

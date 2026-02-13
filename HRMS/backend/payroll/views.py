@@ -55,6 +55,8 @@ from .serializers import (
     EmployeePayrollFlagCreateSerializer, ValidationDashboardSerializer,
 )
 from .services import PayrollService
+from .workflow_service import PayrollWorkflowService
+from .export_service import PayrollExportService
 from .salary_upgrade_service import SalaryUpgradeService
 
 
@@ -1078,7 +1080,7 @@ class ApprovePayrollView(APIView):
         comments = request.data.get('comments', '')
 
         try:
-            service = PayrollService(payroll_run)
+            service = PayrollWorkflowService(payroll_run)
 
             if action == 'reject':
                 if not comments:
@@ -1119,7 +1121,7 @@ class ProcessPaymentView(APIView):
         payment_reference = request.data.get('payment_reference')
 
         try:
-            service = PayrollService(payroll_run)
+            service = PayrollWorkflowService(payroll_run)
             result = service.process_payment(request.user, payment_reference)
             return Response({
                 'message': 'Payment processed successfully',
@@ -1150,7 +1152,7 @@ class GenerateBankFileView(APIView):
         file_format = request.data.get('format', 'CSV').upper()
 
         try:
-            service = PayrollService(payroll_run)
+            service = PayrollExportService(payroll_run)
             bank_files = service.generate_bank_file(request.user, file_format)
             return Response({
                 'message': f'Generated {len(bank_files)} bank file(s)',
@@ -1190,7 +1192,7 @@ class GeneratePayslipsView(APIView):
             )
 
         try:
-            service = PayrollService(payroll_run)
+            service = PayrollExportService(payroll_run)
             payslips = service.generate_payslips(request.user)
             return Response({
                 'message': f'Generated {len(payslips)} payslip(s)',

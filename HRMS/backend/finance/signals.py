@@ -8,11 +8,17 @@ and employee modules using Django's post_save signal.
 import logging
 from decimal import Decimal
 
+from django.apps import apps
 from django.db import transaction
 from django.db.models import Sum, Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
+
+
+def _get_model(app_label, model_name):
+    """Resolve a model by app_label and name without direct import."""
+    return apps.get_model(app_label, model_name)
 
 logger = logging.getLogger('hrms')
 
@@ -33,7 +39,8 @@ def grn_accepted_create_stock_entries(sender, instance, **kwargs):
     if instance.status != GoodsReceiptNote.Status.ACCEPTED:
         return
 
-    from inventory.models import StockEntry, StockLedger
+    StockEntry = _get_model('inventory', 'StockEntry')
+    StockLedger = _get_model('inventory', 'StockLedger')
 
     grn_items = instance.items.select_related('po_item', 'po_item__item').all()
     warehouse = instance.warehouse
@@ -214,7 +221,7 @@ def employee_exit_flag_asset_recovery(sender, instance, **kwargs):
     inventory.Asset for assets where custodian=employee and flag them
     for recovery.
     """
-    from employees.models import Employee
+    Employee = _get_model('employees', 'Employee')
 
     exit_statuses = {
         Employee.EmploymentStatus.TERMINATED,
@@ -224,7 +231,7 @@ def employee_exit_flag_asset_recovery(sender, instance, **kwargs):
     if instance.status not in exit_statuses:
         return
 
-    from inventory.models import Asset
+    Asset = _get_model('inventory', 'Asset')
 
     active_assets = Asset.objects.filter(
         custodian=instance,

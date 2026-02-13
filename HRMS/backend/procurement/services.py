@@ -282,10 +282,11 @@ def convert_rfq_to_po(rfq, vendor_id, created_by=None):
     Returns:
         PurchaseOrder instance
     """
+    from django.apps import apps
     from procurement.models import (
         RequestForQuotation, PurchaseOrder, PurchaseOrderItem, RFQVendor,
     )
-    from finance.models import Vendor
+    Vendor = apps.get_model('finance', 'Vendor')
 
     if rfq.status != RequestForQuotation.Status.AWARDED:
         raise ValueError("RFQ must be AWARDED to convert to PO")

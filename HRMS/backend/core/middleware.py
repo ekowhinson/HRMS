@@ -336,34 +336,21 @@ class CacheControlMiddleware(MiddlewareMixin):
 class ModuleAccessMiddleware:
     """
     Enforce license-based module access.
-    Maps URL prefixes to module names and checks the tenant's active license.
-    Superusers bypass all module checks.
+    Auto-discovers module names from URL path (/api/v1/<module>/...) and
+    checks the tenant's active license. Superusers bypass all module checks.
+
+    New modules only need a URL registration in config/urls.py — no
+    middleware changes required (Open/Closed Principle).
     """
 
-    MODULE_URL_MAP = {
-        '/api/v1/employees/': 'employees',
-        '/api/v1/payroll/': 'payroll',
-        '/api/v1/leave/': 'leave',
-        '/api/v1/benefits/': 'benefits',
-        '/api/v1/performance/': 'performance',
-        '/api/v1/recruitment/': 'recruitment',
-        '/api/v1/discipline/': 'discipline',
-        '/api/v1/training/': 'training',
-        '/api/v1/exits/': 'exits',
-        '/api/v1/finance/': 'finance',
-        '/api/v1/procurement/': 'procurement',
-        '/api/v1/inventory/': 'inventory',
-        '/api/v1/projects/': 'projects',
-        '/api/v1/reports/': 'reports',
-        '/api/v1/workflow/': 'workflow',
-        '/api/v1/manufacturing/': 'manufacturing',
+    # Modules that are always accessible (not gated by license)
+    UNGATED_MODULES = {
+        'auth', 'core', 'organization', 'accounts',
+        'assistant', 'policies',
     }
 
+    # Non-API prefixes to skip entirely
     SKIP_PREFIXES = [
-        '/api/v1/auth/',
-        '/api/v1/core/',
-        '/api/v1/organization/',
-        '/api/v1/accounts/',
         '/admin/',
         '/static/',
         '/media/',
@@ -374,9 +361,21 @@ class ModuleAccessMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    @staticmethod
+    def _extract_module_name(path):
+        """Extract module name from /api/v1/<module>/... URL pattern."""
+        if not path.startswith('/api/v1/'):
+            return None
+        # path: /api/v1/finance/accounts/ → parts: ['', 'api', 'v1', 'finance', 'accounts', '']
+        parts = path.split('/')
+        if len(parts) >= 4 and parts[3]:
+            return parts[3]
+        return None
+
     def __call__(self, request):
-        # Skip non-API paths and allowed prefixes
         path = request.path
+
+        # Skip non-API paths
         if any(path.startswith(prefix) for prefix in self.SKIP_PREFIXES):
             return self.get_response(request)
 
@@ -385,17 +384,12 @@ class ModuleAccessMiddleware:
         if user and getattr(user, 'is_superuser', False):
             return self.get_response(request)
 
-        # Determine which module this path maps to
-        module_name = None
-        for prefix, module in self.MODULE_URL_MAP.items():
-            if path.startswith(prefix):
-                module_name = module
-                break
+        # Auto-discover module name from URL path
+        module_name = self._extract_module_name(path)
 
-        if module_name:
+        if module_name and module_name not in self.UNGATED_MODULES:
             tenant = getattr(request, 'tenant', None)
             if tenant and not tenant.is_module_enabled(module_name):
-                import json
                 from django.http import JsonResponse
                 return JsonResponse(
                     {

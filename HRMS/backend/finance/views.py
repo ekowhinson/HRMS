@@ -1,8 +1,6 @@
 """ViewSets for finance app."""
 
 from datetime import date
-from django.db.models import Sum
-from django.utils import timezone
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -19,8 +17,8 @@ from .models import (
 )
 from .serializers import (
     AccountSerializer, FiscalYearSerializer, FiscalPeriodSerializer,
-    JournalEntrySerializer, JournalLineSerializer,
-    BudgetSerializer, BudgetCommitmentSerializer,
+    JournalEntryListSerializer, JournalEntryDetailSerializer, JournalLineSerializer,
+    BudgetListSerializer, BudgetDetailSerializer, BudgetCommitmentSerializer,
     VendorSerializer, VendorInvoiceSerializer,
     CustomerSerializer, CustomerInvoiceSerializer,
     BankAccountSerializer, PaymentSerializer,
@@ -28,7 +26,7 @@ from .serializers import (
     ExchangeRateSerializer, TaxTypeSerializer, CreditNoteSerializer,
     DebitNoteSerializer, RecurringJournalSerializer
 )
-from .services import FinancialStatementService
+from .services import FinancialStatementService, post_journal_entry
 
 
 class AccountViewSet(viewsets.ModelViewSet):
@@ -66,14 +64,20 @@ class FiscalPeriodViewSet(viewsets.ModelViewSet):
 
 
 class JournalEntryViewSet(viewsets.ModelViewSet):
-    serializer_class = JournalEntrySerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'source', 'fiscal_period']
     search_fields = ['entry_number', 'description']
     ordering = ['-journal_date']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return JournalEntryListSerializer
+        return JournalEntryDetailSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            return JournalEntry.objects.select_related('fiscal_period', 'posted_by')
         return JournalEntry.objects.select_related(
             'fiscal_period', 'posted_by'
         ).prefetch_related('lines__account')
@@ -82,36 +86,25 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
     def post_entry(self, request, pk=None):
         """Post a draft journal entry."""
         entry = self.get_object()
-        if entry.status != JournalEntry.EntryStatus.DRAFT:
-            return Response(
-                {'error': 'Only draft entries can be posted'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        # Validate debits = credits
-        totals = entry.lines.aggregate(
-            total_debit=Sum('debit_amount'),
-            total_credit=Sum('credit_amount')
-        )
-        if totals['total_debit'] != totals['total_credit']:
-            return Response(
-                {'error': 'Total debits must equal total credits'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        entry.status = JournalEntry.EntryStatus.POSTED
-        entry.posted_by = request.user
-        entry.posted_at = timezone.now()
-        entry.total_debit = totals['total_debit'] or 0
-        entry.total_credit = totals['total_credit'] or 0
-        entry.save()
+        try:
+            post_journal_entry(entry, request.user)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(entry).data)
 
 
 class BudgetViewSet(viewsets.ModelViewSet):
-    queryset = Budget.objects.select_related('fiscal_year', 'account', 'cost_center', 'department').all()
-    serializer_class = BudgetSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['fiscal_year', 'account', 'cost_center', 'department', 'status']
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return BudgetListSerializer
+        return BudgetDetailSerializer
+
+    def get_queryset(self):
+        return Budget.objects.select_related('fiscal_year', 'account', 'cost_center', 'department').all()
 
 
 class BudgetCommitmentViewSet(viewsets.ModelViewSet):

@@ -1,30 +1,30 @@
 """
 Payroll computation services for HRMS.
 Handles Ghana PAYE tax calculation, SSNIT contributions, and payroll processing.
+
+Decomposed into focused sub-services:
+- TaxCalculationService, SSNITService (tax_service.py) — statutory calculations
+- PayrollWorkflowService (workflow_service.py) — approve/reject/pay
+- PayrollExportService (export_service.py) — bank files & payslips
 """
 
-import csv
-import io
-import uuid
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Optional
 from dataclasses import dataclass
 
-from django.db import models, transaction
-from django.db.models import Sum, Q
+from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
-from django.core.files.base import ContentFile
-from django.conf import settings
 from django.core.cache import cache
 
 from employees.models import Employee, BankAccount
 from .models import (
-    PayrollRun, PayrollPeriod, PayrollItem, PayrollItemDetail, PayrollApproval,
+    PayrollRun, PayrollPeriod, PayrollItem, PayrollItemDetail,
     EmployeeSalary, EmployeeSalaryComponent, PayComponent, AdHocPayment,
-    TaxBracket, TaxRelief, SSNITRate, BankFile, Payslip, EmployeeTransaction,
-    OvertimeBonusTaxConfig, BackpayRequest
+    EmployeeTransaction, BackpayRequest
 )
+from .tax_service import TaxCalculationService, SSNITService
 
 
 @dataclass
@@ -53,271 +53,61 @@ class PayrollComputationResult:
 
 
 class PayrollService:
-    """Service class for payroll computation and processing."""
+    """
+    Service class for payroll computation and processing.
+
+    Delegates statutory calculations to TaxCalculationService and SSNITService.
+    Workflow and export operations are in separate service modules.
+    """
 
     def __init__(self, payroll_run: PayrollRun):
         self.payroll_run = payroll_run
         self.period = payroll_run.payroll_period
-        self._tax_brackets = None
-        self._ssnit_rates = None
-        self._tax_reliefs = None
-        self._overtime_bonus_config = None
+        self.tax_service = TaxCalculationService(self.period)
+        self.ssnit_service = SSNITService(self.period)
+
+    # ------------------------------------------------------------------
+    # Delegate properties for backward compatibility (BackpayService, tests)
+    # ------------------------------------------------------------------
 
     @property
     def overtime_bonus_config(self):
-        """Get active overtime/bonus tax configuration, cached."""
-        if self._overtime_bonus_config is None:
-            self._overtime_bonus_config = OvertimeBonusTaxConfig.get_active_config(
-                as_of_date=self.period.end_date
-            )
-        return self._overtime_bonus_config
+        return self.tax_service.overtime_bonus_config
 
     @property
     def tax_brackets(self):
-        """Get active tax brackets, cached."""
-        if self._tax_brackets is None:
-            self._tax_brackets = list(
-                TaxBracket.objects.filter(
-                    is_active=True,
-                    effective_from__lte=self.period.end_date
-                ).filter(
-                    Q(effective_to__isnull=True) |
-                    Q(effective_to__gte=self.period.start_date)
-                ).order_by('order', 'min_amount')
-            )
-        return self._tax_brackets
+        return self.tax_service.tax_brackets
 
     @property
     def ssnit_rates(self):
-        """Get active SSNIT rates, cached."""
-        if self._ssnit_rates is None:
-            self._ssnit_rates = {
-                rate.tier: rate for rate in SSNITRate.objects.filter(
-                    is_active=True,
-                    effective_from__lte=self.period.end_date
-                ).filter(
-                    Q(effective_to__isnull=True) |
-                    Q(effective_to__gte=self.period.start_date)
-                )
-            }
-        return self._ssnit_rates
+        return self.ssnit_service.ssnit_rates
 
     @property
     def tax_reliefs(self):
-        """Get active tax reliefs, cached."""
-        if self._tax_reliefs is None:
-            self._tax_reliefs = list(
-                TaxRelief.objects.filter(
-                    is_active=True,
-                    effective_from__lte=self.period.end_date
-                ).filter(
-                    Q(effective_to__isnull=True) |
-                    Q(effective_to__gte=self.period.start_date)
-                )
-            )
-        return self._tax_reliefs
+        return self.tax_service.tax_reliefs
+
+    # ------------------------------------------------------------------
+    # Delegate methods for backward compatibility (BackpayService, tests)
+    # ------------------------------------------------------------------
 
     def calculate_paye(self, taxable_income: Decimal) -> Decimal:
-        """
-        Calculate Ghana PAYE tax using progressive tax brackets.
+        return self.tax_service.calculate_paye(taxable_income)
 
-        Ghana PAYE is calculated on monthly taxable income after SSNIT deductions.
-        Tax brackets are applied progressively.
-        """
-        if taxable_income <= 0:
-            return Decimal('0')
+    def calculate_overtime_tax(self, overtime_amount, basic_salary, annual_salary, is_resident=True):
+        return self.tax_service.calculate_overtime_tax(overtime_amount, basic_salary, annual_salary, is_resident)
 
-        total_tax = Decimal('0')
-        remaining_income = taxable_income
+    def calculate_bonus_tax(self, bonus_amount, annual_basic_salary, is_resident=True):
+        return self.tax_service.calculate_bonus_tax(bonus_amount, annual_basic_salary, is_resident)
 
-        for bracket in self.tax_brackets:
-            if remaining_income <= 0:
-                break
-
-            bracket_min = bracket.min_amount
-            bracket_max = bracket.max_amount
-
-            if bracket_max is None:
-                taxable_in_bracket = remaining_income
-            else:
-                bracket_range = bracket_max - bracket_min
-                taxable_in_bracket = min(remaining_income, bracket_range)
-
-            tax_in_bracket = taxable_in_bracket * (bracket.rate / Decimal('100'))
-            total_tax += tax_in_bracket
-            remaining_income -= taxable_in_bracket
-
-        return total_tax.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-
-    def calculate_overtime_tax(
-        self,
-        overtime_amount: Decimal,
-        basic_salary: Decimal,
-        annual_salary: Decimal,
-        is_resident: bool = True
-    ) -> tuple[Decimal, bool]:
-        """
-        Calculate Ghana overtime tax using configurable rates.
-
-        Ghana Overtime Tax Rules (per GRA):
-        - Only junior staff earning up to annual threshold qualify for preferential rates
-        - Residents (qualifying):
-          - If overtime <= X% of monthly basic salary: lower rate
-          - If overtime > X%: lower rate on first X%, higher rate on excess
-        - Residents (non-qualifying): Overtime added to PAYE
-        - Non-Residents: Flat rate
-
-        Args:
-            overtime_amount: Total overtime earnings for the month
-            basic_salary: Employee's monthly basic salary
-            annual_salary: Employee's annual salary for threshold check
-            is_resident: Whether the employee is a Ghana tax resident
-
-        Returns:
-            Tuple of (overtime_tax, qualifies_for_preferential_rate)
-            - If not qualifying, overtime should be added to taxable income for PAYE
-        """
-        if overtime_amount <= 0:
-            return Decimal('0'), True
-
-        config = self.overtime_bonus_config
-
-        # Use default values if no configuration exists
-        if config is None:
-            # Fallback to hardcoded defaults
-            annual_threshold = Decimal('18000')
-            basic_pct_threshold = Decimal('50')
-            rate_below = Decimal('5')
-            rate_above = Decimal('10')
-            non_resident_rate = Decimal('20')
-        else:
-            annual_threshold = config.overtime_annual_salary_threshold
-            basic_pct_threshold = config.overtime_basic_percentage_threshold
-            rate_below = config.overtime_rate_below_threshold
-            rate_above = config.overtime_rate_above_threshold
-            non_resident_rate = config.non_resident_overtime_rate
-
-        # Non-resident flat rate
-        if not is_resident:
-            tax = overtime_amount * (non_resident_rate / Decimal('100'))
-            return tax.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP), True
-
-        # Check if employee qualifies for preferential overtime tax rates
-        # Only junior staff earning up to the annual threshold qualify
-        if annual_salary > annual_threshold:
-            # Does NOT qualify - overtime will be added to regular taxable income
-            return Decimal('0'), False
-
-        # Qualifies for preferential rates - calculate overtime tax
-        threshold = basic_salary * (basic_pct_threshold / Decimal('100'))
-
-        if overtime_amount <= threshold:
-            # All overtime taxed at lower rate
-            tax = overtime_amount * (rate_below / Decimal('100'))
-        else:
-            # First portion at lower rate, excess at higher rate
-            tax_on_threshold = threshold * (rate_below / Decimal('100'))
-            excess = overtime_amount - threshold
-            tax_on_excess = excess * (rate_above / Decimal('100'))
-            tax = tax_on_threshold + tax_on_excess
-
-        return tax.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP), True
-
-    def calculate_bonus_tax(self, bonus_amount: Decimal, annual_basic_salary: Decimal, is_resident: bool = True) -> tuple[Decimal, Decimal]:
-        """
-        Calculate Ghana bonus tax using configurable rates.
-
-        Ghana Bonus Tax Rules (per GRA):
-        - Residents:
-          - Bonus up to X% of annual basic salary: flat tax rate
-          - Excess over X%: Added to regular income and taxed progressively (if configured)
-        - Non-Residents: Flat rate
-
-        Args:
-            bonus_amount: Total bonus amount
-            annual_basic_salary: Employee's annual basic salary (monthly * 12)
-            is_resident: Whether the employee is a Ghana tax resident
-
-        Returns:
-            Tuple of (bonus_tax, excess_to_add_to_income)
-            - bonus_tax: The flat tax on eligible bonus
-            - excess_to_add_to_income: Amount to add to regular taxable income
-        """
-        if bonus_amount <= 0:
-            return Decimal('0'), Decimal('0')
-
-        config = self.overtime_bonus_config
-
-        # Use default values if no configuration exists
-        if config is None:
-            # Fallback to hardcoded defaults
-            annual_basic_pct_threshold = Decimal('15')
-            flat_rate = Decimal('5')
-            excess_to_paye = True
-            non_resident_rate = Decimal('20')
-        else:
-            annual_basic_pct_threshold = config.bonus_annual_basic_percentage_threshold
-            flat_rate = config.bonus_flat_rate
-            excess_to_paye = config.bonus_excess_to_paye
-            non_resident_rate = config.non_resident_bonus_rate
-
-        # Non-resident flat rate
-        if not is_resident:
-            tax = bonus_amount * (non_resident_rate / Decimal('100'))
-            return tax.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP), Decimal('0')
-
-        # Resident bonus tax calculation
-        threshold = annual_basic_salary * (annual_basic_pct_threshold / Decimal('100'))
-
-        if bonus_amount <= threshold:
-            # All bonus taxed at flat rate
-            tax = bonus_amount * (flat_rate / Decimal('100'))
-            excess = Decimal('0')
-        else:
-            # First portion taxed at flat rate
-            tax = threshold * (flat_rate / Decimal('100'))
-            # Excess handling
-            if excess_to_paye:
-                excess = bonus_amount - threshold
-            else:
-                # Tax entire bonus at flat rate
-                tax = bonus_amount * (flat_rate / Decimal('100'))
-                excess = Decimal('0')
-
-        return tax.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP), excess
+    def calculate_tax_relief(self, gross_salary: Decimal) -> Decimal:
+        return self.tax_service.calculate_tax_relief(gross_salary)
 
     def calculate_ssnit(self, basic_salary: Decimal) -> tuple[Decimal, Decimal, Decimal]:
-        """
-        Calculate SSNIT contributions (Tier 1 and Tier 2).
+        return self.ssnit_service.calculate_ssnit(basic_salary)
 
-        Returns: (employee_contribution, employer_tier1, employer_tier2)
-
-        Ghana SSNIT:
-        - Tier 1 (SSNIT): Employer 13%, Employee 5.5%
-        - Tier 2 (Occupational): Employer 5%
-        """
-        tier1_rate = self.ssnit_rates.get('TIER_1')
-        tier2_rate = self.ssnit_rates.get('TIER_2')
-
-        employee_contribution = Decimal('0')
-        employer_tier1 = Decimal('0')
-        employer_tier2 = Decimal('0')
-
-        if tier1_rate:
-            employee_contribution = (basic_salary * tier1_rate.employee_rate / Decimal('100'))
-            employer_tier1 = (basic_salary * tier1_rate.employer_rate / Decimal('100'))
-
-            if tier1_rate.max_contribution:
-                employee_contribution = min(employee_contribution, tier1_rate.max_contribution)
-
-        if tier2_rate:
-            employer_tier2 = (basic_salary * tier2_rate.employer_rate / Decimal('100'))
-
-        return (
-            employee_contribution.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            employer_tier1.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            employer_tier2.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        )
+    # ------------------------------------------------------------------
+    # Employee data retrieval
+    # ------------------------------------------------------------------
 
     def get_eligible_employees(self):
         """Get all employees eligible for this payroll run, excluding flagged employees."""
@@ -403,29 +193,9 @@ class PayrollService:
             | Q(is_recurring=False, payroll_period__isnull=True, calendar__isnull=True)
         ).select_related('pay_component'))
 
-    def calculate_tax_relief(self, gross_salary: Decimal) -> Decimal:
-        """
-        Calculate total tax relief amount.
-
-        Tax reliefs reduce taxable income before PAYE calculation.
-        """
-        total_relief = Decimal('0')
-
-        for relief in self.tax_reliefs:
-            if relief.relief_type == 'FIXED':
-                amount = relief.amount or Decimal('0')
-            elif relief.relief_type == 'PERCENTAGE':
-                pct = relief.percentage or Decimal('0')
-                amount = (gross_salary * pct / Decimal('100'))
-                # Apply cap if specified
-                if relief.max_amount:
-                    amount = min(amount, relief.max_amount)
-            else:
-                amount = Decimal('0')
-
-            total_relief += amount
-
-        return total_relief.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    # ------------------------------------------------------------------
+    # Proration
+    # ------------------------------------------------------------------
 
     def calculate_proration_factor(self, employee: Employee) -> tuple[Decimal, int, int]:
         """
@@ -466,6 +236,10 @@ class PayrollService:
 
         factor = Decimal(str(days_payable)) / Decimal(str(total_days))
         return factor, days_payable, total_days
+
+    # ------------------------------------------------------------------
+    # Per-employee computation
+    # ------------------------------------------------------------------
 
     def compute_employee_payroll(self, employee: Employee) -> PayrollComputationResult:
         """
@@ -641,34 +415,26 @@ class PayrollService:
         tax_relief = self.calculate_tax_relief(gross_earnings)
 
         # Calculate Overtime Tax (separate from PAYE for qualifying employees)
-        # Only employees earning up to the annual threshold qualify for preferential rates
-        # Non-qualifying employees have overtime added to PAYE instead
         overtime_tax, overtime_qualifies = self.calculate_overtime_tax(
             overtime_earnings, basic_salary, annual_basic_salary, is_resident
         )
         overtime_to_paye = Decimal('0')
         if not overtime_qualifies:
-            # Employee doesn't qualify for preferential overtime tax
-            # Overtime should be added to taxable income for progressive PAYE
             overtime_to_paye = overtime_earnings
 
         # Calculate Bonus Tax (separate from PAYE)
-        # Bonus tax returns: (flat_tax, excess_to_add_to_income)
         bonus_tax, bonus_excess = self.calculate_bonus_tax(bonus_earnings, annual_basic_salary, is_resident)
 
         # Calculate Taxable Income for PAYE
-        # Taxable = Regular Taxable Earnings + Overtime (if not qualifying) + Bonus Excess
-        #           - SSNIT Employee - Tax Relief - Pre-tax Deductions
-        # Note: Qualifying overtime, Bonus (up to threshold), and Non-taxable earnings are excluded
         taxable_income = (
             regular_taxable_earnings +
-            overtime_to_paye +  # Only added if employee doesn't qualify for preferential OT rates
+            overtime_to_paye +
             bonus_excess -
             ssnit_employee -
             tax_relief -
             pre_tax_deductions
         )
-        taxable_income = max(taxable_income, Decimal('0'))  # Ensure non-negative
+        taxable_income = max(taxable_income, Decimal('0'))
 
         # Calculate PAYE on taxable income
         paye = self.calculate_paye(taxable_income)
@@ -740,6 +506,10 @@ class PayrollService:
             days_payable=days_payable,
             total_days=total_days,
         ), details
+
+    # ------------------------------------------------------------------
+    # Bulk payroll computation
+    # ------------------------------------------------------------------
 
     @transaction.atomic
     def compute_payroll(self, user) -> dict:
@@ -1011,653 +781,3 @@ class PayrollService:
             'total_tier2_employer': str(total_tier2_employer),
             'errors': errors,
         }
-
-    @transaction.atomic
-    def approve_payroll(self, user, comments: str = None) -> dict:
-        """Approve the payroll run."""
-        if self.payroll_run.status != PayrollRun.Status.COMPUTED:
-            raise ValueError(f'Cannot approve payroll in status: {self.payroll_run.status}')
-
-        error_items = PayrollItem.objects.filter(
-            payroll_run=self.payroll_run,
-            status=PayrollItem.Status.ERROR
-        ).count()
-
-        if error_items > 0:
-            raise ValueError(f'Cannot approve payroll with {error_items} items in error')
-
-        PayrollApproval.objects.create(
-            payroll_run=self.payroll_run,
-            level=1,
-            approver=user,
-            action='APPROVE',
-            comments=comments
-        )
-
-        PayrollItem.objects.filter(
-            payroll_run=self.payroll_run,
-            status=PayrollItem.Status.COMPUTED
-        ).update(status=PayrollItem.Status.APPROVED)
-
-        self.payroll_run.status = PayrollRun.Status.APPROVED
-        self.payroll_run.approved_by = user
-        self.payroll_run.approved_at = timezone.now()
-        self.payroll_run.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
-
-        # Update period status to APPROVED
-        if self.period.status in [PayrollPeriod.Status.OPEN, PayrollPeriod.Status.PROCESSING, PayrollPeriod.Status.COMPUTED]:
-            self.period.status = PayrollPeriod.Status.APPROVED
-            self.period.save(update_fields=['status', 'updated_at'])
-
-        return {
-            'status': 'approved',
-            'approved_by': user.email,
-            'approved_at': self.payroll_run.approved_at.isoformat(),
-        }
-
-    @transaction.atomic
-    def reject_payroll(self, user, comments: str) -> dict:
-        """Reject the payroll run and return for correction."""
-        if self.payroll_run.status not in [PayrollRun.Status.COMPUTED, PayrollRun.Status.REVIEWING]:
-            raise ValueError(f'Cannot reject payroll in status: {self.payroll_run.status}')
-
-        PayrollApproval.objects.create(
-            payroll_run=self.payroll_run,
-            level=1,
-            approver=user,
-            action='REJECT',
-            comments=comments
-        )
-
-        self.payroll_run.status = PayrollRun.Status.REJECTED
-        self.payroll_run.save(update_fields=['status', 'updated_at'])
-
-        # Revert period status to OPEN since run was rejected
-        if self.period.status in [PayrollPeriod.Status.COMPUTED, PayrollPeriod.Status.APPROVED]:
-            self.period.status = PayrollPeriod.Status.OPEN
-            self.period.save(update_fields=['status', 'updated_at'])
-
-        return {
-            'status': 'rejected',
-            'rejected_by': user.email,
-            'comments': comments,
-        }
-
-    @transaction.atomic
-    def process_payment(self, user, payment_reference: str = None) -> dict:
-        """Mark the payroll as paid."""
-        if self.payroll_run.status != PayrollRun.Status.APPROVED:
-            raise ValueError(f'Cannot process payment for payroll in status: {self.payroll_run.status}')
-
-        self.payroll_run.status = PayrollRun.Status.PROCESSING_PAYMENT
-        self.payroll_run.save(update_fields=['status', 'updated_at'])
-
-        payment_date = timezone.now().date()
-        reference = payment_reference or f'PAY-{self.payroll_run.run_number}-{payment_date.strftime("%Y%m%d")}'
-
-        PayrollItem.objects.filter(
-            payroll_run=self.payroll_run,
-            status=PayrollItem.Status.APPROVED
-        ).update(
-            status=PayrollItem.Status.PAID,
-            payment_date=payment_date,
-            payment_reference=reference
-        )
-
-        AdHocPayment.objects.filter(
-            payroll_period=self.period,
-            status='APPROVED'
-        ).update(
-            status='PROCESSED',
-            processed_at=timezone.now()
-        )
-
-        self.payroll_run.status = PayrollRun.Status.PAID
-        self.payroll_run.paid_at = timezone.now()
-        self.payroll_run.save(update_fields=['status', 'paid_at', 'updated_at'])
-
-        self.period.status = PayrollPeriod.Status.PAID
-        self.period.payment_date = payment_date
-        self.period.save(update_fields=['status', 'payment_date', 'updated_at'])
-
-        paid_count = PayrollItem.objects.filter(
-            payroll_run=self.payroll_run,
-            status=PayrollItem.Status.PAID
-        ).count()
-
-        return {
-            'status': 'paid',
-            'payment_date': payment_date.isoformat(),
-            'payment_reference': reference,
-            'employees_paid': paid_count,
-            'total_amount': str(self.payroll_run.total_net),
-        }
-
-    def generate_bank_file(self, user, file_format: str = 'CSV') -> BankFile:
-        """Generate bank payment file grouped by bank."""
-        if self.payroll_run.status not in [PayrollRun.Status.APPROVED, PayrollRun.Status.PAID]:
-            raise ValueError(f'Cannot generate bank file for payroll in status: {self.payroll_run.status}')
-
-        items = PayrollItem.objects.filter(
-            payroll_run=self.payroll_run,
-            status__in=[PayrollItem.Status.APPROVED, PayrollItem.Status.PAID],
-            bank_account_number__isnull=False
-        ).select_related('employee').order_by('bank_name', 'employee__employee_number')
-
-        banks = {}
-        for item in items:
-            bank_name = item.bank_name or 'UNKNOWN'
-            if bank_name not in banks:
-                banks[bank_name] = []
-            banks[bank_name].append(item)
-
-        bank_files = []
-
-        for bank_name, bank_items in banks.items():
-            output = io.StringIO()
-            writer = csv.writer(output)
-
-            writer.writerow([
-                'Employee Number',
-                'Employee Name',
-                'Bank Account',
-                'Bank Branch',
-                'Amount',
-                'Reference'
-            ])
-
-            total_amount = Decimal('0')
-            for item in bank_items:
-                writer.writerow([
-                    item.employee.employee_number,
-                    item.employee.full_name,
-                    item.bank_account_number,
-                    item.bank_branch or '',
-                    str(item.net_salary),
-                    f'{self.payroll_run.run_number}-{item.employee.employee_number}'
-                ])
-                total_amount += item.net_salary
-
-            file_content = output.getvalue().encode('utf-8')
-            safe_bank_name = bank_name.replace(' ', '_').replace('/', '_')
-            file_name = f'{self.payroll_run.run_number}_{safe_bank_name}_{date.today().strftime("%Y%m%d")}.csv'
-
-            bank_file = BankFile.objects.create(
-                payroll_run=self.payroll_run,
-                bank_name=bank_name,
-                file_data=file_content,
-                file_name=file_name,
-                file_size=len(file_content),
-                mime_type='text/csv',
-                file_format='CSV',
-                total_amount=total_amount,
-                transaction_count=len(bank_items),
-                generated_by=user,
-                generated_at=timezone.now(),
-            )
-            bank_files.append(bank_file)
-
-        return bank_files
-
-    def generate_payslips(self, user) -> list[Payslip]:
-        """Generate payslips for all employees in the payroll run."""
-        start_time = timezone.now()
-
-        if self.payroll_run.status not in [PayrollRun.Status.COMPUTED, PayrollRun.Status.APPROVED, PayrollRun.Status.PAID]:
-            raise ValueError(f'Cannot generate payslips for payroll in status: {self.payroll_run.status}')
-
-        items = PayrollItem.objects.filter(
-            payroll_run=self.payroll_run
-        ).exclude(
-            status=PayrollItem.Status.ERROR
-        ).select_related(
-            'employee', 'employee__department', 'employee__position',
-            'employee__division', 'employee__directorate', 'employee__grade',
-            'employee__salary_notch', 'employee__salary_notch__level',
-            'employee__salary_notch__level__band', 'employee__work_location'
-        ).prefetch_related('details', 'details__pay_component')
-
-        payslips = []
-
-        for item in items:
-            if hasattr(item, 'payslip'):
-                continue
-
-            payslip_number = f'PS-{self.payroll_run.run_number}-{item.employee.employee_number}'
-
-            # Generate PDF payslip
-            file_content = self._generate_payslip_pdf(item)
-            file_name = f'{payslip_number}.pdf'
-
-            payslip = Payslip.objects.create(
-                payroll_item=item,
-                payslip_number=payslip_number,
-                file_data=file_content,
-                file_name=file_name,
-                file_size=len(file_content),
-                mime_type='application/pdf',
-                generated_at=timezone.now(),
-            )
-            payslips.append(payslip)
-
-        # Create summary audit log entry
-        end_time = timezone.now()
-        duration = (end_time - start_time).total_seconds()
-        try:
-            from core.models import AuditLog
-            from core.middleware import get_current_user, get_current_request
-
-            audit_user = get_current_user() or user
-            ip_address = None
-            user_agent = ''
-            request = get_current_request()
-            if request:
-                x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
-                ip_address = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
-                user_agent = request.META.get('HTTP_USER_AGENT', '')
-
-            AuditLog.objects.create(
-                user=audit_user,
-                action=AuditLog.ActionType.CREATE,
-                model_name='Payslip',
-                object_id=str(self.payroll_run.pk),
-                object_repr=f'Payslip generation: {self.payroll_run.run_number}'[:255],
-                changes={
-                    'started_at': start_time.isoformat(),
-                    'completed_at': end_time.isoformat(),
-                    'duration_seconds': round(duration, 2),
-                    'payslips_generated': len(payslips),
-                    'period_name': self.period.name,
-                },
-                ip_address=ip_address,
-                user_agent=user_agent,
-            )
-        except Exception:
-            import logging
-            logging.getLogger('hrms').warning(
-                'Failed to create payslip generation audit log', exc_info=True
-            )
-
-        return payslips
-
-    def _generate_payslip_pdf(self, item: PayrollItem) -> bytes:
-        """Generate payslip as PDF matching NHIS design."""
-        import io
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch, cm, mm
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
-
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            rightMargin=1.5*cm,
-            leftMargin=1.5*cm,
-            topMargin=1*cm,
-            bottomMargin=1*cm
-        )
-
-        elements = []
-        styles = getSampleStyleSheet()
-
-        # Colors matching the sample
-        header_green = colors.HexColor('#008751')
-        header_blue = colors.HexColor('#0077B6')
-        light_blue = colors.HexColor('#E8F4F8')
-        yellow_green = colors.HexColor('#8DC63F')
-
-        # Custom styles
-        title_style = ParagraphStyle(
-            'Title',
-            parent=styles['Heading1'],
-            fontSize=16,
-            textColor=header_green,
-            alignment=TA_CENTER,
-            spaceAfter=2,
-            fontName='Helvetica-Bold'
-        )
-
-        subtitle_style = ParagraphStyle(
-            'Subtitle',
-            parent=styles['Normal'],
-            fontSize=12,
-            alignment=TA_CENTER,
-            spaceAfter=10,
-            fontName='Helvetica-Bold'
-        )
-
-        section_header_style = ParagraphStyle(
-            'SectionHeader',
-            parent=styles['Normal'],
-            fontSize=10,
-            textColor=colors.white,
-            alignment=TA_LEFT,
-            fontName='Helvetica-Bold'
-        )
-
-        # Get employee data
-        emp = item.employee
-        period_name = self.period.name if self.period else 'N/A'
-
-        # Get organization name from settings
-        org_name = getattr(settings, 'PAYROLL', {}).get('ORGANIZATION_NAME', settings.HRMS_SETTINGS.get('ORGANIZATION_NAME', 'Your Organization'))
-        org_code = getattr(settings, 'PAYROLL', {}).get('ORGANIZATION_CODE', settings.HRMS_SETTINGS.get('ORGANIZATION_CODE', 'ORG'))
-
-        # Get salary notch info
-        old_notch = ''
-        new_notch = ''
-        if emp.salary_notch:
-            notch = emp.salary_notch
-            if notch.level and notch.level.band:
-                new_notch = f"Band {notch.level.band.code}/Level {notch.level.code}/Notch {notch.code}"
-                old_notch = new_notch  # Same for now, can be enhanced with history
-
-        # === HEADER WITH LOGO PLACEHOLDER ===
-        # Create a header table with logo area and title
-        logo_style = ParagraphStyle(
-            'Logo',
-            parent=styles['Normal'],
-            fontSize=24,
-            textColor=header_green,
-            alignment=TA_LEFT,
-            fontName='Helvetica-Bold'
-        )
-
-        # Logo placeholder (green NHIS text styled like a logo)
-        logo_text = f'<font color="#008751"><b>{org_code}</b></font>'
-
-        header_data = [[
-            Paragraph(logo_text, logo_style),
-            Paragraph(f'<u>{org_name.upper()}</u>', title_style)
-        ]]
-        header_table = Table(header_data, colWidths=[3*cm, 13.5*cm])
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-        ]))
-        elements.append(header_table)
-        elements.append(Paragraph(f'<u>PAYSLIP FOR</u>&nbsp;&nbsp;&nbsp;&nbsp;<u>{period_name.upper()}</u>', subtitle_style))
-        elements.append(Spacer(1, 10))
-
-        # === EMPLOYEE INFO TABLE ===
-        emp_info_data = [
-            ['FULL NAME:', emp.full_name, 'BANK NAME:', item.bank_name or ''],
-            ['STAFF ID:', emp.employee_number, 'BANK BRANCH:', item.bank_branch or ''],
-            ['DEPARTMENT:', emp.department.name if emp.department else '', 'ACCOUNT #:', item.bank_account_number or ''],
-            ['LOCATION:', emp.work_location.name if emp.work_location else 'HEAD OFFICE', 'SOCIAL SECURITY #:', emp.ssnit_number or ''],
-            ['JOB TITLE:', emp.position.title if emp.position else '', 'GRADE:', emp.grade.name if emp.grade else ''],
-            ['OLD LEVEL/NOTCH:', old_notch, 'NEW LEVEL/NOTCH:', new_notch],
-        ]
-
-        emp_table = Table(emp_info_data, colWidths=[2.5*cm, 5.5*cm, 3*cm, 5.5*cm])
-        emp_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F5F5F5')),
-            ('BACKGROUND', (2, 0), (2, -1), colors.HexColor('#F5F5F5')),
-        ]))
-        elements.append(emp_table)
-        elements.append(Spacer(1, 10))
-
-        # === BASIC SALARY ===
-        basic_data = [['BASIC SALARY', f'{float(item.basic_salary):,.2f}']]
-        basic_table = Table(basic_data, colWidths=[13*cm, 3.5*cm])
-        basic_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), header_blue),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ]))
-        elements.append(basic_table)
-
-        # === ALLOWANCES AND DEDUCTIONS ===
-        # Collect allowances (earnings excluding basic)
-        allowances = []
-        for detail in item.details.all():
-            if detail.pay_component.component_type == 'EARNING' and detail.pay_component.code != 'BASIC':
-                allowances.append((detail.pay_component.name, float(detail.amount)))
-
-        # Collect deductions
-        deductions = []
-        for detail in item.details.all():
-            if detail.pay_component.component_type == 'DEDUCTION':
-                deductions.append((detail.pay_component.name, float(detail.amount)))
-
-        # Add statutory deductions
-        if item.ssnit_employee and float(item.ssnit_employee) > 0:
-            deductions.append(('Employee SSF', float(item.ssnit_employee)))
-        if item.paye and float(item.paye) > 0:
-            deductions.append(('Income Tax', float(item.paye)))
-
-        # Build allowances/deductions table
-        max_rows = max(len(allowances), len(deductions), 1)
-        allow_ded_data = [['ALLOWANCES', 'AMOUNT', 'DEDUCTIONS', 'AMOUNT']]
-
-        for i in range(max_rows):
-            row = []
-            if i < len(allowances):
-                row.extend([allowances[i][0], f'{allowances[i][1]:,.2f}'])
-            else:
-                row.extend(['', ''])
-            if i < len(deductions):
-                row.extend([deductions[i][0], f'{deductions[i][1]:,.2f}'])
-            else:
-                row.extend(['', ''])
-            allow_ded_data.append(row)
-
-        allow_ded_table = Table(allow_ded_data, colWidths=[5*cm, 3.25*cm, 5*cm, 3.25*cm])
-        allow_ded_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (1, 0), header_blue),
-            ('BACKGROUND', (2, 0), (3, 0), header_blue),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ('LINEAFTER', (1, 0), (1, -1), 1, colors.grey),
-        ]))
-        elements.append(allow_ded_table)
-        elements.append(Spacer(1, 10))
-
-        # === PAY SUMMARY ===
-        summary_header = [['PAY SUMMARY']]
-        summary_header_table = Table(summary_header, colWidths=[16.5*cm])
-        summary_header_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), header_blue),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        elements.append(summary_header_table)
-
-        # Get YTD values (calculate from current period for now)
-        total_earnings = float(item.gross_earnings)
-        total_deductions = float(item.total_deductions)
-        net_salary = float(item.net_salary)
-        tax_relief = 0.00  # Can be enhanced
-
-        # Calculate YTD by querying all payroll items for the same employee in the current year
-        current_year = self.period.year if self.period else timezone.now().year
-
-        # Get all approved/paid payroll items for this employee in the current year
-        ytd_items = PayrollItem.objects.filter(
-            employee=emp,
-            payroll_run__payroll_period__year=current_year,
-            payroll_run__status__in=[PayrollRun.Status.COMPUTED, PayrollRun.Status.APPROVED, PayrollRun.Status.PAID]
-        ).aggregate(
-            total_earnings=Sum('gross_earnings'),
-            total_ssf=Sum('ssnit_employee'),
-            total_tax=Sum('paye'),
-            total_net=Sum('net_salary'),
-            total_deductions=Sum('total_deductions')
-        )
-
-        earnings_ytd = float(ytd_items['total_earnings'] or total_earnings)
-        ssf_ytd = float(ytd_items['total_ssf'] or item.ssnit_employee or 0)
-        tax_ytd = float(ytd_items['total_tax'] or item.paye or 0)
-        net_ytd = float(ytd_items['total_net'] or net_salary)
-
-        # Calculate PF YTD from payroll item details
-        pf_ytd_items = PayrollItemDetail.objects.filter(
-            payroll_item__employee=emp,
-            payroll_item__payroll_run__payroll_period__year=current_year,
-            payroll_item__payroll_run__status__in=[PayrollRun.Status.COMPUTED, PayrollRun.Status.APPROVED, PayrollRun.Status.PAID],
-            pay_component__code__icontains='PF'
-        ).filter(
-            pay_component__component_type='DEDUCTION'
-        ).aggregate(total=Sum('amount'))
-        pf_ytd = float(pf_ytd_items['total'] or 0)
-
-        # Calculate loan deductions YTD
-        loan_ytd_items = PayrollItemDetail.objects.filter(
-            payroll_item__employee=emp,
-            payroll_item__payroll_run__payroll_period__year=current_year,
-            payroll_item__payroll_run__status__in=[PayrollRun.Status.COMPUTED, PayrollRun.Status.APPROVED, PayrollRun.Status.PAID],
-            pay_component__name__icontains='loan'
-        ).aggregate(total=Sum('amount'))
-        loans_ytd = float(loan_ytd_items['total'] or 0)
-
-        # Employee PF calculation (from current period details)
-        emp_pf = 0.00
-        employer_pf = 0.00
-        for detail in item.details.all():
-            if 'provident' in detail.pay_component.name.lower() or 'pf' in detail.pay_component.code.lower():
-                if detail.pay_component.component_type == 'DEDUCTION':
-                    emp_pf = float(detail.amount)
-                elif detail.pay_component.component_type == 'EMPLOYER':
-                    employer_pf = float(detail.amount)
-
-        # Calculate cumulative PF to date
-        emp_pf_ytd = PayrollItemDetail.objects.filter(
-            payroll_item__employee=emp,
-            payroll_item__payroll_run__status__in=[PayrollRun.Status.COMPUTED, PayrollRun.Status.APPROVED, PayrollRun.Status.PAID],
-            pay_component__code__icontains='PF',
-            pay_component__component_type='DEDUCTION'
-        ).aggregate(total=Sum('amount'))
-
-        employer_pf_ytd = PayrollItemDetail.objects.filter(
-            payroll_item__employee=emp,
-            payroll_item__payroll_run__status__in=[PayrollRun.Status.COMPUTED, PayrollRun.Status.APPROVED, PayrollRun.Status.PAID],
-            pay_component__code__icontains='PF',
-            pay_component__component_type='EMPLOYER'
-        ).aggregate(total=Sum('amount'))
-
-        emp_pf_to_date = float(emp_pf_ytd['total'] or emp_pf)
-        employer_pf_to_date = float(employer_pf_ytd['total'] or employer_pf)
-        total_pf_to_date = emp_pf_to_date + employer_pf_to_date
-
-        summary_data = [
-            ['TOTAL EARNINGS', f'{total_earnings:,.2f}', 'TOTAL DEDUCTIONS', f'{total_deductions:,.2f}'],
-            ['TAX RELIEF', f'{tax_relief:,.2f}', 'NET SALARY', f'{net_salary:,.2f}'],
-            ['', '', '', ''],
-            ['TOTAL EARNINGS YTD', f'{earnings_ytd:,.2f}', 'EMPLOYEE PF TO DATE', f'{emp_pf_to_date:,.2f}'],
-            ['EMPLOYEE SSF YTD', f'{ssf_ytd:,.2f}', '', ''],
-            ['EMPLOYEE PF YTD', f'{pf_ytd:,.2f}', 'EMPLOYER PF TO DATE', f'{employer_pf_to_date:,.2f}'],
-            ['INCOME TAX YTD', f'{tax_ytd:,.2f}', '', ''],
-            ['LOANS & ADV. DED. YTD', f'{loans_ytd:,.2f}', 'TOTAL PF TO DATE', f'{total_pf_to_date:,.2f}'],
-            ['NET SALARY YTD', f'{net_ytd:,.2f}', '', ''],
-        ]
-
-        summary_table = Table(summary_data, colWidths=[4.5*cm, 3.75*cm, 4.5*cm, 3.75*cm])
-        summary_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ('LINEAFTER', (1, 0), (1, -1), 1, colors.grey),
-            # Underline key values
-            ('LINEBELOW', (1, 0), (1, 0), 1, colors.black),  # Total Earnings
-            ('LINEBELOW', (3, 0), (3, 0), 1, colors.black),  # Total Deductions
-            ('LINEBELOW', (3, 1), (3, 1), 1.5, colors.black),  # Net Salary
-            ('LINEBELOW', (1, 3), (1, 3), 1, colors.black),  # Earnings YTD
-            ('LINEBELOW', (1, 8), (1, 8), 1, colors.black),  # Net Salary YTD
-            ('LINEBELOW', (3, 7), (3, 7), 1, colors.black),  # Total PF
-        ]))
-        elements.append(summary_table)
-        elements.append(Spacer(1, 10))
-
-        # === LOAN DETAILS ===
-        loan_header = [['LOAN DETAILS']]
-        loan_header_table = Table(loan_header, colWidths=[16.5*cm])
-        loan_header_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), header_blue),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        elements.append(loan_header_table)
-
-        # Get loan deductions from payroll item details
-        loan_details = []
-        for detail in item.details.all():
-            if 'loan' in detail.pay_component.name.lower():
-                loan_details.append([detail.pay_component.name, f'{float(detail.amount):,.2f}'])
-
-        if loan_details:
-            loan_table = Table(loan_details, colWidths=[12*cm, 4.5*cm])
-            loan_table.setStyle(TableStyle([
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ]))
-            elements.append(loan_table)
-        else:
-            # Empty loan section
-            empty_loan = Table([['No active loans']], colWidths=[16.5*cm])
-            empty_loan.setStyle(TableStyle([
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.grey),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-                ('TOPPADDING', (0, 0), (-1, -1), 10),
-            ]))
-            elements.append(empty_loan)
-
-        elements.append(Spacer(1, 20))
-
-        # === FOOTER ===
-        footer_style = ParagraphStyle(
-            'Footer',
-            parent=styles['Normal'],
-            fontSize=8,
-            textColor=colors.grey,
-            alignment=TA_LEFT
-        )
-        elements.append(Paragraph(f'Printed On: {timezone.now().isoformat()}', footer_style))
-
-        # Build PDF
-        doc.build(elements)
-        buffer.seek(0)
-        return buffer.read()

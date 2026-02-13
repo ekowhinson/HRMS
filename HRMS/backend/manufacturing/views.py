@@ -12,8 +12,9 @@ from .models import (
     QualityCheck, ProductionBatch
 )
 from .serializers import (
-    BOMSerializer, BOMLineSerializer, WorkCenterSerializer,
-    ProductionRoutingSerializer, WorkOrderSerializer,
+    BOMListSerializer, BOMDetailSerializer, BOMLineSerializer,
+    WorkCenterSerializer, ProductionRoutingSerializer,
+    WorkOrderListSerializer, WorkOrderDetailSerializer,
     WorkOrderOperationSerializer, MaterialConsumptionSerializer,
     QualityCheckSerializer, ProductionBatchSerializer
 )
@@ -21,14 +22,20 @@ from . import services
 
 
 class BOMViewSet(viewsets.ModelViewSet):
-    serializer_class = BOMSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'is_active', 'finished_product']
     search_fields = ['code', 'name']
     ordering = ['code']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return BOMListSerializer
+        return BOMDetailSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            return BillOfMaterials.objects.select_related('finished_product')
         return BillOfMaterials.objects.select_related(
             'finished_product'
         ).prefetch_related('lines__raw_material', 'routings__work_center')
@@ -53,46 +60,7 @@ class BOMViewSet(viewsets.ModelViewSet):
     def copy_version(self, request, pk=None):
         """Create a new version of this BOM."""
         bom = self.get_object()
-        new_version = BillOfMaterials.objects.filter(
-            finished_product=bom.finished_product, tenant=bom.tenant
-        ).count() + 1
-
-        new_bom = BillOfMaterials(
-            tenant=bom.tenant,
-            code=f"{bom.code}-v{new_version}",
-            name=bom.name,
-            description=bom.description,
-            finished_product=bom.finished_product,
-            version=new_version,
-            yield_qty=bom.yield_qty,
-            status=BillOfMaterials.Status.DRAFT,
-        )
-        new_bom.save()
-
-        # Copy lines
-        for line in bom.lines.all():
-            BOMLine.objects.create(
-                tenant=bom.tenant, bom=new_bom,
-                raw_material=line.raw_material,
-                quantity=line.quantity,
-                unit_of_measure=line.unit_of_measure,
-                scrap_percent=line.scrap_percent,
-                sort_order=line.sort_order,
-            )
-
-        # Copy routings
-        for routing in bom.routings.all():
-            ProductionRouting.objects.create(
-                tenant=bom.tenant, bom=new_bom,
-                operation_number=routing.operation_number,
-                name=routing.name,
-                description=routing.description,
-                work_center=routing.work_center,
-                setup_time_minutes=routing.setup_time_minutes,
-                run_time_minutes=routing.run_time_minutes,
-                sort_order=routing.sort_order,
-            )
-
+        new_bom = services.copy_bom_version(bom)
         return Response(self.get_serializer(new_bom).data, status=status.HTTP_201_CREATED)
 
 
@@ -128,14 +96,20 @@ class WorkCenterViewSet(viewsets.ModelViewSet):
 
 
 class WorkOrderViewSet(viewsets.ModelViewSet):
-    serializer_class = WorkOrderSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'product', 'bom', 'priority']
     search_fields = ['work_order_number', 'product__name', 'notes']
     ordering = ['-created_at']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return WorkOrderListSerializer
+        return WorkOrderDetailSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            return WorkOrder.objects.select_related('bom', 'product')
         return WorkOrder.objects.select_related(
             'bom', 'product', 'project', 'cost_center'
         ).prefetch_related(
@@ -161,14 +135,11 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):
-        wo = self.get_object()
-        if wo.status != WorkOrder.Status.RELEASED:
-            return Response({'error': 'Only released orders can be started'}, status=status.HTTP_400_BAD_REQUEST)
-        from django.utils import timezone
-        wo.status = WorkOrder.Status.IN_PROGRESS
-        wo.actual_start = timezone.now()
-        wo.save(update_fields=['status', 'actual_start', 'updated_at'])
-        return Response(self.get_serializer(wo).data)
+        try:
+            wo = services.start_work_order(pk)
+            return Response(self.get_serializer(wo).data)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
