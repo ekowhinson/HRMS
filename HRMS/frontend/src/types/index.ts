@@ -535,6 +535,7 @@ export interface PayrollRun {
   computed_at?: string
   approved_at?: string
   paid_at?: string
+  error_count?: number
 }
 
 export type PayrollStatus =
@@ -545,16 +546,42 @@ export type PayrollStatus =
   | 'PAID'
   | 'CANCELLED'
 
+export interface PayrollItemDetail {
+  id: string
+  component_name: string
+  component_type: 'EARNING' | 'DEDUCTION' | 'EMPLOYER'
+  amount: number
+  quantity: number
+  notes: string | null
+}
+
 export interface PayrollItem {
   id: string
-  employee: Employee
-  payroll_run: PayrollRun
+  employee: string
+  employee_name: string
+  employee_number: string
+  department_name: string
+  position_name: string
+  grade_name: string
+  payroll_run: string
+  period_name: string
+  status: string
+  error_message: string | null
   basic_salary: number
-  gross_salary: number
+  gross_earnings: number
   total_deductions: number
   net_salary: number
   paye: number
   ssnit_employee: number
+  ssnit_employer: number
+  tier2_employer: number
+  employer_cost: number
+  overtime_tax: number
+  bonus_tax: number
+  days_worked: number
+  proration_factor: number
+  taxable_income: number
+  details: PayrollItemDetail[]
 }
 
 // Backpay Types
@@ -682,10 +709,21 @@ export interface DashboardStats {
   pending_leave_requests: number
   active_loans: number
   latest_payroll: {
+    run_number?: string
     period: string
+    status?: string
+    run_date?: string
     total_employees: number
     total_gross: number
     total_net: number
+    total_deductions?: number
+    total_paye?: number
+    total_ssnit_employee?: number
+    total_ssnit_employer?: number
+    total_tier2_employer?: number
+    total_overtime_tax?: number
+    total_bonus_tax?: number
+    total_employer_cost?: number
   }
 }
 

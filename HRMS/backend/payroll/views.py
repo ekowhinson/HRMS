@@ -499,10 +499,40 @@ class PayrollPeriodViewSet(viewsets.ModelViewSet):
         period.status = PayrollPeriod.Status.CLOSED
         period.save(update_fields=['status', 'updated_at'])
 
+        # Auto-activate next month's period
+        next_year = period.year + (1 if period.month == 12 else 0)
+        next_month = 1 if period.month == 12 else period.month + 1
+        next_period = PayrollPeriod.objects.filter(
+            year=next_year, month=next_month, is_supplementary=False
+        ).first()
+
+        if not next_period:
+            # Create next period if it doesn't exist
+            import calendar
+            last_day = calendar.monthrange(next_year, next_month)[1]
+            from datetime import date
+            month_name = date(next_year, next_month, 1).strftime('%B %Y')
+            next_period = PayrollPeriod.objects.create(
+                name=month_name,
+                year=next_year,
+                month=next_month,
+                start_date=date(next_year, next_month, 1),
+                end_date=date(next_year, next_month, last_day),
+                status=PayrollPeriod.Status.OPEN,
+            )
+
+        next_period_data = None
+        if next_period and next_period.status != 'OPEN':
+            next_period.status = PayrollPeriod.Status.OPEN
+            next_period.save(update_fields=['status', 'updated_at'])
+        if next_period:
+            next_period_data = PayrollPeriodSerializer(next_period).data
+
         return Response({
             'message': f'Period {period.name} closed successfully.',
             'previous_status': previous_status,
-            'data': PayrollPeriodSerializer(period).data
+            'data': PayrollPeriodSerializer(period).data,
+            'next_period': next_period_data,
         })
 
     @action(detail=True, methods=['get'])
@@ -1187,7 +1217,14 @@ class PayrollItemListView(generics.ListAPIView):
     serializer_class = PayrollItemSerializer
 
     def get_queryset(self):
-        return PayrollItem.objects.filter(payroll_run_id=self.kwargs['run_id'])
+        qs = PayrollItem.objects.filter(payroll_run_id=self.kwargs['run_id'])
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs.select_related(
+            'employee', 'employee__department', 'employee__position', 'employee__grade',
+            'employee_salary', 'payroll_run__payroll_period'
+        ).prefetch_related('details__pay_component')
 
 
 class PayrollItemDetailView(generics.RetrieveAPIView):

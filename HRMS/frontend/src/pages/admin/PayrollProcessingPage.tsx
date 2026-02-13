@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -63,6 +64,7 @@ export default function PayrollProcessingPage() {
 
   // Success modal state
   const [computeResult, setComputeResult] = useState<{
+    runId: string
     totalEmployees: number
     totalErrors: number
     durationSeconds: number
@@ -146,11 +148,12 @@ export default function PayrollProcessingPage() {
       setComputingRunId(null)
       setProgress(null)
     },
-    onSuccess: (data) => {
+    onSuccess: (data, runId) => {
       const durationMs = computeStartTimeRef.current ? Date.now() - computeStartTimeRef.current : 0
       computeStartTimeRef.current = null
       const result = data.data
       setComputeResult({
+        runId,
         totalEmployees: result?.total_employees || 0,
         totalErrors: result?.errors?.length || 0,
         durationSeconds: Math.round(durationMs / 1000),
@@ -246,6 +249,9 @@ export default function PayrollProcessingPage() {
     mutationFn: (periodId: string) => payrollService.closePeriod(periodId),
     onSuccess: (data) => {
       toast.success(data.message || 'Period closed successfully')
+      if (data.next_period) {
+        toast.success(`${data.next_period.name} is now the active period`)
+      }
       queryClient.invalidateQueries({ queryKey: ['payroll-periods'] })
       queryClient.invalidateQueries({ queryKey: ['payroll-runs'] })
       setShowConfirmModal(null)
@@ -362,6 +368,13 @@ export default function PayrollProcessingPage() {
                       <Badge variant={statusColors[status] || 'default'}>
                         {status.replace(/_/g, ' ')}
                       </Badge>
+                      {(run.error_count ?? 0) > 0 && (
+                        <Link to={`/admin/payroll/runs/${run.id}/errors`}>
+                          <Badge variant="danger">
+                            {run.error_count} error{run.error_count !== 1 ? 's' : ''}
+                          </Badge>
+                        </Link>
+                      )}
                       {periodStatus === 'CLOSED' && (
                         <Badge variant="default">
                           PERIOD CLOSED
@@ -916,11 +929,20 @@ export default function PayrollProcessingPage() {
 
               {/* Errors Warning */}
               {computeResult.totalErrors > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center gap-2">
-                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
-                  <p className="text-amber-700 text-sm">
-                    {computeResult.totalErrors} employee(s) had errors during computation
-                  </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+                  <div className="flex items-center gap-2">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                    <p className="text-amber-700 text-sm">
+                      {computeResult.totalErrors} employee(s) had errors during computation
+                    </p>
+                  </div>
+                  <Link
+                    to={`/admin/payroll/runs/${computeResult.runId}/errors`}
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:text-amber-900 underline"
+                    onClick={() => setComputeResult(null)}
+                  >
+                    View Error Details
+                  </Link>
                 </div>
               )}
 

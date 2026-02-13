@@ -127,6 +127,7 @@ export interface Interview {
   status_display: string
   panel_members: InterviewPanelMember[]
   feedback: InterviewFeedback[]
+  result?: string
   average_score: number | null
   overall_recommendation: string
   notes: string
@@ -141,6 +142,7 @@ export interface InterviewPanelMember {
   employee_name: string
   role: string
   is_lead: boolean
+  confirmed?: boolean
   has_submitted_feedback: boolean
 }
 
@@ -229,8 +231,10 @@ export interface InterviewScoringSheet {
   applicant_name: string
   panelist: string
   panelist_name: string
+  interviewer_name?: string
   template: string
   template_name: string
+  status?: string
   total_score: number | null
   max_possible_score: number
   percentage_score: number | null

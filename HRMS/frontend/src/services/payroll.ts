@@ -101,6 +101,11 @@ export const payrollService = {
     return response.data.results || response.data
   },
 
+  async getPayrollErrorItems(runId: string): Promise<PayrollItem[]> {
+    const response = await api.get(`/payroll/runs/${runId}/items/`, { params: { status: 'ERROR' } })
+    return response.data.results || response.data
+  },
+
   // Get payslips for a specific employee (admin view with full breakdown)
   getEmployeePayslips: async (employeeId: string): Promise<any[]> => {
     const response = await api.get(`/payroll/employee/${employeeId}/payslips/`)

@@ -208,6 +208,9 @@ class PayrollItemSerializer(serializers.ModelSerializer):
     employee_name = serializers.CharField(source='employee.full_name', read_only=True)
     employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
     period_name = serializers.CharField(source='payroll_run.payroll_period.name', read_only=True)
+    department_name = serializers.CharField(source='employee.department.name', read_only=True, default='')
+    position_name = serializers.CharField(source='employee.position.title', read_only=True, default='')
+    grade_name = serializers.CharField(source='employee.grade.name', read_only=True, default='')
 
     class Meta:
         model = PayrollItem
@@ -263,6 +266,7 @@ class PayrollRunSerializer(serializers.ModelSerializer):
     """Serializer for PayrollRun model."""
     period_name = serializers.CharField(source='payroll_period.name', read_only=True)
     period_status = serializers.CharField(source='payroll_period.status', read_only=True)
+    error_count = serializers.SerializerMethodField()
 
     class Meta:
         model = PayrollRun
@@ -272,6 +276,9 @@ class PayrollRunSerializer(serializers.ModelSerializer):
             'total_net', 'total_employer_cost', 'total_paye',
             'total_ssnit_employee', 'total_ssnit_employer', 'total_tier2_employer'
         ]
+
+    def get_error_count(self, obj):
+        return obj.items.filter(status='ERROR').count()
 
 
 class AdHocPaymentSerializer(serializers.ModelSerializer):

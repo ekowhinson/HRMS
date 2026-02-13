@@ -51,6 +51,7 @@ const MyGrievancesPage = React.lazy(() => import('./pages/portal/MyGrievancesPag
 
 // Admin pages
 const PayrollProcessingPage = React.lazy(() => import('./pages/admin/PayrollProcessingPage'))
+const PayrollErrorsPage = React.lazy(() => import('./pages/admin/PayrollErrorsPage'))
 const LeaveApprovalsPage = React.lazy(() => import('./pages/admin/LeaveApprovalsPage'))
 const OrganizationPage = React.lazy(() => import('./pages/admin/OrganizationPage'))
 const LoanManagementPage = React.lazy(() => import('./pages/admin/LoanManagementPage'))
@@ -387,6 +388,7 @@ function App() {
 
                     {/* Payroll Admin Routes */}
                     <Route path="/admin/payroll" element={<PayrollRoute><PayrollProcessingPage /></PayrollRoute>} />
+                    <Route path="/admin/payroll/runs/:runId/errors" element={<PayrollRoute><PayrollErrorsPage /></PayrollRoute>} />
                     <Route path="/admin/loans" element={<PayrollRoute><LoanManagementPage /></PayrollRoute>} />
                     <Route path="/admin/transaction-types" element={<PayrollRoute><TransactionTypeSetupPage /></PayrollRoute>} />
                     <Route path="/admin/employee-transactions" element={<PayrollRoute><EmployeeTransactionsPage /></PayrollRoute>} />
