@@ -340,6 +340,59 @@ export const reportsService = {
     return response.data
   },
 
+  // Payroll Costing Summary
+  async getPayrollCostingSummary(params?: ReportFilters) {
+    const searchParams = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          searchParams.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/payroll/costing-summary/?${searchParams.toString()}`)
+    return response.data
+  },
+
+  async getStaffPayrollData(params?: ReportFilters) {
+    const searchParams = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          searchParams.append(key, value)
+        }
+      })
+    }
+    const response = await api.get(`/reports/payroll/staff-data/?${searchParams.toString()}`)
+    return response.data
+  },
+
+  async exportPayrollCostingSummary(
+    payrollRunId?: string,
+    format: ExportFormat = 'excel',
+    filters?: ReportFilters
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+    if (payrollRunId) params.set('payroll_run', payrollRunId)
+    const response = await api.get(`/reports/export/payroll-costing-summary/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `payroll_costing_summary_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportStaffPayrollData(
+    payrollRunId?: string,
+    format: ExportFormat = 'excel',
+    filters?: ReportFilters
+  ): Promise<void> {
+    const params = buildParams(filters, format)
+    if (payrollRunId) params.set('payroll_run', payrollRunId)
+    const response = await api.get(`/reports/export/staff-payroll-data/?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    downloadFile(response.data, `staff_payroll_data_${Date.now()}.${getFileExtension(format)}`)
+  },
+
   async getPAYEReport(payrollRunId?: string, filters?: ReportFilters) {
     const params = new URLSearchParams()
     if (payrollRunId) params.append('payroll_run', payrollRunId)

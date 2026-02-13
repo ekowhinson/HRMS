@@ -2886,3 +2886,504 @@ class ReportExporter:
                 normalized_data, headers,
                 f"{filename}_{timestamp}.csv"
             )
+
+
+# =============================================================================
+# Payroll Costing Summary Export
+# =============================================================================
+
+def export_payroll_costing_summary(payroll_run_id=None, filters=None, format='excel'):
+    """
+    Export Payroll Costing Summary Report with SSF, PF, tax, and deduction breakdowns.
+    """
+    from django.utils import timezone
+
+    filters = filters or {}
+
+    # Get payroll run
+    if payroll_run_id:
+        try:
+            payroll_run = PayrollRun.objects.get(id=payroll_run_id)
+        except PayrollRun.DoesNotExist:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            return generate_excel_response([], ['No Data'], f'payroll_costing_summary_{timestamp}.xlsx', 'No Payroll Run Found')
+    else:
+        payroll_run = PayrollRun.objects.filter(
+            status__in=['COMPUTED', 'APPROVED', 'PAID']
+        ).order_by('-run_date').first()
+
+    if not payroll_run:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return generate_excel_response([], ['No Data'], f'payroll_costing_summary_{timestamp}.xlsx', 'No Payroll Run Found')
+
+    # Query payroll items
+    items = PayrollItem.objects.filter(
+        payroll_run=payroll_run
+    ).select_related(
+        'employee', 'employee__department', 'employee__position',
+        'employee__grade', 'employee__staff_category',
+        'employee__salary_notch'
+    ).prefetch_related(
+        'details', 'details__pay_component'
+    ).order_by('employee__employee_number')
+
+    # Apply filters
+    if filters.get('department'):
+        items = items.filter(employee__department_id=filters['department'])
+    if filters.get('staff_category'):
+        items = items.filter(employee__staff_category_id=filters['staff_category'])
+    if filters.get('employee_code'):
+        items = items.filter(employee__employee_number__icontains=filters['employee_code'])
+
+    # Determine staff category label for header
+    staff_category_label = "All Staff"
+    if filters.get('staff_category'):
+        from payroll.models import StaffCategory
+        try:
+            sc = StaffCategory.objects.get(id=filters['staff_category'])
+            staff_category_label = sc.name
+        except StaffCategory.DoesNotExist:
+            pass
+
+    period_name = payroll_run.payroll_period.name if payroll_run.payroll_period else f"Run #{payroll_run.run_number}"
+
+    # Build data rows
+    data = []
+    for idx, item in enumerate(items, 1):
+        details = list(item.details.all())
+
+        basic_salary = float(item.basic_salary or 0)
+        total_allowances = sum(
+            float(d.amount or 0) for d in details
+            if d.pay_component.category == 'ALLOWANCE'
+        )
+        total_emoluments = basic_salary + total_allowances
+        emp_ssf = float(item.ssnit_employee or 0)
+        emp_pf = sum(
+            float(d.amount or 0) for d in details
+            if d.pay_component.code in ('TIER2_EMP', 'PF_EMP', 'PROVIDENT_FUND_EMP')
+            or (d.pay_component.category == 'FUND' and d.pay_component.component_type == 'DEDUCTION')
+        )
+        employer_ssf = float(item.ssnit_employer or 0)
+        employer_pf = float(item.tier2_employer or 0)
+        tax_relief = emp_ssf + emp_pf
+        net_taxable_pay = float(item.taxable_income or 0)
+        paye_tax = float(item.paye or 0)
+
+        def sum_by_codes(codes):
+            return sum(
+                float(d.amount or 0) for d in details
+                if d.pay_component.code in codes
+            )
+
+        duties_tax_rescheduled = sum_by_codes(('DUTIES_TAX', 'TAX_RESCHEDULED'))
+        tax_refund = sum_by_codes(('TAX_REFUND',))
+        union_dues = sum_by_codes(('UNION_DUES', 'DUES'))
+        ext_car_loan = sum_by_codes(('EXT_CAR_LOAN', 'EXTERNAL_CAR_LOAN'))
+        int_car_loan = sum_by_codes(('INT_CAR_LOAN', 'INTERNAL_CAR_LOAN', 'CAR_LOAN'))
+        student_loan = sum_by_codes(('STUDENT_LOAN', 'STU_LOAN'))
+        rent = sum_by_codes(('RENT', 'RENT_DEDUCTION'))
+        salary_advance_surcharge = sum_by_codes(('SALARY_ADVANCE', 'SAL_ADV', 'SURCHARGE'))
+        net_salary = float(item.net_salary or 0)
+
+        data.append({
+            'srn': idx,
+            'staff_id': item.employee.employee_number,
+            'full_name': item.employee.full_name,
+            'basic_salary': basic_salary,
+            'total_allowances': total_allowances,
+            'total_emoluments': total_emoluments,
+            'emp_ssf_55': emp_ssf,
+            'emp_pf_5': emp_pf,
+            'employer_ssf_13': employer_ssf,
+            'employer_pf_5': employer_pf,
+            'tax_relief': tax_relief,
+            'net_taxable_pay': net_taxable_pay,
+            'paye_tax': paye_tax,
+            'duties_&_tax_rescheduled': duties_tax_rescheduled,
+            'tax_refund': tax_refund,
+            'union_dues': union_dues,
+            'ext_car_loan': ext_car_loan,
+            'int_car_loan': int_car_loan,
+            'student_loan': student_loan,
+            'rent': rent,
+            'salary_advance_&_surcharge': salary_advance_surcharge,
+            'net_salary': net_salary,
+        })
+
+    headers = [
+        'SRN', 'Staff ID', 'Full Name', 'Basic Salary', 'Total Allowances',
+        'Total Emoluments', 'Emp SSF (5.5%)', 'Emp PF (5%)',
+        'Employer SSF (13%)', 'Employer PF (5%)', 'Tax Relief',
+        'Net Taxable Pay', 'PAYE Tax', 'Duties & Tax Rescheduled',
+        'Tax Refund', 'Union Dues', 'Ext Car Loan', 'Int Car Loan',
+        'Student Loan', 'Rent', 'Salary Advance & Surcharge', 'Net Salary'
+    ]
+
+    column_keys = [
+        'srn', 'staff_id', 'full_name', 'basic_salary', 'total_allowances',
+        'total_emoluments', 'emp_ssf_55', 'emp_pf_5',
+        'employer_ssf_13', 'employer_pf_5', 'tax_relief',
+        'net_taxable_pay', 'paye_tax', 'duties_&_tax_rescheduled',
+        'tax_refund', 'union_dues', 'ext_car_loan', 'int_car_loan',
+        'student_loan', 'rent', 'salary_advance_&_surcharge', 'net_salary'
+    ]
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "SALARY PAYMENT SUMMARY REPORT"
+
+    if format == 'excel':
+        return _generate_costing_summary_excel(
+            data, headers, column_keys, staff_category_label, period_name,
+            f'payroll_costing_summary_{timestamp}.xlsx', title
+        )
+    elif format == 'pdf':
+        return generate_pdf_response(
+            data, headers,
+            f'payroll_costing_summary_{timestamp}.pdf',
+            title=title,
+            landscape_mode=True
+        )
+    else:
+        return generate_csv_response(
+            data, headers,
+            f'payroll_costing_summary_{timestamp}.csv'
+        )
+
+
+def _generate_costing_summary_excel(data, headers, column_keys, staff_category_label,
+                                     period_name, filename, title):
+    """Generate Excel file for Payroll Costing Summary with hierarchical headers."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Costing Summary"
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    total_fill = PatternFill(start_color="BDD7EE", end_color="BDD7EE", fill_type="solid")
+    total_font = Font(bold=True)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
+    num_cols = len(headers)
+
+    # Row 1: Title
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
+    title_cell = ws.cell(row=1, column=1, value=title)
+    title_cell.font = Font(bold=True, size=14)
+    title_cell.alignment = Alignment(horizontal="center")
+
+    # Row 2: Staff Category and Period
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=num_cols)
+    subtitle_cell = ws.cell(row=2, column=1, value=f"Staff Category: {staff_category_label}  |  Period: {period_name}")
+    subtitle_cell.font = Font(bold=True, size=11)
+    subtitle_cell.alignment = Alignment(horizontal="center")
+
+    # Row 3: Date generated
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=num_cols)
+    date_cell = ws.cell(row=3, column=1, value=f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    date_cell.alignment = Alignment(horizontal="center")
+
+    # Row 4: empty
+    # Row 5: Column headers
+    header_row = 5
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
+
+    # Data rows
+    for row_idx, row_data in enumerate(data, header_row + 1):
+        for col_idx, key in enumerate(column_keys, 1):
+            value = row_data.get(key, '')
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = thin_border
+            if isinstance(value, (int, float)) and col_idx > 3:
+                cell.alignment = Alignment(horizontal="right")
+                cell.number_format = '#,##0.00'
+
+    # Footer: TOTAL row
+    total_row = header_row + len(data) + 1
+    ws.cell(row=total_row, column=1, value='').border = thin_border
+    ws.cell(row=total_row, column=2, value='').border = thin_border
+    total_label = ws.cell(row=total_row, column=3, value='TOTAL')
+    total_label.font = total_font
+    total_label.fill = total_fill
+    total_label.border = thin_border
+
+    # Sum numeric columns (columns 4 onwards, index 3+)
+    for col_idx in range(4, num_cols + 1):
+        key = column_keys[col_idx - 1]
+        col_sum = sum(row.get(key, 0) for row in data if isinstance(row.get(key, 0), (int, float)))
+        cell = ws.cell(row=total_row, column=col_idx, value=col_sum)
+        cell.font = total_font
+        cell.fill = total_fill
+        cell.border = thin_border
+        cell.number_format = '#,##0.00'
+        cell.alignment = Alignment(horizontal="right")
+
+    # Auto-adjust column widths
+    for col in range(1, num_cols + 1):
+        max_length = 0
+        column_letter = get_column_letter(col)
+        for row in range(header_row, total_row + 1):
+            cell = ws.cell(row=row, column=col)
+            try:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws.column_dimensions[column_letter].width = max(adjusted_width, 14)
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+# =============================================================================
+# Staff Payroll Data Export
+# =============================================================================
+
+def export_staff_payroll_data(payroll_run_id=None, filters=None, format='excel'):
+    """
+    Export Staff Payroll Data Report with allowance breakdowns.
+    """
+    from django.utils import timezone
+
+    filters = filters or {}
+
+    # Get payroll run
+    if payroll_run_id:
+        try:
+            payroll_run = PayrollRun.objects.get(id=payroll_run_id)
+        except PayrollRun.DoesNotExist:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            return generate_excel_response([], ['No Data'], f'staff_payroll_data_{timestamp}.xlsx', 'No Payroll Run Found')
+    else:
+        payroll_run = PayrollRun.objects.filter(
+            status__in=['COMPUTED', 'APPROVED', 'PAID']
+        ).order_by('-run_date').first()
+
+    if not payroll_run:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return generate_excel_response([], ['No Data'], f'staff_payroll_data_{timestamp}.xlsx', 'No Payroll Run Found')
+
+    # Query payroll items
+    items = PayrollItem.objects.filter(
+        payroll_run=payroll_run
+    ).select_related(
+        'employee', 'employee__department', 'employee__position',
+        'employee__grade', 'employee__work_location',
+        'employee__staff_category', 'employee__salary_notch',
+        'employee__salary_notch__level',
+        'employee__salary_notch__level__band'
+    ).prefetch_related(
+        'details', 'details__pay_component'
+    ).order_by('employee__employee_number')
+
+    # Apply filters
+    if filters.get('department'):
+        items = items.filter(employee__department_id=filters['department'])
+    if filters.get('staff_category'):
+        items = items.filter(employee__staff_category_id=filters['staff_category'])
+    if filters.get('location'):
+        items = items.filter(employee__work_location_id=filters['location'])
+    if filters.get('grade'):
+        items = items.filter(employee__grade_id=filters['grade'])
+
+    period_name = payroll_run.payroll_period.name if payroll_run.payroll_period else f"Run #{payroll_run.run_number}"
+
+    # Allowance code mappings
+    allowance_codes = {
+        'transport_allowance': ('TRANSPORT', 'TRANSPORT_ALLOWANCE'),
+        'utility_allowance': ('UTILITY', 'UTILITY_ALLOWANCE'),
+        'fuel_allowance': ('FUEL', 'FUEL_ALLOWANCE'),
+        'vehicle_allowance': ('VEHICLE', 'VEHICLE_ALLOWANCE'),
+        'acting_allowance': ('ACTING', 'ACTING_ALLOWANCE'),
+    }
+
+    data = []
+    for idx, item in enumerate(items, 1):
+        details = list(item.details.all())
+
+        # Build grade_step
+        grade_step = None
+        if item.employee.salary_notch:
+            try:
+                level_name = item.employee.salary_notch.level.name
+                notch_code = item.employee.salary_notch.code
+                grade_step = f"{level_name}/{notch_code}"
+            except AttributeError:
+                grade_step = None
+
+        # Extract allowances
+        allowances = {}
+        for key, codes in allowance_codes.items():
+            allowances[key] = sum(
+                float(d.amount or 0) for d in details
+                if d.pay_component.code in codes
+            )
+
+        data.append({
+            'no': idx,
+            'staff_number': item.employee.employee_number,
+            'full_name': item.employee.full_name,
+            'hire_date': str(item.employee.date_of_joining) if item.employee.date_of_joining else '',
+            'location': item.employee.work_location.name if item.employee.work_location else '',
+            'position': item.employee.position.title if item.employee.position else '',
+            'grade': item.employee.grade.name if item.employee.grade else '',
+            'grade_step': grade_step or '',
+            'basic_salary': float(item.basic_salary or 0),
+            **allowances,
+        })
+
+    headers = [
+        'No', 'Staff Number', 'Full Name', 'Hire Date', 'Location',
+        'Position', 'Grade', 'Grade Step', 'Basic Salary',
+        'Transport Allowance', 'Utility Allowance', 'Fuel Allowance',
+        'Vehicle Allowance', 'Acting Allowance'
+    ]
+
+    column_keys = [
+        'no', 'staff_number', 'full_name', 'hire_date', 'location',
+        'position', 'grade', 'grade_step', 'basic_salary',
+        'transport_allowance', 'utility_allowance', 'fuel_allowance',
+        'vehicle_allowance', 'acting_allowance'
+    ]
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    title = "STAFF PAYROLL DATA"
+
+    if format == 'excel':
+        return _generate_staff_payroll_data_excel(
+            data, headers, column_keys, period_name,
+            f'staff_payroll_data_{timestamp}.xlsx', title
+        )
+    elif format == 'pdf':
+        return generate_pdf_response(
+            data, headers,
+            f'staff_payroll_data_{timestamp}.pdf',
+            title=title,
+            landscape_mode=True
+        )
+    else:
+        return generate_csv_response(
+            data, headers,
+            f'staff_payroll_data_{timestamp}.csv'
+        )
+
+
+def _generate_staff_payroll_data_excel(data, headers, column_keys, period_name,
+                                        filename, title):
+    """Generate Excel file for Staff Payroll Data with hierarchical headers."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Staff Payroll Data"
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    total_fill = PatternFill(start_color="BDD7EE", end_color="BDD7EE", fill_type="solid")
+    total_font = Font(bold=True)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
+    num_cols = len(headers)
+
+    # Row 1: Title
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
+    title_cell = ws.cell(row=1, column=1, value=title)
+    title_cell.font = Font(bold=True, size=14)
+    title_cell.alignment = Alignment(horizontal="center")
+
+    # Row 2: Period info
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=num_cols)
+    subtitle_cell = ws.cell(row=2, column=1, value=f"Period: {period_name}")
+    subtitle_cell.font = Font(bold=True, size=11)
+    subtitle_cell.alignment = Alignment(horizontal="center")
+
+    # Row 3: Date generated
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=num_cols)
+    date_cell = ws.cell(row=3, column=1, value=f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    date_cell.alignment = Alignment(horizontal="center")
+
+    # Row 4: empty
+    # Row 5: Column headers
+    header_row = 5
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
+
+    # Data rows
+    for row_idx, row_data in enumerate(data, header_row + 1):
+        for col_idx, key in enumerate(column_keys, 1):
+            value = row_data.get(key, '')
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = thin_border
+            if isinstance(value, (int, float)) and key not in ('no',):
+                cell.alignment = Alignment(horizontal="right")
+                cell.number_format = '#,##0.00'
+
+    # Footer: TOTAL row
+    total_row = header_row + len(data) + 1
+    # Fill non-numeric columns in total row
+    for col_idx in range(1, 9):
+        cell = ws.cell(row=total_row, column=col_idx, value='')
+        cell.border = thin_border
+        cell.fill = total_fill
+    total_label = ws.cell(row=total_row, column=3, value='TOTAL')
+    total_label.font = total_font
+    total_label.fill = total_fill
+    total_label.border = thin_border
+
+    # Sum numeric columns (basic_salary and allowances: columns 9-14)
+    for col_idx in range(9, num_cols + 1):
+        key = column_keys[col_idx - 1]
+        col_sum = sum(row.get(key, 0) for row in data if isinstance(row.get(key, 0), (int, float)))
+        cell = ws.cell(row=total_row, column=col_idx, value=col_sum)
+        cell.font = total_font
+        cell.fill = total_fill
+        cell.border = thin_border
+        cell.number_format = '#,##0.00'
+        cell.alignment = Alignment(horizontal="right")
+
+    # Auto-adjust column widths
+    for col in range(1, num_cols + 1):
+        max_length = 0
+        column_letter = get_column_letter(col)
+        for row in range(header_row, total_row + 1):
+            cell = ws.cell(row=row, column=col)
+            try:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws.column_dimensions[column_letter].width = max(adjusted_width, 14)
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response

@@ -47,6 +47,8 @@ urlpatterns = [
     path('payroll/journal/', views.PayrollJournalReportView.as_view(), name='payroll-journal'),
     path('payroll/car-loan-interest/', views.CarLoanInterestReportView.as_view(), name='car-loan-interest'),
     path('payroll/student-loans/', views.StudentLoanReportView.as_view(), name='student-loans'),
+    path('payroll/costing-summary/', views.PayrollCostingSummaryView.as_view(), name='payroll-costing-summary'),
+    path('payroll/staff-data/', views.StaffPayrollDataView.as_view(), name='payroll-staff-data'),
 
     # Statutory reports
     path('statutory/paye/', views.PAYEStatutoryReportView.as_view(), name='paye-statutory'),
@@ -81,6 +83,8 @@ urlpatterns = [
     path('export/kpi-tracking/', views.ExportKPITrackingView.as_view(), name='export-kpi-tracking'),
     path('export/performance-appraisals/', views.ExportPerformanceAppraisalsView.as_view(), name='export-performance-appraisals'),
     path('export/training/', views.ExportTrainingView.as_view(), name='export-training'),
+    path('export/payroll-costing-summary/', views.ExportPayrollCostingSummaryView.as_view(), name='export-payroll-costing-summary'),
+    path('export/staff-payroll-data/', views.ExportStaffPayrollDataView.as_view(), name='export-staff-payroll-data'),
 
     # Analytics KPI endpoints
     path('analytics/master/', views.MasterAnalyticsDashboardView.as_view(), name='analytics-master'),

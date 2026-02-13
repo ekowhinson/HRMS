@@ -1839,6 +1839,7 @@ from .exports import (
     export_turnover, export_demographics, export_leave_utilization,
     export_employment_history, export_kpi_tracking,
     export_performance_appraisals, export_training,
+    export_payroll_costing_summary, export_staff_payroll_data,
 )
 
 
@@ -2036,6 +2037,311 @@ class ExportPAYEGRAReportView(APIView):
         # Default to Excel since that's the GRA's preferred format
         file_format = request.query_params.get('file_format', 'excel')
         return export_paye_gra_report(payroll_run_id, filters=filters, format=file_format)
+
+
+class PayrollCostingSummaryView(APIView):
+    """
+    Payroll Costing Summary Report - Detailed salary payment summary with
+    breakdowns for SSF, PF, tax, deductions, and net salary per employee.
+    """
+
+    def get(self, request):
+        payroll_run_id = request.query_params.get('payroll_run')
+        department_id = request.query_params.get('department')
+        staff_category_id = request.query_params.get('staff_category')
+        employee_code = request.query_params.get('employee_code')
+
+        # Get payroll run
+        if payroll_run_id:
+            try:
+                payroll_run = PayrollRun.objects.get(id=payroll_run_id)
+            except PayrollRun.DoesNotExist:
+                return Response(
+                    {'error': 'Payroll run not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            payroll_run = PayrollRun.objects.filter(
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
+            ).order_by('-run_date').first()
+
+        if not payroll_run:
+            return Response({
+                'message': 'No payroll run found',
+                'generated_at': timezone.now()
+            })
+
+        # Get payroll items with all related data
+        items = PayrollItem.objects.filter(
+            payroll_run=payroll_run
+        ).select_related(
+            'employee', 'employee__department', 'employee__position',
+            'employee__grade', 'employee__staff_category',
+            'employee__salary_notch'
+        ).prefetch_related(
+            'details', 'details__pay_component'
+        ).order_by('employee__employee_number')
+
+        # Apply filters
+        if department_id:
+            items = items.filter(employee__department_id=department_id)
+        if staff_category_id:
+            items = items.filter(employee__staff_category_id=staff_category_id)
+        if employee_code:
+            items = items.filter(employee__employee_number__icontains=employee_code)
+
+        employees_data = []
+
+        for idx, item in enumerate(items, 1):
+            details = list(item.details.all())
+
+            basic_salary = float(item.basic_salary or 0)
+
+            # Total allowances: sum of details where pay_component.category == 'ALLOWANCE'
+            total_allowances = sum(
+                float(d.amount or 0) for d in details
+                if d.pay_component.category == 'ALLOWANCE'
+            )
+
+            total_emoluments = basic_salary + total_allowances
+
+            emp_ssf = float(item.ssnit_employee or 0)
+
+            # Employee PF: sum of details where code in specific PF codes or category=='FUND' and type=='DEDUCTION'
+            emp_pf = sum(
+                float(d.amount or 0) for d in details
+                if d.pay_component.code in ('TIER2_EMP', 'PF_EMP', 'PROVIDENT_FUND_EMP')
+                or (d.pay_component.category == 'FUND' and d.pay_component.component_type == 'DEDUCTION')
+            )
+
+            employer_ssf = float(item.ssnit_employer or 0)
+            employer_pf = float(item.tier2_employer or 0)
+            tax_relief = emp_ssf + emp_pf
+            net_taxable_pay = float(item.taxable_income or 0)
+            paye_tax = float(item.paye or 0)
+
+            # Helper to sum details by pay_component codes
+            def sum_by_codes(codes):
+                return sum(
+                    float(d.amount or 0) for d in details
+                    if d.pay_component.code in codes
+                )
+
+            duties_tax_rescheduled = sum_by_codes(('DUTIES_TAX', 'TAX_RESCHEDULED'))
+            tax_refund = sum_by_codes(('TAX_REFUND',))
+            union_dues = sum_by_codes(('UNION_DUES', 'DUES'))
+            ext_car_loan = sum_by_codes(('EXT_CAR_LOAN', 'EXTERNAL_CAR_LOAN'))
+            int_car_loan = sum_by_codes(('INT_CAR_LOAN', 'INTERNAL_CAR_LOAN', 'CAR_LOAN'))
+            student_loan = sum_by_codes(('STUDENT_LOAN', 'STU_LOAN'))
+            rent = sum_by_codes(('RENT', 'RENT_DEDUCTION'))
+            salary_advance_surcharge = sum_by_codes(('SALARY_ADVANCE', 'SAL_ADV', 'SURCHARGE'))
+
+            net_salary = float(item.net_salary or 0)
+
+            employees_data.append({
+                'srn': idx,
+                'staff_id': item.employee.employee_number,
+                'full_name': item.employee.full_name,
+                'basic_salary': basic_salary,
+                'total_allowances': total_allowances,
+                'total_emoluments': total_emoluments,
+                'emp_ssf': emp_ssf,
+                'emp_pf': emp_pf,
+                'employer_ssf': employer_ssf,
+                'employer_pf': employer_pf,
+                'tax_relief': tax_relief,
+                'net_taxable_pay': net_taxable_pay,
+                'paye_tax': paye_tax,
+                'duties_tax_rescheduled': duties_tax_rescheduled,
+                'tax_refund': tax_refund,
+                'union_dues': union_dues,
+                'ext_car_loan': ext_car_loan,
+                'int_car_loan': int_car_loan,
+                'student_loan': student_loan,
+                'rent': rent,
+                'salary_advance_surcharge': salary_advance_surcharge,
+                'net_salary': net_salary,
+            })
+
+        summary = {
+            'total_employees': len(employees_data),
+            'total_basic': sum(e['basic_salary'] for e in employees_data),
+            'total_allowances': sum(e['total_allowances'] for e in employees_data),
+            'total_emoluments': sum(e['total_emoluments'] for e in employees_data),
+            'total_ssnit_employee': sum(e['emp_ssf'] for e in employees_data),
+            'total_pf_employee': sum(e['emp_pf'] for e in employees_data),
+            'total_ssnit_employer': sum(e['employer_ssf'] for e in employees_data),
+            'total_pf_employer': sum(e['employer_pf'] for e in employees_data),
+            'total_paye': sum(e['paye_tax'] for e in employees_data),
+            'total_net': sum(e['net_salary'] for e in employees_data),
+        }
+
+        return Response({
+            'payroll_run': {
+                'id': str(payroll_run.id),
+                'run_number': payroll_run.run_number,
+                'period_name': payroll_run.payroll_period.name if payroll_run.payroll_period else None,
+                'status': payroll_run.status,
+                'run_date': payroll_run.run_date,
+            },
+            'summary': summary,
+            'employees': employees_data,
+            'generated_at': timezone.now()
+        })
+
+
+class StaffPayrollDataView(APIView):
+    """
+    Staff Payroll Data Report - Employee payroll details with allowance
+    breakdowns (transport, utility, fuel, vehicle, acting).
+    """
+
+    def get(self, request):
+        payroll_run_id = request.query_params.get('payroll_run')
+        department_id = request.query_params.get('department')
+        staff_category_id = request.query_params.get('staff_category')
+        location_id = request.query_params.get('location')
+        grade_id = request.query_params.get('grade')
+
+        # Get payroll run
+        if payroll_run_id:
+            try:
+                payroll_run = PayrollRun.objects.get(id=payroll_run_id)
+            except PayrollRun.DoesNotExist:
+                return Response(
+                    {'error': 'Payroll run not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            payroll_run = PayrollRun.objects.filter(
+                status__in=['COMPUTED', 'APPROVED', 'PAID']
+            ).order_by('-run_date').first()
+
+        if not payroll_run:
+            return Response({
+                'message': 'No payroll run found',
+                'generated_at': timezone.now()
+            })
+
+        # Get payroll items with all related data
+        items = PayrollItem.objects.filter(
+            payroll_run=payroll_run
+        ).select_related(
+            'employee', 'employee__department', 'employee__position',
+            'employee__grade', 'employee__work_location',
+            'employee__staff_category', 'employee__salary_notch',
+            'employee__salary_notch__level',
+            'employee__salary_notch__level__band'
+        ).prefetch_related(
+            'details', 'details__pay_component'
+        ).order_by('employee__employee_number')
+
+        # Apply filters
+        if department_id:
+            items = items.filter(employee__department_id=department_id)
+        if staff_category_id:
+            items = items.filter(employee__staff_category_id=staff_category_id)
+        if location_id:
+            items = items.filter(employee__work_location_id=location_id)
+        if grade_id:
+            items = items.filter(employee__grade_id=grade_id)
+
+        # Allowance code mappings
+        allowance_codes = {
+            'transport_allowance': ('TRANSPORT', 'TRANSPORT_ALLOWANCE'),
+            'utility_allowance': ('UTILITY', 'UTILITY_ALLOWANCE'),
+            'fuel_allowance': ('FUEL', 'FUEL_ALLOWANCE'),
+            'vehicle_allowance': ('VEHICLE', 'VEHICLE_ALLOWANCE'),
+            'acting_allowance': ('ACTING', 'ACTING_ALLOWANCE'),
+        }
+
+        employees_data = []
+
+        for idx, item in enumerate(items, 1):
+            details = list(item.details.all())
+
+            # Build grade_step
+            grade_step = None
+            if item.employee.salary_notch:
+                try:
+                    level_name = item.employee.salary_notch.level.name
+                    notch_code = item.employee.salary_notch.code
+                    grade_step = f"{level_name}/{notch_code}"
+                except AttributeError:
+                    grade_step = None
+
+            # Extract allowances
+            allowances = {}
+            for key, codes in allowance_codes.items():
+                allowances[key] = sum(
+                    float(d.amount or 0) for d in details
+                    if d.pay_component.code in codes
+                )
+
+            employees_data.append({
+                'no': idx,
+                'staff_number': item.employee.employee_number,
+                'full_name': item.employee.full_name,
+                'hire_date': str(item.employee.date_of_joining) if item.employee.date_of_joining else None,
+                'location': item.employee.work_location.name if item.employee.work_location else None,
+                'position': item.employee.position.title if item.employee.position else None,
+                'grade': item.employee.grade.name if item.employee.grade else None,
+                'grade_step': grade_step,
+                'basic_salary': float(item.basic_salary or 0),
+                **allowances,
+            })
+
+        summary = {
+            'total_employees': len(employees_data),
+            'total_basic': sum(e['basic_salary'] for e in employees_data),
+            'total_transport': sum(e['transport_allowance'] for e in employees_data),
+            'total_utility': sum(e['utility_allowance'] for e in employees_data),
+            'total_fuel': sum(e['fuel_allowance'] for e in employees_data),
+            'total_vehicle': sum(e['vehicle_allowance'] for e in employees_data),
+            'total_acting': sum(e['acting_allowance'] for e in employees_data),
+        }
+
+        return Response({
+            'payroll_run': {
+                'id': str(payroll_run.id),
+                'run_number': payroll_run.run_number,
+                'period_name': payroll_run.payroll_period.name if payroll_run.payroll_period else None,
+                'status': payroll_run.status,
+                'run_date': payroll_run.run_date,
+            },
+            'summary': summary,
+            'employees': employees_data,
+            'generated_at': timezone.now()
+        })
+
+
+class ExportPayrollCostingSummaryView(APIView):
+    """Export payroll costing summary to CSV/Excel/PDF."""
+
+    def get(self, request):
+        payroll_run_id = request.query_params.get('payroll_run')
+        filters = {
+            'department': request.query_params.get('department'),
+            'staff_category': request.query_params.get('staff_category'),
+            'employee_code': request.query_params.get('employee_code'),
+        }
+        file_format = request.query_params.get('file_format', 'excel')
+        return export_payroll_costing_summary(payroll_run_id, filters=filters, format=file_format)
+
+
+class ExportStaffPayrollDataView(APIView):
+    """Export staff payroll data to CSV/Excel/PDF."""
+
+    def get(self, request):
+        payroll_run_id = request.query_params.get('payroll_run')
+        filters = {
+            'department': request.query_params.get('department'),
+            'staff_category': request.query_params.get('staff_category'),
+            'location': request.query_params.get('location'),
+            'grade': request.query_params.get('grade'),
+        }
+        file_format = request.query_params.get('file_format', 'excel')
+        return export_staff_payroll_data(payroll_run_id, filters=filters, format=file_format)
 
 
 # ============================================

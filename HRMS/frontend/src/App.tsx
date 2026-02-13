@@ -83,6 +83,8 @@ const PayrollMasterReportPage = React.lazy(() => import('./pages/reports/Payroll
 const PayrollReconciliationPage = React.lazy(() => import('./pages/admin/PayrollReconciliationPage'))
 const PayrollJournalPage = React.lazy(() => import('./pages/admin/PayrollJournalPage'))
 const SalaryReconciliationPage = React.lazy(() => import('./pages/admin/SalaryReconciliationPage'))
+const PayrollCostingReportPage = React.lazy(() => import('./pages/reports/PayrollCostingReportPage'))
+const StaffPayrollDataReportPage = React.lazy(() => import('./pages/reports/StaffPayrollDataReportPage'))
 
 // HR Report pages
 const HRReportsPage = React.lazy(() => import('./pages/reports/HRReportsPage'))
@@ -398,6 +400,8 @@ function App() {
                     <Route path="/reports/reconciliation" element={<PayrollRoute><PayrollReconciliationPage /></PayrollRoute>} />
                     <Route path="/reports/journal" element={<PayrollRoute><PayrollJournalPage /></PayrollRoute>} />
                     <Route path="/reports/salary-reconciliation" element={<PayrollRoute><SalaryReconciliationPage /></PayrollRoute>} />
+                    <Route path="/reports/payroll-costing" element={<PayrollRoute><PayrollCostingReportPage /></PayrollRoute>} />
+                    <Route path="/reports/staff-payroll-data" element={<PayrollRoute><StaffPayrollDataReportPage /></PayrollRoute>} />
                     <Route path="/reports/builder" element={<AdminRoute><ReportBuilderPage /></AdminRoute>} />
                     <Route path="/reports/saved" element={<AdminRoute><SavedReportsPage /></AdminRoute>} />
                     <Route path="/reports/view/:id" element={<AdminRoute><ReportViewerPage /></AdminRoute>} />

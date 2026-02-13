@@ -533,7 +533,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Quick Access - Dedicated Report Pages */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <Link
           to="/reports/journal"
           className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
@@ -580,6 +580,30 @@ export default function ReportsPage() {
           <div>
             <h3 className="font-medium text-gray-900 text-sm">Payroll Master</h3>
             <p className="text-xs text-gray-500">Detailed payroll breakdown</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/payroll-costing"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-colors group"
+        >
+          <div className="p-2 bg-teal-100 rounded-lg group-hover:bg-teal-200 transition-colors">
+            <TableCellsIcon className="h-5 w-5 text-teal-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Payroll Costing</h3>
+            <p className="text-xs text-gray-500">Salary payment summary</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/staff-payroll-data"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors group"
+        >
+          <div className="p-2 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-colors">
+            <UsersIcon className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Staff Payroll Data</h3>
+            <p className="text-xs text-gray-500">Employee payroll details</p>
           </div>
         </Link>
       </div>
