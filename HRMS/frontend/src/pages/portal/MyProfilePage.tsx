@@ -11,7 +11,6 @@ import {
   PencilIcon,
 } from '@heroicons/react/24/outline'
 import { portalService } from '@/services/portal'
-import { useAuthStore } from '@/features/auth/store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -22,7 +21,6 @@ type TabType = 'personal' | 'contact' | 'emergency' | 'bank'
 
 export default function MyProfilePage() {
   const queryClient = useQueryClient()
-  const activeOrganization = useAuthStore((s) => s.activeOrganization)
   const [activeTab, setActiveTab] = useState<TabType>('personal')
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
@@ -146,8 +144,8 @@ export default function MyProfilePage() {
               <h2 className="text-xl font-bold text-gray-900">{profile.full_name}</h2>
               <p className="text-gray-600">{profile.position_title}</p>
               <p className="text-sm text-gray-500">{profile.department_name}</p>
-              {activeOrganization?.name && (
-                <p className="text-sm text-gray-500">{activeOrganization.name}</p>
+              {profile.organization_name && (
+                <p className="text-sm text-gray-500">{profile.organization_name}</p>
               )}
               <div className="mt-2 flex items-center gap-2">
                 <Badge variant="info">{profile.employee_number}</Badge>
@@ -244,7 +242,7 @@ export default function MyProfilePage() {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Organization</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{activeOrganization?.name || '-'}</dd>
+                  <dd className="mt-1 text-sm text-gray-900">{profile.organization_name || '-'}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Department</dt>

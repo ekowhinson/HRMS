@@ -467,6 +467,7 @@ class EmployeeProfileSerializer(EmployeePhotoMixin, serializers.ModelSerializer)
     full_name = serializers.ReadOnlyField()
     age = serializers.ReadOnlyField()
     years_of_service = serializers.ReadOnlyField()
+    organization_name = serializers.SerializerMethodField()
     department_name = serializers.CharField(source='department.name', read_only=True)
     position_title = serializers.CharField(source='position.title', read_only=True)
     grade_name = serializers.CharField(source='grade.name', read_only=True)
@@ -485,6 +486,7 @@ class EmployeeProfileSerializer(EmployeePhotoMixin, serializers.ModelSerializer)
             'residential_address', 'residential_city', 'postal_address', 'digital_address',
             'status', 'employment_type', 'date_of_joining', 'date_of_confirmation',
             'years_of_service', 'retirement_date',
+            'organization_name',
             'department', 'department_name', 'position', 'position_title',
             'grade', 'grade_name', 'supervisor', 'supervisor_name',
             'work_location', 'work_location_name',
@@ -497,6 +499,11 @@ class EmployeeProfileSerializer(EmployeePhotoMixin, serializers.ModelSerializer)
             'retirement_date', 'department', 'position', 'grade', 'supervisor',
             'work_location', 'work_email', 'work_phone'
         ]
+
+    def get_organization_name(self, obj):
+        if obj.user and obj.user.organization:
+            return obj.user.organization.name
+        return None
 
 
 class MyTeamMemberSerializer(EmployeePhotoMixin, serializers.ModelSerializer):

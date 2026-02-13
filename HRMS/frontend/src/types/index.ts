@@ -142,6 +142,7 @@ export interface Employee {
   exit_reason?: string
 
   // Organization hierarchy
+  organization_name?: string
   division?: string
   division_name?: string
   directorate?: string
