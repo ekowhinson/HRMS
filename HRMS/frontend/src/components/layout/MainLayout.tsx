@@ -65,11 +65,7 @@ import {
 import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
-import {
-  HR_ROLES, PAYROLL_ROLES, PAYROLL_SETUP_ROLES, FINANCE_ROLES, PROCUREMENT_ROLES,
-  INVENTORY_ROLES, PROJECT_ROLES, MANUFACTURING_ROLES, SYSTEM_ADMIN_ROLES,
-  hasRole,
-} from '@/lib/roles';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { CountBadge } from '@/components/ui/Badge';
 
 interface NavItem {
@@ -83,8 +79,8 @@ interface NavSection {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
   items: NavItem[];
-  /** If set, this section is only visible to users with one of these roles */
-  minRoles?: readonly string[];
+  /** If set, section requires this module access (checked via useModuleAccess) */
+  requiredModule?: string;
 }
 
 // Self-Service Navigation - Available to all users
@@ -217,7 +213,7 @@ const payrollSections: NavSection[] = [
   {
     name: 'Data Loading',
     icon: DocumentArrowUpIcon,
-    minRoles: PAYROLL_SETUP_ROLES,
+    requiredModule: 'payroll_setup',
     items: [
       { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
     ],
@@ -225,7 +221,7 @@ const payrollSections: NavSection[] = [
   {
     name: 'Validation',
     icon: ClipboardDocumentCheckIcon,
-    minRoles: PAYROLL_SETUP_ROLES,
+    requiredModule: 'payroll_setup',
     items: [
       { name: 'Payroll Validation', href: '/admin/payroll-validation', icon: ClipboardDocumentCheckIcon },
     ],
@@ -233,7 +229,7 @@ const payrollSections: NavSection[] = [
   {
     name: 'Setup',
     icon: WrenchScrewdriverIcon,
-    minRoles: PAYROLL_SETUP_ROLES,
+    requiredModule: 'payroll_setup',
     items: [
       { name: 'Period Setup', href: '/admin/payroll-setup?tab=settings', icon: CalendarDaysIcon },
       { name: 'Banks', href: '/admin/payroll-setup?tab=banks', icon: BuildingOfficeIcon },
@@ -757,35 +753,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
     });
   }, [location.pathname, allSections]);
 
-  // Extract user role codes
-  const userRoles: string[] = useMemo(() => {
-    if (!user) return []
-    const roles: string[] = []
-    if (Array.isArray(user.roles)) {
-      user.roles.forEach((r: any) => {
-        const roleStr = typeof r === 'string' ? r : (r?.code || r?.name || '')
-        if (typeof roleStr === 'string' && roleStr) {
-          roles.push(roleStr.toUpperCase())
-        }
-      })
-    }
-    return roles
-  }, [user])
-
-  const isStaffOrSuper = user?.is_staff || user?.is_superuser || false;
-
-  // Per-module access checks
-  const isHROrAdmin = isStaffOrSuper || hasRole(userRoles, HR_ROLES);
-  const isPayrollAdmin = isStaffOrSuper || hasRole(userRoles, PAYROLL_ROLES);
-  const isFinanceUser = isStaffOrSuper || hasRole(userRoles, FINANCE_ROLES);
-  const isProcurementUser = isStaffOrSuper || hasRole(userRoles, PROCUREMENT_ROLES);
-  const isInventoryUser = isStaffOrSuper || hasRole(userRoles, INVENTORY_ROLES);
-  const isProjectUser = isStaffOrSuper || hasRole(userRoles, PROJECT_ROLES);
-  const isManufacturingUser = isStaffOrSuper || hasRole(userRoles, MANUFACTURING_ROLES);
-  const isSystemAdmin = isStaffOrSuper || hasRole(userRoles, SYSTEM_ADMIN_ROLES);
-
-  // Strictly superuser check (for Tenants / Licensing)
-  const isSuperuser = user?.is_superuser === true;
+  // Module access from user roles (data-driven via role.modules field)
+  const { canAccess, isSuperuser } = useModuleAccess();
 
   // Check if a module is enabled for the current tenant via license or modules_enabled
   const isModuleEnabled = (moduleName: string): boolean => {
@@ -897,8 +866,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
 
-        {/* HR Section - Only for HR/Admin users + module enabled */}
-        {isHROrAdmin && isModuleEnabled('employees') && (
+        {/* HR Section - Only for users with hr module access + module enabled */}
+        {canAccess('hr') && isModuleEnabled('employees') && (
           <>
             <SectionDivider label="HR" icon={<UsersIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('HR')} isOpen={openModules['HR']} />
             <div
@@ -932,8 +901,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Payroll Section - For payroll admins and system admins + module enabled */}
-        {isPayrollAdmin && isModuleEnabled('payroll') && (
+        {/* Payroll Section - For users with payroll module access + module enabled */}
+        {canAccess('payroll') && isModuleEnabled('payroll') && (
           <>
             <SectionDivider label="Payroll" icon={<BanknotesIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Payroll')} isOpen={openModules['Payroll']} />
             <div
@@ -953,7 +922,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   />
                 ))}
                 {payrollSections
-                  .filter((section) => !section.minRoles || isStaffOrSuper || hasRole(userRoles, section.minRoles))
+                  .filter((section) => !section.requiredModule || canAccess(section.requiredModule))
                   .map((section) => (
                   <CollapsibleSection
                     key={section.name}
@@ -969,8 +938,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Finance Section - For finance roles + module enabled */}
-        {isFinanceUser && isModuleEnabled('finance') && (
+        {/* Finance Section - For users with finance module access + module enabled */}
+        {canAccess('finance') && isModuleEnabled('finance') && (
           <>
             <SectionDivider label="Finance" icon={<CurrencyDollarIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Finance')} isOpen={openModules['Finance']} />
             <div
@@ -1005,7 +974,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Procurement Section */}
-        {isProcurementUser && isModuleEnabled('procurement') && (
+        {canAccess('procurement') && isModuleEnabled('procurement') && (
           <>
             <SectionDivider label="Procurement" icon={<TruckIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Procurement')} isOpen={openModules['Procurement']} />
             <div
@@ -1029,7 +998,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Inventory & Assets Section */}
-        {isInventoryUser && isModuleEnabled('inventory') && (
+        {canAccess('inventory') && isModuleEnabled('inventory') && (
           <>
             <SectionDivider label="Inventory" icon={<ArchiveBoxIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Inventory')} isOpen={openModules['Inventory']} />
             <div
@@ -1063,7 +1032,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Projects Section */}
-        {isProjectUser && isModuleEnabled('projects') && (
+        {canAccess('projects') && isModuleEnabled('projects') && (
           <>
             <SectionDivider label="Projects" icon={<FolderIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Projects')} isOpen={openModules['Projects']} />
             <div
@@ -1088,7 +1057,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Manufacturing Section */}
-        {isManufacturingUser && isModuleEnabled('manufacturing') && (
+        {canAccess('manufacturing') && isModuleEnabled('manufacturing') && (
           <>
             <SectionDivider label="Manufacturing" icon={<WrenchScrewdriverIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Manufacturing')} isOpen={openModules['Manufacturing']} />
             <div
@@ -1111,8 +1080,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Administration Section - Only for system admins */}
-        {isSystemAdmin && (
+        {/* Administration Section - Only for users with administration module access */}
+        {canAccess('administration') && (
           <>
             <SectionDivider label="Administration" icon={<Cog6ToothIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Administration')} isOpen={openModules['Administration']} />
             <div
@@ -1257,7 +1226,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
           <div className="flex flex-1 justify-end items-center gap-2">
             {/* Active Payroll Period */}
-            {isPayrollAdmin && <ActivePeriodIndicator />}
+            {canAccess('payroll') && <ActivePeriodIndicator />}
 
             {/* Organization Switcher */}
             <OrganizationSwitcher />

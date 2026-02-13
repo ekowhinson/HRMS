@@ -60,6 +60,7 @@ export interface Role {
   id: string
   code: string
   name: string
+  modules?: string[]
 }
 
 export interface AuthTokens {

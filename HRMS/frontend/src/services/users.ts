@@ -22,6 +22,7 @@ export interface Role {
   district?: string | null
   district_name?: string | null
   region_name?: string | null
+  modules: string[]
   permissions: Permission[]
   permissions_count?: number
   users_count?: number
@@ -34,6 +35,7 @@ export interface UserRole {
   role: string
   role_name: string
   role_code: string
+  modules?: string[]
   scope_type: 'global' | 'region' | 'department' | 'team'
   scope_id: string | null
   scope_name?: string
@@ -238,6 +240,7 @@ export const roleService = {
     description?: string
     level?: number
     district?: string | null
+    modules?: string[]
     permissions?: string[]
   }): Promise<Role> => {
     const response = await api.post('/auth/roles/', data)
@@ -250,6 +253,7 @@ export const roleService = {
     description: string
     level: number
     district: string | null
+    modules: string[]
     is_active: boolean
     permissions: string[]
   }>): Promise<Role> => {

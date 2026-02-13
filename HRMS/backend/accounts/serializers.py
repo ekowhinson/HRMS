@@ -66,12 +66,14 @@ class UserRoleDetailSerializer(serializers.ModelSerializer):
     code = serializers.CharField(source='role.code', read_only=True)
     role_name = serializers.CharField(source='role.name', read_only=True)
     role_code = serializers.CharField(source='role.code', read_only=True)
+    modules = serializers.JSONField(source='role.modules', read_only=True, default=list)
     is_effective = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = UserRole
         fields = [
-            'id', 'role', 'name', 'code', 'role_name', 'role_code', 'scope_type', 'scope_id',
+            'id', 'role', 'name', 'code', 'role_name', 'role_code', 'modules',
+            'scope_type', 'scope_id',
             'is_primary', 'effective_from', 'effective_to', 'is_active', 'is_effective'
         ]
 
@@ -293,7 +295,7 @@ class RoleSerializer(serializers.ModelSerializer):
         model = Role
         fields = [
             'id', 'name', 'code', 'description', 'is_system_role', 'is_active',
-            'level', 'district', 'district_name', 'region_name',
+            'level', 'district', 'district_name', 'region_name', 'modules',
             'permissions', 'permissions_count', 'users_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'is_system_role', 'created_at', 'updated_at']
@@ -520,7 +522,18 @@ class RoleUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Role
-        fields = ['name', 'description', 'level', 'is_active', 'permissions']
+        fields = ['name', 'description', 'level', 'is_active', 'permissions', 'modules']
+
+    def validate_modules(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('modules must be a list.')
+        invalid = [m for m in value if m not in Role.VALID_MODULES]
+        if invalid:
+            raise serializers.ValidationError(
+                f'Invalid module codes: {", ".join(invalid)}. '
+                f'Valid codes: {", ".join(Role.VALID_MODULES)}'
+            )
+        return value
 
     def update(self, instance, validated_data):
         from .models import RolePermission

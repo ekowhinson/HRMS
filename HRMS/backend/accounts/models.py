@@ -311,6 +311,11 @@ class Role(TimeStampedModel):
     """
     System roles for RBAC.
     """
+    VALID_MODULES = [
+        'hr', 'payroll', 'payroll_setup', 'finance', 'procurement',
+        'inventory', 'projects', 'manufacturing', 'administration',
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=50, unique=True, db_index=True)
@@ -325,6 +330,11 @@ class Role(TimeStampedModel):
         blank=True,
         related_name='roles',
         help_text='Optional district scope for location-based roles'
+    )
+    modules = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of module codes this role grants sidebar access to.'
     )
 
     class Meta:

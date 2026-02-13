@@ -11,6 +11,7 @@ import {
   MapPinIcon,
 } from '@heroicons/react/24/outline'
 import { roleService, permissionService, type Role, type Permission } from '@/services/users'
+import { MODULE_DEFINITIONS } from '@/lib/roles'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
@@ -35,6 +36,7 @@ export default function RoleManagementPage() {
     description: '',
     level: 50,
     district: '' as string | null,
+    modules: [] as string[],
     permissions: [] as string[],
   })
 
@@ -80,6 +82,7 @@ export default function RoleManagementPage() {
       description: string
       level: number
       district: string | null
+      modules: string[]
       is_active: boolean
       permissions: string[]
     }> }) =>
@@ -118,6 +121,7 @@ export default function RoleManagementPage() {
       description: '',
       level: 50,
       district: '',
+      modules: [],
       permissions: [],
     })
   }
@@ -131,21 +135,24 @@ export default function RoleManagementPage() {
     createMutation.mutate({
       ...formData,
       district: formData.district || null,
+      modules: formData.modules,
     })
   }
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedRole) return
-    updateMutation.mutate({
-      id: selectedRole.id,
-      data: {
-        name: formData.name,
-        description: formData.description,
-        level: formData.level,
-        district: formData.district || null,
-      },
-    })
+    const data: Record<string, any> = {
+      modules: formData.modules,
+    }
+    // Only include editable fields for non-system roles
+    if (!selectedRole.is_system_role) {
+      data.name = formData.name
+      data.description = formData.description
+      data.level = formData.level
+      data.district = formData.district || null
+    }
+    updateMutation.mutate({ id: selectedRole.id, data })
   }
 
   const handlePermissionsSubmit = () => {
@@ -166,6 +173,7 @@ export default function RoleManagementPage() {
       description: role.description || '',
       level: role.level || 50,
       district: role.district || '',
+      modules: role.modules || [],
       permissions: role.permissions?.map((p) => p.id) || [],
     })
     setShowEditModal(true)
@@ -215,6 +223,15 @@ export default function RoleManagementPage() {
         permissions: [...new Set([...prev.permissions, ...modulePermissionIds])],
       }))
     }
+  }
+
+  const toggleModuleAccess = (moduleCode: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      modules: prev.modules.includes(moduleCode)
+        ? prev.modules.filter((m) => m !== moduleCode)
+        : [...prev.modules, moduleCode],
+    }))
   }
 
   // Stats
@@ -326,6 +343,9 @@ export default function RoleManagementPage() {
                       Type
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Modules
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Permissions
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -379,6 +399,11 @@ export default function RoleManagementPage() {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-700">
+                          {role.modules?.length || 0} module{(role.modules?.length || 0) !== 1 ? 's' : ''}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => openPermissionsModal(role)}
                           className="text-sm text-primary-600 hover:text-primary-800"
@@ -401,12 +426,7 @@ export default function RoleManagementPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => openEditModal(role)}
-                            disabled={role.is_system_role}
-                            title={
-                              role.is_system_role
-                                ? 'System roles cannot be edited'
-                                : 'Edit role'
-                            }
+                            title="Edit role"
                           >
                             <PencilSquareIcon className="h-4 w-4" />
                           </Button>
@@ -507,6 +527,34 @@ export default function RoleManagementPage() {
           <p className="text-xs text-gray-500">
             Assign a district to limit this role to a specific location.
           </p>
+          {/* Module Access */}
+          <div className="border rounded-lg p-4 space-y-3">
+            <div>
+              <h4 className="text-sm font-medium text-gray-900">Module Access</h4>
+              <p className="text-xs text-gray-500">Select which sidebar modules this role grants access to.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {MODULE_DEFINITIONS.map((mod) => (
+                <label
+                  key={mod.code}
+                  className="flex items-start gap-3 p-2 rounded hover:bg-gray-50 cursor-pointer"
+                >
+                  <div className="pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={formData.modules.includes(mod.code)}
+                      onChange={() => toggleModuleAccess(mod.code)}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{mod.label}</p>
+                    <p className="text-xs text-gray-500">{mod.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
@@ -545,6 +593,7 @@ export default function RoleManagementPage() {
             }
             placeholder="e.g., Department Manager"
             required
+            disabled={selectedRole?.is_system_role}
           />
           <Input
             label="Role Code"
@@ -560,6 +609,7 @@ export default function RoleManagementPage() {
             }
             placeholder="Describe the role's purpose..."
             rows={3}
+            disabled={selectedRole?.is_system_role}
           />
           <Input
             label="Level"
@@ -570,6 +620,7 @@ export default function RoleManagementPage() {
             }
             min={1}
             max={100}
+            disabled={selectedRole?.is_system_role}
           />
           <Select
             label="District (Optional)"
@@ -577,6 +628,7 @@ export default function RoleManagementPage() {
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
               setFormData({ ...formData, district: e.target.value || null })
             }
+            disabled={selectedRole?.is_system_role}
             options={[
               { value: '', label: 'All Districts (Global Role)' },
               ...(districts || []).map((d: { id: string; name: string; region?: { name: string } }) => ({
@@ -585,6 +637,39 @@ export default function RoleManagementPage() {
               })),
             ]}
           />
+          {selectedRole?.is_system_role && (
+            <p className="text-xs text-amber-600">
+              System role — name, code, level, and district are locked. You can still configure module access below.
+            </p>
+          )}
+          {/* Module Access */}
+          <div className="border rounded-lg p-4 space-y-3">
+            <div>
+              <h4 className="text-sm font-medium text-gray-900">Module Access</h4>
+              <p className="text-xs text-gray-500">Select which sidebar modules this role grants access to.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {MODULE_DEFINITIONS.map((mod) => (
+                <label
+                  key={mod.code}
+                  className="flex items-start gap-3 p-2 rounded hover:bg-gray-50 cursor-pointer"
+                >
+                  <div className="pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={formData.modules.includes(mod.code)}
+                      onChange={() => toggleModuleAccess(mod.code)}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{mod.label}</p>
+                    <p className="text-xs text-gray-500">{mod.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
