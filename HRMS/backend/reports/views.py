@@ -3307,6 +3307,227 @@ class ExportPayrollJournalView(APIView):
         return ReportExporter.export_data(rows, headers, filename, format_type, title=title)
 
 
+def _compute_salary_reconciliation(current_run, previous_run):
+    """
+    Compute salary reconciliation data between two payroll runs.
+
+    Reconciliation formula:
+        calculated = prev_gross - less_non_recurring + add_non_recurring
+                     + recurring_changes + additions - deletions
+        variance   = actual_gross - calculated
+
+    Returns a dict with all reconciliation categories and totals.
+    """
+    from decimal import Decimal
+    from collections import defaultdict
+
+    def safe_decimal(val):
+        return Decimal(str(val)) if val else Decimal('0')
+
+    # Build current period lookup: employee_id -> PayrollItem, and component details
+    current_items = {}
+    current_details = defaultdict(dict)
+    for item in PayrollItem.objects.filter(payroll_run=current_run).select_related(
+        'employee'
+    ).prefetch_related('details__pay_component'):
+        current_items[item.employee_id] = item
+        for detail in item.details.all():
+            code = detail.pay_component.code
+            if code in current_details[item.employee_id]:
+                current_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
+            else:
+                current_details[item.employee_id][code] = {
+                    'amount': safe_decimal(detail.amount),
+                    'name': detail.pay_component.name,
+                    'is_recurring': detail.pay_component.is_recurring,
+                    'component_type': detail.pay_component.component_type,
+                }
+
+    # Build previous period lookup
+    previous_items = {}
+    previous_details = defaultdict(dict)
+    for item in PayrollItem.objects.filter(payroll_run=previous_run).select_related(
+        'employee'
+    ).prefetch_related('details__pay_component'):
+        previous_items[item.employee_id] = item
+        for detail in item.details.all():
+            code = detail.pay_component.code
+            if code in previous_details[item.employee_id]:
+                previous_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
+            else:
+                previous_details[item.employee_id][code] = {
+                    'amount': safe_decimal(detail.amount),
+                    'name': detail.pay_component.name,
+                    'is_recurring': detail.pay_component.is_recurring,
+                    'component_type': detail.pay_component.component_type,
+                }
+
+    all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
+
+    prev_gross = safe_decimal(previous_run.total_gross)
+    curr_gross = safe_decimal(current_run.total_gross)
+
+    additions = []
+    deletions = []
+    non_recurring_add = []
+    non_recurring_less = []
+    recurring_changes = []
+
+    total_additions = Decimal('0')
+    total_deletions = Decimal('0')
+    total_non_recurring_add = Decimal('0')
+    total_non_recurring_less = Decimal('0')
+    total_recurring_changes = Decimal('0')
+
+    for emp_id in all_emp_ids:
+        curr_item = current_items.get(emp_id)
+        prev_item = previous_items.get(emp_id)
+        curr_comps = current_details.get(emp_id, {})
+        prev_comps = previous_details.get(emp_id, {})
+
+        if curr_item and not prev_item:
+            # ── New employee ──
+            emp = curr_item.employee
+            basic = safe_decimal(curr_item.basic_salary)
+            additions.append({
+                'employee_name': emp.full_name,
+                'amount': float(basic),
+            })
+            total_additions += basic
+
+            for code, detail in curr_comps.items():
+                if code == 'BASIC':
+                    continue
+                if detail['component_type'] != 'EARNING':
+                    continue
+                amt = detail['amount']
+                if amt == Decimal('0'):
+                    continue
+                if detail['is_recurring']:
+                    recurring_changes.append({
+                        'employee_name': emp.full_name,
+                        'component_name': detail['name'],
+                        'previous_amount': 0.0,
+                        'current_amount': float(amt),
+                        'change': float(amt),
+                    })
+                    total_recurring_changes += amt
+                else:
+                    # Bug 1 fix: non-recurring earnings for new employees
+                    non_recurring_add.append({
+                        'employee_name': emp.full_name,
+                        'description': f"{emp.full_name} - {detail['name']}",
+                        'amount': float(amt),
+                    })
+                    total_non_recurring_add += amt
+
+        elif prev_item and not curr_item:
+            # ── Removed employee ──
+            emp = prev_item.employee
+            basic = safe_decimal(prev_item.basic_salary)
+            deletions.append({
+                'employee_name': emp.full_name,
+                'amount': float(basic),
+            })
+            total_deletions += basic
+
+            for code, detail in prev_comps.items():
+                if code == 'BASIC':
+                    continue
+                if detail['component_type'] != 'EARNING':
+                    continue
+                amt = detail['amount']
+                if amt == Decimal('0'):
+                    continue
+                if detail['is_recurring']:
+                    recurring_changes.append({
+                        'employee_name': emp.full_name,
+                        'component_name': detail['name'],
+                        'previous_amount': float(amt),
+                        'current_amount': 0.0,
+                        'change': float(-amt),
+                    })
+                    total_recurring_changes -= amt
+                else:
+                    # Bug 2 fix: non-recurring earnings for removed employees
+                    non_recurring_less.append({
+                        'employee_name': emp.full_name,
+                        'description': f"{emp.full_name} - {detail['name']}",
+                        'amount': float(amt),
+                    })
+                    total_non_recurring_less += amt
+
+        elif curr_item and prev_item:
+            # ── Existing employee ──
+            emp = curr_item.employee
+
+            # Bug 3+4 fix: subtract ALL previous non-recurring EARNINGS
+            for code, detail in prev_comps.items():
+                if not detail['is_recurring'] and detail['component_type'] == 'EARNING' and detail['amount'] > 0:
+                    non_recurring_less.append({
+                        'employee_name': emp.full_name,
+                        'description': f"{emp.full_name} - {detail['name']}",
+                        'amount': float(detail['amount']),
+                    })
+                    total_non_recurring_less += detail['amount']
+
+            # Bug 3+4 fix: add ALL current non-recurring EARNINGS
+            for code, detail in curr_comps.items():
+                if not detail['is_recurring'] and detail['component_type'] == 'EARNING' and detail['amount'] > 0:
+                    non_recurring_add.append({
+                        'employee_name': emp.full_name,
+                        'description': f"{emp.full_name} - {detail['name']}",
+                        'amount': float(detail['amount']),
+                    })
+                    total_non_recurring_add += detail['amount']
+
+            # Recurring earning changes
+            all_recurring_codes = set()
+            for code, detail in curr_comps.items():
+                if detail['is_recurring'] and detail['component_type'] == 'EARNING':
+                    all_recurring_codes.add(code)
+            for code, detail in prev_comps.items():
+                if detail['is_recurring'] and detail['component_type'] == 'EARNING':
+                    all_recurring_codes.add(code)
+
+            for code in all_recurring_codes:
+                curr_amt = curr_comps.get(code, {}).get('amount', Decimal('0'))
+                prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
+                if curr_amt != prev_amt:
+                    diff = curr_amt - prev_amt
+                    comp_name = (curr_comps.get(code) or prev_comps.get(code))['name']
+                    recurring_changes.append({
+                        'employee_name': emp.full_name,
+                        'component_name': comp_name,
+                        'previous_amount': float(prev_amt),
+                        'current_amount': float(curr_amt),
+                        'change': float(diff),
+                    })
+                    total_recurring_changes += diff
+
+    calculated_gross = (
+        prev_gross - total_non_recurring_less + total_non_recurring_add
+        + total_recurring_changes + total_additions - total_deletions
+    )
+
+    return {
+        'prev_gross': prev_gross,
+        'curr_gross': curr_gross,
+        'additions': additions,
+        'deletions': deletions,
+        'non_recurring_add': non_recurring_add,
+        'non_recurring_less': non_recurring_less,
+        'recurring_changes': recurring_changes,
+        'total_additions': total_additions,
+        'total_deletions': total_deletions,
+        'total_non_recurring_add': total_non_recurring_add,
+        'total_non_recurring_less': total_non_recurring_less,
+        'total_recurring_changes': total_recurring_changes,
+        'calculated_gross': calculated_gross,
+        'variance': curr_gross - calculated_gross,
+    }
+
+
 class SalaryReconciliationView(APIView):
     """
     Salary Reconciliation Report matching GTP format.
@@ -3320,9 +3541,7 @@ class SalaryReconciliationView(APIView):
     """
 
     def get(self, request):
-        from decimal import Decimal
-        from collections import defaultdict
-        from payroll.models import PayrollPeriod, PayComponent, PayrollItemDetail
+        from payroll.models import PayrollPeriod
 
         current_period_id = request.query_params.get('current_period')
         previous_period_id = request.query_params.get('previous_period')
@@ -3362,183 +3581,7 @@ class SalaryReconciliationView(APIView):
         if not current_run or not previous_run:
             return Response({'message': 'No completed payroll runs found'}, status=404)
 
-        def safe_decimal(val):
-            return Decimal(str(val)) if val else Decimal('0')
-
-        # Get recurring vs non-recurring components
-        recurring_codes = set(PayComponent.objects.filter(
-            is_active=True, is_recurring=True
-        ).values_list('code', flat=True))
-
-        non_recurring_codes = set(PayComponent.objects.filter(
-            is_active=True, is_recurring=False, component_type='EARNING'
-        ).values_list('code', flat=True))
-
-        # Get current period items
-        current_items = {}
-        current_details = defaultdict(dict)
-        for item in PayrollItem.objects.filter(payroll_run=current_run).select_related(
-            'employee'
-        ).prefetch_related('details__pay_component'):
-            current_items[item.employee_id] = item
-            for detail in item.details.all():
-                code = detail.pay_component.code
-                if code in current_details[item.employee_id]:
-                    current_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
-                else:
-                    current_details[item.employee_id][code] = {
-                        'amount': safe_decimal(detail.amount),
-                        'name': detail.pay_component.name,
-                        'is_recurring': detail.pay_component.is_recurring,
-                        'component_type': detail.pay_component.component_type,
-                    }
-
-        # Get previous period items
-        previous_items = {}
-        previous_details = defaultdict(dict)
-        for item in PayrollItem.objects.filter(payroll_run=previous_run).select_related(
-            'employee'
-        ).prefetch_related('details__pay_component'):
-            previous_items[item.employee_id] = item
-            for detail in item.details.all():
-                code = detail.pay_component.code
-                if code in previous_details[item.employee_id]:
-                    previous_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
-                else:
-                    previous_details[item.employee_id][code] = {
-                        'amount': safe_decimal(detail.amount),
-                        'name': detail.pay_component.name,
-                        'is_recurring': detail.pay_component.is_recurring,
-                        'component_type': detail.pay_component.component_type,
-                    }
-
-        all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
-
-        # Calculate totals
-        prev_gross = safe_decimal(previous_run.total_gross)
-        curr_gross = safe_decimal(current_run.total_gross)
-
-        # Track changes
-        additions = []  # New employees
-        deletions = []  # Removed employees
-        non_recurring_add = []  # Non-recurring earnings to add
-        non_recurring_less = []  # Non-recurring earnings to subtract
-        recurring_changes = []  # Changes in recurring earnings
-
-        total_additions = Decimal('0')
-        total_deletions = Decimal('0')
-        total_non_recurring_add = Decimal('0')
-        total_non_recurring_less = Decimal('0')
-        total_recurring_changes = Decimal('0')
-
-        for emp_id in all_emp_ids:
-            curr_item = current_items.get(emp_id)
-            prev_item = previous_items.get(emp_id)
-            curr_comps = current_details.get(emp_id, {})
-            prev_comps = previous_details.get(emp_id, {})
-
-            if curr_item and not prev_item:
-                # New employee - Addition: basic under additions, recurring earnings under recurring changes
-                emp = curr_item.employee
-                basic = safe_decimal(curr_item.basic_salary)
-                additions.append({
-                    'employee_name': emp.full_name,
-                    'amount': float(basic),
-                })
-                total_additions += basic
-
-                # New employee's recurring earnings (excl basic, already in additions) appear as recurring changes
-                for code, detail in curr_comps.items():
-                    if code == 'BASIC':
-                        continue
-                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
-                        amt = detail['amount']
-                        if amt != Decimal('0'):
-                            recurring_changes.append({
-                                'employee_name': emp.full_name,
-                                'component_name': detail['name'],
-                                'previous_amount': 0.0,
-                                'current_amount': float(amt),
-                                'change': float(amt),
-                            })
-                            total_recurring_changes += amt
-
-            elif prev_item and not curr_item:
-                # Removed employee - Deletion: basic under deletions, recurring earnings under recurring changes
-                emp = prev_item.employee
-                basic = safe_decimal(prev_item.basic_salary)
-                deletions.append({
-                    'employee_name': emp.full_name,
-                    'amount': float(basic),
-                })
-                total_deletions += basic
-
-                # Removed employee's recurring earnings (excl basic, already in deletions) appear as negative recurring changes
-                for code, detail in prev_comps.items():
-                    if code == 'BASIC':
-                        continue
-                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
-                        amt = detail['amount']
-                        if amt != Decimal('0'):
-                            recurring_changes.append({
-                                'employee_name': emp.full_name,
-                                'component_name': detail['name'],
-                                'previous_amount': float(amt),
-                                'current_amount': 0.0,
-                                'change': float(-amt),
-                            })
-                            total_recurring_changes -= amt
-
-            elif curr_item and prev_item:
-                # Existing employee - check for changes
-                emp = curr_item.employee
-
-                # Check non-recurring earnings in current period
-                for code, detail in curr_comps.items():
-                    if not detail['is_recurring'] and detail['amount'] > 0:
-                        prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
-                        if detail['amount'] != prev_amt:
-                            non_recurring_add.append({
-                                'employee_name': emp.full_name,
-                                'description': f"{emp.full_name} - {detail['name']}",
-                                'amount': float(detail['amount']),
-                            })
-                            total_non_recurring_add += detail['amount']
-
-                # Check non-recurring that were in previous but not current
-                for code, detail in prev_comps.items():
-                    if not detail['is_recurring'] and detail['amount'] > 0:
-                        if code not in curr_comps or curr_comps[code]['amount'] == 0:
-                            non_recurring_less.append({
-                                'employee_name': emp.full_name,
-                                'description': f"{emp.full_name} - {detail['name']}",
-                                'amount': float(detail['amount']),
-                            })
-                            total_non_recurring_less += detail['amount']
-
-                # Check recurring earnings changes (all recurring earning components)
-                all_recurring_codes = set()
-                for code, detail in curr_comps.items():
-                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
-                        all_recurring_codes.add(code)
-                for code, detail in prev_comps.items():
-                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
-                        all_recurring_codes.add(code)
-
-                for code in all_recurring_codes:
-                    curr_amt = curr_comps.get(code, {}).get('amount', Decimal('0'))
-                    prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
-                    if curr_amt != prev_amt:
-                        diff = curr_amt - prev_amt
-                        comp_name = (curr_comps.get(code) or prev_comps.get(code))['name']
-                        recurring_changes.append({
-                            'employee_name': emp.full_name,
-                            'component_name': comp_name,
-                            'previous_amount': float(prev_amt),
-                            'current_amount': float(curr_amt),
-                            'change': float(diff),
-                        })
-                        total_recurring_changes += diff
+        r = _compute_salary_reconciliation(current_run, previous_run)
 
         # Build response
         return Response({
@@ -3548,55 +3591,49 @@ class SalaryReconciliationView(APIView):
                     'current': {
                         'name': current_run.payroll_period.name if current_run.payroll_period else current_run.run_number,
                         'run_id': str(current_run.id),
-                        'gross': float(curr_gross),
+                        'gross': float(r['curr_gross']),
                     },
                     'previous': {
                         'name': previous_run.payroll_period.name if previous_run.payroll_period else previous_run.run_number,
                         'run_id': str(previous_run.id),
-                        'gross': float(prev_gross),
+                        'gross': float(r['prev_gross']),
                     },
                 },
                 'reconciliation': {
-                    'previous_gross': float(prev_gross),
+                    'previous_gross': float(r['prev_gross']),
                     'less_non_recurring': {
-                        'items': non_recurring_less if non_recurring_less else [{'description': 'NO TRANSACTION', 'amount': 0}],
-                        'total': float(total_non_recurring_less),
+                        'items': r['non_recurring_less'] if r['non_recurring_less'] else [{'description': 'NO TRANSACTION', 'amount': 0}],
+                        'total': float(r['total_non_recurring_less']),
                     },
-                    'basic_plus_recurring': float(prev_gross - total_non_recurring_less),
+                    'basic_plus_recurring': float(r['prev_gross'] - r['total_non_recurring_less']),
                     'add_non_recurring': {
-                        'items': non_recurring_add if non_recurring_add else [{'description': 'NO TRANSACTION', 'amount': 0}],
-                        'total': float(total_non_recurring_add),
+                        'items': r['non_recurring_add'] if r['non_recurring_add'] else [{'description': 'NO TRANSACTION', 'amount': 0}],
+                        'total': float(r['total_non_recurring_add']),
                     },
                     'change_in_recurring': {
-                        'items': recurring_changes if recurring_changes else [{'description': 'NO TRANSACTION', 'change': 0}],
-                        'total': float(total_recurring_changes),
+                        'items': r['recurring_changes'] if r['recurring_changes'] else [{'description': 'NO TRANSACTION', 'change': 0}],
+                        'total': float(r['total_recurring_changes']),
                     },
                     'additions': {
-                        'items': additions if additions else [{'employee_name': 'NO ADDITIONS', 'amount': 0}],
-                        'total': float(total_additions),
+                        'items': r['additions'] if r['additions'] else [{'employee_name': 'NO ADDITIONS', 'amount': 0}],
+                        'total': float(r['total_additions']),
                     },
                     'deletions': {
-                        'items': deletions if deletions else [{'employee_name': 'NO DELETIONS', 'amount': 0}],
-                        'total': float(total_deletions),
+                        'items': r['deletions'] if r['deletions'] else [{'employee_name': 'NO DELETIONS', 'amount': 0}],
+                        'total': float(r['total_deletions']),
                     },
-                    'current_gross': float(curr_gross),
+                    'current_gross': float(r['curr_gross']),
                 },
                 'summary': {
-                    'previous_gross': float(prev_gross),
-                    'less_non_recurring': float(total_non_recurring_less),
-                    'add_non_recurring': float(total_non_recurring_add),
-                    'recurring_changes': float(total_recurring_changes),
-                    'additions': float(total_additions),
-                    'deletions': float(total_deletions),
-                    'calculated_gross': float(
-                        prev_gross - total_non_recurring_less + total_non_recurring_add +
-                        total_recurring_changes + total_additions - total_deletions
-                    ),
-                    'actual_gross': float(curr_gross),
-                    'variance': float(
-                        curr_gross - (prev_gross - total_non_recurring_less + total_non_recurring_add +
-                        total_recurring_changes + total_additions - total_deletions)
-                    ),
+                    'previous_gross': float(r['prev_gross']),
+                    'less_non_recurring': float(r['total_non_recurring_less']),
+                    'add_non_recurring': float(r['total_non_recurring_add']),
+                    'recurring_changes': float(r['total_recurring_changes']),
+                    'additions': float(r['total_additions']),
+                    'deletions': float(r['total_deletions']),
+                    'calculated_gross': float(r['calculated_gross']),
+                    'actual_gross': float(r['curr_gross']),
+                    'variance': float(r['variance']),
                 },
             }
         })
@@ -3607,15 +3644,13 @@ class ExportSalaryReconciliationView(APIView):
 
     def get(self, request):
         from .exports import ReportExporter
-        from decimal import Decimal
-        from collections import defaultdict
-        from payroll.models import PayrollPeriod, PayComponent
+        from payroll.models import PayrollPeriod
 
         format_type = request.query_params.get('file_format', request.query_params.get('format', 'csv'))
         current_period_id = request.query_params.get('current_period')
         previous_period_id = request.query_params.get('previous_period')
 
-        # Get payroll runs (same logic as above)
+        # Get payroll runs
         if current_period_id and previous_period_id:
             try:
                 current_period = PayrollPeriod.objects.get(id=current_period_id)
@@ -3647,130 +3682,32 @@ class ExportSalaryReconciliationView(APIView):
         if not current_run or not previous_run:
             return Response({'message': 'No completed payroll runs found'}, status=404)
 
-        def safe_decimal(val):
-            return Decimal(str(val)) if val else Decimal('0')
+        r = _compute_salary_reconciliation(current_run, previous_run)
 
-        # Get current and previous items
-        current_items = {}
-        current_details = defaultdict(dict)
-        for item in PayrollItem.objects.filter(payroll_run=current_run).select_related(
-            'employee'
-        ).prefetch_related('details__pay_component'):
-            current_items[item.employee_id] = item
-            for detail in item.details.all():
-                code = detail.pay_component.code
-                if code in current_details[item.employee_id]:
-                    current_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
-                else:
-                    current_details[item.employee_id][code] = {
-                        'amount': safe_decimal(detail.amount),
-                        'name': detail.pay_component.name,
-                        'is_recurring': detail.pay_component.is_recurring,
-                        'component_type': detail.pay_component.component_type,
-                    }
+        # Transform helper output to export-row format (Description/Amount keys)
+        non_recurring_less = [
+            {'Description': i['description'], 'Amount': i['amount']}
+            for i in r['non_recurring_less']
+        ]
+        non_recurring_add = [
+            {'Description': i['description'], 'Amount': i['amount']}
+            for i in r['non_recurring_add']
+        ]
+        recurring_changes = [
+            {'Description': f"{i['employee_name']} - {i['component_name']}", 'Amount': i['change']}
+            for i in r['recurring_changes']
+        ]
+        additions = [
+            {'Description': i['employee_name'], 'Amount': i['amount']}
+            for i in r['additions']
+        ]
+        deletions = [
+            {'Description': i['employee_name'], 'Amount': i['amount']}
+            for i in r['deletions']
+        ]
 
-        previous_items = {}
-        previous_details = defaultdict(dict)
-        for item in PayrollItem.objects.filter(payroll_run=previous_run).select_related(
-            'employee'
-        ).prefetch_related('details__pay_component'):
-            previous_items[item.employee_id] = item
-            for detail in item.details.all():
-                code = detail.pay_component.code
-                if code in previous_details[item.employee_id]:
-                    previous_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
-                else:
-                    previous_details[item.employee_id][code] = {
-                        'amount': safe_decimal(detail.amount),
-                        'name': detail.pay_component.name,
-                        'is_recurring': detail.pay_component.is_recurring,
-                        'component_type': detail.pay_component.component_type,
-                    }
-
-        all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
-
-        prev_gross = safe_decimal(previous_run.total_gross)
-        curr_gross = safe_decimal(current_run.total_gross)
-
-        # Track changes
-        additions = []
-        deletions = []
-        non_recurring_add = []
-        non_recurring_less = []
-        recurring_changes = []
-
-        total_additions = Decimal('0')
-        total_deletions = Decimal('0')
-        total_non_recurring_add = Decimal('0')
-        total_non_recurring_less = Decimal('0')
-        total_recurring_changes = Decimal('0')
-
-        for emp_id in all_emp_ids:
-            curr_item = current_items.get(emp_id)
-            prev_item = previous_items.get(emp_id)
-            curr_comps = current_details.get(emp_id, {})
-            prev_comps = previous_details.get(emp_id, {})
-
-            if curr_item and not prev_item:
-                emp = curr_item.employee
-                basic = safe_decimal(curr_item.basic_salary)
-                additions.append({
-                    'Description': emp.full_name,
-                    'Amount': float(basic),
-                })
-                total_additions += basic
-
-            elif prev_item and not curr_item:
-                emp = prev_item.employee
-                basic = safe_decimal(prev_item.basic_salary)
-                deletions.append({
-                    'Description': emp.full_name,
-                    'Amount': float(basic),
-                })
-                total_deletions += basic
-
-            elif curr_item and prev_item:
-                emp = curr_item.employee
-
-                for code, detail in curr_comps.items():
-                    if not detail['is_recurring'] and detail['amount'] > 0:
-                        prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
-                        if detail['amount'] != prev_amt:
-                            non_recurring_add.append({
-                                'Description': detail['name'],
-                                'Amount': float(detail['amount']),
-                            })
-                            total_non_recurring_add += detail['amount']
-
-                for code, detail in prev_comps.items():
-                    if not detail['is_recurring'] and detail['amount'] > 0:
-                        if code not in curr_comps or curr_comps[code]['amount'] == 0:
-                            non_recurring_less.append({
-                                'Description': detail['name'],
-                                'Amount': float(detail['amount']),
-                            })
-                            total_non_recurring_less += detail['amount']
-
-                # Check recurring earnings changes (all recurring earning components)
-                all_recurring_codes = set()
-                for code, detail in curr_comps.items():
-                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
-                        all_recurring_codes.add(code)
-                for code, detail in prev_comps.items():
-                    if detail['is_recurring'] and detail['component_type'] == 'EARNING':
-                        all_recurring_codes.add(code)
-
-                for code in all_recurring_codes:
-                    curr_amt = curr_comps.get(code, {}).get('amount', Decimal('0'))
-                    prev_amt = prev_comps.get(code, {}).get('amount', Decimal('0'))
-                    if curr_amt != prev_amt:
-                        diff = curr_amt - prev_amt
-                        comp_name = (curr_comps.get(code) or prev_comps.get(code))['name']
-                        recurring_changes.append({
-                            'Description': f"{emp.full_name} - {comp_name}",
-                            'Amount': float(diff),
-                        })
-                        total_recurring_changes += diff
+        prev_gross = r['prev_gross']
+        curr_gross = r['curr_gross']
 
         # Build export rows
         rows = []
@@ -3789,11 +3726,11 @@ class ExportSalaryReconciliationView(APIView):
                 rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
         else:
             rows.append({'Description': '  NO TRANSACTION', 'Amount': 0, 'Total': ''})
-        rows.append({'Description': '', 'Amount': '', 'Total': float(total_non_recurring_less)})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(r['total_non_recurring_less'])})
         rows.append({'Description': '', 'Amount': '', 'Total': ''})
 
         # Section: Basic Salary Plus Recurring Earnings
-        basic_plus_recurring = prev_gross - total_non_recurring_less
+        basic_plus_recurring = prev_gross - r['total_non_recurring_less']
         rows.append({'Description': 'Basic Salary Plus Recurring Earnings', 'Amount': '', 'Total': float(basic_plus_recurring)})
         rows.append({'Description': '', 'Amount': '', 'Total': ''})
 
@@ -3804,7 +3741,7 @@ class ExportSalaryReconciliationView(APIView):
                 rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
         else:
             rows.append({'Description': '  NO TRANSACTION', 'Amount': 0, 'Total': ''})
-        rows.append({'Description': '', 'Amount': '', 'Total': float(total_non_recurring_add)})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(r['total_non_recurring_add'])})
         rows.append({'Description': '', 'Amount': '', 'Total': ''})
 
         # Section: Change in Recurring Earnings
@@ -3814,7 +3751,7 @@ class ExportSalaryReconciliationView(APIView):
                 rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
         else:
             rows.append({'Description': '  NO TRANSACTION', 'Amount': 0, 'Total': ''})
-        rows.append({'Description': '', 'Amount': '', 'Total': float(total_recurring_changes)})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(r['total_recurring_changes'])})
         rows.append({'Description': '', 'Amount': '', 'Total': ''})
 
         # Section: Additions
@@ -3824,7 +3761,7 @@ class ExportSalaryReconciliationView(APIView):
                 rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
         else:
             rows.append({'Description': '  NO ADDITIONS', 'Amount': 0, 'Total': ''})
-        rows.append({'Description': '', 'Amount': '', 'Total': float(total_additions)})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(r['total_additions'])})
         rows.append({'Description': '', 'Amount': '', 'Total': ''})
 
         # Section: Deletions
@@ -3834,7 +3771,7 @@ class ExportSalaryReconciliationView(APIView):
                 rows.append({'Description': f"  {item['Description']}", 'Amount': item['Amount'], 'Total': ''})
         else:
             rows.append({'Description': '  NO DELETIONS', 'Amount': 0, 'Total': ''})
-        rows.append({'Description': '', 'Amount': '', 'Total': float(total_deletions)})
+        rows.append({'Description': '', 'Amount': '', 'Total': float(r['total_deletions'])})
         rows.append({'Description': '', 'Amount': '', 'Total': ''})
 
         # Get current period name
