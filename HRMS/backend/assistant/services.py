@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 from django.conf import settings
@@ -103,6 +104,58 @@ class OllamaService:
             yield json.dumps({"type": "done"}) + "\n"
         except Exception as e:
             logger.error(f"Ollama streaming error: {e}")
+            yield json.dumps({"type": "error", "content": str(e)}) + "\n"
+
+    def chat_stream_with_files(self, history, user_message, attachments):
+        """
+        Stream chat with file context injection and vision support.
+        For images: routes to vision model with base64 images param.
+        For data/documents: injects parsed summaries into prompt context.
+        """
+        image_attachments = [a for a in attachments if a.file_type == 'IMAGE']
+        context_attachments = [a for a in attachments if a.file_type != 'IMAGE']
+
+        # Build enhanced message with file context
+        enhanced_message = user_message
+        if context_attachments:
+            file_context = "\n\n".join([
+                f"--- File: {a.file_name} ---\n{a.parsed_summary}"
+                for a in context_attachments
+            ])
+            enhanced_message = f"{user_message}\n\n[Attached File Data]\n{file_context}"
+
+        # Choose model based on attachments
+        if image_attachments:
+            model = getattr(settings, 'OLLAMA_VISION_MODEL', 'llava')
+            images = [base64.b64encode(bytes(a.file_data)).decode() for a in image_attachments]
+        else:
+            model = self.model
+            images = None
+
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for msg in history:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+        messages.append({"role": "user", "content": enhanced_message})
+
+        try:
+            client = self._get_client()
+            kwargs = {
+                'model': model,
+                'messages': messages,
+                'stream': True,
+            }
+            if images:
+                # Ollama vision API: pass images as base64 strings on the last message
+                kwargs['messages'][-1]['images'] = images
+
+            stream = client.chat(**kwargs)
+            for chunk in stream:
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    yield json.dumps({"type": "token", "content": token}) + "\n"
+            yield json.dumps({"type": "done"}) + "\n"
+        except Exception as e:
+            logger.error(f"Ollama streaming error (model={model}): {e}")
             yield json.dumps({"type": "error", "content": str(e)}) + "\n"
 
     def check_health(self):

@@ -1,11 +1,23 @@
 from rest_framework import serializers
-from .models import Conversation, Message
+from .models import Conversation, Message, MessageAttachment, PromptTemplate
+
+
+class AttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageAttachment
+        fields = [
+            'id', 'file_name', 'file_size', 'mime_type',
+            'file_type', 'parsed_summary', 'parsed_metadata', 'created_at',
+        ]
+        read_only_fields = fields
 
 
 class MessageSerializer(serializers.ModelSerializer):
+    attachments = AttachmentSerializer(many=True, read_only=True)
+
     class Meta:
         model = Message
-        fields = ['id', 'role', 'content', 'created_at']
+        fields = ['id', 'role', 'content', 'created_at', 'attachments']
         read_only_fields = ['id', 'created_at']
 
 
@@ -31,3 +43,18 @@ class ConversationDetailSerializer(serializers.ModelSerializer):
 class ChatRequestSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=10000)
     conversation_id = serializers.UUIDField(required=False, allow_null=True)
+    attachment_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        default=list,
+    )
+
+
+class PromptTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PromptTemplate
+        fields = [
+            'id', 'name', 'description', 'prompt_text',
+            'category', 'icon', 'requires_file', 'sort_order',
+        ]
+        read_only_fields = fields

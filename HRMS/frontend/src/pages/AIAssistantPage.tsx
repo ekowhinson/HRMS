@@ -8,22 +8,105 @@ import {
   TrashIcon,
   StopIcon,
   ChatBubbleLeftRightIcon,
+  PaperClipIcon,
+  XMarkIcon,
+  DocumentTextIcon,
+  TableCellsIcon,
+  PhotoIcon,
+  ChartBarIcon,
+  ArrowUpTrayIcon,
+  MagnifyingGlassIcon,
+  EyeIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline'
 import {
   chatStream,
   getConversations,
   getConversation,
   deleteConversation,
+  uploadFile,
+  getPromptTemplates,
   type Message,
+  type MessageAttachment,
+  type PromptTemplate,
   type StreamChunk,
 } from '@/services/assistant'
 
-const SUGGESTED_PROMPTS = [
+const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+  ChartBarIcon,
+  ArrowUpTrayIcon,
+  MagnifyingGlassIcon,
+  EyeIcon,
+  TableCellsIcon,
+  BanknotesIcon,
+  SparklesIcon,
+}
+
+const FILE_TYPE_CONFIG: Record<string, { icon: typeof DocumentTextIcon; color: string; bg: string }> = {
+  DATA: { icon: TableCellsIcon, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200' },
+  DOCUMENT: { icon: DocumentTextIcon, color: 'text-green-600', bg: 'bg-green-50 border-green-200' },
+  IMAGE: { icon: PhotoIcon, color: 'text-purple-600', bg: 'bg-purple-50 border-purple-200' },
+}
+
+const FALLBACK_PROMPTS = [
   'How do I process payroll for a new month?',
   'What are the steps to onboard a new employee?',
   'Explain the leave approval workflow',
   'How do I generate a payroll reconciliation report?',
 ]
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function FileChip({
+  attachment,
+  onRemove,
+  compact,
+}: {
+  attachment: MessageAttachment
+  onRemove?: () => void
+  compact?: boolean
+}) {
+  const config = FILE_TYPE_CONFIG[attachment.file_type] || FILE_TYPE_CONFIG.DOCUMENT
+  const Icon = config.icon
+
+  return (
+    <div
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 ${config.bg} ${
+        compact ? 'text-xs' : 'text-sm'
+      }`}
+    >
+      <Icon className={`h-4 w-4 shrink-0 ${config.color}`} />
+      <span className="truncate max-w-[150px] font-medium text-gray-700">
+        {attachment.file_name}
+      </span>
+      <span className="text-gray-400 text-xs">{formatFileSize(attachment.file_size)}</span>
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          className="ml-0.5 p-0.5 rounded hover:bg-gray-200 transition-colors"
+        >
+          <XMarkIcon className="h-3.5 w-3.5 text-gray-400" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function AttachmentDisplay({ attachments }: { attachments: MessageAttachment[] }) {
+  if (!attachments?.length) return null
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-2">
+      {attachments.map((att) => (
+        <FileChip key={att.id} attachment={att} compact />
+      ))}
+    </div>
+  )
+}
 
 export default function AIAssistantPage() {
   const queryClient = useQueryClient()
@@ -32,13 +115,21 @@ export default function AIAssistantPage() {
   const [inputValue, setInputValue] = useState('')
   const [streamingContent, setStreamingContent] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([])
+  const [isUploading, setIsUploading] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: conversations = [], isLoading: loadingConversations } = useQuery({
     queryKey: ['assistant-conversations'],
     queryFn: getConversations,
+  })
+
+  const { data: promptTemplates = [] } = useQuery({
+    queryKey: ['assistant-templates'],
+    queryFn: getPromptTemplates,
   })
 
   // Auto-scroll on new content
@@ -60,6 +151,7 @@ export default function AIAssistantPage() {
       setActiveConversationId(id)
       setMessages(detail.messages)
       setStreamingContent('')
+      setPendingAttachments([])
     } catch {
       // Handle error silently
     }
@@ -71,6 +163,7 @@ export default function AIAssistantPage() {
     setMessages([])
     setStreamingContent('')
     setInputValue('')
+    setPendingAttachments([])
   }, [isStreaming])
 
   const handleDeleteConversation = useCallback(async (id: string, e: React.MouseEvent) => {
@@ -92,20 +185,57 @@ export default function AIAssistantPage() {
     setIsStreaming(false)
   }, [])
 
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    setIsUploading(true)
+    try {
+      const attachment = await uploadFile(file, activeConversationId || undefined)
+      setPendingAttachments(prev => [...prev, attachment])
+      // If upload created a new conversation, track it
+      if (attachment.conversation_id && !activeConversationId) {
+        setActiveConversationId(attachment.conversation_id)
+      }
+    } catch (err: any) {
+      const errorMsg: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `File upload failed: ${err.message || 'Unknown error'}`,
+        created_at: new Date().toISOString(),
+      }
+      setMessages(prev => [...prev, errorMsg])
+    } finally {
+      setIsUploading(false)
+    }
+  }, [activeConversationId])
+
+  const removePendingAttachment = useCallback((id: string) => {
+    setPendingAttachments(prev => prev.filter(a => a.id !== id))
+  }, [])
+
   const sendMessage = useCallback(async (messageText: string) => {
     if (!messageText.trim() || isStreaming) return
+
+    const currentAttachments = [...pendingAttachments]
+    const attachmentIds = currentAttachments.map(a => a.id)
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
       content: messageText.trim(),
       created_at: new Date().toISOString(),
+      attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
     }
 
     setMessages(prev => [...prev, userMessage])
     setInputValue('')
     setStreamingContent('')
     setIsStreaming(true)
+    setPendingAttachments([])
 
     const controller = new AbortController()
     abortControllerRef.current = controller
@@ -116,6 +246,7 @@ export default function AIAssistantPage() {
       {
         message: messageText.trim(),
         conversation_id: activeConversationId,
+        attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
       },
       (chunk: StreamChunk) => {
         switch (chunk.type) {
@@ -180,7 +311,12 @@ export default function AIAssistantPage() {
       setMessages(prev => [...prev, partialMessage])
       setStreamingContent('')
     }
-  }, [activeConversationId, isStreaming, queryClient])
+  }, [activeConversationId, isStreaming, queryClient, pendingAttachments])
+
+  const handleTemplateClick = useCallback((template: PromptTemplate) => {
+    setInputValue(template.prompt_text)
+    textareaRef.current?.focus()
+  }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -242,26 +378,60 @@ export default function AIAssistantPage() {
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto">
           {!hasMessages ? (
-            /* Empty State - Welcome Screen */
+            /* Empty State - Welcome Screen with Prompt Templates */
             <div className="h-full flex flex-col items-center justify-center px-4">
               <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
                 <SparklesIcon className="h-8 w-8 text-blue-600" />
               </div>
               <h2 className="text-2xl font-semibold text-gray-800 mb-2">HRMS AI Assistant</h2>
               <p className="text-gray-500 mb-8 text-center max-w-md">
-                Ask me anything about HR processes, payroll, leave management, or any ERP module.
+                Ask me anything about HR processes, payroll, leave management, or upload files for analysis.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
-                {SUGGESTED_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => sendMessage(prompt)}
-                    className="text-left p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-sm text-gray-600 hover:text-blue-700"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
+
+              {promptTemplates.length > 0 ? (
+                <div className="max-w-2xl w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {promptTemplates.map((template) => {
+                      const IconComp = ICON_MAP[template.icon] || SparklesIcon
+                      return (
+                        <button
+                          key={template.id}
+                          onClick={() => handleTemplateClick(template)}
+                          className="text-left p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
+                        >
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <IconComp className="h-4 w-4 text-gray-400 group-hover:text-blue-500" />
+                            <span className="text-sm font-medium text-gray-800 group-hover:text-blue-700">
+                              {template.name}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 line-clamp-2">
+                            {template.description}
+                          </p>
+                          {template.requires_file && (
+                            <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
+                              <PaperClipIcon className="h-3 w-3" />
+                              <span>Requires file</span>
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
+                  {FALLBACK_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => sendMessage(prompt)}
+                      className="text-left p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-sm text-gray-600 hover:text-blue-700"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             /* Messages */
@@ -279,11 +449,37 @@ export default function AIAssistantPage() {
                     }`}
                   >
                     {msg.role === 'user' ? (
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      <>
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {msg.attachments.map(att => (
+                              <div
+                                key={att.id}
+                                className="inline-flex items-center gap-1 rounded-md bg-blue-500/30 px-2 py-1 text-xs text-blue-100"
+                              >
+                                {att.file_type === 'IMAGE' ? (
+                                  <PhotoIcon className="h-3.5 w-3.5" />
+                                ) : att.file_type === 'DATA' ? (
+                                  <TableCellsIcon className="h-3.5 w-3.5" />
+                                ) : (
+                                  <DocumentTextIcon className="h-3.5 w-3.5" />
+                                )}
+                                <span className="truncate max-w-[120px]">{att.file_name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     ) : (
-                      <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-code:text-blue-600 prose-code:bg-blue-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
+                      <>
+                        <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-code:text-blue-600 prose-code:bg-blue-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <AttachmentDisplay attachments={msg.attachments} />
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -318,16 +514,56 @@ export default function AIAssistantPage() {
           )}
         </div>
 
+        {/* Pending Attachments Bar */}
+        {pendingAttachments.length > 0 && (
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-2">
+            <div className="max-w-3xl mx-auto flex flex-wrap gap-2">
+              {pendingAttachments.map(att => (
+                <FileChip
+                  key={att.id}
+                  attachment={att}
+                  onRemove={() => removePendingAttachment(att.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Input Bar */}
         <div className="border-t border-gray-200 bg-white p-4">
-          <div className="max-w-3xl mx-auto flex items-end gap-3">
+          <div className="max-w-3xl mx-auto flex items-end gap-2">
+            {/* File upload button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || isStreaming}
+              className="shrink-0 p-3 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Attach file"
+            >
+              {isUploading ? (
+                <div className="h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <PaperClipIcon className="h-5 w-5" />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept=".csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.gif,.webp"
+              onChange={handleFileSelect}
+            />
+
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything about HR, payroll, or any module..."
+                placeholder={
+                  pendingAttachments.length > 0
+                    ? 'Ask about the attached file(s)...'
+                    : 'Ask anything about HR, payroll, or any module...'
+                }
                 rows={1}
                 disabled={isStreaming}
                 className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"

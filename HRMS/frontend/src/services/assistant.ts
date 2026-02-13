@@ -3,9 +3,22 @@ import { useAuthStore } from '@/features/auth/store'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
+export interface MessageAttachment {
+  id: string
+  file_name: string
+  file_type: 'DATA' | 'IMAGE' | 'DOCUMENT'
+  file_size: number
+  mime_type: string
+  parsed_summary?: string
+  parsed_metadata?: Record<string, any>
+  conversation_id?: string
+  created_at: string
+}
+
 export interface ChatRequest {
   message: string
   conversation_id?: string | null
+  attachment_ids?: string[]
 }
 
 export interface StreamChunk {
@@ -33,6 +46,28 @@ export interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   created_at: string
+  attachments?: MessageAttachment[]
+}
+
+export interface PromptTemplate {
+  id: string
+  name: string
+  description: string
+  prompt_text: string
+  category: string
+  icon: string
+  requires_file: boolean
+  sort_order: number
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const state = useAuthStore.getState()
+  const token = state.tokens?.access
+  const orgId = state.activeOrganization?.id
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  if (orgId) headers['X-Tenant-ID'] = orgId
+  return headers
 }
 
 /**
@@ -44,15 +79,10 @@ export async function chatStream(
   onError: (error: string) => void,
   signal?: AbortSignal,
 ) {
-  const state = useAuthStore.getState()
-  const token = state.tokens?.access
-  const orgId = state.activeOrganization?.id
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...getAuthHeaders(),
   }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  if (orgId) headers['X-Tenant-ID'] = orgId
 
   try {
     const response = await fetch(`${API_BASE_URL}/assistant/chat/`, {
@@ -111,6 +141,38 @@ export async function chatStream(
     if (err.name === 'AbortError') return
     onError(err.message || 'Stream connection failed')
   }
+}
+
+/**
+ * Upload a file to the assistant. Uses native fetch for multipart FormData.
+ */
+export async function uploadFile(
+  file: File,
+  conversationId?: string,
+): Promise<MessageAttachment> {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (conversationId) {
+    formData.append('conversation_id', conversationId)
+  }
+
+  const response = await fetch(`${API_BASE_URL}/assistant/upload/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.error || `Upload failed (HTTP ${response.status})`)
+  }
+
+  return response.json()
+}
+
+export async function getPromptTemplates(): Promise<PromptTemplate[]> {
+  const { data } = await api.get('/assistant/templates/')
+  return data
 }
 
 export async function getConversations(): Promise<Conversation[]> {
