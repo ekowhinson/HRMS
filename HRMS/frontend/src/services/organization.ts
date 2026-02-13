@@ -1,4 +1,5 @@
 import api from '@/lib/api'
+import type { License } from '@/types'
 
 // ==================== Types ====================
 
@@ -29,6 +30,7 @@ export interface Organization {
   trial_expires_at: string | null
   modules_enabled: string[]
   setup_completed: boolean
+  active_license?: License | null
   created_at: string
   updated_at: string
 }
@@ -132,6 +134,48 @@ export const organizationService = {
     const response = await api.post(`/organization/tenants/${id}/modules/`, {
       modules_enabled: modules,
     })
+    return response.data
+  },
+
+  // ==================== License Methods ====================
+
+  // Get licenses for an organization
+  getLicenses: async (orgId: string): Promise<License[]> => {
+    const response = await api.get('/organization/licenses/', { params: { organization: orgId } })
+    return response.data.results || response.data
+  },
+
+  // Create a license
+  createLicense: async (data: {
+    organization: string
+    license_type: string
+    max_users: number
+    max_employees: number
+    modules_allowed: string[]
+    valid_from: string
+    valid_until?: string | null
+    is_active?: boolean
+    notes?: string
+  }): Promise<License> => {
+    const response = await api.post('/organization/licenses/', data)
+    return response.data
+  },
+
+  // Update a license
+  updateLicense: async (id: string, data: Partial<License>): Promise<License> => {
+    const response = await api.patch(`/organization/licenses/${id}/`, data)
+    return response.data
+  },
+
+  // Activate a license
+  activateLicense: async (id: string): Promise<License> => {
+    const response = await api.post(`/organization/licenses/${id}/activate/`)
+    return response.data
+  },
+
+  // Deactivate a license
+  deactivateLicense: async (id: string): Promise<License> => {
+    const response = await api.post(`/organization/licenses/${id}/deactivate/`)
     return response.data
   },
 }

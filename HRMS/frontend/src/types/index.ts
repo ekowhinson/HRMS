@@ -1,3 +1,25 @@
+// License Types
+export interface License {
+  id: string
+  license_key: string
+  license_type: 'TRIAL' | 'FREE' | 'STANDARD' | 'PREMIUM' | 'ENTERPRISE'
+  max_users: number
+  max_employees: number
+  modules_allowed: string[]
+  valid_from: string
+  valid_until: string | null
+  is_active: boolean
+  is_valid: boolean
+  days_remaining: number | null
+  organization?: string
+  organization_name?: string
+  issued_by?: string
+  issued_by_email?: string
+  notes?: string
+  created_at?: string
+  updated_at?: string
+}
+
 // Organization Types
 export interface Organization {
   id: string
@@ -5,6 +27,8 @@ export interface Organization {
   code: string
   logo_data?: string
   primary_color?: string
+  modules_enabled?: string[]
+  active_license?: License | null
 }
 
 export interface UserOrganizationMembership {

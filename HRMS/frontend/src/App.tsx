@@ -277,6 +277,21 @@ function SystemAdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function SuperuserRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const user = useAuthStore((state) => state.user)
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user?.is_superuser) {
+    return <Navigate to="/self-service" replace />
+  }
+
+  return <>{children}</>
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const isHROrAdmin = useIsHROrAdmin()
@@ -456,7 +471,7 @@ function App() {
                     <Route path="/admin/roles" element={<SystemAdminRoute><RoleManagementPage /></SystemAdminRoute>} />
                     <Route path="/admin/auth-providers" element={<SystemAdminRoute><AuthProvidersPage /></SystemAdminRoute>} />
                     <Route path="/admin/audit-logs" element={<SystemAdminRoute><AuditLogsPage /></SystemAdminRoute>} />
-                    <Route path="/admin/tenants" element={<SystemAdminRoute><TenantManagementPage /></SystemAdminRoute>} />
+                    <Route path="/admin/tenants" element={<SuperuserRoute><TenantManagementPage /></SuperuserRoute>} />
 
                     {/* Finance Routes - Admin only */}
                     <Route path="/finance/accounts" element={<AdminRoute><ChartOfAccountsPage /></AdminRoute>} />

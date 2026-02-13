@@ -333,6 +333,81 @@ class CacheControlMiddleware(MiddlewareMixin):
         return response
 
 
+class ModuleAccessMiddleware:
+    """
+    Enforce license-based module access.
+    Maps URL prefixes to module names and checks the tenant's active license.
+    Superusers bypass all module checks.
+    """
+
+    MODULE_URL_MAP = {
+        '/api/v1/employees/': 'employees',
+        '/api/v1/payroll/': 'payroll',
+        '/api/v1/leave/': 'leave',
+        '/api/v1/benefits/': 'benefits',
+        '/api/v1/performance/': 'performance',
+        '/api/v1/recruitment/': 'recruitment',
+        '/api/v1/discipline/': 'discipline',
+        '/api/v1/training/': 'training',
+        '/api/v1/exits/': 'exits',
+        '/api/v1/finance/': 'finance',
+        '/api/v1/procurement/': 'procurement',
+        '/api/v1/inventory/': 'inventory',
+        '/api/v1/projects/': 'projects',
+        '/api/v1/reports/': 'reports',
+        '/api/v1/workflow/': 'workflow',
+    }
+
+    SKIP_PREFIXES = [
+        '/api/v1/auth/',
+        '/api/v1/core/',
+        '/api/v1/organization/',
+        '/api/v1/accounts/',
+        '/admin/',
+        '/static/',
+        '/media/',
+        '/healthz/',
+        '/readyz/',
+    ]
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Skip non-API paths and allowed prefixes
+        path = request.path
+        if any(path.startswith(prefix) for prefix in self.SKIP_PREFIXES):
+            return self.get_response(request)
+
+        # Superusers bypass module checks
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_superuser', False):
+            return self.get_response(request)
+
+        # Determine which module this path maps to
+        module_name = None
+        for prefix, module in self.MODULE_URL_MAP.items():
+            if path.startswith(prefix):
+                module_name = module
+                break
+
+        if module_name:
+            tenant = getattr(request, 'tenant', None)
+            if tenant and not tenant.is_module_enabled(module_name):
+                import json
+                from django.http import JsonResponse
+                return JsonResponse(
+                    {
+                        'error': 'module_disabled',
+                        'detail': f'The "{module_name}" module is not enabled for your organization. '
+                                  f'Contact your administrator to upgrade your license.',
+                    },
+                    status=403,
+                )
+
+        return self.get_response(request)
+
+
 class TenantMiddleware:
     """
     Resolve tenant from request and store in thread-local.

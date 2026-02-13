@@ -4,10 +4,43 @@ Admin configuration for organization app.
 
 from django.contrib import admin
 from .models import (
+    Organization, License,
     Division, Directorate, OrganizationUnit, Department,
     JobGrade, JobCategory, JobPosition, CostCenter,
     WorkLocation, Holiday
 )
+
+
+class LicenseInline(admin.TabularInline):
+    model = License
+    extra = 0
+    fields = ['license_key', 'license_type', 'max_users', 'max_employees', 'valid_from', 'valid_until', 'is_active']
+    readonly_fields = ['license_key']
+
+
+@admin.register(Organization)
+class OrganizationAdmin(admin.ModelAdmin):
+    list_display = ['code', 'name', 'subscription_plan', 'max_users', 'max_employees', 'is_active', 'setup_completed']
+    list_filter = ['subscription_plan', 'is_active', 'setup_completed']
+    search_fields = ['code', 'name', 'slug']
+    ordering = ['name']
+    inlines = [LicenseInline]
+    fieldsets = (
+        (None, {'fields': ('name', 'code', 'slug', 'is_active')}),
+        ('Subscription', {'fields': ('subscription_plan', 'max_employees', 'max_users', 'trial_expires_at', 'modules_enabled')}),
+        ('Configuration', {'fields': ('country', 'currency', 'currency_symbol', 'timezone', 'date_format')}),
+        ('Contact', {'fields': ('email_domain', 'website', 'address', 'phone', 'from_email')}),
+    )
+
+
+@admin.register(License)
+class LicenseAdmin(admin.ModelAdmin):
+    list_display = ['license_key', 'organization', 'license_type', 'max_users', 'max_employees', 'valid_from', 'valid_until', 'is_active']
+    list_filter = ['license_type', 'is_active']
+    search_fields = ['license_key', 'organization__name', 'organization__code']
+    raw_id_fields = ['organization', 'issued_by']
+    readonly_fields = ['license_key', 'created_at', 'updated_at']
+    ordering = ['-valid_from']
 
 
 # Division and Directorate (Organization Hierarchy)

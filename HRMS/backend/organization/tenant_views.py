@@ -5,7 +5,9 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Organization
+from core.permissions import IsSuperUser
+from .models import Organization, License
+from .serializers import LicenseSerializer, LicenseCreateSerializer
 from .tenant_serializers import (
     OrganizationSerializer, OrganizationCreateSerializer,
     OrganizationConfigSerializer, OrganizationBrandingSerializer,
@@ -14,16 +16,12 @@ from .tenant_serializers import (
 
 
 class TenantSetupViewSet(viewsets.ModelViewSet):
-    """Superadmin management of organizations."""
+    """Superuser-only management of organizations."""
     serializer_class = OrganizationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperUser]
 
     def get_queryset(self):
-        user = self.request.user
-        # Superadmins (no org) can see all, org admins see only their own
-        if user.organization is None:
-            return Organization.objects.all()
-        return Organization.objects.filter(id=user.organization_id)
+        return Organization.objects.all()
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -188,3 +186,42 @@ class TenantConfigViewSet(viewsets.ViewSet):
 
         tenant.save()
         return Response(OrganizationBrandingSerializer(tenant).data)
+
+
+class LicenseViewSet(viewsets.ModelViewSet):
+    """Superuser-only CRUD for licenses."""
+    permission_classes = [IsSuperUser]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return LicenseCreateSerializer
+        return LicenseSerializer
+
+    def get_queryset(self):
+        qs = License.objects.select_related('organization', 'issued_by')
+        org_id = self.request.query_params.get('organization')
+        if org_id:
+            qs = qs.filter(organization_id=org_id)
+        return qs
+
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        """Activate a license."""
+        license_obj = self.get_object()
+        license_obj.is_active = True
+        license_obj.save(update_fields=['is_active'])
+        return Response(LicenseSerializer(license_obj).data)
+
+    @action(detail=True, methods=['post'])
+    def deactivate(self, request, pk=None):
+        """Deactivate a license."""
+        license_obj = self.get_object()
+        license_obj.is_active = False
+        license_obj.save(update_fields=['is_active'])
+        return Response(LicenseSerializer(license_obj).data)
+
+    @action(detail=False, methods=['post'], url_path='generate-key')
+    def generate_key(self, request):
+        """Generate a new license key without creating a license."""
+        key = License.generate_license_key()
+        return Response({'license_key': key})

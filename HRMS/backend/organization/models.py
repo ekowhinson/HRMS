@@ -2,6 +2,10 @@
 Organization structure models for HRMS.
 """
 
+import secrets
+import string
+from datetime import date
+
 from django.db import models
 from django.conf import settings
 
@@ -76,6 +80,121 @@ class Organization(UUIDModel, TimeStampedModel):
             from django.utils.text import slugify
             self.slug = slugify(self.code)
         super().save(*args, **kwargs)
+
+    def get_active_license(self):
+        """Return the current active and valid license, or None."""
+        today = date.today()
+        return self.licenses.filter(
+            is_active=True,
+            valid_from__lte=today,
+        ).filter(
+            models.Q(valid_until__isnull=True) | models.Q(valid_until__gte=today)
+        ).order_by('-valid_from').first()
+
+    def is_module_enabled(self, module_name):
+        """Check if a module is enabled via the active license or modules_enabled field."""
+        license_obj = self.get_active_license()
+        if license_obj and license_obj.modules_allowed:
+            return module_name in license_obj.modules_allowed
+        # Fallback to the Organization-level field
+        if self.modules_enabled:
+            return module_name in self.modules_enabled
+        # If no license and no modules_enabled set, allow all
+        return True
+
+    def get_user_limit(self):
+        """Return user limit from active license, falling back to Organization field."""
+        license_obj = self.get_active_license()
+        if license_obj:
+            return license_obj.max_users
+        return self.max_users
+
+    def get_employee_limit(self):
+        """Return employee limit from active license, falling back to Organization field."""
+        license_obj = self.get_active_license()
+        if license_obj:
+            return license_obj.max_employees
+        return self.max_employees
+
+
+class License(UUIDModel, TimeStampedModel):
+    """
+    Per-tenant license controlling user limits, employee limits, and module access.
+    """
+    class LicenseType(models.TextChoices):
+        TRIAL = 'TRIAL', 'Trial'
+        FREE = 'FREE', 'Free'
+        STANDARD = 'STANDARD', 'Standard'
+        PREMIUM = 'PREMIUM', 'Premium'
+        ENTERPRISE = 'ENTERPRISE', 'Enterprise'
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name='licenses',
+    )
+    license_key = models.CharField(max_length=100, unique=True, db_index=True)
+    license_type = models.CharField(
+        max_length=20,
+        choices=LicenseType.choices,
+        default=LicenseType.STANDARD,
+    )
+    max_users = models.PositiveIntegerField(default=10)
+    max_employees = models.PositiveIntegerField(default=50)
+    modules_allowed = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of module names enabled by this license',
+    )
+    valid_from = models.DateField()
+    valid_until = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    issued_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='issued_licenses',
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'licenses'
+        ordering = ['-valid_from']
+
+    def __str__(self):
+        return f"{self.license_key} ({self.organization.code} - {self.license_type})"
+
+    @property
+    def is_valid(self):
+        """True if active, started, and not expired."""
+        if not self.is_active:
+            return False
+        today = date.today()
+        if self.valid_from > today:
+            return False
+        if self.valid_until and self.valid_until < today:
+            return False
+        return True
+
+    @property
+    def days_remaining(self):
+        """Days until expiry, or None if no expiry date."""
+        if not self.valid_until:
+            return None
+        return max(0, (self.valid_until - date.today()).days)
+
+    @classmethod
+    def generate_license_key(cls):
+        """Generate a unique license key in XXXX-XXXX-XXXX-XXXX format."""
+        chars = string.ascii_uppercase + string.digits
+        while True:
+            key = '-'.join(
+                ''.join(secrets.choice(chars) for _ in range(4))
+                for _ in range(4)
+            )
+            if not cls.objects.filter(license_key=key).exists():
+                return key
 
 
 class Division(BaseModel):

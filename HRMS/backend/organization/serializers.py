@@ -7,7 +7,7 @@ from rest_framework import serializers
 from core.models import Region, District
 from .models import (
     Division, Directorate, OrganizationUnit, Department, JobGrade, JobCategory,
-    JobPosition, CostCenter, WorkLocation, Holiday
+    JobPosition, CostCenter, WorkLocation, Holiday, License
 )
 
 
@@ -164,3 +164,60 @@ class HolidaySerializer(serializers.ModelSerializer):
             'id', 'name', 'date', 'holiday_type', 'region', 'region_name',
             'description', 'is_paid', 'year'
         ]
+
+
+# ============================================
+# License Serializers
+# ============================================
+
+class LicenseBriefSerializer(serializers.ModelSerializer):
+    """Compact license representation for embedding in Organization responses."""
+    is_valid = serializers.BooleanField(read_only=True)
+    days_remaining = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = License
+        fields = [
+            'id', 'license_key', 'license_type',
+            'max_users', 'max_employees', 'modules_allowed',
+            'valid_from', 'valid_until', 'is_active',
+            'is_valid', 'days_remaining',
+        ]
+
+
+class LicenseSerializer(serializers.ModelSerializer):
+    """Full license detail with computed fields."""
+    is_valid = serializers.BooleanField(read_only=True)
+    days_remaining = serializers.IntegerField(read_only=True)
+    organization_name = serializers.CharField(source='organization.name', read_only=True)
+    issued_by_email = serializers.CharField(source='issued_by.email', read_only=True, default=None)
+
+    class Meta:
+        model = License
+        fields = [
+            'id', 'organization', 'organization_name',
+            'license_key', 'license_type',
+            'max_users', 'max_employees', 'modules_allowed',
+            'valid_from', 'valid_until', 'is_active',
+            'is_valid', 'days_remaining',
+            'issued_by', 'issued_by_email', 'notes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'license_key', 'issued_by', 'created_at', 'updated_at']
+
+
+class LicenseCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating a license. Auto-generates license_key."""
+
+    class Meta:
+        model = License
+        fields = [
+            'organization', 'license_type',
+            'max_users', 'max_employees', 'modules_allowed',
+            'valid_from', 'valid_until', 'is_active', 'notes',
+        ]
+
+    def create(self, validated_data):
+        validated_data['license_key'] = License.generate_license_key()
+        validated_data['issued_by'] = self.context['request'].user
+        return super().create(validated_data)

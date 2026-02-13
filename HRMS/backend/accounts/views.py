@@ -440,6 +440,22 @@ class UserListView(generics.ListCreateAPIView):
             return UserCreateSerializer
         return UserSerializer
 
+    def perform_create(self, serializer):
+        """Check license user limit before creating a new user."""
+        tenant = getattr(self.request, 'tenant', None)
+        if tenant:
+            user_limit = tenant.get_user_limit()
+            current_count = User.objects.filter(
+                organization=tenant, is_active=True
+            ).count()
+            if current_count >= user_limit:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied(
+                    f'User limit reached ({current_count}/{user_limit}). '
+                    f'Upgrade your license to add more users.'
+                )
+        serializer.save()
+
     def get_queryset(self):
         queryset = super().get_queryset()
         # Filter by active status

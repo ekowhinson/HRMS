@@ -766,6 +766,32 @@ export default function MainLayout({ children }: MainLayoutProps) {
     return userRoles.some((role) => ['ADMIN', 'SUPERUSER'].includes(role))
   })();
 
+  // Strictly superuser check (for Tenants / Licensing)
+  const isSuperuser = user?.is_superuser === true;
+
+  // Check if a module is enabled for the current tenant via license or modules_enabled
+  const isModuleEnabled = (moduleName: string): boolean => {
+    // Superusers see everything
+    if (isSuperuser) return true;
+    // Check active license first
+    const license = user?.active_organization?.active_license;
+    if (license && license.modules_allowed && license.modules_allowed.length > 0) {
+      return license.modules_allowed.includes(moduleName);
+    }
+    // Fallback to org modules_enabled
+    const orgModules = user?.active_organization?.modules_enabled;
+    if (orgModules && orgModules.length > 0) {
+      return orgModules.includes(moduleName);
+    }
+    // If no restrictions set, allow all
+    return true;
+  };
+
+  // Filter admin navigation: only show Tenants to superusers
+  const filteredAdminNavigation = adminNavigation.filter(
+    (item) => item.href !== '/admin/tenants' || isSuperuser
+  );
+
   const handleLogout = () => {
     logout();
     window.location.href = '/login';
@@ -852,8 +878,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
 
-        {/* HR Section - Only for HR/Admin users */}
-        {isHROrAdmin && (
+        {/* HR Section - Only for HR/Admin users + module enabled */}
+        {isHROrAdmin && isModuleEnabled('employees') && (
           <>
             <SectionDivider label="HR" icon={<UsersIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('HR')} isOpen={openModules['HR']} />
             <div
@@ -887,8 +913,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Payroll Section - For payroll admins and system admins */}
-        {isPayrollAdmin && (
+        {/* Payroll Section - For payroll admins and system admins + module enabled */}
+        {isPayrollAdmin && isModuleEnabled('payroll') && (
           <>
             <SectionDivider label="Payroll" icon={<BanknotesIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Payroll')} isOpen={openModules['Payroll']} />
             <div
@@ -922,8 +948,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </>
         )}
 
-        {/* Finance Section - For finance admins */}
-        {isHROrAdmin && (
+        {/* Finance Section - For finance admins + module enabled */}
+        {isHROrAdmin && isModuleEnabled('finance') && (
           <>
             <SectionDivider label="Finance" icon={<CurrencyDollarIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Finance')} isOpen={openModules['Finance']} />
             <div
@@ -958,7 +984,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Procurement Section */}
-        {isHROrAdmin && (
+        {isHROrAdmin && isModuleEnabled('procurement') && (
           <>
             <SectionDivider label="Procurement" icon={<TruckIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Procurement')} isOpen={openModules['Procurement']} />
             <div
@@ -982,7 +1008,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Inventory & Assets Section */}
-        {isHROrAdmin && (
+        {isHROrAdmin && isModuleEnabled('inventory') && (
           <>
             <SectionDivider label="Inventory" icon={<ArchiveBoxIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Inventory')} isOpen={openModules['Inventory']} />
             <div
@@ -1016,7 +1042,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
 
         {/* Projects Section */}
-        {isHROrAdmin && (
+        {isHROrAdmin && isModuleEnabled('projects') && (
           <>
             <SectionDivider label="Projects" icon={<FolderIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Projects')} isOpen={openModules['Projects']} />
             <div
@@ -1051,7 +1077,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               )}
             >
               <div className="px-2 space-y-0.5">
-                {adminNavigation.map((item) => (
+                {filteredAdminNavigation.map((item) => (
                   <NavLink
                     key={item.name}
                     item={item}

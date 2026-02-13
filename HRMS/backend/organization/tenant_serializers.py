@@ -3,10 +3,12 @@
 import base64
 from rest_framework import serializers
 from .models import Organization
+from .serializers import LicenseBriefSerializer
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
+    active_license = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -20,6 +22,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             'is_active', 'subscription_plan',
             'max_employees', 'max_users', 'trial_expires_at',
             'modules_enabled', 'setup_completed',
+            'active_license',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -28,6 +31,12 @@ class OrganizationSerializer(serializers.ModelSerializer):
         if obj.logo_data and obj.logo_mime_type:
             encoded = base64.b64encode(bytes(obj.logo_data)).decode('utf-8')
             return f"data:{obj.logo_mime_type};base64,{encoded}"
+        return None
+
+    def get_active_license(self, obj):
+        license_obj = obj.get_active_license()
+        if license_obj:
+            return LicenseBriefSerializer(license_obj).data
         return None
 
 

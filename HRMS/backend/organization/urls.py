@@ -6,7 +6,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from . import views
-from .tenant_views import TenantSetupViewSet, TenantConfigViewSet
+from .tenant_views import TenantSetupViewSet, TenantConfigViewSet, LicenseViewSet
 
 app_name = 'organization'
 
@@ -24,6 +24,7 @@ router.register(r'holidays', views.HolidayViewSet, basename='holiday')
 
 # Tenant administration
 router.register(r'tenants', TenantSetupViewSet, basename='tenant')
+router.register(r'licenses', LicenseViewSet, basename='license')
 
 urlpatterns = [
     path('', include(router.urls)),
