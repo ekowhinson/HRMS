@@ -553,6 +553,7 @@ class BackpayService:
                     old_amount=detail['old_amount'],
                     new_amount=detail['new_amount'],
                     difference=detail['difference'],
+                    tenant=bp_request.tenant,
                 )
 
         return bp_request
