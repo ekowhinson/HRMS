@@ -27,6 +27,7 @@ import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
+import { TablePagination } from '@/components/ui/Table'
 import StatsCard from '@/components/ui/StatsCard'
 import BarChartCard from '@/components/charts/BarChartCard'
 import PieChartCard from '@/components/charts/PieChartCard'
@@ -51,6 +52,8 @@ export default function PayrollProcessingPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview')
   const [selectedPeriod, setSelectedPeriod] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [newRunPeriod, setNewRunPeriod] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState<{
@@ -123,10 +126,13 @@ export default function PayrollProcessingPage() {
     queryFn: payrollService.getPeriods,
   })
 
-  const { data: runs, isLoading } = useQuery({
-    queryKey: ['payroll-runs', selectedPeriod],
-    queryFn: () => payrollService.getRuns(selectedPeriod || undefined),
+  const { data: runsData, isLoading } = useQuery({
+    queryKey: ['payroll-runs', selectedPeriod, page, pageSize],
+    queryFn: () => payrollService.getPayrollRuns(selectedPeriod || undefined, { page, page_size: pageSize }),
   })
+  const runs = runsData?.results || []
+  const totalRunItems = runsData?.count || runs.length
+  const totalRunPages = Math.ceil(totalRunItems / pageSize)
 
   const { data: dashboardData } = useQuery({
     queryKey: ['payroll-dashboard'],
@@ -407,7 +413,7 @@ export default function PayrollProcessingPage() {
             <>
               <Select
                 value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
+                onChange={(e) => { setSelectedPeriod(e.target.value); setPage(1); }}
                 options={[
                   { value: '', label: 'All Periods' },
                   ...(periods?.map((p: PayrollPeriod) => ({
@@ -981,6 +987,16 @@ export default function PayrollProcessingPage() {
               </Button>
             </CardContent>
           </Card>
+        )}
+        {runs.length > 0 && (
+          <TablePagination
+            currentPage={page}
+            totalPages={totalRunPages}
+            totalItems={totalRunItems}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+          />
         )}
       </div>
       )}

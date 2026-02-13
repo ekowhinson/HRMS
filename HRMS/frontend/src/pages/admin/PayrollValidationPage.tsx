@@ -21,6 +21,7 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import { TablePagination } from '@/components/ui/Table'
 import { formatDate } from '@/lib/utils'
 
 type TabType = 'dashboard' | 'validation' | 'regional' | 'reasons'
@@ -37,6 +38,8 @@ export default function PayrollValidationPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [selectedValidation, setSelectedValidation] = useState<any>(null)
   const [showFlagModal, setShowFlagModal] = useState(false)
   const [showReasonModal, setShowReasonModal] = useState(false)
@@ -66,11 +69,14 @@ export default function PayrollValidationPage() {
   })
 
   // Fetch validations list
-  const { data: validations = [] } = useQuery({
-    queryKey: ['validations', selectedPeriodId],
-    queryFn: () => payrollService.getValidations(selectedPeriodId || undefined),
+  const { data: validationsData } = useQuery({
+    queryKey: ['validations', selectedPeriodId, page, pageSize],
+    queryFn: () => payrollService.getValidations(selectedPeriodId || undefined, { page, page_size: pageSize }),
     enabled: !!selectedPeriodId,
   })
+  const validations = validationsData?.results || validationsData || []
+  const totalValidationItems = validationsData?.count || validations.length
+  const totalValidationPages = Math.ceil(totalValidationItems / pageSize)
 
   // Fetch validation detail
   const { data: validationDetail } = useQuery({
@@ -239,7 +245,7 @@ export default function PayrollValidationPage() {
         <div className="flex items-center gap-3">
           <Select
             value={selectedPeriodId}
-            onChange={(e) => setSelectedPeriodId(e.target.value)}
+            onChange={(e) => { setSelectedPeriodId(e.target.value); setPage(1); }}
             className="w-48"
             options={[
               { value: '', label: 'Select Period' },
@@ -410,6 +416,16 @@ export default function PayrollValidationPage() {
               </div>
             </CardContent>
           </Card>
+          {validations.length > 0 && (
+            <TablePagination
+              currentPage={page}
+              totalPages={totalValidationPages}
+              totalItems={totalValidationItems}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            />
+          )}
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -20,6 +20,7 @@ import {
   EyeIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, PageHeader, Badge } from '@/components/ui'
+import { TablePagination } from '@/components/ui/Table'
 import { reportsService, ExportFormat } from '@/services/reports'
 import api from '@/lib/api'
 
@@ -110,6 +111,8 @@ export default function PayrollReconciliationPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [selectedEmployee, setSelectedEmployee] = useState<ReconciliationEmployee | null>(null)
   const [viewMode, setViewMode] = useState<'cards' | 'chart'>('cards')
+  const [empPage, setEmpPage] = useState(1)
+  const [empPageSize, setEmpPageSize] = useState(20)
 
   // Fetch all payroll periods
   const { data: allPeriodsData } = useQuery<PayrollPeriod[]>({
@@ -318,6 +321,14 @@ export default function PayrollReconciliationPage() {
     () => sortAndFilter(reconciliation?.changed_employees || []),
     [reconciliation?.changed_employees, searchQuery, sortField, sortDirection]
   )
+
+  // Reset page when tab or search changes
+  useEffect(() => { setEmpPage(1) }, [activeTab, searchQuery])
+
+  // Paginate the currently active tab's data
+  const paginateList = (list: ReconciliationEmployee[]) => {
+    return list.slice((empPage - 1) * empPageSize, empPage * empPageSize)
+  }
 
   const VarianceCard = ({
     title,
@@ -967,7 +978,7 @@ export default function PayrollReconciliationPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {filteredNewEmployees.map((emp, idx) => (
+                          {paginateList(filteredNewEmployees).map((emp, idx) => (
                             <tr key={idx} className="hover:bg-gray-50">
                               <td className="px-4 py-3">
                                 <div className="font-medium text-gray-900">{emp.employee_name || 'N/A'}</div>
@@ -1002,6 +1013,16 @@ export default function PayrollReconciliationPage() {
                         </tfoot>
                       </table>
                     </div>
+                    {filteredNewEmployees.length > 0 && (
+                      <TablePagination
+                        currentPage={empPage}
+                        totalPages={Math.ceil(filteredNewEmployees.length / empPageSize)}
+                        totalItems={filteredNewEmployees.length}
+                        pageSize={empPageSize}
+                        onPageChange={setEmpPage}
+                        onPageSizeChange={(size) => { setEmpPageSize(size); setEmpPage(1); }}
+                      />
+                    )}
                   </>
                 )}
               </CardContent>
@@ -1041,7 +1062,7 @@ export default function PayrollReconciliationPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {filteredSeparatedEmployees.map((emp, idx) => (
+                          {paginateList(filteredSeparatedEmployees).map((emp, idx) => (
                             <tr key={idx} className="hover:bg-gray-50">
                               <td className="px-4 py-3">
                                 <div className="font-medium text-gray-900">{emp.employee_name || 'N/A'}</div>
@@ -1076,6 +1097,16 @@ export default function PayrollReconciliationPage() {
                         </tfoot>
                       </table>
                     </div>
+                    {filteredSeparatedEmployees.length > 0 && (
+                      <TablePagination
+                        currentPage={empPage}
+                        totalPages={Math.ceil(filteredSeparatedEmployees.length / empPageSize)}
+                        totalItems={filteredSeparatedEmployees.length}
+                        pageSize={empPageSize}
+                        onPageChange={setEmpPage}
+                        onPageSizeChange={(size) => { setEmpPageSize(size); setEmpPage(1); }}
+                      />
+                    )}
                   </>
                 )}
               </CardContent>
@@ -1121,7 +1152,7 @@ export default function PayrollReconciliationPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {filteredChangedEmployees.map((emp, idx) => {
+                          {paginateList(filteredChangedEmployees).map((emp, idx) => {
                             const isIncrease = (emp.net_diff || 0) > 0
                             return (
                               <tr key={idx} className="hover:bg-gray-50">
@@ -1186,6 +1217,16 @@ export default function PayrollReconciliationPage() {
                         </tfoot>
                       </table>
                     </div>
+                    {filteredChangedEmployees.length > 0 && (
+                      <TablePagination
+                        currentPage={empPage}
+                        totalPages={Math.ceil(filteredChangedEmployees.length / empPageSize)}
+                        totalItems={filteredChangedEmployees.length}
+                        pageSize={empPageSize}
+                        onPageChange={setEmpPage}
+                        onPageSizeChange={(size) => { setEmpPageSize(size); setEmpPage(1); }}
+                      />
+                    )}
                   </>
                 )}
               </CardContent>

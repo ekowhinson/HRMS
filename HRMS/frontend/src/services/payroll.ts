@@ -27,9 +27,12 @@ export const payrollService = {
     return response.data.results || response.data
   },
 
-  // Alias for getRuns
-  getPayrollRuns: async (periodId?: string): Promise<PaginatedResponse<PayrollRun>> => {
-    const params = periodId ? { payroll_period: periodId } : {}
+  // Alias for getRuns (paginated)
+  getPayrollRuns: async (periodId?: string, pagination?: { page?: number; page_size?: number }): Promise<PaginatedResponse<PayrollRun>> => {
+    const params: Record<string, any> = {}
+    if (periodId) params.payroll_period = periodId
+    if (pagination?.page) params.page = pagination.page
+    if (pagination?.page_size) params.page_size = pagination.page_size
     const response = await api.get('/payroll/runs/', { params })
     return response.data
   },
@@ -203,10 +206,13 @@ export const payrollService = {
   // Payroll Validation
   // ============================================
 
-  getValidations: async (periodId?: string): Promise<any[]> => {
-    const params = periodId ? { payroll_period: periodId } : {}
+  getValidations: async (periodId?: string, pagination?: { page?: number; page_size?: number }): Promise<any> => {
+    const params: Record<string, any> = {}
+    if (periodId) params.payroll_period = periodId
+    if (pagination?.page) params.page = pagination.page
+    if (pagination?.page_size) params.page_size = pagination.page_size
     const response = await api.get('/payroll/validations/', { params })
-    return response.data.results || response.data
+    return response.data
   },
 
   getValidation: async (id: string): Promise<any> => {

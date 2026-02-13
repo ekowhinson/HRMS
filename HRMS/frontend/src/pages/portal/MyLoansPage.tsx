@@ -45,7 +45,7 @@ function formatDate(dateStr: string | null) {
 export default function MyLoansPage() {
   const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
+  const [pageSize, setPageSize] = useState(10)
 
   const { data: loans = [], isLoading } = useQuery({
     queryKey: ['my-loans'],
@@ -129,6 +129,7 @@ export default function MyLoansPage() {
               totalItems={loans.length}
               pageSize={pageSize}
               onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
             />
           )}
         </CardContent>

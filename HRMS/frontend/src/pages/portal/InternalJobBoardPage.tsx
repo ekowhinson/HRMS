@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { recruitmentService } from '@/services/recruitment'
 import { Card, CardContent } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -97,6 +98,8 @@ function validateFile(file: File, allowedExts: string[]): string | null {
 export default function InternalJobBoardPage() {
   const [activeTab, setActiveTab] = useState('positions')
   const [search, setSearch] = useState('')
+  const [vacancyPage, setVacancyPage] = useState(1)
+  const [vacancyPageSize, setVacancyPageSize] = useState(10)
   const [applyModalOpen, setApplyModalOpen] = useState(false)
   const [selectedVacancy, setSelectedVacancy] = useState<InternalVacancy | null>(null)
   const [coverLetter, setCoverLetter] = useState('')
@@ -164,6 +167,13 @@ export default function InternalJobBoardPage() {
       v.location_name?.toLowerCase().includes(q)
     )
   })
+
+  // Reset page when search changes
+  useEffect(() => { setVacancyPage(1) }, [search])
+
+  const totalVacancyItems = filteredVacancies.length
+  const totalVacancyPages = Math.ceil(totalVacancyItems / vacancyPageSize)
+  const paginatedVacancies = filteredVacancies.slice((vacancyPage - 1) * vacancyPageSize, vacancyPage * vacancyPageSize)
 
   if (loadingVacancies || loadingApplications) {
     return (
@@ -234,7 +244,7 @@ export default function InternalJobBoardPage() {
 
           {filteredVacancies.length > 0 ? (
             <div className="space-y-4">
-              {filteredVacancies.map((vacancy) => {
+              {paginatedVacancies.map((vacancy) => {
                 const alreadyApplied = appliedVacancyIds.has(vacancy.id)
                 return (
                   <Card key={vacancy.id}>
@@ -312,6 +322,16 @@ export default function InternalJobBoardPage() {
                 />
               </CardContent>
             </Card>
+          )}
+          {totalVacancyPages > 1 && (
+            <TablePagination
+              currentPage={vacancyPage}
+              totalPages={totalVacancyPages}
+              totalItems={totalVacancyItems}
+              pageSize={vacancyPageSize}
+              onPageChange={setVacancyPage}
+              onPageSizeChange={(size) => { setVacancyPageSize(size); setVacancyPage(1); }}
+            />
           )}
         </TabsContent>
 

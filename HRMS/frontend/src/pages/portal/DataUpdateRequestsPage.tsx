@@ -14,6 +14,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import { Card } from '@/components/ui/Card'
+import { TablePagination } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
@@ -53,6 +54,8 @@ const DOCUMENT_TYPE_OPTIONS = [
 export default function DataUpdateRequestsPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<DataUpdateRequest | null>(null)
@@ -69,10 +72,13 @@ export default function DataUpdateRequestsPage() {
   })
 
   // Fetch my requests
-  const { data: requests = [], isLoading } = useQuery({
-    queryKey: ['my-data-update-requests'],
-    queryFn: dataUpdateService.getMyRequests,
+  const { data: requestsData, isLoading } = useQuery({
+    queryKey: ['my-data-update-requests', page, pageSize],
+    queryFn: () => dataUpdateService.getMyRequests({ page, page_size: pageSize }),
   })
+  const requests: DataUpdateRequest[] = requestsData?.results || (Array.isArray(requestsData) ? requestsData : [])
+  const totalItems = requestsData?.count || requests.length
+  const totalPages = Math.ceil(totalItems / pageSize)
 
   // Create mutation
   const createMutation = useMutation({
@@ -302,38 +308,50 @@ export default function DataUpdateRequestsPage() {
             <p className="text-sm text-gray-400 mt-1">Create a request to update your personal information</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {requests.map((request: DataUpdateRequest) => (
-              <div
-                key={request.id}
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                onClick={() => handleViewDetails(request)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-primary-50 rounded-lg">
-                      <PencilSquareIcon className="h-5 w-5 text-primary-600" />
+          <>
+            <div className="divide-y divide-gray-200">
+              {requests.map((request: DataUpdateRequest) => (
+                <div
+                  key={request.id}
+                  className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => handleViewDetails(request)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-primary-50 rounded-lg">
+                        <PencilSquareIcon className="h-5 w-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{request.request_type_display}</p>
+                        <p className="text-sm text-gray-500">{request.request_number}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{request.request_type_display}</p>
-                      <p className="text-sm text-gray-500">{request.request_number}</p>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <Badge variant={STATUS_COLORS[request.status]}>{request.status_display}</Badge>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(request.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <Badge variant={STATUS_COLORS[request.status]}>{request.status_display}</Badge>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(request.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
+                  {request.reason && (
+                    <p className="text-sm text-gray-600 mt-2 ml-12 line-clamp-1">{request.reason}</p>
+                  )}
                 </div>
-                {request.reason && (
-                  <p className="text-sm text-gray-600 mt-2 ml-12 line-clamp-1">{request.reason}</p>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <TablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+              />
+            )}
+          </>
         )}
       </Card>
 

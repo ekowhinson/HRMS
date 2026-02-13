@@ -76,6 +76,7 @@ export interface AnnouncementFilters {
   is_pinned?: boolean
   search?: string
   page?: number
+  page_size?: number
 }
 
 // ==================== Service ====================

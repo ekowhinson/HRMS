@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { TablePagination } from '@/components/ui/Table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -67,6 +68,8 @@ export default function ServiceRequestsPage() {
   const [feedbackRating, setFeedbackRating] = useState(0)
   const [feedbackText, setFeedbackText] = useState('')
   const [isUploadingDocument, setIsUploadingDocument] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [formData, setFormData] = useState({
     request_type: '',
     subject: '',
@@ -81,10 +84,13 @@ export default function ServiceRequestsPage() {
   })
 
   // Fetch my requests
-  const { data: requests = [], isLoading } = useQuery({
-    queryKey: ['my-service-requests'],
-    queryFn: serviceRequestService.getMyRequests,
+  const { data: requestsData, isLoading } = useQuery({
+    queryKey: ['my-service-requests', page, pageSize],
+    queryFn: () => serviceRequestService.getMyRequests({ page, page_size: pageSize }),
   })
+  const requests: ServiceRequest[] = requestsData?.results || (Array.isArray(requestsData) ? requestsData : [])
+  const totalItems = requestsData?.count || requests.length
+  const totalPages = Math.ceil(totalItems / pageSize)
 
   // Create mutation
   const createMutation = useMutation({
@@ -331,47 +337,59 @@ export default function ServiceRequestsPage() {
             <p className="text-sm text-gray-400 mt-1">Create a request to get HR support</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {requests.map((request: ServiceRequest) => (
-              <div
-                key={request.id}
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                onClick={() => handleViewDetails(request)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      {getStatusIcon(request.status)}
+          <>
+            <div className="divide-y divide-gray-200">
+              {requests.map((request: ServiceRequest) => (
+                <div
+                  key={request.id}
+                  className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => handleViewDetails(request)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-gray-100 rounded-lg">
+                        {getStatusIcon(request.status)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{request.subject}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm text-gray-500">{request.request_number}</span>
+                          <span className="text-gray-300">|</span>
+                          <span className="text-sm text-gray-500">{request.request_type_name}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{request.subject}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm text-gray-500">{request.request_number}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="text-sm text-gray-500">{request.request_type_name}</span>
+                    <div className="flex items-center gap-3">
+                      {request.sla_status && (
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${SLA_COLORS[request.sla_status]}`}>
+                          SLA: {request.sla_status}
+                        </span>
+                      )}
+                      <Badge variant={PRIORITY_COLORS[request.priority] || 'default'}>
+                        {request.priority}
+                      </Badge>
+                      <div className="text-right">
+                        <Badge variant={STATUS_COLORS[request.status]}>{request.status_display}</Badge>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(request.created_at).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {request.sla_status && (
-                      <span className={`px-2 py-1 text-xs font-medium rounded ${SLA_COLORS[request.sla_status]}`}>
-                        SLA: {request.sla_status}
-                      </span>
-                    )}
-                    <Badge variant={PRIORITY_COLORS[request.priority] || 'default'}>
-                      {request.priority}
-                    </Badge>
-                    <div className="text-right">
-                      <Badge variant={STATUS_COLORS[request.status]}>{request.status_display}</Badge>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(request.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <TablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+              />
+            )}
+          </>
         )}
       </Card>
 

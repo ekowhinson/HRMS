@@ -19,6 +19,8 @@ export interface PayComponentFilters {
   is_statutory?: boolean
   is_recurring?: boolean
   search?: string
+  page?: number
+  page_size?: number
 }
 
 export interface TransactionFilters {

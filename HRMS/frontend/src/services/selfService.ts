@@ -179,11 +179,11 @@ export const dataUpdateService = {
   },
 
   // Get my data update requests
-  getMyRequests: async () => {
-    const response = await api.get('/employees/data-updates/my_requests/')
+  getMyRequests: async (params?: { page?: number; page_size?: number }) => {
+    const response = await api.get('/employees/data-updates/my_requests/', { params })
     const data = response.data
     if (data?.success === false) throw new Error(data.error?.message || 'Failed to load data update requests')
-    return Array.isArray(data) ? data : (data?.results || [])
+    return data
   },
 
   // Get single request
@@ -284,11 +284,11 @@ export const serviceRequestService = {
   },
 
   // Get my service requests
-  getMyRequests: async () => {
-    const response = await api.get('/employees/service-requests/my_requests/')
+  getMyRequests: async (params?: { page?: number; page_size?: number }) => {
+    const response = await api.get('/employees/service-requests/my_requests/', { params })
     const data = response.data
     if (data?.success === false) throw new Error(data.error?.message || 'Failed to load service requests')
-    return Array.isArray(data) ? data : (data?.results || [])
+    return data
   },
 
   // Get single request

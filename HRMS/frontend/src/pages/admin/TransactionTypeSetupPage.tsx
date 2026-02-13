@@ -16,7 +16,7 @@ import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
-import Table from '@/components/ui/Table'
+import Table, { TablePagination } from '@/components/ui/Table'
 import { formatCurrency } from '@/lib/utils'
 import type { PayComponent, ComponentType, CalculationType, ComponentCategory } from '@/types'
 
@@ -196,6 +196,8 @@ function generatePercentageFormula(
 
 export default function TransactionTypeSetupPage() {
   const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [filters, setFilters] = useState({
     component_type: '',
     category: '',
@@ -233,16 +235,20 @@ export default function TransactionTypeSetupPage() {
   const [hoursPerMonth, setHoursPerMonth] = useState('176')
 
   const { data: componentsData, isLoading } = useQuery({
-    queryKey: ['pay-components', filters],
+    queryKey: ['pay-components', filters, page, pageSize],
     queryFn: () =>
       transactionsService.getPayComponents({
         component_type: filters.component_type || undefined,
         category: filters.category || undefined,
         is_active: filters.is_active ? filters.is_active === 'true' : undefined,
+        page,
+        page_size: pageSize,
       }),
   })
 
   const components = componentsData?.results || []
+  const totalItems = componentsData?.count || 0
+  const totalPages = Math.ceil(totalItems / pageSize)
 
   // Generate formula when calculation parameters change
   useEffect(() => {
@@ -609,19 +615,19 @@ export default function TransactionTypeSetupPage() {
           <div className="flex flex-wrap gap-4">
             <Select
               value={filters.component_type}
-              onChange={(e) => setFilters({ ...filters, component_type: e.target.value })}
+              onChange={(e) => { setFilters({ ...filters, component_type: e.target.value }); setPage(1); }}
               options={componentTypeOptions}
               className="w-40"
             />
             <Select
               value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+              onChange={(e) => { setFilters({ ...filters, category: e.target.value }); setPage(1); }}
               options={categoryFilterOptions}
               className="w-40"
             />
             <Select
               value={filters.is_active}
-              onChange={(e) => setFilters({ ...filters, is_active: e.target.value })}
+              onChange={(e) => { setFilters({ ...filters, is_active: e.target.value }); setPage(1); }}
               options={[
                 { value: '', label: 'All Status' },
                 { value: 'true', label: 'Active' },
@@ -641,6 +647,14 @@ export default function TransactionTypeSetupPage() {
             columns={columns}
             isLoading={isLoading}
             emptyMessage="No transaction types found"
+          />
+          <TablePagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
           />
         </CardContent>
       </Card>

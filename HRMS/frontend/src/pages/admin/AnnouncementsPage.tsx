@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import Textarea from '@/components/ui/Textarea'
 import Select from '@/components/ui/Select'
+import { TablePagination } from '@/components/ui/Table'
 import { announcementsService, type Announcement, type AnnouncementPriority } from '@/services/announcements'
 
 const priorityColors: Record<string, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
@@ -27,6 +28,9 @@ export default function AnnouncementsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalItems, setTotalItems] = useState(0)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
@@ -40,10 +44,11 @@ export default function AnnouncementsPage() {
     requires_acknowledgement: false,
   })
   const [saving, setSaving] = useState(false)
+  const totalPages = Math.ceil(totalItems / pageSize)
 
   useEffect(() => {
     loadAnnouncements()
-  }, [statusFilter])
+  }, [statusFilter, page, pageSize])
 
   const loadAnnouncements = async () => {
     setLoading(true)
@@ -51,8 +56,11 @@ export default function AnnouncementsPage() {
       const data = await announcementsService.getAnnouncements({
         status: statusFilter || undefined,
         search: search || undefined,
+        page,
+        page_size: pageSize,
       })
       setAnnouncements(data.results || [])
+      setTotalItems(data.count || 0)
     } catch (error) {
       console.error('Error loading announcements:', error)
     } finally {
@@ -61,6 +69,7 @@ export default function AnnouncementsPage() {
   }
 
   const handleSearch = () => {
+    setPage(1)
     loadAnnouncements()
   }
 
@@ -142,7 +151,7 @@ export default function AnnouncementsPage() {
             />
             <Select
               value={statusFilter}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setStatusFilter(e.target.value); setPage(1); }}
               className="w-40"
               options={[
                 { value: '', label: 'All Status' },
@@ -238,6 +247,15 @@ export default function AnnouncementsPage() {
           ))
         )}
       </div>
+
+      <TablePagination
+        currentPage={page}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+      />
 
       {/* Create Modal */}
       <Modal

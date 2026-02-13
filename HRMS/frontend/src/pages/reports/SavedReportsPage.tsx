@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -25,6 +25,7 @@ import {
   Skeleton,
 } from '@/components/ui'
 import { DropdownMenu } from '@/components/ui/Dropdown'
+import { TablePagination } from '@/components/ui/Table'
 import reportBuilderService, { type ReportDefinition } from '@/services/reportBuilder'
 
 type ViewFilter = 'all' | 'mine' | 'public'
@@ -36,6 +37,8 @@ export default function SavedReportsPage() {
   const [search, setSearch] = useState('')
   const [viewFilter, setViewFilter] = useState<ViewFilter>('all')
   const [deleteTarget, setDeleteTarget] = useState<ReportDefinition | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(12)
 
   // ==================== Queries ====================
 
@@ -88,6 +91,14 @@ export default function SavedReportsPage() {
 
     return result
   }, [reports, search, viewFilter])
+
+  // ==================== Pagination ====================
+
+  useEffect(() => { setPage(1) }, [search, viewFilter])
+
+  const totalReportItems = filteredReports.length
+  const totalReportPages = Math.ceil(totalReportItems / pageSize)
+  const paginatedReports = filteredReports.slice((page - 1) * pageSize, page * pageSize)
 
   // ==================== Helpers ====================
 
@@ -235,8 +246,9 @@ export default function SavedReportsPage() {
 
       {/* Report cards */}
       {!isLoading && filteredReports.length > 0 && (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredReports.map((report) => (
+          {paginatedReports.map((report) => (
             <Card
               key={report.id}
               hoverable
@@ -321,6 +333,17 @@ export default function SavedReportsPage() {
             </Card>
           ))}
         </div>
+        {totalReportPages > 1 && (
+          <TablePagination
+            currentPage={page}
+            totalPages={totalReportPages}
+            totalItems={totalReportItems}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+          />
+        )}
+        </>
       )}
 
       {/* Delete confirmation */}

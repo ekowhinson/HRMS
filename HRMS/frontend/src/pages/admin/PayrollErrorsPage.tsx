@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -12,6 +12,7 @@ import { payrollService } from '@/services/payroll'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Input from '@/components/ui/Input'
+import { TablePagination } from '@/components/ui/Table'
 import { formatCurrency } from '@/lib/utils'
 import type { PayrollItem } from '@/types'
 
@@ -21,6 +22,8 @@ export default function PayrollErrorsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [sortField, setSortField] = useState<'employee_number' | 'employee_name' | 'department_name' | 'basic_salary'>('employee_number')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
   const { data: run } = useQuery({
     queryKey: ['payroll-run', runId],
@@ -58,6 +61,13 @@ export default function PayrollErrorsPage() {
     })
     return items
   }, [errorItems, search, sortField, sortDir])
+
+  const totalItems = filteredItems.length
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const paginatedItems = filteredItems.slice((page - 1) * pageSize, page * pageSize)
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1) }, [search, sortField, sortDir])
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -170,7 +180,7 @@ export default function PayrollErrorsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredItems.map((item: PayrollItem) => (
+                  {paginatedItems.map((item: PayrollItem) => (
                     <ItemRow
                       key={item.id}
                       item={item}
@@ -181,6 +191,16 @@ export default function PayrollErrorsPage() {
                 </tbody>
               </table>
             </div>
+          )}
+          {totalItems > 0 && (
+            <TablePagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            />
           )}
         </CardContent>
       </Card>
