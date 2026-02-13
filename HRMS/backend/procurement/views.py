@@ -11,13 +11,17 @@ from .models import (
     PurchaseRequisition, RequisitionItem,
     PurchaseOrder, PurchaseOrderItem,
     GoodsReceiptNote, GRNItem,
-    Contract, ContractMilestone
+    Contract, ContractMilestone,
+    RequestForQuotation, RFQVendor, RFQItem,
+    VendorScorecard, VendorBlacklist
 )
 from .serializers import (
     PurchaseRequisitionSerializer, RequisitionItemSerializer,
     PurchaseOrderSerializer, PurchaseOrderItemSerializer,
     GoodsReceiptNoteSerializer, GRNItemSerializer,
-    ContractSerializer, ContractMilestoneSerializer
+    ContractSerializer, ContractMilestoneSerializer,
+    RequestForQuotationSerializer, RFQVendorSerializer, RFQItemSerializer,
+    VendorScorecardSerializer, VendorBlacklistSerializer
 )
 
 
@@ -220,3 +224,119 @@ class ContractMilestoneViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return ContractMilestone.objects.select_related('contract__vendor')
+
+
+# ---- RFQ ViewSets ----
+
+class RequestForQuotationViewSet(viewsets.ModelViewSet):
+    serializer_class = RequestForQuotationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'requisition']
+    search_fields = ['rfq_number', 'notes']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return RequestForQuotation.objects.select_related(
+            'requisition'
+        ).prefetch_related('items', 'vendors__vendor')
+
+    def perform_create(self, serializer):
+        from .services import _generate_rfq_number
+        tenant = getattr(self.request, 'tenant', None)
+        number = _generate_rfq_number(tenant=tenant)
+        serializer.save(rfq_number=number)
+
+    @action(detail=True, methods=['post'])
+    def send(self, request, pk=None):
+        rfq = self.get_object()
+        if rfq.status != RequestForQuotation.Status.DRAFT:
+            return Response({'error': 'Only draft RFQs can be sent'}, status=status.HTTP_400_BAD_REQUEST)
+        if not rfq.vendors.exists():
+            return Response({'error': 'Add at least one vendor before sending'}, status=status.HTTP_400_BAD_REQUEST)
+        rfq.status = RequestForQuotation.Status.SENT
+        rfq.save(update_fields=['status', 'updated_at'])
+        # Mark invited_at for all vendors
+        from django.utils import timezone as tz
+        rfq.vendors.filter(invited_at__isnull=True).update(invited_at=tz.now())
+        return Response(self.get_serializer(rfq).data)
+
+    @action(detail=True, methods=['post'])
+    def evaluate(self, request, pk=None):
+        rfq = self.get_object()
+        if rfq.status not in (RequestForQuotation.Status.SENT, RequestForQuotation.Status.RECEIVED):
+            return Response({'error': 'RFQ must be SENT or RECEIVED to evaluate'}, status=status.HTTP_400_BAD_REQUEST)
+        rfq.status = RequestForQuotation.Status.EVALUATED
+        rfq.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(rfq).data)
+
+    @action(detail=True, methods=['post'])
+    def award(self, request, pk=None):
+        rfq = self.get_object()
+        vendor_id = request.data.get('vendor_id')
+        if not vendor_id:
+            return Response({'error': 'vendor_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if rfq.status != RequestForQuotation.Status.EVALUATED:
+            return Response({'error': 'RFQ must be evaluated before awarding'}, status=status.HTTP_400_BAD_REQUEST)
+        rfq.status = RequestForQuotation.Status.AWARDED
+        rfq.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(rfq).data)
+
+    @action(detail=True, methods=['post'], url_path='convert-to-po')
+    def convert_to_po(self, request, pk=None):
+        """Convert an awarded RFQ to a Purchase Order."""
+        rfq = self.get_object()
+        vendor_id = request.data.get('vendor_id')
+        if rfq.status != RequestForQuotation.Status.AWARDED:
+            return Response({'error': 'Only awarded RFQs can be converted to PO'}, status=status.HTTP_400_BAD_REQUEST)
+        if not vendor_id:
+            return Response({'error': 'vendor_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from .services import convert_rfq_to_po
+            po = convert_rfq_to_po(rfq, vendor_id, request.user)
+            return Response({'po_number': po.po_number, 'po_id': str(po.pk)}, status=status.HTTP_201_CREATED)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RFQVendorViewSet(viewsets.ModelViewSet):
+    serializer_class = RFQVendorSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['rfq', 'vendor', 'response_received']
+
+    def get_queryset(self):
+        return RFQVendor.objects.select_related('vendor', 'rfq')
+
+
+class RFQItemViewSet(viewsets.ModelViewSet):
+    serializer_class = RFQItemSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['rfq']
+
+    def get_queryset(self):
+        return RFQItem.objects.select_related('rfq')
+
+
+# ---- Vendor Scorecard & Blacklist ----
+
+class VendorScorecardViewSet(viewsets.ModelViewSet):
+    serializer_class = VendorScorecardSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['vendor']
+    ordering = ['-period_end']
+
+    def get_queryset(self):
+        return VendorScorecard.objects.select_related('vendor')
+
+
+class VendorBlacklistViewSet(viewsets.ModelViewSet):
+    serializer_class = VendorBlacklistSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['vendor', 'is_active']
+
+    def get_queryset(self):
+        return VendorBlacklist.objects.select_related('vendor')

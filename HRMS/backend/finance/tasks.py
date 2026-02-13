@@ -643,3 +643,449 @@ def calculate_depreciation(self, fiscal_period_id, tenant_id=None):
         'total_depreciation': str(total_depreciation),
         'journal_entry': entry_number,
     }
+
+
+# ========================================================================
+#  TASK 3: Generate Recurring Journal Entries
+# ========================================================================
+
+@shared_task(bind=True, queue='finance', max_retries=2, default_retry_delay=60)
+def generate_recurring_journals(self, recurring_id=None):
+    """
+    Find due RecurringJournal entries and create new JournalEntries from their templates.
+    If recurring_id is provided, only process that specific recurring journal.
+    """
+    from finance.models import RecurringJournal, JournalEntry, JournalLine, FiscalPeriod
+    from dateutil.relativedelta import relativedelta
+
+    today = timezone.now().date()
+    logger.info(f"Generating recurring journals (as of {today})")
+
+    qs = RecurringJournal.all_objects.filter(is_active=True, next_run_date__lte=today)
+    if recurring_id:
+        qs = qs.filter(pk=recurring_id)
+
+    generated = []
+
+    for rj in qs.select_related('source_entry'):
+        tenant = rj.tenant
+        # Check end date
+        if rj.end_date and today > rj.end_date:
+            rj.is_active = False
+            rj.save(update_fields=['is_active', 'updated_at'])
+            continue
+
+        source = rj.source_entry
+        source_lines = JournalLine.all_objects.filter(journal_entry=source)
+
+        # Find fiscal period for the journal date
+        fiscal_period = (
+            FiscalPeriod.all_objects
+            .filter(start_date__lte=rj.next_run_date, end_date__gte=rj.next_run_date, is_closed=False)
+            .first()
+        )
+        if not fiscal_period:
+            logger.warning(f"No open fiscal period for recurring journal {rj.template_name} on {rj.next_run_date}")
+            continue
+
+        with transaction.atomic():
+            entry_number = _generate_entry_number('JV-REC', tenant=tenant)
+            new_entry = JournalEntry(
+                tenant=tenant,
+                entry_number=entry_number,
+                journal_date=rj.next_run_date,
+                fiscal_period=fiscal_period,
+                description=f"Recurring: {rj.template_name}",
+                source='RECURRING',
+                source_reference=rj.template_name,
+                status=JournalEntry.EntryStatus.POSTED,
+                total_debit=source.total_debit,
+                total_credit=source.total_credit,
+                posted_at=timezone.now(),
+            )
+            new_entry.save()
+
+            new_lines = []
+            for line in source_lines:
+                new_lines.append(JournalLine(
+                    tenant=tenant,
+                    journal_entry=new_entry,
+                    account=line.account,
+                    description=line.description,
+                    debit_amount=line.debit_amount,
+                    credit_amount=line.credit_amount,
+                    cost_center=line.cost_center,
+                    department=line.department,
+                    project=line.project,
+                ))
+            JournalLine.objects.bulk_create(new_lines)
+
+            # Advance next_run_date
+            freq = rj.frequency
+            if freq == RecurringJournal.Frequency.MONTHLY:
+                rj.next_run_date += relativedelta(months=1)
+            elif freq == RecurringJournal.Frequency.QUARTERLY:
+                rj.next_run_date += relativedelta(months=3)
+            elif freq == RecurringJournal.Frequency.SEMI_ANNUAL:
+                rj.next_run_date += relativedelta(months=6)
+            elif freq == RecurringJournal.Frequency.ANNUAL:
+                rj.next_run_date += relativedelta(years=1)
+
+            rj.last_generated = timezone.now()
+            rj.save(update_fields=['next_run_date', 'last_generated', 'updated_at'])
+            generated.append(entry_number)
+
+    logger.info(f"Generated {len(generated)} recurring journal entries")
+    return {'status': 'success', 'generated': generated, 'count': len(generated)}
+
+
+# ========================================================================
+#  TASK 4: GL Integration Tasks for Other Modules
+# ========================================================================
+
+@shared_task(bind=True, queue='finance', max_retries=2, default_retry_delay=60)
+def post_loan_disbursement_to_gl(self, loan_id, tenant_id=None):
+    """Debit Loan Receivable, Credit Bank/Cash on loan disbursement."""
+    from finance.models import JournalEntry, JournalLine, FiscalPeriod
+    from benefits.models import Loan
+
+    loan = Loan.all_objects.get(pk=loan_id)
+    tenant = loan.tenant
+
+    today = timezone.now().date()
+    fiscal_period = FiscalPeriod.all_objects.filter(
+        start_date__lte=today, end_date__gte=today, is_closed=False
+    ).first()
+    if not fiscal_period:
+        return {'status': 'error', 'message': 'No open fiscal period'}
+
+    loan_receivable = _lookup_account('1260', tenant=tenant)  # Loan Receivable
+    bank_account = _lookup_account('1100', tenant=tenant)  # Bank/Cash
+
+    if not loan_receivable or not bank_account:
+        return {'status': 'error', 'message': 'GL accounts not configured for loans'}
+
+    with transaction.atomic():
+        entry_number = _generate_entry_number('JV-LN', tenant=tenant)
+        entry = JournalEntry(
+            tenant=tenant, entry_number=entry_number, journal_date=today,
+            fiscal_period=fiscal_period,
+            description=f"Loan disbursement - {loan.employee if hasattr(loan, 'employee') else loan_id}",
+            source='LOAN', source_reference=str(loan_id),
+            status=JournalEntry.EntryStatus.POSTED,
+            total_debit=loan.amount, total_credit=loan.amount,
+            posted_at=timezone.now(),
+        )
+        entry.save()
+        JournalLine.objects.bulk_create([
+            JournalLine(tenant=tenant, journal_entry=entry, account=loan_receivable,
+                        description='Loan receivable', debit_amount=loan.amount, credit_amount=Decimal('0.00')),
+            JournalLine(tenant=tenant, journal_entry=entry, account=bank_account,
+                        description='Bank disbursement', debit_amount=Decimal('0.00'), credit_amount=loan.amount),
+        ])
+
+    return {'status': 'success', 'journal_entry': entry_number}
+
+
+@shared_task(bind=True, queue='finance', max_retries=2, default_retry_delay=60)
+def post_benefit_claim_to_gl(self, claim_id, tenant_id=None):
+    """Debit Benefit Expense, Credit AP/Bank on benefit claim."""
+    from finance.models import JournalEntry, JournalLine, FiscalPeriod
+    from benefits.models import BenefitClaim
+
+    claim = BenefitClaim.all_objects.get(pk=claim_id)
+    tenant = claim.tenant
+
+    today = timezone.now().date()
+    fiscal_period = FiscalPeriod.all_objects.filter(
+        start_date__lte=today, end_date__gte=today, is_closed=False
+    ).first()
+    if not fiscal_period:
+        return {'status': 'error', 'message': 'No open fiscal period'}
+
+    benefit_expense = _lookup_account('5200', tenant=tenant)
+    ap_account = _lookup_account('2100', tenant=tenant)
+
+    if not benefit_expense or not ap_account:
+        return {'status': 'error', 'message': 'GL accounts not configured for benefits'}
+
+    with transaction.atomic():
+        entry_number = _generate_entry_number('JV-BEN', tenant=tenant)
+        entry = JournalEntry(
+            tenant=tenant, entry_number=entry_number, journal_date=today,
+            fiscal_period=fiscal_period,
+            description=f"Benefit claim - {claim_id}",
+            source='BENEFIT', source_reference=str(claim_id),
+            status=JournalEntry.EntryStatus.POSTED,
+            total_debit=claim.amount, total_credit=claim.amount,
+            posted_at=timezone.now(),
+        )
+        entry.save()
+        JournalLine.objects.bulk_create([
+            JournalLine(tenant=tenant, journal_entry=entry, account=benefit_expense,
+                        description='Benefit expense', debit_amount=claim.amount, credit_amount=Decimal('0.00')),
+            JournalLine(tenant=tenant, journal_entry=entry, account=ap_account,
+                        description='Accounts payable', debit_amount=Decimal('0.00'), credit_amount=claim.amount),
+        ])
+
+    return {'status': 'success', 'journal_entry': entry_number}
+
+
+@shared_task(bind=True, queue='finance', max_retries=2, default_retry_delay=60)
+def post_inventory_movement_to_gl(self, stock_entry_id, tenant_id=None):
+    """Debit/Credit Inventory + COGS accounts based on stock entry type."""
+    from finance.models import JournalEntry, JournalLine, FiscalPeriod
+    from inventory.models import StockEntry
+
+    entry = StockEntry.all_objects.get(pk=stock_entry_id)
+    tenant = entry.tenant
+
+    today = timezone.now().date()
+    fiscal_period = FiscalPeriod.all_objects.filter(
+        start_date__lte=today, end_date__gte=today, is_closed=False
+    ).first()
+    if not fiscal_period:
+        return {'status': 'error', 'message': 'No open fiscal period'}
+
+    inventory_account = _lookup_account('1200', tenant=tenant)
+    cogs_account = _lookup_account('5300', tenant=tenant)
+
+    if not inventory_account or not cogs_account:
+        return {'status': 'error', 'message': 'GL accounts not configured for inventory'}
+
+    amount = entry.total_cost or (entry.quantity * (entry.unit_cost or Decimal('0.00')))
+
+    with transaction.atomic():
+        je_number = _generate_entry_number('JV-INV', tenant=tenant)
+        je = JournalEntry(
+            tenant=tenant, entry_number=je_number, journal_date=today,
+            fiscal_period=fiscal_period,
+            description=f"Stock {entry.entry_type} - {entry.reference_number or stock_entry_id}",
+            source='INVENTORY', source_reference=str(stock_entry_id),
+            status=JournalEntry.EntryStatus.POSTED,
+            total_debit=amount, total_credit=amount,
+            posted_at=timezone.now(),
+        )
+        je.save()
+
+        if entry.entry_type == StockEntry.EntryType.RECEIPT:
+            # Debit Inventory, Credit AP/GRN clearing
+            JournalLine.objects.bulk_create([
+                JournalLine(tenant=tenant, journal_entry=je, account=inventory_account,
+                            description='Inventory receipt', debit_amount=amount, credit_amount=Decimal('0.00')),
+                JournalLine(tenant=tenant, journal_entry=je, account=cogs_account,
+                            description='GRN clearing', debit_amount=Decimal('0.00'), credit_amount=amount),
+            ])
+        elif entry.entry_type == StockEntry.EntryType.ISSUE:
+            # Debit COGS, Credit Inventory
+            JournalLine.objects.bulk_create([
+                JournalLine(tenant=tenant, journal_entry=je, account=cogs_account,
+                            description='Cost of goods issued', debit_amount=amount, credit_amount=Decimal('0.00')),
+                JournalLine(tenant=tenant, journal_entry=je, account=inventory_account,
+                            description='Inventory issue', debit_amount=Decimal('0.00'), credit_amount=amount),
+            ])
+        else:
+            # TRANSFER/ADJUSTMENT — debit and credit inventory at same account
+            JournalLine.objects.bulk_create([
+                JournalLine(tenant=tenant, journal_entry=je, account=inventory_account,
+                            description=f'Stock {entry.entry_type}', debit_amount=amount, credit_amount=Decimal('0.00')),
+                JournalLine(tenant=tenant, journal_entry=je, account=inventory_account,
+                            description=f'Stock {entry.entry_type}', debit_amount=Decimal('0.00'), credit_amount=amount),
+            ])
+
+    return {'status': 'success', 'journal_entry': je_number}
+
+
+@shared_task(bind=True, queue='finance', max_retries=2, default_retry_delay=60)
+def post_asset_disposal_to_gl(self, asset_disposal_id, tenant_id=None):
+    """Post asset disposal to GL — Debit Bank/Loss, Credit Asset + Accumulated Depr."""
+    from finance.models import JournalEntry, JournalLine, FiscalPeriod
+    from inventory.models import AssetDisposal
+
+    disposal = AssetDisposal.all_objects.select_related('asset').get(pk=asset_disposal_id)
+    tenant = disposal.tenant
+    asset = disposal.asset
+
+    today = timezone.now().date()
+    fiscal_period = FiscalPeriod.all_objects.filter(
+        start_date__lte=today, end_date__gte=today, is_closed=False
+    ).first()
+    if not fiscal_period:
+        return {'status': 'error', 'message': 'No open fiscal period'}
+
+    asset_account = _lookup_account('1200', tenant=tenant)
+    accum_depr_account = _lookup_account(DEFAULT_ACCOUNT_CODES['ACCUMULATED_DEPRECIATION'], tenant=tenant)
+    bank_account = _lookup_account('1100', tenant=tenant)
+    gain_loss_account = _lookup_account('4900', tenant=tenant) or _lookup_account('5900', tenant=tenant)
+
+    if not asset_account or not accum_depr_account:
+        return {'status': 'error', 'message': 'GL accounts not configured for asset disposal'}
+
+    proceeds = disposal.proceeds or Decimal('0.00')
+    book_value = disposal.book_value_at_disposal
+    gain_loss = proceeds - book_value
+
+    with transaction.atomic():
+        je_number = _generate_entry_number('JV-DSP', tenant=tenant)
+        total = asset.acquisition_cost
+        je = JournalEntry(
+            tenant=tenant, entry_number=je_number, journal_date=today,
+            fiscal_period=fiscal_period,
+            description=f"Asset disposal - {asset.asset_number}",
+            source='ASSET_DISPOSAL', source_reference=str(asset_disposal_id),
+            status=JournalEntry.EntryStatus.POSTED,
+            total_debit=total, total_credit=total,
+            posted_at=timezone.now(),
+        )
+        je.save()
+
+        lines = []
+        # Credit: Remove asset at cost
+        lines.append(JournalLine(
+            tenant=tenant, journal_entry=je, account=asset_account,
+            description=f'Remove asset {asset.asset_number}',
+            debit_amount=Decimal('0.00'), credit_amount=asset.acquisition_cost,
+        ))
+        # Debit: Remove accumulated depreciation
+        lines.append(JournalLine(
+            tenant=tenant, journal_entry=je, account=accum_depr_account,
+            description=f'Remove accumulated depreciation',
+            debit_amount=asset.accumulated_depreciation, credit_amount=Decimal('0.00'),
+        ))
+        # Debit: Proceeds received
+        if proceeds > Decimal('0.00') and bank_account:
+            lines.append(JournalLine(
+                tenant=tenant, journal_entry=je, account=bank_account,
+                description=f'Disposal proceeds',
+                debit_amount=proceeds, credit_amount=Decimal('0.00'),
+            ))
+        # Gain/Loss
+        if gain_loss_account and gain_loss != Decimal('0.00'):
+            if gain_loss > Decimal('0.00'):
+                lines.append(JournalLine(
+                    tenant=tenant, journal_entry=je, account=gain_loss_account,
+                    description='Gain on disposal',
+                    debit_amount=Decimal('0.00'), credit_amount=gain_loss,
+                ))
+            else:
+                lines.append(JournalLine(
+                    tenant=tenant, journal_entry=je, account=gain_loss_account,
+                    description='Loss on disposal',
+                    debit_amount=abs(gain_loss), credit_amount=Decimal('0.00'),
+                ))
+
+        JournalLine.objects.bulk_create(lines)
+
+        # Recalculate totals
+        total_debit = sum(l.debit_amount for l in lines)
+        total_credit = sum(l.credit_amount for l in lines)
+        je.total_debit = total_debit
+        je.total_credit = total_credit
+        je.save(update_fields=['total_debit', 'total_credit'])
+
+        disposal.journal_entry = je
+        disposal.save(update_fields=['journal_entry', 'updated_at'])
+
+    return {'status': 'success', 'journal_entry': je_number}
+
+
+@shared_task(bind=True, queue='finance', max_retries=2, default_retry_delay=60)
+def post_project_costs_to_gl(self, project_id, period_id=None, tenant_id=None):
+    """Debit WIP/Project Expense, Credit Accrued Payroll/AP."""
+    from finance.models import JournalEntry, JournalLine, FiscalPeriod
+    from projects.models import Project
+
+    project = Project.all_objects.get(pk=project_id)
+    tenant = project.tenant
+    amount = project.actual_cost or Decimal('0.00')
+
+    if amount <= Decimal('0.00'):
+        return {'status': 'skipped', 'message': 'No actual costs to post'}
+
+    today = timezone.now().date()
+    fiscal_period = FiscalPeriod.all_objects.filter(
+        start_date__lte=today, end_date__gte=today, is_closed=False
+    ).first()
+    if not fiscal_period:
+        return {'status': 'error', 'message': 'No open fiscal period'}
+
+    wip_account = _lookup_account('1300', tenant=tenant)
+    accrued_account = _lookup_account('2200', tenant=tenant)
+
+    if not wip_account or not accrued_account:
+        return {'status': 'error', 'message': 'GL accounts not configured for project costs'}
+
+    with transaction.atomic():
+        je_number = _generate_entry_number('JV-PRJ', tenant=tenant)
+        je = JournalEntry(
+            tenant=tenant, entry_number=je_number, journal_date=today,
+            fiscal_period=fiscal_period,
+            description=f"Project costs - {project.code}",
+            source='PROJECT', source_reference=project.code,
+            status=JournalEntry.EntryStatus.POSTED,
+            total_debit=amount, total_credit=amount,
+            posted_at=timezone.now(),
+        )
+        je.save()
+        JournalLine.objects.bulk_create([
+            JournalLine(tenant=tenant, journal_entry=je, account=wip_account,
+                        description=f'WIP - {project.code}', debit_amount=amount, credit_amount=Decimal('0.00'),
+                        project=project),
+            JournalLine(tenant=tenant, journal_entry=je, account=accrued_account,
+                        description=f'Accrued costs - {project.code}', debit_amount=Decimal('0.00'), credit_amount=amount,
+                        project=project),
+        ])
+
+    return {'status': 'success', 'journal_entry': je_number}
+
+
+@shared_task(bind=True, queue='finance', max_retries=2, default_retry_delay=60)
+def post_production_to_gl(self, work_order_id, tenant_id=None):
+    """Post manufacturing production cost to GL — Debit FG Inventory, Credit WIP."""
+    from finance.models import JournalEntry, JournalLine, FiscalPeriod
+
+    # Lazy import to avoid circular dependency
+    from manufacturing.models import WorkOrder
+
+    wo = WorkOrder.all_objects.get(pk=work_order_id)
+    tenant = wo.tenant
+    amount = wo.actual_cost or Decimal('0.00')
+
+    if amount <= Decimal('0.00'):
+        return {'status': 'skipped', 'message': 'No production cost to post'}
+
+    today = timezone.now().date()
+    fiscal_period = FiscalPeriod.all_objects.filter(
+        start_date__lte=today, end_date__gte=today, is_closed=False
+    ).first()
+    if not fiscal_period:
+        return {'status': 'error', 'message': 'No open fiscal period'}
+
+    fg_inventory = _lookup_account('1210', tenant=tenant)  # Finished Goods
+    wip_account = _lookup_account('1300', tenant=tenant)  # WIP
+
+    if not fg_inventory or not wip_account:
+        return {'status': 'error', 'message': 'GL accounts not configured for manufacturing'}
+
+    with transaction.atomic():
+        je_number = _generate_entry_number('JV-MFG', tenant=tenant)
+        je = JournalEntry(
+            tenant=tenant, entry_number=je_number, journal_date=today,
+            fiscal_period=fiscal_period,
+            description=f"Production cost - {wo.work_order_number}",
+            source='MANUFACTURING', source_reference=wo.work_order_number,
+            status=JournalEntry.EntryStatus.POSTED,
+            total_debit=amount, total_credit=amount,
+            posted_at=timezone.now(),
+        )
+        je.save()
+        JournalLine.objects.bulk_create([
+            JournalLine(tenant=tenant, journal_entry=je, account=fg_inventory,
+                        description=f'Finished goods - {wo.work_order_number}',
+                        debit_amount=amount, credit_amount=Decimal('0.00')),
+            JournalLine(tenant=tenant, journal_entry=je, account=wip_account,
+                        description=f'WIP relief - {wo.work_order_number}',
+                        debit_amount=Decimal('0.00'), credit_amount=amount),
+        ])
+
+    return {'status': 'success', 'journal_entry': je_number}

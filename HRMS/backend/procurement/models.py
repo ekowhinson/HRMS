@@ -222,3 +222,121 @@ class ContractMilestone(BaseModel):
 
     def __str__(self):
         return f"{self.contract.contract_number} - {self.description}"
+
+
+# =========================================================================
+# RFQ (Request for Quotation)
+# =========================================================================
+
+class RequestForQuotation(BaseModel):
+    """Request for quotation sent to vendors."""
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SENT = 'SENT', 'Sent'
+        RECEIVED = 'RECEIVED', 'Responses Received'
+        EVALUATED = 'EVALUATED', 'Evaluated'
+        AWARDED = 'AWARDED', 'Awarded'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    rfq_number = models.CharField(max_length=50, unique=True)
+    requisition = models.ForeignKey(
+        PurchaseRequisition, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='rfqs'
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    submission_deadline = models.DateTimeField(null=True, blank=True)
+    evaluation_criteria = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"RFQ {self.rfq_number}"
+
+
+class RFQVendor(BaseModel):
+    """Vendor invited to / responding to an RFQ."""
+    rfq = models.ForeignKey(RequestForQuotation, on_delete=models.CASCADE, related_name='vendors')
+    vendor = models.ForeignKey('finance.Vendor', on_delete=models.PROTECT, related_name='rfq_responses')
+    invited_at = models.DateTimeField(null=True, blank=True)
+    response_received = models.BooleanField(default=False)
+    quoted_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    delivery_days = models.PositiveIntegerField(null=True, blank=True)
+    score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-score']
+        unique_together = [('rfq', 'vendor')]
+
+    def __str__(self):
+        return f"{self.rfq.rfq_number} - {self.vendor}"
+
+
+class RFQItem(BaseModel):
+    """Item line on an RFQ."""
+    rfq = models.ForeignKey(RequestForQuotation, on_delete=models.CASCADE, related_name='items')
+    requisition_item = models.ForeignKey(
+        RequisitionItem, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='rfq_items'
+    )
+    description = models.CharField(max_length=500)
+    quantity = models.DecimalField(max_digits=12, decimal_places=2)
+    specifications = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.description} (Qty: {self.quantity})"
+
+
+# =========================================================================
+# Vendor Scorecard & Blacklist
+# =========================================================================
+
+class VendorScorecard(BaseModel):
+    """Periodic vendor performance evaluation."""
+    vendor = models.ForeignKey('finance.Vendor', on_delete=models.PROTECT, related_name='scorecards')
+    period_start = models.DateField()
+    period_end = models.DateField()
+    delivery_score = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text='0-100')
+    quality_score = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text='0-100')
+    price_score = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text='0-100')
+    compliance_score = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text='0-100')
+    overall_score = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text='0-100')
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-period_end']
+
+    def __str__(self):
+        return f"{self.vendor} — {self.period_start} to {self.period_end}: {self.overall_score}"
+
+    def save(self, *args, **kwargs):
+        # Auto-calculate overall score as average
+        scores = [self.delivery_score, self.quality_score, self.price_score, self.compliance_score]
+        non_zero = [s for s in scores if s > 0]
+        if non_zero:
+            self.overall_score = sum(non_zero) / len(non_zero)
+        super().save(*args, **kwargs)
+
+
+class VendorBlacklist(BaseModel):
+    """Vendor blacklist / suspension record."""
+    vendor = models.ForeignKey('finance.Vendor', on_delete=models.PROTECT, related_name='blacklist_records')
+    reason = models.TextField()
+    blacklisted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='vendor_blacklists'
+    )
+    blacklisted_at = models.DateTimeField(auto_now_add=True)
+    review_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-blacklisted_at']
+
+    def __str__(self):
+        return f"{self.vendor} — blacklisted {'(active)' if self.is_active else '(inactive)'}"

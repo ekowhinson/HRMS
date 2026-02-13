@@ -4,6 +4,7 @@ import logging
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
+from django.db import transaction
 from django.db.models import Sum, Q, F
 from django.utils import timezone
 
@@ -506,4 +507,179 @@ class FinancialStatementService:
                 'total_actual': total_actual,
                 'total_available': total_available,
             },
+        }
+
+    @staticmethod
+    def year_end_close(fiscal_year_id):
+        """
+        Perform year-end close:
+        1. Validate all periods are closed
+        2. Calculate net income (Revenue - Expenses)
+        3. Create closing JournalEntry (zero out revenue/expense to Retained Earnings)
+        4. Create opening balance JournalEntry for next year
+        5. Mark fiscal_year.is_closed = True
+        """
+        from .models import (
+            FiscalYear, FiscalPeriod, JournalEntry, JournalLine, Account
+        )
+        from finance.tasks import _generate_entry_number
+
+        fiscal_year = FiscalYear.all_objects.get(pk=fiscal_year_id)
+        tenant = fiscal_year.tenant
+
+        if fiscal_year.is_closed:
+            raise ValueError(f"Fiscal year {fiscal_year.name} is already closed.")
+
+        # 1. Validate all periods are closed
+        open_periods = FiscalPeriod.all_objects.filter(
+            fiscal_year=fiscal_year, is_closed=False
+        )
+        if open_periods.exists():
+            period_names = ', '.join(p.name for p in open_periods[:5])
+            raise ValueError(f"Cannot close year: open periods remain: {period_names}")
+
+        # 2. Calculate net income (Revenue - Expenses) for the fiscal year
+        income_data = JournalLine.objects.filter(
+            journal_entry__status='POSTED',
+            journal_entry__fiscal_period__fiscal_year=fiscal_year,
+        ).filter(
+            Q(account__account_type='REVENUE') | Q(account__account_type='EXPENSE')
+        ).values('account__account_type').annotate(
+            total_debit=Sum('debit_amount'),
+            total_credit=Sum('credit_amount'),
+        )
+
+        revenue_total = ZERO
+        expense_total = ZERO
+        for row in income_data:
+            debit = row['total_debit'] or ZERO
+            credit = row['total_credit'] or ZERO
+            if row['account__account_type'] == 'REVENUE':
+                revenue_total += (credit - debit)
+            elif row['account__account_type'] == 'EXPENSE':
+                expense_total += (debit - credit)
+
+        net_income = revenue_total - expense_total
+
+        # Find Retained Earnings account
+        retained_earnings = Account.all_objects.filter(
+            code__in=['3100', '3200'], account_type='EQUITY', is_active=True
+        )
+        if tenant:
+            retained_earnings = retained_earnings.filter(tenant=tenant)
+        retained_earnings = retained_earnings.first()
+
+        if not retained_earnings:
+            raise ValueError("Retained Earnings account (3100 or 3200) not found.")
+
+        # 3. Create closing journal entry
+        # Get the last period of the fiscal year
+        last_period = FiscalPeriod.all_objects.filter(
+            fiscal_year=fiscal_year
+        ).order_by('-period_number').first()
+
+        if not last_period:
+            raise ValueError("No fiscal periods found for this year.")
+
+        # Temporarily reopen last period for closing entry
+        last_period.is_closed = False
+        last_period.save(update_fields=['is_closed'])
+
+        with transaction.atomic():
+            # Get all revenue and expense account balances
+            account_balances = JournalLine.objects.filter(
+                journal_entry__status='POSTED',
+                journal_entry__fiscal_period__fiscal_year=fiscal_year,
+            ).filter(
+                Q(account__account_type='REVENUE') | Q(account__account_type='EXPENSE')
+            ).values(
+                'account__id', 'account__code', 'account__name', 'account__account_type'
+            ).annotate(
+                total_debit=Sum('debit_amount'),
+                total_credit=Sum('credit_amount'),
+            )
+
+            entry_number = _generate_entry_number('JV-CLS', tenant=tenant)
+            closing_entry = JournalEntry(
+                tenant=tenant,
+                entry_number=entry_number,
+                journal_date=fiscal_year.end_date,
+                fiscal_period=last_period,
+                description=f"Year-end closing entry - {fiscal_year.name}",
+                source='YEAR_END_CLOSE',
+                source_reference=fiscal_year.name,
+                status=JournalEntry.EntryStatus.POSTED,
+                posted_at=timezone.now(),
+            )
+            closing_entry.save()
+
+            closing_lines = []
+            total_debit = ZERO
+            total_credit = ZERO
+
+            for bal in account_balances:
+                debit = bal['total_debit'] or ZERO
+                credit = bal['total_credit'] or ZERO
+                account_id = bal['account__id']
+
+                if bal['account__account_type'] == 'REVENUE':
+                    # Revenue accounts have credit balances — debit to close
+                    balance = credit - debit
+                    if balance > ZERO:
+                        closing_lines.append(JournalLine(
+                            tenant=tenant, journal_entry=closing_entry,
+                            account_id=account_id,
+                            description=f"Close {bal['account__code']}",
+                            debit_amount=balance, credit_amount=ZERO,
+                        ))
+                        total_debit += balance
+                elif bal['account__account_type'] == 'EXPENSE':
+                    # Expense accounts have debit balances — credit to close
+                    balance = debit - credit
+                    if balance > ZERO:
+                        closing_lines.append(JournalLine(
+                            tenant=tenant, journal_entry=closing_entry,
+                            account_id=account_id,
+                            description=f"Close {bal['account__code']}",
+                            debit_amount=ZERO, credit_amount=balance,
+                        ))
+                        total_credit += balance
+
+            # Credit (or debit) Retained Earnings for net income
+            if net_income >= ZERO:
+                closing_lines.append(JournalLine(
+                    tenant=tenant, journal_entry=closing_entry,
+                    account=retained_earnings,
+                    description='Net income to Retained Earnings',
+                    debit_amount=ZERO, credit_amount=net_income,
+                ))
+                total_credit += net_income
+            else:
+                closing_lines.append(JournalLine(
+                    tenant=tenant, journal_entry=closing_entry,
+                    account=retained_earnings,
+                    description='Net loss to Retained Earnings',
+                    debit_amount=abs(net_income), credit_amount=ZERO,
+                ))
+                total_debit += abs(net_income)
+
+            JournalLine.objects.bulk_create(closing_lines)
+            closing_entry.total_debit = total_debit
+            closing_entry.total_credit = total_credit
+            closing_entry.save(update_fields=['total_debit', 'total_credit'])
+
+            # Re-close last period and close the fiscal year
+            last_period.is_closed = True
+            last_period.save(update_fields=['is_closed'])
+
+            fiscal_year.is_closed = True
+            fiscal_year.save(update_fields=['is_closed', 'updated_at'])
+
+        return {
+            'status': 'success',
+            'fiscal_year': fiscal_year.name,
+            'net_income': str(net_income),
+            'revenue': str(revenue_total),
+            'expenses': str(expense_total),
+            'closing_entry': entry_number,
         }

@@ -352,4 +352,93 @@ export const procurementService = {
   deleteMilestone: async (id: string): Promise<void> => {
     await api.delete(`/procurement/milestones/${id}/`)
   },
+
+  // ==================== RFQs ====================
+  getRFQs: async (filters: Record<string, any> = {}): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/procurement/rfqs/', { params: filters })
+    return response.data
+  },
+  getRFQ: async (id: string): Promise<any> => {
+    const response = await api.get(`/procurement/rfqs/${id}/`)
+    return response.data
+  },
+  createRFQ: async (data: any): Promise<any> => {
+    const response = await api.post('/procurement/rfqs/', data)
+    return response.data
+  },
+  updateRFQ: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/procurement/rfqs/${id}/`, data)
+    return response.data
+  },
+  deleteRFQ: async (id: string): Promise<void> => {
+    await api.delete(`/procurement/rfqs/${id}/`)
+  },
+  sendRFQ: async (id: string): Promise<any> => {
+    const response = await api.post(`/procurement/rfqs/${id}/send/`)
+    return response.data
+  },
+  evaluateRFQ: async (id: string): Promise<any> => {
+    const response = await api.post(`/procurement/rfqs/${id}/evaluate/`)
+    return response.data
+  },
+  awardRFQ: async (id: string, vendorId: string): Promise<any> => {
+    const response = await api.post(`/procurement/rfqs/${id}/award/`, { vendor_id: vendorId })
+    return response.data
+  },
+  convertRFQToPO: async (id: string, vendorId: string): Promise<any> => {
+    const response = await api.post(`/procurement/rfqs/${id}/convert-to-po/`, { vendor_id: vendorId })
+    return response.data
+  },
+
+  // ==================== RFQ Vendors ====================
+  getRFQVendors: async (rfqId: string): Promise<any[]> => {
+    const response = await api.get('/procurement/rfq-vendors/', { params: { rfq: rfqId } })
+    return response.data.results || response.data
+  },
+  createRFQVendor: async (data: any): Promise<any> => {
+    const response = await api.post('/procurement/rfq-vendors/', data)
+    return response.data
+  },
+  updateRFQVendor: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/procurement/rfq-vendors/${id}/`, data)
+    return response.data
+  },
+
+  // ==================== RFQ Items ====================
+  getRFQItems: async (rfqId: string): Promise<any[]> => {
+    const response = await api.get('/procurement/rfq-items/', { params: { rfq: rfqId } })
+    return response.data.results || response.data
+  },
+  createRFQItem: async (data: any): Promise<any> => {
+    const response = await api.post('/procurement/rfq-items/', data)
+    return response.data
+  },
+
+  // ==================== Vendor Scorecards ====================
+  getVendorScorecards: async (params?: Record<string, any>): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/procurement/vendor-scorecards/', { params })
+    return response.data
+  },
+  createVendorScorecard: async (data: any): Promise<any> => {
+    const response = await api.post('/procurement/vendor-scorecards/', data)
+    return response.data
+  },
+  updateVendorScorecard: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/procurement/vendor-scorecards/${id}/`, data)
+    return response.data
+  },
+
+  // ==================== Vendor Blacklist ====================
+  getVendorBlacklist: async (params?: Record<string, any>): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/procurement/vendor-blacklist/', { params })
+    return response.data
+  },
+  createVendorBlacklist: async (data: any): Promise<any> => {
+    const response = await api.post('/procurement/vendor-blacklist/', data)
+    return response.data
+  },
+  updateVendorBlacklist: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/procurement/vendor-blacklist/${id}/`, data)
+    return response.data
+  },
 }

@@ -5,7 +5,9 @@ from .models import (
     PurchaseRequisition, RequisitionItem,
     PurchaseOrder, PurchaseOrderItem,
     GoodsReceiptNote, GRNItem,
-    Contract, ContractMilestone
+    Contract, ContractMilestone,
+    RequestForQuotation, RFQVendor, RFQItem,
+    VendorScorecard, VendorBlacklist
 )
 
 
@@ -80,3 +82,56 @@ class ContractSerializer(serializers.ModelSerializer):
         model = Contract
         fields = '__all__'
         read_only_fields = ['id', 'signed_by', 'signed_at', 'created_at', 'updated_at']
+
+
+# ---- RFQ ----
+
+class RFQItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RFQItem
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class RFQVendorSerializer(serializers.ModelSerializer):
+    vendor_name = serializers.CharField(source='vendor.name', read_only=True, default=None)
+    vendor_code = serializers.CharField(source='vendor.code', read_only=True, default=None)
+
+    class Meta:
+        model = RFQVendor
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class RequestForQuotationSerializer(serializers.ModelSerializer):
+    items = RFQItemSerializer(many=True, read_only=True)
+    vendors = RFQVendorSerializer(many=True, read_only=True)
+    requisition_number = serializers.CharField(
+        source='requisition.requisition_number', read_only=True, default=None
+    )
+
+    class Meta:
+        model = RequestForQuotation
+        fields = '__all__'
+        read_only_fields = ['id', 'rfq_number', 'created_at', 'updated_at']
+
+
+# ---- Vendor Scorecard & Blacklist ----
+
+class VendorScorecardSerializer(serializers.ModelSerializer):
+    vendor_name = serializers.CharField(source='vendor.name', read_only=True, default=None)
+    vendor_code = serializers.CharField(source='vendor.code', read_only=True, default=None)
+
+    class Meta:
+        model = VendorScorecard
+        fields = '__all__'
+        read_only_fields = ['id', 'overall_score', 'created_at', 'updated_at']
+
+
+class VendorBlacklistSerializer(serializers.ModelSerializer):
+    vendor_name = serializers.CharField(source='vendor.name', read_only=True, default=None)
+
+    class Meta:
+        model = VendorBlacklist
+        fields = '__all__'
+        read_only_fields = ['id', 'blacklisted_at', 'created_at', 'updated_at']

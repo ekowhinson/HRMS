@@ -14,7 +14,8 @@ from .models import (
     Account, FiscalYear, FiscalPeriod, JournalEntry, JournalLine,
     Budget, BudgetCommitment, Vendor, VendorInvoice, Customer,
     CustomerInvoice, OrganizationBankAccount, Payment, BankStatement,
-    BankStatementLine, ExchangeRate
+    BankStatementLine, ExchangeRate, TaxType, CreditNote, DebitNote,
+    RecurringJournal
 )
 from .serializers import (
     AccountSerializer, FiscalYearSerializer, FiscalPeriodSerializer,
@@ -24,7 +25,8 @@ from .serializers import (
     CustomerSerializer, CustomerInvoiceSerializer,
     BankAccountSerializer, PaymentSerializer,
     BankStatementSerializer, BankStatementLineSerializer,
-    ExchangeRateSerializer
+    ExchangeRateSerializer, TaxTypeSerializer, CreditNoteSerializer,
+    DebitNoteSerializer, RecurringJournalSerializer
 )
 from .services import FinancialStatementService
 
@@ -307,3 +309,106 @@ class BudgetVsActualView(APIView):
         cc_id = request.query_params.get('cost_center')
         data = FinancialStatementService.generate_budget_vs_actual(fy_id, cc_id)
         return Response(data)
+
+
+# ---------------------------------------------------------------------------
+# Tax, Credit/Debit Note, Recurring Journal ViewSets
+# ---------------------------------------------------------------------------
+
+class TaxTypeViewSet(viewsets.ModelViewSet):
+    queryset = TaxType.objects.select_related('account').all()
+    serializer_class = TaxTypeSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_active', 'is_compound']
+    search_fields = ['code', 'name']
+
+
+class CreditNoteViewSet(viewsets.ModelViewSet):
+    serializer_class = CreditNoteSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'vendor_invoice', 'customer_invoice']
+    search_fields = ['credit_note_number', 'reason']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return CreditNote.objects.select_related(
+            'vendor_invoice', 'customer_invoice', 'journal_entry'
+        )
+
+    def perform_create(self, serializer):
+        from .tasks import _generate_entry_number
+        number = _generate_entry_number('CN')
+        serializer.save(credit_note_number=number)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        note = self.get_object()
+        if note.status != CreditNote.NoteStatus.DRAFT:
+            return Response({'error': 'Only draft notes can be approved'}, status=status.HTTP_400_BAD_REQUEST)
+        note.status = CreditNote.NoteStatus.APPROVED
+        note.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(note).data)
+
+
+class DebitNoteViewSet(viewsets.ModelViewSet):
+    serializer_class = DebitNoteSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'vendor_invoice', 'customer_invoice']
+    search_fields = ['debit_note_number', 'reason']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return DebitNote.objects.select_related(
+            'vendor_invoice', 'customer_invoice', 'journal_entry'
+        )
+
+    def perform_create(self, serializer):
+        from .tasks import _generate_entry_number
+        number = _generate_entry_number('DN')
+        serializer.save(debit_note_number=number)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        note = self.get_object()
+        if note.status != DebitNote.NoteStatus.DRAFT:
+            return Response({'error': 'Only draft notes can be approved'}, status=status.HTTP_400_BAD_REQUEST)
+        note.status = DebitNote.NoteStatus.APPROVED
+        note.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(note).data)
+
+
+class RecurringJournalViewSet(viewsets.ModelViewSet):
+    serializer_class = RecurringJournalSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['is_active', 'frequency']
+    ordering = ['next_run_date']
+
+    def get_queryset(self):
+        return RecurringJournal.objects.select_related('source_entry')
+
+    @action(detail=True, methods=['post'])
+    def generate_now(self, request, pk=None):
+        """Manually trigger generation of this recurring journal."""
+        from .tasks import generate_recurring_journals
+        rj = self.get_object()
+        result = generate_recurring_journals(recurring_id=str(rj.pk))
+        return Response(result)
+
+
+class YearEndCloseView(APIView):
+    """Year-end close process."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        fiscal_year_id = request.data.get('fiscal_year_id')
+        if not fiscal_year_id:
+            return Response({'error': 'fiscal_year_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = FinancialStatementService.year_end_close(fiscal_year_id)
+            return Response(result)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

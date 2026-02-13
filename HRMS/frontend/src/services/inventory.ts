@@ -469,4 +469,74 @@ export const inventoryService = {
     const response = await api.get('/inventory/maintenance-schedules/', { params: { asset: assetId, page_size: 200 } })
     return response.data.results || response.data
   },
+
+  // ==================== Asset Disposals ====================
+  getAssetDisposals: async (params?: Record<string, any>): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/inventory/asset-disposals/', { params })
+    return response.data
+  },
+  getAssetDisposal: async (id: string): Promise<any> => {
+    const response = await api.get(`/inventory/asset-disposals/${id}/`)
+    return response.data
+  },
+  createAssetDisposal: async (data: any): Promise<any> => {
+    const response = await api.post('/inventory/asset-disposals/', data)
+    return response.data
+  },
+  updateAssetDisposal: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/inventory/asset-disposals/${id}/`, data)
+    return response.data
+  },
+  submitAssetDisposal: async (id: string): Promise<any> => {
+    const response = await api.post(`/inventory/asset-disposals/${id}/submit/`)
+    return response.data
+  },
+  approveAssetDisposal: async (id: string): Promise<any> => {
+    const response = await api.post(`/inventory/asset-disposals/${id}/approve/`)
+    return response.data
+  },
+  rejectAssetDisposal: async (id: string, data: { reason: string }): Promise<any> => {
+    const response = await api.post(`/inventory/asset-disposals/${id}/reject/`, data)
+    return response.data
+  },
+
+  // ==================== Cycle Counts ====================
+  getCycleCounts: async (params?: Record<string, any>): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/inventory/cycle-counts/', { params })
+    return response.data
+  },
+  getCycleCount: async (id: string): Promise<any> => {
+    const response = await api.get(`/inventory/cycle-counts/${id}/`)
+    return response.data
+  },
+  createCycleCount: async (data: any): Promise<any> => {
+    const response = await api.post('/inventory/cycle-counts/', data)
+    return response.data
+  },
+  updateCycleCount: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/inventory/cycle-counts/${id}/`, data)
+    return response.data
+  },
+  startCycleCount: async (id: string): Promise<any> => {
+    const response = await api.post(`/inventory/cycle-counts/${id}/start/`)
+    return response.data
+  },
+  completeCycleCount: async (id: string): Promise<any> => {
+    const response = await api.post(`/inventory/cycle-counts/${id}/complete/`)
+    return response.data
+  },
+  approveCycleCount: async (id: string): Promise<any> => {
+    const response = await api.post(`/inventory/cycle-counts/${id}/approve/`)
+    return response.data
+  },
+  getCycleCountItems: async (id: string): Promise<any[]> => {
+    const response = await api.get(`/inventory/cycle-counts/${id}/items/`)
+    return response.data.results || response.data
+  },
+
+  // ==================== Cycle Count Items ====================
+  updateCycleCountItem: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/inventory/cycle-count-items/${id}/`, data)
+    return response.data
+  },
 }

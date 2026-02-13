@@ -7,6 +7,7 @@ from rest_framework import serializers
 from .models import (
     ItemCategory, Item, Warehouse, StockEntry, StockLedger,
     Asset, AssetDepreciation, AssetTransfer, MaintenanceSchedule,
+    AssetDisposal, CycleCount, CycleCountItem,
 )
 
 
@@ -211,3 +212,67 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class AssetDisposalSerializer(serializers.ModelSerializer):
+    """Serializer for AssetDisposal model."""
+    asset_number = serializers.CharField(source='asset.asset_number', read_only=True)
+    asset_name = serializers.CharField(source='asset.name', read_only=True)
+    disposal_type_display = serializers.CharField(source='get_disposal_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, allow_null=True)
+    journal_entry_number = serializers.CharField(source='journal_entry.entry_number', read_only=True, allow_null=True)
+
+    class Meta:
+        model = AssetDisposal
+        fields = [
+            'id', 'asset', 'asset_number', 'asset_name',
+            'disposal_type', 'disposal_type_display',
+            'disposal_date', 'proceeds', 'book_value_at_disposal', 'gain_loss',
+            'journal_entry', 'journal_entry_number',
+            'approved_by', 'approved_by_name',
+            'status', 'status_display', 'reason',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'gain_loss', 'book_value_at_disposal', 'approved_by', 'journal_entry', 'created_at', 'updated_at']
+
+
+class CycleCountItemSerializer(serializers.ModelSerializer):
+    """Serializer for CycleCountItem model."""
+    item_code = serializers.CharField(source='item.code', read_only=True)
+    item_name = serializers.CharField(source='item.name', read_only=True)
+
+    class Meta:
+        model = CycleCountItem
+        fields = [
+            'id', 'cycle_count', 'item', 'item_code', 'item_name',
+            'system_qty', 'counted_qty', 'variance',
+            'adjustment_entry',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'variance', 'adjustment_entry', 'created_at', 'updated_at']
+
+
+class CycleCountSerializer(serializers.ModelSerializer):
+    """Serializer for CycleCount model."""
+    warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
+    warehouse_code = serializers.CharField(source='warehouse.code', read_only=True)
+    counted_by_name = serializers.CharField(source='counted_by.full_name', read_only=True, allow_null=True)
+    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, allow_null=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    items_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CycleCount
+        fields = [
+            'id', 'warehouse', 'warehouse_name', 'warehouse_code',
+            'count_date', 'status', 'status_display',
+            'counted_by', 'counted_by_name',
+            'approved_by', 'approved_by_name',
+            'notes', 'items_count',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'approved_by', 'created_at', 'updated_at']
+
+    def get_items_count(self, obj):
+        return obj.items.count()

@@ -278,6 +278,14 @@ const financeSections: NavSection[] = [
       { name: 'Reconciliation', href: '/finance/reconciliation', icon: ArrowPathIcon },
     ],
   },
+  {
+    name: 'Tax & Adjustments',
+    icon: AdjustmentsHorizontalIcon,
+    items: [
+      { name: 'Tax Management', href: '/finance/tax-management', icon: AdjustmentsHorizontalIcon },
+      { name: 'Credit/Debit Notes', href: '/finance/credit-debit-notes', icon: DocumentTextIcon },
+    ],
+  },
 ];
 
 // Procurement Section - Top level items
@@ -286,6 +294,7 @@ const procurementNavigation: NavItem[] = [
   { name: 'Purchase Orders', href: '/procurement/purchase-orders', icon: DocumentTextIcon },
   { name: 'Goods Receipt', href: '/procurement/goods-receipt', icon: TruckIcon },
   { name: 'Contracts', href: '/procurement/contracts', icon: DocumentChartBarIcon },
+  { name: 'RFQ', href: '/procurement/rfq', icon: DocumentPlusIcon },
 ];
 
 // Inventory Section - Top level items
@@ -303,6 +312,7 @@ const inventorySections: NavSection[] = [
     items: [
       { name: 'Asset Register', href: '/inventory/assets', icon: RectangleGroupIcon },
       { name: 'Depreciation', href: '/inventory/depreciation', icon: ArrowTrendingUpIcon },
+      { name: 'Asset Disposals', href: '/inventory/asset-disposals', icon: DocumentArrowUpIcon },
     ],
   },
 ];
@@ -312,6 +322,15 @@ const projectsNavigation: NavItem[] = [
   { name: 'Projects', href: '/projects', icon: FolderIcon },
   { name: 'Timesheets', href: '/projects/timesheets', icon: ClockIcon },
   { name: 'Resources', href: '/projects/resources', icon: UserGroupIcon },
+];
+
+// Manufacturing Section - Top level items
+const manufacturingNavigation: NavItem[] = [
+  { name: 'Production Dashboard', href: '/manufacturing/dashboard', icon: PresentationChartBarIcon },
+  { name: 'Bill of Materials', href: '/manufacturing/bom', icon: ClipboardDocumentListIcon },
+  { name: 'Work Centers', href: '/manufacturing/work-centers', icon: BuildingOfficeIcon },
+  { name: 'Work Orders', href: '/manufacturing/work-orders', icon: ClipboardDocumentCheckIcon },
+  { name: 'Quality Control', href: '/manufacturing/quality', icon: ShieldCheckIcon },
 ];
 
 // Administration Section - Top level items
@@ -805,7 +824,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   };
 
   // Module-level collapse state — all modules open by default
-  const MODULE_NAMES = ['Self Service', 'HR', 'Payroll', 'Finance', 'Procurement', 'Inventory', 'Projects', 'Administration'] as const;
+  const MODULE_NAMES = ['Self Service', 'HR', 'Payroll', 'Finance', 'Procurement', 'Inventory', 'Projects', 'Manufacturing', 'Administration'] as const;
 
   const moduleNavMap = useMemo(() => ({
     'Self Service': selfServiceNavigation,
@@ -815,6 +834,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     'Procurement': procurementNavigation,
     'Inventory': [...inventoryNavigation, ...inventorySections.flatMap(s => s.items)],
     'Projects': projectsNavigation,
+    'Manufacturing': manufacturingNavigation,
     'Administration': [...adminNavigation, ...adminSections.flatMap(s => s.items)],
   }), []);
 
@@ -1058,6 +1078,30 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     item={item}
                     isActive={location.pathname === item.href ||
                       (item.href !== '/projects' && location.pathname.startsWith(item.href))}
+                    onClick={onLinkClick}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Manufacturing Section */}
+        {isHROrAdmin && isModuleEnabled('manufacturing') && (
+          <>
+            <SectionDivider label="Manufacturing" icon={<WrenchScrewdriverIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Manufacturing')} isOpen={openModules['Manufacturing']} />
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-200',
+                openModules['Manufacturing'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <div className="px-2 space-y-0.5">
+                {manufacturingNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    item={item}
+                    isActive={location.pathname === item.href || location.pathname.startsWith(item.href)}
                     onClick={onLinkClick}
                   />
                 ))}

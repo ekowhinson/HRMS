@@ -582,4 +582,84 @@ export const financeService = {
     const response = await api.get('/finance/financial-statements/balance_sheet/', { params })
     return response.data
   },
+
+  // ==================== Tax Types ====================
+  getTaxTypes: async (params?: Record<string, any>): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/finance/tax-types/', { params })
+    return response.data
+  },
+  createTaxType: async (data: any): Promise<any> => {
+    const response = await api.post('/finance/tax-types/', data)
+    return response.data
+  },
+  updateTaxType: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/finance/tax-types/${id}/`, data)
+    return response.data
+  },
+  deleteTaxType: async (id: string): Promise<void> => {
+    await api.delete(`/finance/tax-types/${id}/`)
+  },
+
+  // ==================== Credit Notes ====================
+  getCreditNotes: async (params?: Record<string, any>): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/finance/credit-notes/', { params })
+    return response.data
+  },
+  createCreditNote: async (data: any): Promise<any> => {
+    const response = await api.post('/finance/credit-notes/', data)
+    return response.data
+  },
+  updateCreditNote: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/finance/credit-notes/${id}/`, data)
+    return response.data
+  },
+  approveCreditNote: async (id: string): Promise<any> => {
+    const response = await api.post(`/finance/credit-notes/${id}/approve/`)
+    return response.data
+  },
+
+  // ==================== Debit Notes ====================
+  getDebitNotes: async (params?: Record<string, any>): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/finance/debit-notes/', { params })
+    return response.data
+  },
+  createDebitNote: async (data: any): Promise<any> => {
+    const response = await api.post('/finance/debit-notes/', data)
+    return response.data
+  },
+  updateDebitNote: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/finance/debit-notes/${id}/`, data)
+    return response.data
+  },
+  approveDebitNote: async (id: string): Promise<any> => {
+    const response = await api.post(`/finance/debit-notes/${id}/approve/`)
+    return response.data
+  },
+
+  // ==================== Recurring Journals ====================
+  getRecurringJournals: async (params?: Record<string, any>): Promise<PaginatedResponse<any>> => {
+    const response = await api.get('/finance/recurring-journals/', { params })
+    return response.data
+  },
+  createRecurringJournal: async (data: any): Promise<any> => {
+    const response = await api.post('/finance/recurring-journals/', data)
+    return response.data
+  },
+  updateRecurringJournal: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/finance/recurring-journals/${id}/`, data)
+    return response.data
+  },
+  deleteRecurringJournal: async (id: string): Promise<void> => {
+    await api.delete(`/finance/recurring-journals/${id}/`)
+  },
+  generateRecurringJournal: async (id: string): Promise<any> => {
+    const response = await api.post(`/finance/recurring-journals/${id}/generate_now/`)
+    return response.data
+  },
+
+  // ==================== Year-End Close ====================
+  yearEndClose: async (fiscalYearId: string): Promise<any> => {
+    const response = await api.post('/finance/year-end-close/', { fiscal_year_id: fiscalYearId })
+    return response.data
+  },
 }

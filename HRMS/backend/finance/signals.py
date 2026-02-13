@@ -337,3 +337,138 @@ def po_approved_create_budget_commitments(sender, instance, **kwargs):
                 po_item.description,
                 budget.id,
             )
+
+
+# ---------------------------------------------------------------------------
+# 5. Vendor Invoice approved -> GL posting (Debit Expense, Credit AP)
+# ---------------------------------------------------------------------------
+
+@receiver(post_save, sender='finance.VendorInvoice')
+def vendor_invoice_approved_post_to_ap(sender, instance, **kwargs):
+    """When a VendorInvoice status changes to APPROVED, create a JournalEntry."""
+    if instance.status != 'APPROVED':
+        return
+
+    from finance.models import JournalEntry, JournalLine, Account
+
+    # Avoid duplicate GL postings
+    existing = JournalEntry.objects.filter(
+        source='VENDOR_INVOICE',
+        source_reference=instance.invoice_number,
+    ).exists()
+    if existing:
+        return
+
+    try:
+        from finance.tasks import _generate_entry_number, _resolve_account
+
+        with transaction.atomic():
+            entry_number = _generate_entry_number('AP')
+            je = JournalEntry.objects.create(
+                entry_number=entry_number,
+                journal_date=instance.invoice_date or timezone.now().date(),
+                description=f"Vendor invoice {instance.invoice_number} - {instance.vendor.name if instance.vendor else ''}",
+                status='POSTED',
+                source='VENDOR_INVOICE',
+                source_reference=instance.invoice_number,
+            )
+
+            expense_account = _resolve_account('5100', 'COGS / Purchase Expense')
+            ap_account = _resolve_account('2100', 'Accounts Payable')
+
+            amount = instance.total_amount or Decimal('0')
+            if amount > 0:
+                JournalLine.objects.create(
+                    journal_entry=je,
+                    account=expense_account,
+                    description=f"Expense for invoice {instance.invoice_number}",
+                    debit_amount=amount,
+                    credit_amount=Decimal('0'),
+                )
+                JournalLine.objects.create(
+                    journal_entry=je,
+                    account=ap_account,
+                    description=f"AP for invoice {instance.invoice_number}",
+                    debit_amount=Decimal('0'),
+                    credit_amount=amount,
+                )
+
+            logger.info("GL posted for vendor invoice %s: entry %s", instance.invoice_number, entry_number)
+    except Exception:
+        logger.exception("Failed to post GL for vendor invoice %s", instance.invoice_number)
+
+
+# ---------------------------------------------------------------------------
+# 6. Customer Invoice sent -> GL posting (Debit AR, Credit Revenue)
+# ---------------------------------------------------------------------------
+
+@receiver(post_save, sender='finance.CustomerInvoice')
+def customer_invoice_sent_post_to_ar(sender, instance, **kwargs):
+    """When a CustomerInvoice status changes to SENT, create a JournalEntry."""
+    if instance.status != 'SENT':
+        return
+
+    from finance.models import JournalEntry, JournalLine
+
+    existing = JournalEntry.objects.filter(
+        source='CUSTOMER_INVOICE',
+        source_reference=instance.invoice_number,
+    ).exists()
+    if existing:
+        return
+
+    try:
+        from finance.tasks import _generate_entry_number, _resolve_account
+
+        with transaction.atomic():
+            entry_number = _generate_entry_number('AR')
+            je = JournalEntry.objects.create(
+                entry_number=entry_number,
+                journal_date=instance.invoice_date or timezone.now().date(),
+                description=f"Customer invoice {instance.invoice_number}",
+                status='POSTED',
+                source='CUSTOMER_INVOICE',
+                source_reference=instance.invoice_number,
+            )
+
+            ar_account = _resolve_account('1200', 'Accounts Receivable')
+            revenue_account = _resolve_account('4100', 'Revenue')
+
+            amount = instance.total_amount or Decimal('0')
+            if amount > 0:
+                JournalLine.objects.create(
+                    journal_entry=je,
+                    account=ar_account,
+                    description=f"AR for invoice {instance.invoice_number}",
+                    debit_amount=amount,
+                    credit_amount=Decimal('0'),
+                )
+                JournalLine.objects.create(
+                    journal_entry=je,
+                    account=revenue_account,
+                    description=f"Revenue for invoice {instance.invoice_number}",
+                    debit_amount=Decimal('0'),
+                    credit_amount=amount,
+                )
+
+            logger.info("GL posted for customer invoice %s: entry %s", instance.invoice_number, entry_number)
+    except Exception:
+        logger.exception("Failed to post GL for customer invoice %s", instance.invoice_number)
+
+
+# ---------------------------------------------------------------------------
+# 7. Asset Disposal approved -> GL posting
+# ---------------------------------------------------------------------------
+
+@receiver(post_save, sender='inventory.AssetDisposal')
+def asset_disposal_approved_post_to_gl(sender, instance, **kwargs):
+    """When an AssetDisposal is APPROVED, trigger GL posting."""
+    if instance.status != 'APPROVED':
+        return
+
+    try:
+        from finance.tasks import post_asset_disposal_to_gl
+        post_asset_disposal_to_gl.delay(str(instance.pk))
+        logger.info("Triggered GL posting for asset disposal %s", instance.pk)
+    except Exception:
+        logger.exception("Failed to trigger GL posting for asset disposal %s", instance.pk)

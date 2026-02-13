@@ -248,3 +248,89 @@ def match_invoice_to_po_grn(vendor_invoice, tolerance_pct=Decimal('5.0')):
         'checks': checks,
         'discrepancies': discrepancies,
     }
+
+
+def _generate_rfq_number(tenant=None):
+    """Generate RFQ-YYYYMM-NNNN number."""
+    from procurement.models import RequestForQuotation
+
+    now = timezone.now()
+    base = f"RFQ-{now.year}{now.month:02d}"
+    qs = RequestForQuotation.all_objects.filter(rfq_number__startswith=base)
+    if tenant:
+        qs = qs.filter(tenant=tenant)
+    last = qs.order_by('-rfq_number').first()
+    if last:
+        try:
+            seq = int(last.rfq_number.rsplit('-', 1)[-1]) + 1
+        except (ValueError, IndexError):
+            seq = 1
+    else:
+        seq = 1
+    return f"{base}-{seq:04d}"
+
+
+def convert_rfq_to_po(rfq, vendor_id, created_by=None):
+    """
+    Convert an awarded RFQ to a Purchase Order using the winning vendor's quote.
+
+    Args:
+        rfq: RequestForQuotation instance (must be AWARDED)
+        vendor_id: UUID of the winning vendor
+        created_by: User creating the PO
+
+    Returns:
+        PurchaseOrder instance
+    """
+    from procurement.models import (
+        RequestForQuotation, PurchaseOrder, PurchaseOrderItem, RFQVendor,
+    )
+    from finance.models import Vendor
+
+    if rfq.status != RequestForQuotation.Status.AWARDED:
+        raise ValueError("RFQ must be AWARDED to convert to PO")
+
+    try:
+        rfq_vendor = rfq.vendors.get(vendor_id=vendor_id)
+    except RFQVendor.DoesNotExist:
+        raise ValueError("Vendor not found in this RFQ")
+
+    vendor = Vendor.objects.get(pk=vendor_id)
+
+    with transaction.atomic():
+        # Generate PO number
+        now = timezone.now()
+        prefix = f"PO-{now.year}{now.month:02d}"
+        last_po = PurchaseOrder.objects.filter(po_number__startswith=prefix).order_by('-po_number').first()
+        seq = 1
+        if last_po:
+            try:
+                seq = int(last_po.po_number.rsplit('-', 1)[-1]) + 1
+            except (ValueError, IndexError):
+                pass
+        po_number = f"{prefix}-{seq:04d}"
+
+        po = PurchaseOrder.objects.create(
+            po_number=po_number,
+            vendor=vendor,
+            requisition=rfq.requisition,
+            order_date=now.date(),
+            status=PurchaseOrder.Status.DRAFT,
+            total_amount=rfq_vendor.quoted_amount or Decimal('0'),
+            notes=f"Generated from RFQ {rfq.rfq_number}",
+        )
+
+        # Copy RFQ items as PO items
+        for rfq_item in rfq.items.all():
+            PurchaseOrderItem.objects.create(
+                purchase_order=po,
+                requisition_item=rfq_item.requisition_item,
+                description=rfq_item.description,
+                item=rfq_item.requisition_item.item if rfq_item.requisition_item else None,
+                quantity=rfq_item.quantity,
+                unit_price=Decimal('0'),
+            )
+
+        logger.info(f"Converted RFQ {rfq.rfq_number} to PO {po_number}")
+
+    return po

@@ -21,6 +21,10 @@ router.register(r'payments', views.PaymentViewSet, basename='payment')
 router.register(r'bank-statements', views.BankStatementViewSet, basename='bank-statement')
 router.register(r'bank-statement-lines', views.BankStatementLineViewSet, basename='bank-statement-line')
 router.register(r'exchange-rates', views.ExchangeRateViewSet, basename='exchange-rate')
+router.register(r'tax-types', views.TaxTypeViewSet, basename='tax-type')
+router.register(r'credit-notes', views.CreditNoteViewSet, basename='credit-note')
+router.register(r'debit-notes', views.DebitNoteViewSet, basename='debit-note')
+router.register(r'recurring-journals', views.RecurringJournalViewSet, basename='recurring-journal')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -32,4 +36,5 @@ urlpatterns = [
     path('reports/ap-aging/', views.APAgingView.as_view(), name='ap-aging'),
     path('reports/ar-aging/', views.ARAgingView.as_view(), name='ar-aging'),
     path('reports/budget-vs-actual/', views.BudgetVsActualView.as_view(), name='budget-vs-actual'),
+    path('year-end-close/', views.YearEndCloseView.as_view(), name='year-end-close'),
 ]

@@ -5,7 +5,8 @@ from .models import (
     Account, FiscalYear, FiscalPeriod, JournalEntry, JournalLine,
     Budget, BudgetCommitment, Vendor, VendorInvoice, Customer,
     CustomerInvoice, OrganizationBankAccount, Payment, BankStatement,
-    BankStatementLine, ExchangeRate
+    BankStatementLine, ExchangeRate, TaxType, TaxLine, CreditNote,
+    DebitNote, RecurringJournal
 )
 
 
@@ -170,3 +171,62 @@ class ExchangeRateSerializer(serializers.ModelSerializer):
         model = ExchangeRate
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class TaxTypeSerializer(serializers.ModelSerializer):
+    account_code = serializers.CharField(source='account.code', read_only=True)
+    account_name = serializers.CharField(source='account.name', read_only=True)
+
+    class Meta:
+        model = TaxType
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class TaxLineSerializer(serializers.ModelSerializer):
+    tax_type_code = serializers.CharField(source='tax_type.code', read_only=True)
+    tax_type_name = serializers.CharField(source='tax_type.name', read_only=True)
+
+    class Meta:
+        model = TaxLine
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class CreditNoteSerializer(serializers.ModelSerializer):
+    vendor_invoice_number = serializers.CharField(
+        source='vendor_invoice.invoice_number', read_only=True, default=None
+    )
+    customer_invoice_number = serializers.CharField(
+        source='customer_invoice.invoice_number', read_only=True, default=None
+    )
+
+    class Meta:
+        model = CreditNote
+        fields = '__all__'
+        read_only_fields = ['id', 'credit_note_number', 'journal_entry', 'created_at', 'updated_at']
+
+
+class DebitNoteSerializer(serializers.ModelSerializer):
+    vendor_invoice_number = serializers.CharField(
+        source='vendor_invoice.invoice_number', read_only=True, default=None
+    )
+    customer_invoice_number = serializers.CharField(
+        source='customer_invoice.invoice_number', read_only=True, default=None
+    )
+
+    class Meta:
+        model = DebitNote
+        fields = '__all__'
+        read_only_fields = ['id', 'debit_note_number', 'journal_entry', 'created_at', 'updated_at']
+
+
+class RecurringJournalSerializer(serializers.ModelSerializer):
+    source_entry_number = serializers.CharField(
+        source='source_entry.entry_number', read_only=True
+    )
+
+    class Meta:
+        model = RecurringJournal
+        fields = '__all__'
+        read_only_fields = ['id', 'last_generated', 'created_at', 'updated_at']

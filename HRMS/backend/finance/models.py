@@ -497,3 +497,169 @@ class ExchangeRate(BaseModel):
 
     def __str__(self):
         return f"{self.from_currency}/{self.to_currency} = {self.rate} ({self.effective_date})"
+
+
+# =========================================================================
+# Tax Management
+# =========================================================================
+
+class TaxType(BaseModel):
+    """Tax types — VAT, WHT, NHIL, GETFund, COVID levy, customs, etc."""
+    code = models.CharField(max_length=20, db_index=True)
+    name = models.CharField(max_length=100)
+    rate = models.DecimalField(max_digits=8, decimal_places=4, help_text='Tax rate as percentage e.g. 15.0000')
+    is_compound = models.BooleanField(default=False, help_text='Applied on top of other taxes')
+    effective_from = models.DateField()
+    effective_until = models.DateField(null=True, blank=True)
+    account = models.ForeignKey(
+        Account, on_delete=models.PROTECT, related_name='tax_types',
+        help_text='GL account for this tax'
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'finance_tax_types'
+        ordering = ['code']
+        unique_together = [('tenant', 'code')]
+
+    def __str__(self):
+        return f"{self.code} - {self.name} ({self.rate}%)"
+
+
+class TaxLine(BaseModel):
+    """Applied tax on invoices or journal entries."""
+    class TaxSource(models.TextChoices):
+        VENDOR_INVOICE = 'VENDOR_INVOICE', 'Vendor Invoice'
+        CUSTOMER_INVOICE = 'CUSTOMER_INVOICE', 'Customer Invoice'
+        JOURNAL = 'JOURNAL', 'Journal Entry'
+
+    tax_type = models.ForeignKey(TaxType, on_delete=models.PROTECT, related_name='tax_lines')
+    base_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    tax_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    source = models.CharField(max_length=20, choices=TaxSource.choices)
+    source_id = models.UUIDField(db_index=True, help_text='PK of the source document')
+
+    class Meta:
+        db_table = 'finance_tax_lines'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['source', 'source_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.tax_type.code} on {self.source} — {self.tax_amount}"
+
+
+# =========================================================================
+# Credit / Debit Notes
+# =========================================================================
+
+class CreditNote(BaseModel):
+    """Credit note for vendor or customer returns."""
+    class NoteStatus(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        APPROVED = 'APPROVED', 'Approved'
+        APPLIED = 'APPLIED', 'Applied'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    credit_note_number = models.CharField(max_length=30, db_index=True)
+    vendor_invoice = models.ForeignKey(
+        VendorInvoice, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='credit_notes'
+    )
+    customer_invoice = models.ForeignKey(
+        CustomerInvoice, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='credit_notes'
+    )
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    reason = models.TextField()
+    journal_entry = models.ForeignKey(
+        JournalEntry, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='credit_notes'
+    )
+    status = models.CharField(
+        max_length=10, choices=NoteStatus.choices, default=NoteStatus.DRAFT
+    )
+
+    class Meta:
+        db_table = 'finance_credit_notes'
+        ordering = ['-created_at']
+        unique_together = [('tenant', 'credit_note_number')]
+
+    def __str__(self):
+        return f"CN {self.credit_note_number} — {self.amount}"
+
+    def clean(self):
+        if not self.vendor_invoice and not self.customer_invoice:
+            raise ValidationError('A credit note must reference a vendor or customer invoice.')
+
+
+class DebitNote(BaseModel):
+    """Debit note for additional charges."""
+    class NoteStatus(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        APPROVED = 'APPROVED', 'Approved'
+        APPLIED = 'APPLIED', 'Applied'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    debit_note_number = models.CharField(max_length=30, db_index=True)
+    vendor_invoice = models.ForeignKey(
+        VendorInvoice, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='debit_notes'
+    )
+    customer_invoice = models.ForeignKey(
+        CustomerInvoice, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='debit_notes'
+    )
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    reason = models.TextField()
+    journal_entry = models.ForeignKey(
+        JournalEntry, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='debit_notes'
+    )
+    status = models.CharField(
+        max_length=10, choices=NoteStatus.choices, default=NoteStatus.DRAFT
+    )
+
+    class Meta:
+        db_table = 'finance_debit_notes'
+        ordering = ['-created_at']
+        unique_together = [('tenant', 'debit_note_number')]
+
+    def __str__(self):
+        return f"DN {self.debit_note_number} — {self.amount}"
+
+    def clean(self):
+        if not self.vendor_invoice and not self.customer_invoice:
+            raise ValidationError('A debit note must reference a vendor or customer invoice.')
+
+
+# =========================================================================
+# Recurring Journals
+# =========================================================================
+
+class RecurringJournal(BaseModel):
+    """Template for automatically generated recurring journal entries."""
+    class Frequency(models.TextChoices):
+        MONTHLY = 'MONTHLY', 'Monthly'
+        QUARTERLY = 'QUARTERLY', 'Quarterly'
+        SEMI_ANNUAL = 'SEMI_ANNUAL', 'Semi-Annual'
+        ANNUAL = 'ANNUAL', 'Annual'
+
+    template_name = models.CharField(max_length=200)
+    frequency = models.CharField(max_length=15, choices=Frequency.choices)
+    next_run_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    source_entry = models.ForeignKey(
+        JournalEntry, on_delete=models.PROTECT, related_name='recurring_templates',
+        help_text='Template journal entry whose lines will be copied'
+    )
+    is_active = models.BooleanField(default=True)
+    last_generated = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'finance_recurring_journals'
+        ordering = ['next_run_date']
+
+    def __str__(self):
+        return f"{self.template_name} ({self.frequency})"

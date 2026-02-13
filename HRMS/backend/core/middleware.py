@@ -356,6 +356,7 @@ class ModuleAccessMiddleware:
         '/api/v1/projects/': 'projects',
         '/api/v1/reports/': 'reports',
         '/api/v1/workflow/': 'workflow',
+        '/api/v1/manufacturing/': 'manufacturing',
     }
 
     SKIP_PREFIXES = [

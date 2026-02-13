@@ -86,6 +86,21 @@ PERMISSIONS_BY_MODULE = {
         ('projects.approve_timesheet', 'Approve Timesheets', 'Approve project timesheets'),
         ('projects.view_reports', 'View Project Reports', 'View project reports'),
     ],
+    'manufacturing': [
+        ('manufacturing.bom.create', 'Create BOM', 'Create bills of materials'),
+        ('manufacturing.bom.view', 'View BOMs', 'View bills of materials'),
+        ('manufacturing.bom.manage', 'Manage BOMs', 'Activate/deactivate/copy BOMs'),
+        ('manufacturing.wo.create', 'Create Work Order', 'Create work orders'),
+        ('manufacturing.wo.view', 'View Work Orders', 'View work orders'),
+        ('manufacturing.wo.release', 'Release Work Order', 'Release work orders for production'),
+        ('manufacturing.wo.manage', 'Manage Work Orders', 'Start/complete/cancel work orders'),
+        ('manufacturing.wo.issue_materials', 'Issue Materials', 'Issue materials to production'),
+        ('manufacturing.wo.report_production', 'Report Production', 'Report production output'),
+        ('manufacturing.qc.create', 'Create Quality Check', 'Record quality checks'),
+        ('manufacturing.qc.view', 'View Quality Checks', 'View quality check results'),
+        ('manufacturing.wc.manage', 'Manage Work Centers', 'Create/edit work centers'),
+        ('manufacturing.reports.view', 'View Manufacturing Reports', 'View production reports'),
+    ],
 }
 
 
@@ -193,11 +208,36 @@ ERP_ROLES = [
         'level': 70,
         'permissions': _all_module_perms('projects'),
     },
+    {
+        'code': 'MANUFACTURING_MANAGER',
+        'name': 'Manufacturing Manager',
+        'description': 'Full authority over manufacturing and production.',
+        'level': 80,
+        'permissions': _all_module_perms('manufacturing'),
+    },
+    {
+        'code': 'PRODUCTION_SUPERVISOR',
+        'name': 'Production Supervisor',
+        'description': 'Manages day-to-day production: work orders, materials, quality.',
+        'level': 60,
+        'permissions': _perms_starting_with(
+            'manufacturing.wo.', 'manufacturing.qc.', 'manufacturing.bom.view',
+        ),
+    },
+    {
+        'code': 'QUALITY_INSPECTOR',
+        'name': 'Quality Inspector',
+        'description': 'Records quality checks and inspections.',
+        'level': 40,
+        'permissions': _perms_starting_with(
+            'manufacturing.qc.', 'manufacturing.wo.view',
+        ),
+    },
 ]
 
 
 class Command(BaseCommand):
-    help = 'Seed ERP roles and permissions for Finance, Procurement, Inventory, Payroll, and Projects.'
+    help = 'Seed ERP roles and permissions for Finance, Procurement, Inventory, Payroll, Projects, and Manufacturing.'
 
     def add_arguments(self, parser):
         parser.add_argument(

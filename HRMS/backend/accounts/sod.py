@@ -17,6 +17,10 @@ SOD_RULES = [
     ('payroll.process_payroll', 'payroll.approve_payroll', 'Ghost employee fraud'),
     ('finance.create_budget', 'finance.approve_budget', 'Budget manipulation'),
     ('procurement.create_requisition', 'procurement.approve_requisition', 'Self-approval of purchases'),
+    ('procurement.create_rfq', 'procurement.evaluate_rfq', 'Bid rigging/vendor favoritism'),
+    ('finance.create_credit_note', 'finance.approve_credit_note', 'Revenue manipulation'),
+    ('inventory.initiate_stock_adjustment', 'inventory.approve_stock_adjustment', 'Inventory fraud'),
+    ('manufacturing.create_work_order', 'manufacturing.approve_work_order', 'Production fraud'),
 ]
 
 

@@ -226,3 +226,107 @@ class MaintenanceSchedule(BaseModel):
 
     def __str__(self):
         return f"{self.asset.asset_number} - {self.title} (Next: {self.next_due_date})"
+
+
+# =========================================================================
+# Asset Disposal
+# =========================================================================
+
+class AssetDisposal(BaseModel):
+    """Asset disposal / retirement record with GL integration."""
+    class DisposalType(models.TextChoices):
+        SALE = 'SALE', 'Sale'
+        SCRAP = 'SCRAP', 'Scrap'
+        DONATION = 'DONATION', 'Donation'
+        TRANSFER = 'TRANSFER', 'Transfer'
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        PENDING = 'PENDING', 'Pending Approval'
+        APPROVED = 'APPROVED', 'Approved'
+        COMPLETED = 'COMPLETED', 'Completed'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='disposals')
+    disposal_type = models.CharField(max_length=20, choices=DisposalType.choices)
+    disposal_date = models.DateField()
+    proceeds = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    book_value_at_disposal = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    gain_loss = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    journal_entry = models.ForeignKey(
+        'finance.JournalEntry', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='asset_disposals'
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approved_disposals'
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-disposal_date']
+
+    def __str__(self):
+        return f"Disposal: {self.asset.asset_number} ({self.disposal_type})"
+
+    def save(self, *args, **kwargs):
+        if not self.book_value_at_disposal:
+            self.book_value_at_disposal = self.asset.current_value
+        self.gain_loss = (self.proceeds or 0) - self.book_value_at_disposal
+        super().save(*args, **kwargs)
+
+
+# =========================================================================
+# Cycle Count
+# =========================================================================
+
+class CycleCount(BaseModel):
+    """Inventory cycle count session."""
+    class Status(models.TextChoices):
+        PLANNED = 'PLANNED', 'Planned'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        COMPLETED = 'COMPLETED', 'Completed'
+        APPROVED = 'APPROVED', 'Approved'
+
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name='cycle_counts')
+    count_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PLANNED)
+    counted_by = models.ForeignKey(
+        'employees.Employee', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='cycle_counts'
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approved_cycle_counts'
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-count_date']
+
+    def __str__(self):
+        return f"Cycle Count: {self.warehouse.code} - {self.count_date}"
+
+
+class CycleCountItem(BaseModel):
+    """Individual item line in a cycle count."""
+    cycle_count = models.ForeignKey(CycleCount, on_delete=models.CASCADE, related_name='items')
+    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='cycle_count_items')
+    system_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    counted_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    variance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    adjustment_entry = models.ForeignKey(
+        StockEntry, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='cycle_count_adjustments'
+    )
+
+    class Meta:
+        ordering = ['item__code']
+
+    def __str__(self):
+        return f"{self.item.code}: system={self.system_qty}, counted={self.counted_qty}"
+
+    def save(self, *args, **kwargs):
+        self.variance = self.counted_qty - self.system_qty
+        super().save(*args, **kwargs)

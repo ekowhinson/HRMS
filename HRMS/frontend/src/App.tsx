@@ -171,6 +171,23 @@ const ProjectDetailPage = React.lazy(() => import('./pages/projects/ProjectDetai
 const TimesheetsPage = React.lazy(() => import('./pages/projects/TimesheetsPage'))
 const ResourceAllocationPage = React.lazy(() => import('./pages/projects/ResourceAllocationPage'))
 
+// Finance enhancement pages
+const TaxManagementPage = React.lazy(() => import('./pages/finance/TaxManagementPage'))
+const CreditDebitNotesPage = React.lazy(() => import('./pages/finance/CreditDebitNotesPage'))
+
+// Procurement enhancement pages
+const RFQPage = React.lazy(() => import('./pages/procurement/RFQPage'))
+
+// Inventory enhancement pages
+const AssetDisposalPage = React.lazy(() => import('./pages/inventory/AssetDisposalPage'))
+
+// Manufacturing pages
+const ProductionDashboardPage = React.lazy(() => import('./pages/manufacturing/ProductionDashboardPage'))
+const BOMPage = React.lazy(() => import('./pages/manufacturing/BOMPage'))
+const WorkCentersPage = React.lazy(() => import('./pages/manufacturing/WorkCentersPage'))
+const WorkOrdersPage = React.lazy(() => import('./pages/manufacturing/WorkOrdersPage'))
+const QualityPage = React.lazy(() => import('./pages/manufacturing/QualityPage'))
+
 // Approval Workflow
 const ApprovalWorkflowPage = React.lazy(() => import('./pages/admin/ApprovalWorkflowPage'))
 
@@ -485,12 +502,15 @@ function App() {
                     <Route path="/finance/bank-accounts" element={<AdminRoute><BankReconciliationPage /></AdminRoute>} />
                     <Route path="/finance/reconciliation" element={<AdminRoute><BankReconciliationPage /></AdminRoute>} />
                     <Route path="/finance/reports" element={<AdminRoute><FinancialReportsPage /></AdminRoute>} />
+                    <Route path="/finance/tax-management" element={<AdminRoute><TaxManagementPage /></AdminRoute>} />
+                    <Route path="/finance/credit-debit-notes" element={<AdminRoute><CreditDebitNotesPage /></AdminRoute>} />
 
                     {/* Procurement Routes - Admin only */}
                     <Route path="/procurement/requisitions" element={<AdminRoute><RequisitionsPage /></AdminRoute>} />
                     <Route path="/procurement/purchase-orders" element={<AdminRoute><PurchaseOrdersPage /></AdminRoute>} />
                     <Route path="/procurement/goods-receipt" element={<AdminRoute><GoodsReceiptPage /></AdminRoute>} />
                     <Route path="/procurement/contracts" element={<AdminRoute><ContractsPage /></AdminRoute>} />
+                    <Route path="/procurement/rfq" element={<AdminRoute><RFQPage /></AdminRoute>} />
 
                     {/* Inventory & Asset Routes - Admin only */}
                     <Route path="/inventory/items" element={<AdminRoute><ItemsPage /></AdminRoute>} />
@@ -498,12 +518,20 @@ function App() {
                     <Route path="/inventory/warehouses" element={<AdminRoute><WarehousesPage /></AdminRoute>} />
                     <Route path="/inventory/assets" element={<AdminRoute><AssetRegisterPage /></AdminRoute>} />
                     <Route path="/inventory/depreciation" element={<AdminRoute><AssetDepreciationPage /></AdminRoute>} />
+                    <Route path="/inventory/asset-disposals" element={<AdminRoute><AssetDisposalPage /></AdminRoute>} />
 
                     {/* Project Routes - Admin only */}
                     <Route path="/projects" element={<AdminRoute><ProjectsPage /></AdminRoute>} />
                     <Route path="/projects/timesheets" element={<AdminRoute><TimesheetsPage /></AdminRoute>} />
                     <Route path="/projects/resources" element={<AdminRoute><ResourceAllocationPage /></AdminRoute>} />
                     <Route path="/projects/:id" element={<AdminRoute><ProjectDetailPage /></AdminRoute>} />
+
+                    {/* Manufacturing Routes - Admin only */}
+                    <Route path="/manufacturing/dashboard" element={<AdminRoute><ProductionDashboardPage /></AdminRoute>} />
+                    <Route path="/manufacturing/bom" element={<AdminRoute><BOMPage /></AdminRoute>} />
+                    <Route path="/manufacturing/work-centers" element={<AdminRoute><WorkCentersPage /></AdminRoute>} />
+                    <Route path="/manufacturing/work-orders" element={<AdminRoute><WorkOrdersPage /></AdminRoute>} />
+                    <Route path="/manufacturing/quality" element={<AdminRoute><QualityPage /></AdminRoute>} />
 
                     {/* Backup & Restore Routes - System Admin only */}
                     <Route path="/admin/backup" element={<SystemAdminRoute><BackupManagementPage /></SystemAdminRoute>} />

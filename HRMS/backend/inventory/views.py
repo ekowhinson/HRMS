@@ -13,6 +13,7 @@ from django.db import transaction
 from .models import (
     ItemCategory, Item, Warehouse, StockEntry, StockLedger,
     Asset, AssetDepreciation, AssetTransfer, MaintenanceSchedule,
+    AssetDisposal, CycleCount, CycleCountItem,
 )
 from .serializers import (
     ItemCategorySerializer, ItemSerializer, WarehouseSerializer,
@@ -20,6 +21,7 @@ from .serializers import (
     AssetSerializer, AssetListSerializer,
     AssetDepreciationSerializer, AssetTransferSerializer,
     MaintenanceScheduleSerializer,
+    AssetDisposalSerializer, CycleCountSerializer, CycleCountItemSerializer,
 )
 
 
@@ -412,3 +414,200 @@ class MaintenanceScheduleViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(schedule)
         return Response({'message': 'Maintenance completed', 'data': serializer.data})
+
+
+class AssetDisposalViewSet(viewsets.ModelViewSet):
+    """ViewSet for asset disposals."""
+    serializer_class = AssetDisposalSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'disposal_type', 'asset']
+    search_fields = ['asset__asset_number', 'asset__name', 'reason']
+    ordering_fields = ['disposal_date', 'proceeds', 'gain_loss', 'created_at']
+    ordering = ['-disposal_date']
+
+    def get_queryset(self):
+        return AssetDisposal.objects.select_related(
+            'asset', 'journal_entry', 'approved_by'
+        )
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        """Submit a draft disposal for approval."""
+        disposal = self.get_object()
+        if disposal.status != AssetDisposal.Status.DRAFT:
+            return Response(
+                {'error': 'Only draft disposals can be submitted.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        disposal.status = AssetDisposal.Status.PENDING
+        disposal.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(disposal).data)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Approve an asset disposal and trigger GL posting."""
+        disposal = self.get_object()
+        if disposal.status != AssetDisposal.Status.PENDING:
+            return Response(
+                {'error': 'Only pending disposals can be approved.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            disposal.status = AssetDisposal.Status.APPROVED
+            disposal.approved_by = request.user
+            disposal.save(update_fields=['status', 'approved_by', 'updated_at'])
+
+            # Update the asset status
+            asset = disposal.asset
+            asset.status = Asset.Status.DISPOSED
+            asset.disposal_date = disposal.disposal_date
+            asset.disposal_value = disposal.proceeds
+            asset.save(update_fields=['status', 'disposal_date', 'disposal_value', 'updated_at'])
+
+            # Trigger GL posting
+            try:
+                from finance.tasks import post_asset_disposal_to_gl
+                post_asset_disposal_to_gl.delay(str(disposal.pk))
+            except Exception:
+                pass  # GL posting is async; failure doesn't block approval
+
+        return Response(self.get_serializer(disposal).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Reject an asset disposal."""
+        disposal = self.get_object()
+        if disposal.status != AssetDisposal.Status.PENDING:
+            return Response(
+                {'error': 'Only pending disposals can be rejected.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        reason = request.data.get('reason', '')
+        disposal.status = AssetDisposal.Status.REJECTED
+        disposal.reason = f"{disposal.reason}\nRejected: {reason}" if disposal.reason else f"Rejected: {reason}"
+        disposal.save(update_fields=['status', 'reason', 'updated_at'])
+        return Response(self.get_serializer(disposal).data)
+
+
+class CycleCountViewSet(viewsets.ModelViewSet):
+    """ViewSet for inventory cycle counts."""
+    serializer_class = CycleCountSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'warehouse', 'counted_by']
+    search_fields = ['warehouse__code', 'warehouse__name', 'notes']
+    ordering_fields = ['count_date', 'created_at']
+    ordering = ['-count_date']
+
+    def get_queryset(self):
+        return CycleCount.objects.select_related(
+            'warehouse', 'counted_by', 'approved_by'
+        ).prefetch_related('items__item')
+
+    @action(detail=True, methods=['post'])
+    def start(self, request, pk=None):
+        """Start a planned cycle count and populate system quantities."""
+        cycle_count = self.get_object()
+        if cycle_count.status != CycleCount.Status.PLANNED:
+            return Response(
+                {'error': 'Only planned cycle counts can be started.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            cycle_count.status = CycleCount.Status.IN_PROGRESS
+            cycle_count.save(update_fields=['status', 'updated_at'])
+
+            # Auto-populate system quantities from StockLedger
+            ledger_entries = StockLedger.objects.filter(
+                warehouse=cycle_count.warehouse
+            ).select_related('item')
+
+            for ledger in ledger_entries:
+                CycleCountItem.objects.get_or_create(
+                    cycle_count=cycle_count,
+                    item=ledger.item,
+                    defaults={'system_qty': ledger.balance_qty, 'counted_qty': 0},
+                )
+
+        return Response(self.get_serializer(cycle_count).data)
+
+    @action(detail=True, methods=['post'])
+    def complete(self, request, pk=None):
+        """Complete a cycle count."""
+        cycle_count = self.get_object()
+        if cycle_count.status != CycleCount.Status.IN_PROGRESS:
+            return Response(
+                {'error': 'Only in-progress cycle counts can be completed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        cycle_count.status = CycleCount.Status.COMPLETED
+        cycle_count.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(cycle_count).data)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Approve a completed cycle count and create adjustment entries."""
+        cycle_count = self.get_object()
+        if cycle_count.status != CycleCount.Status.COMPLETED:
+            return Response(
+                {'error': 'Only completed cycle counts can be approved.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            cycle_count.status = CycleCount.Status.APPROVED
+            cycle_count.approved_by = request.user
+            cycle_count.save(update_fields=['status', 'approved_by', 'updated_at'])
+
+            # Create stock adjustment entries for items with variance
+            for count_item in cycle_count.items.filter(adjustment_entry__isnull=True).exclude(variance=0):
+                adjustment = StockEntry.objects.create(
+                    entry_type=StockEntry.EntryType.ADJUSTMENT,
+                    entry_date=cycle_count.count_date,
+                    item=count_item.item,
+                    warehouse=cycle_count.warehouse,
+                    quantity=count_item.variance,
+                    unit_cost=count_item.item.standard_cost,
+                    source='CYCLE_COUNT',
+                    source_reference=str(cycle_count.pk),
+                    notes=f"Cycle count adjustment: system={count_item.system_qty}, counted={count_item.counted_qty}",
+                )
+                count_item.adjustment_entry = adjustment
+                count_item.save(update_fields=['adjustment_entry', 'updated_at'])
+
+                # Update stock ledger
+                ledger, _ = StockLedger.objects.get_or_create(
+                    item=count_item.item,
+                    warehouse=cycle_count.warehouse,
+                    defaults={'balance_qty': 0, 'valuation_amount': 0},
+                )
+                ledger.balance_qty += count_item.variance
+                ledger.valuation_amount += count_item.variance * count_item.item.standard_cost
+                ledger.last_movement_date = cycle_count.count_date
+                ledger.save()
+
+        return Response(self.get_serializer(cycle_count).data)
+
+    @action(detail=True, methods=['get'])
+    def items(self, request, pk=None):
+        """Get all items in this cycle count."""
+        cycle_count = self.get_object()
+        items = cycle_count.items.select_related('item', 'adjustment_entry')
+        serializer = CycleCountItemSerializer(items, many=True)
+        return Response(serializer.data)
+
+
+class CycleCountItemViewSet(viewsets.ModelViewSet):
+    """ViewSet for cycle count items."""
+    serializer_class = CycleCountItemSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['cycle_count', 'item']
+
+    def get_queryset(self):
+        return CycleCountItem.objects.select_related(
+            'cycle_count', 'item', 'adjustment_entry'
+        )

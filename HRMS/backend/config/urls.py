@@ -44,6 +44,7 @@ urlpatterns = [
         path('inventory/', include('inventory.urls')),  # Inventory & Assets
         path('projects/', include('projects.urls')),  # Projects & Timesheets
         path('assistant/', include('assistant.urls')),  # AI Assistant
+        path('manufacturing/', include('manufacturing.urls')),  # Manufacturing & Production
     ])),
 
     # Legacy health check (kept for backwards compatibility)

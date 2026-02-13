@@ -19,6 +19,9 @@ router.register(r'assets', views.AssetViewSet, basename='asset')
 router.register(r'asset-depreciations', views.AssetDepreciationViewSet, basename='asset-depreciation')
 router.register(r'asset-transfers', views.AssetTransferViewSet, basename='asset-transfer')
 router.register(r'maintenance-schedules', views.MaintenanceScheduleViewSet, basename='maintenance-schedule')
+router.register(r'asset-disposals', views.AssetDisposalViewSet, basename='asset-disposal')
+router.register(r'cycle-counts', views.CycleCountViewSet, basename='cycle-count')
+router.register(r'cycle-count-items', views.CycleCountItemViewSet, basename='cycle-count-item')
 
 urlpatterns = [
     path('', include(router.urls)),
