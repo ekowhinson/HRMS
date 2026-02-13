@@ -269,6 +269,57 @@ export const roleService = {
   },
 }
 
+// ==================== User Organization Service ====================
+
+export interface UserOrganization {
+  id: string
+  organization: {
+    id: string
+    name: string
+    code: string
+  }
+  role: 'member' | 'admin' | 'viewer'
+  is_default: boolean
+  joined_at: string
+}
+
+export interface OrganizationOption {
+  id: string
+  name: string
+  code: string
+}
+
+export const userOrganizationService = {
+  // Get user's organization memberships
+  getUserOrganizations: async (userId: string): Promise<UserOrganization[]> => {
+    const response = await api.get(`/auth/users/${userId}/organizations/`)
+    return response.data
+  },
+
+  // Add user to an organization
+  addUserOrganization: async (userId: string, data: {
+    organization_id: string
+    role?: 'member' | 'admin' | 'viewer'
+    is_default?: boolean
+  }): Promise<UserOrganization> => {
+    const response = await api.post(`/auth/users/${userId}/organizations/`, data)
+    return response.data
+  },
+
+  // Remove user from an organization
+  removeUserOrganization: async (userId: string, organizationId: string): Promise<void> => {
+    await api.delete(`/auth/users/${userId}/organizations/`, {
+      params: { organization_id: organizationId },
+    })
+  },
+
+  // Get all organizations (for dropdown)
+  getOrganizations: async (): Promise<OrganizationOption[]> => {
+    const response = await api.get('/organization/tenants/', { params: { page_size: 100 } })
+    return response.data.results || response.data
+  },
+}
+
 // ==================== Permission Service ====================
 
 export const permissionService = {

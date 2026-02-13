@@ -198,4 +198,91 @@ export const payrollService = {
     const response = await api.get(`/reports/payroll/summary/${params}`)
     return response.data.summary
   },
+
+  // ============================================
+  // Payroll Validation
+  // ============================================
+
+  getValidations: async (periodId?: string): Promise<any[]> => {
+    const params = periodId ? { payroll_period: periodId } : {}
+    const response = await api.get('/payroll/validations/', { params })
+    return response.data.results || response.data
+  },
+
+  getValidation: async (id: string): Promise<any> => {
+    const response = await api.get(`/payroll/validations/${id}/`)
+    return response.data
+  },
+
+  openValidationWindow: async (periodId: string, deadline?: string): Promise<any> => {
+    const response = await api.post('/payroll/validations/open-window/', { period_id: periodId, deadline })
+    return response.data
+  },
+
+  submitValidation: async (id: string, notes?: string): Promise<any> => {
+    const response = await api.post(`/payroll/validations/${id}/submit/`, { notes })
+    return response.data
+  },
+
+  flagEmployee: async (validationId: string, data: { employee: string; removal_reason: string; reason_detail?: string }): Promise<any> => {
+    const response = await api.post(`/payroll/validations/${validationId}/flag-employee/`, data)
+    return response.data
+  },
+
+  reinstateEmployee: async (validationId: string, employeeId: string): Promise<any> => {
+    const response = await api.post(`/payroll/validations/${validationId}/reinstate-employee/`, { employee_id: employeeId })
+    return response.data
+  },
+
+  getValidationDashboard: async (periodId: string): Promise<any> => {
+    const response = await api.get('/payroll/validations/dashboard/', { params: { period_id: periodId } })
+    return response.data
+  },
+
+  getMyValidations: async (periodId?: string): Promise<any[]> => {
+    const params = periodId ? { period_id: periodId } : {}
+    const response = await api.get('/payroll/validations/my-validations/', { params })
+    return response.data
+  },
+
+  // Regional Director: get validations for their region
+  getRegionalValidations: async (periodId?: string, filterStatus?: string): Promise<any[]> => {
+    const params: any = {}
+    if (periodId) params.period_id = periodId
+    if (filterStatus) params.status = filterStatus
+    const response = await api.get('/payroll/validations/regional-validations/', { params })
+    return response.data
+  },
+
+  // Regional Director: approve a submitted validation
+  approveValidation: async (id: string, notes?: string): Promise<any> => {
+    const response = await api.post(`/payroll/validations/${id}/approve/`, { notes })
+    return response.data
+  },
+
+  // Regional Director: reject a submitted validation
+  rejectValidation: async (id: string, reason: string): Promise<any> => {
+    const response = await api.post(`/payroll/validations/${id}/reject/`, { reason })
+    return response.data
+  },
+
+  // Removal Reasons
+  getRemovalReasons: async (): Promise<any[]> => {
+    const response = await api.get('/payroll/removal-reasons/')
+    return response.data.results || response.data
+  },
+
+  createRemovalReason: async (data: { code: string; name: string; description?: string; is_active?: boolean; sort_order?: number }): Promise<any> => {
+    const response = await api.post('/payroll/removal-reasons/', data)
+    return response.data
+  },
+
+  updateRemovalReason: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/payroll/removal-reasons/${id}/`, data)
+    return response.data
+  },
+
+  deleteRemovalReason: async (id: string): Promise<void> => {
+    await api.delete(`/payroll/removal-reasons/${id}/`)
+  },
 }

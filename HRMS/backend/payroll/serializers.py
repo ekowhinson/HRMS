@@ -16,6 +16,7 @@ from .models import (
     SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings,
     BackpayRequest, BackpayDetail, SalaryUpgradeRequest,
     SalaryIncrementHistory, SalaryIncrementDetail,
+    RemovalReasonCategory, PayrollValidation, EmployeePayrollFlag,
 )
 
 
@@ -1289,3 +1290,108 @@ class SalaryIncrementHistorySerializer(serializers.ModelSerializer):
             name = f"{obj.applied_by.first_name} {obj.applied_by.last_name}".strip()
             return name or obj.applied_by.email
         return None
+
+
+# ============================================
+# Payroll Validation Serializers
+# ============================================
+
+class RemovalReasonCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RemovalReasonCategory
+        fields = ['id', 'code', 'name', 'description', 'is_active', 'sort_order', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class EmployeePayrollFlagSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    removal_reason_name = serializers.CharField(source='removal_reason.name', read_only=True)
+    removal_reason_code = serializers.CharField(source='removal_reason.code', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    flagged_by_name = serializers.SerializerMethodField()
+    reinstated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EmployeePayrollFlag
+        fields = [
+            'id', 'validation', 'employee', 'employee_name', 'employee_number',
+            'removal_reason', 'removal_reason_name', 'removal_reason_code',
+            'reason_detail', 'flagged_by', 'flagged_by_name', 'flagged_at',
+            'status', 'status_display',
+            'reinstated_by', 'reinstated_by_name', 'reinstated_at',
+        ]
+        read_only_fields = ['flagged_by', 'flagged_at', 'reinstated_by', 'reinstated_at']
+
+    def get_flagged_by_name(self, obj):
+        if obj.flagged_by:
+            name = f"{obj.flagged_by.first_name} {obj.flagged_by.last_name}".strip()
+            return name or obj.flagged_by.email
+        return None
+
+    def get_reinstated_by_name(self, obj):
+        if obj.reinstated_by:
+            name = f"{obj.reinstated_by.first_name} {obj.reinstated_by.last_name}".strip()
+            return name or obj.reinstated_by.email
+        return None
+
+
+class EmployeePayrollFlagCreateSerializer(serializers.Serializer):
+    employee = serializers.UUIDField()
+    removal_reason = serializers.UUIDField()
+    reason_detail = serializers.CharField(required=False, allow_blank=True, default='')
+
+
+class PayrollValidationListSerializer(serializers.ModelSerializer):
+    district_name = serializers.CharField(source='district.name', read_only=True)
+    district_code = serializers.CharField(source='district.code', read_only=True)
+    period_name = serializers.CharField(source='payroll_period.name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    validated_by_name = serializers.SerializerMethodField()
+    approved_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PayrollValidation
+        fields = [
+            'id', 'payroll_period', 'period_name',
+            'district', 'district_name', 'district_code',
+            'status', 'status_display',
+            'total_employees', 'validated_employees', 'flagged_employees',
+            'deadline', 'validated_by', 'validated_by_name', 'validated_at',
+            'approved_by_name', 'approved_at',
+            'created_at',
+        ]
+
+    def get_validated_by_name(self, obj):
+        if obj.validated_by:
+            name = f"{obj.validated_by.first_name} {obj.validated_by.last_name}".strip()
+            return name or obj.validated_by.email
+        return None
+
+    def get_approved_by_name(self, obj):
+        return obj.approved_by.get_full_name() if obj.approved_by else None
+
+
+class PayrollValidationDetailSerializer(PayrollValidationListSerializer):
+    flags = EmployeePayrollFlagSerializer(many=True, read_only=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+    class Meta(PayrollValidationListSerializer.Meta):
+        fields = PayrollValidationListSerializer.Meta.fields + [
+            'flags', 'notes',
+            'approval_notes', 'rejected_by', 'rejected_at', 'rejection_reason',
+        ]
+
+
+class ValidationDashboardSerializer(serializers.Serializer):
+    period_id = serializers.UUIDField()
+    period_name = serializers.CharField()
+    total_districts = serializers.IntegerField()
+    validated_count = serializers.IntegerField()
+    pending_count = serializers.IntegerField()
+    in_progress_count = serializers.IntegerField()
+    submitted_count = serializers.IntegerField(default=0)
+    overdue_count = serializers.IntegerField()
+    total_flagged = serializers.IntegerField()
+    total_employees = serializers.IntegerField()
+    completion_percentage = serializers.FloatField()

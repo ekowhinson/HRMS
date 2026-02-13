@@ -22,8 +22,7 @@ export default function OrganizationSwitcher() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // Don't render if user has 0 or 1 org
-  if (organizations.length <= 1) return null
+  const canSwitch = organizations.length > 1
 
   async function switchOrg(orgId: string) {
     if (orgId === activeOrganization?.id || switching) return
@@ -48,15 +47,15 @@ export default function OrganizationSwitcher() {
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        onClick={() => canSwitch && setOpen(!open)}
+        className={`flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors ${canSwitch ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'}`}
         disabled={switching}
       >
         <BuildingOffice2Icon className="h-4 w-4 text-gray-400" />
-        <span className="hidden md:inline max-w-[140px] truncate">
+        <span className="hidden md:inline max-w-[160px] truncate">
           {activeOrganization?.name || 'Select Organization'}
         </span>
-        <ChevronUpDownIcon className="h-4 w-4 text-gray-400" />
+        {canSwitch && <ChevronUpDownIcon className="h-4 w-4 text-gray-400" />}
       </button>
 
       {open && (

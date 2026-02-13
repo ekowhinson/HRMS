@@ -178,6 +178,52 @@ export default function TrainingDevelopmentReportPage() {
               )}
             </Card>
           </div>
+
+          {/* Department Training Summary */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Department Training Summary</h2>
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Staff</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trained</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completion %</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg Cost/Employee</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {(dash?.staff_trained_by_department || []).map((dept: any) => (
+                      <tr key={dept.department} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{dept.department}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{dept.total_staff}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{dept.trained_count}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            dept.percentage >= 75 ? 'bg-green-50 text-green-700' :
+                            dept.percentage >= 50 ? 'bg-yellow-50 text-yellow-700' :
+                            'bg-red-50 text-red-700'
+                          }`}>
+                            {dept.percentage}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          GHS {(dept.avg_cost || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {(dash?.staff_trained_by_department || []).length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-gray-500">
+                  No department training data available.
+                </div>
+              )}
+            </Card>
+          </div>
         </>
       )}
     </div>

@@ -238,6 +238,145 @@ export default function TrainingDashboardPage() {
           />
         </CardContent>
       </Card>
+
+      {/* Staff Trained by Department */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Staff Trained by Department</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Staff</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trained</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completion %</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {(dashboard?.staff_trained_by_department || []).map((dept: any) => (
+                  <tr key={dept.department} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{dept.department}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{dept.total_staff}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{dept.trained_count}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[120px]">
+                          <div
+                            className="bg-green-500 h-2 rounded-full"
+                            style={{ width: `${dept.percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-gray-700 font-medium">{dept.percentage}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(dashboard?.staff_trained_by_department || []).length === 0 && (
+              <div className="px-4 py-8 text-center text-sm text-gray-500">No department training data available</div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Cost Analysis */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Cost Analysis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-600">Total Estimated Cost</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  GHS {(dashboard?.cost_analysis?.total_estimated_cost || 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-600">Avg. Cost per Employee</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  GHS {(dashboard?.cost_analysis?.avg_cost_per_employee || 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-gray-600">Total Actual Cost</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  GHS {(dashboard?.cost_analysis?.total_actual_cost || 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Training Type Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Training Type Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {(dashboard?.training_type_distribution || []).map((item: any) => {
+                const total = (dashboard?.training_type_distribution || []).reduce((s: number, i: any) => s + i.count, 0)
+                const pct = total > 0 ? Math.round((item.count / total) * 100) : 0
+                const colors: Record<string, string> = {
+                  INTERNAL: 'bg-blue-500',
+                  EXTERNAL: 'bg-purple-500',
+                  ONLINE: 'bg-green-500',
+                  BLENDED: 'bg-yellow-500',
+                }
+                return (
+                  <div key={item.training_type} className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${colors[item.training_type] || 'bg-gray-400'}`} />
+                    <span className="text-sm text-gray-600 flex-1">{item.training_type_display || item.training_type}</span>
+                    <span className="text-sm font-medium text-gray-900">{item.count}</span>
+                    <span className="text-xs text-gray-500 w-10 text-right">{pct}%</span>
+                  </div>
+                )
+              })}
+              {(dashboard?.training_type_distribution || []).length === 0 && (
+                <p className="text-sm text-gray-400">No training type data available</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Completion Rate by Department */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Completion Rate by Department</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {(dashboard?.completion_rate_by_department || []).map((dept: any) => (
+              <div key={dept.department} className="flex items-center gap-3">
+                <span className="text-sm text-gray-600 w-40 truncate" title={dept.department}>{dept.department}</span>
+                <div className="flex-1 bg-gray-200 rounded-full h-4">
+                  <div
+                    className="bg-blue-500 h-4 rounded-full flex items-center justify-end pr-2"
+                    style={{ width: `${Math.max(dept.completion_rate, 5)}%` }}
+                  >
+                    {dept.completion_rate >= 15 && (
+                      <span className="text-[10px] font-medium text-white">{dept.completion_rate}%</span>
+                    )}
+                  </div>
+                </div>
+                {dept.completion_rate < 15 && (
+                  <span className="text-xs text-gray-500">{dept.completion_rate}%</span>
+                )}
+              </div>
+            ))}
+            {(dashboard?.completion_rate_by_department || []).length === 0 && (
+              <p className="text-sm text-gray-400">No department completion data available</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

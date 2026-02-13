@@ -2,8 +2,10 @@
 Views for training management.
 """
 
+from decimal import Decimal
 from datetime import date, timedelta
-from django.db.models import Count, Q, Avg
+from django.db.models import Count, Q, Avg, Sum, F, Value, DecimalField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -14,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import (
     TrainingProgram, TrainingSession, TrainingEnrollment,
     PostTrainingReport, TrainingImpactAssessment,
+    TrainingRequest,
 )
 from .serializers import (
     TrainingProgramListSerializer, TrainingProgramDetailSerializer,
@@ -24,6 +27,7 @@ from .serializers import (
     TrainingEnrollmentCreateSerializer, MyEnrollmentSerializer,
     PostTrainingReportSerializer, PostTrainingReportCreateSerializer,
     TrainingImpactAssessmentSerializer, TrainingImpactAssessmentCreateSerializer,
+    TrainingRequestSerializer, TrainingRequestCreateSerializer,
 )
 
 
@@ -320,6 +324,114 @@ class TrainingDashboardView(APIView):
             .values('id', 'name', 'code', 'category', 'total_enrolled')[:5]
         )
 
+        # ── Advanced Analytics ──────────────────────────────────────
+
+        # 1. Completion rate by department
+        dept_enrollment_stats = (
+            TrainingEnrollment.objects
+            .exclude(status=TrainingEnrollment.EnrollmentStatus.CANCELLED)
+            .values(department_name=F('employee__department__name'))
+            .annotate(
+                total_enrollments=Count('id'),
+                completed_enrollments=Count(
+                    'id', filter=Q(status=TrainingEnrollment.EnrollmentStatus.COMPLETED)
+                ),
+            )
+            .order_by('department_name')
+        )
+        completion_rate_by_department = []
+        for row in dept_enrollment_stats:
+            dept_name = row['department_name'] or 'Unassigned'
+            dept_total = row['total_enrollments']
+            dept_completed = row['completed_enrollments']
+            completion_rate_by_department.append({
+                'department': dept_name,
+                'total_enrollments': dept_total,
+                'completed_enrollments': dept_completed,
+                'completion_rate': (
+                    round((dept_completed / dept_total) * 100, 1) if dept_total > 0 else 0
+                ),
+            })
+
+        # 2. Staff trained by department
+        from employees.models import Employee
+        from organization.models import Department
+
+        all_departments = Department.objects.all()
+        trained_by_dept_qs = (
+            TrainingEnrollment.objects
+            .filter(status=TrainingEnrollment.EnrollmentStatus.COMPLETED)
+            .values(department_name=F('employee__department__name'))
+            .annotate(trained_count=Count('employee', distinct=True))
+        )
+        trained_map = {
+            row['department_name']: row['trained_count']
+            for row in trained_by_dept_qs
+        }
+
+        staff_trained_by_department = []
+        for dept in all_departments.order_by('name'):
+            total_staff = Employee.objects.filter(department=dept).count()
+            trained_count = trained_map.get(dept.name, 0)
+            staff_trained_by_department.append({
+                'department': dept.name,
+                'total_staff': total_staff,
+                'trained_count': trained_count,
+                'percentage': (
+                    round((trained_count / total_staff) * 100, 1)
+                    if total_staff > 0 else 0
+                ),
+            })
+
+        # 3. Cost analysis
+        # Total estimated cost: sum of cost_per_person across all active programs
+        total_estimated_cost = (
+            TrainingProgram.objects.filter(is_active=True)
+            .aggregate(
+                total=Coalesce(Sum('cost_per_person'), Decimal('0.00'), output_field=DecimalField())
+            )['total']
+        )
+
+        # Total actual cost: sum(cost_per_person * number of completed enrollments) per program
+        actual_cost_qs = (
+            TrainingProgram.objects.filter(
+                sessions__enrollments__status=TrainingEnrollment.EnrollmentStatus.COMPLETED
+            )
+            .annotate(
+                completed_count=Count(
+                    'sessions__enrollments',
+                    filter=Q(sessions__enrollments__status=TrainingEnrollment.EnrollmentStatus.COMPLETED),
+                )
+            )
+            .annotate(
+                program_cost=F('cost_per_person') * F('completed_count')
+            )
+            .aggregate(
+                total=Coalesce(Sum('program_cost'), Decimal('0.00'), output_field=DecimalField())
+            )
+        )
+        total_actual_cost = actual_cost_qs['total']
+
+        avg_cost_per_employee = (
+            round(total_actual_cost / total_completed, 2)
+            if total_completed > 0 else Decimal('0.00')
+        )
+
+        cost_analysis = {
+            'total_estimated_cost': str(total_estimated_cost),
+            'total_actual_cost': str(total_actual_cost),
+            'avg_cost_per_employee': str(avg_cost_per_employee),
+        }
+
+        # 4. Training type distribution
+        training_type_distribution = list(
+            TrainingEnrollment.objects
+            .exclude(status=TrainingEnrollment.EnrollmentStatus.CANCELLED)
+            .values(training_type=F('session__program__training_type'))
+            .annotate(count=Count('id'))
+            .order_by('training_type')
+        )
+
         return Response({
             'total_programs': total_programs,
             'active_sessions': active_sessions,
@@ -330,6 +442,11 @@ class TrainingDashboardView(APIView):
             'recent_completions': recent_data,
             'by_category': by_category,
             'top_programs': top_programs,
+            # Advanced analytics
+            'completion_rate_by_department': completion_rate_by_department,
+            'staff_trained_by_department': staff_trained_by_department,
+            'cost_analysis': cost_analysis,
+            'training_type_distribution': training_type_distribution,
         })
 
 
@@ -415,3 +532,101 @@ class TrainingImpactAssessmentViewSet(viewsets.ModelViewSet):
         assessment.save()
         serializer = TrainingImpactAssessmentSerializer(assessment)
         return Response(serializer.data)
+
+
+class TrainingRequestViewSet(viewsets.ModelViewSet):
+    """Self-service training request management."""
+    queryset = TrainingRequest.objects.select_related(
+        'employee', 'employee__department', 'training_program', 'reviewed_by'
+    )
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['status', 'employee', 'training_type']
+    search_fields = ['title', 'description', 'employee__first_name', 'employee__last_name']
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return TrainingRequestCreateSerializer
+        return TrainingRequestSerializer
+
+    def perform_create(self, serializer):
+        employee = getattr(self.request.user, 'employee', None)
+        if not employee:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError('User must have an employee profile')
+        serializer.save(employee=employee, created_by=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def my_requests(self, request):
+        """Get current user's training requests."""
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            return Response(
+                {'detail': 'No employee profile found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        requests = self.get_queryset().filter(employee=employee)
+        serializer = TrainingRequestSerializer(requests, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        """Submit a draft request."""
+        obj = self.get_object()
+        if obj.status != TrainingRequest.Status.DRAFT:
+            return Response(
+                {'detail': 'Only draft requests can be submitted'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        obj.status = TrainingRequest.Status.SUBMITTED
+        obj.save()
+        return Response(TrainingRequestSerializer(obj).data)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Approve a submitted request."""
+        obj = self.get_object()
+        if obj.status != TrainingRequest.Status.SUBMITTED:
+            return Response(
+                {'detail': 'Only submitted requests can be approved'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        obj.status = TrainingRequest.Status.APPROVED
+        obj.reviewed_by = request.user
+        obj.reviewed_at = timezone.now()
+        obj.review_notes = request.data.get('notes', '')
+        obj.save()
+
+        # Auto-create a TrainingNeed in the performance module
+        try:
+            from performance.models import TrainingNeed
+            TrainingNeed.objects.create(
+                employee=obj.employee,
+                title=obj.title,
+                description=obj.justification or obj.description,
+                training_type=obj.training_type if obj.training_type in dict(TrainingNeed.Type.choices) else 'TRAINING',
+                priority='MEDIUM',
+                status='IDENTIFIED',
+                estimated_cost=obj.estimated_cost,
+                target_date=obj.preferred_date,
+                created_by=request.user,
+            )
+        except Exception:
+            pass  # Don't fail approval if training need creation fails
+
+        return Response(TrainingRequestSerializer(obj).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Reject a submitted request."""
+        obj = self.get_object()
+        if obj.status != TrainingRequest.Status.SUBMITTED:
+            return Response(
+                {'detail': 'Only submitted requests can be rejected'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        obj.status = TrainingRequest.Status.REJECTED
+        obj.reviewed_by = request.user
+        obj.reviewed_at = timezone.now()
+        obj.review_notes = request.data.get('notes', '')
+        obj.save()
+        return Response(TrainingRequestSerializer(obj).data)

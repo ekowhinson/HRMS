@@ -6,6 +6,7 @@ from rest_framework import serializers
 from .models import (
     TrainingProgram, TrainingSession, TrainingEnrollment,
     PostTrainingReport, TrainingImpactAssessment,
+    TrainingRequest,
 )
 
 
@@ -332,4 +333,53 @@ class TrainingImpactAssessmentCreateSerializer(serializers.ModelSerializer):
             'recommendations', 'follow_up_actions',
             'further_training_needed', 'further_training_details',
             'overall_effectiveness_score',
+        ]
+
+
+# --- TrainingRequest Serializers ---
+
+class TrainingRequestSerializer(serializers.ModelSerializer):
+    employee_name = serializers.SerializerMethodField()
+    employee_number = serializers.CharField(source='employee.employee_number', read_only=True)
+    department_name = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    training_type_display = serializers.CharField(source='get_training_type_display', read_only=True)
+    program_name = serializers.CharField(source='training_program.name', read_only=True, allow_null=True)
+    reviewed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TrainingRequest
+        fields = [
+            'id', 'employee', 'employee_name', 'employee_number', 'department_name',
+            'training_program', 'program_name',
+            'title', 'description', 'justification',
+            'training_type', 'training_type_display',
+            'estimated_cost', 'preferred_date',
+            'status', 'status_display',
+            'reviewed_by', 'reviewed_by_name', 'reviewed_at', 'review_notes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['reviewed_by', 'reviewed_at', 'created_at', 'updated_at']
+
+    def get_employee_name(self, obj):
+        emp = obj.employee
+        return f"{emp.first_name} {emp.last_name}"
+
+    def get_department_name(self, obj):
+        dept = obj.employee.department
+        return dept.name if dept else ''
+
+    def get_reviewed_by_name(self, obj):
+        if obj.reviewed_by:
+            name = f"{obj.reviewed_by.first_name} {obj.reviewed_by.last_name}".strip()
+            return name or obj.reviewed_by.email
+        return None
+
+
+class TrainingRequestCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainingRequest
+        fields = [
+            'training_program', 'title', 'description', 'justification',
+            'training_type', 'estimated_cost', 'preferred_date',
         ]

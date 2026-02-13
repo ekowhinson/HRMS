@@ -12,6 +12,7 @@ import {
   XCircleIcon,
   EyeIcon,
   LockOpenIcon,
+  BuildingOffice2Icon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { TablePagination } from '@/components/ui/Table'
@@ -20,7 +21,7 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
-import { userService, roleService, type User, type Role, type UserRole } from '@/services/users'
+import { userService, roleService, userOrganizationService, type User, type Role, type UserRole, type UserOrganization } from '@/services/users'
 
 type ScopeType = 'global' | 'region' | 'department' | 'team'
 
@@ -44,6 +45,7 @@ export default function UserManagementPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showRoleModal, setShowRoleModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
+  const [showOrgModal, setShowOrgModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
   // Form state
@@ -69,6 +71,12 @@ export default function UserManagementPage() {
     is_primary: false,
   })
 
+  const [orgFormData, setOrgFormData] = useState({
+    organization_id: '',
+    role: 'member' as 'member' | 'admin' | 'viewer',
+    is_default: false,
+  })
+
   // Queries
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['users', search, statusFilter, roleFilter],
@@ -82,6 +90,17 @@ export default function UserManagementPage() {
   const { data: roles = [] } = useQuery({
     queryKey: ['roles'],
     queryFn: () => roleService.getRoles({ is_active: true }),
+  })
+
+  const { data: allOrganizations = [] } = useQuery({
+    queryKey: ['organizations-all'],
+    queryFn: () => userOrganizationService.getOrganizations(),
+  })
+
+  const { data: userOrgs = [], isLoading: userOrgsLoading } = useQuery({
+    queryKey: ['user-organizations', selectedUser?.id],
+    queryFn: () => userOrganizationService.getUserOrganizations(selectedUser!.id),
+    enabled: !!selectedUser && showOrgModal,
   })
 
   const users: User[] = usersData?.results || usersData || []
@@ -169,6 +188,33 @@ export default function UserManagementPage() {
     },
   })
 
+  const addOrgMutation = useMutation({
+    mutationFn: ({ userId, data }: { userId: string; data: { organization_id: string; role: 'member' | 'admin' | 'viewer'; is_default: boolean } }) =>
+      userOrganizationService.addUserOrganization(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-organizations', selectedUser?.id] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setOrgFormData({ organization_id: '', role: 'member', is_default: false })
+      toast.success('Organization assigned successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to assign organization')
+    },
+  })
+
+  const removeOrgMutation = useMutation({
+    mutationFn: ({ userId, organizationId }: { userId: string; organizationId: string }) =>
+      userOrganizationService.removeUserOrganization(userId, organizationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-organizations', selectedUser?.id] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success('Organization removed successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to remove organization')
+    },
+  })
+
   const resetForm = () => {
     setFormData({
       email: '',
@@ -246,6 +292,29 @@ export default function UserManagementPage() {
       removeRoleMutation.mutate({ userId: user.id, roleId: userRole.id })
     }
   }
+
+  const handleAssignOrg = () => {
+    if (!selectedUser || !orgFormData.organization_id) return
+    addOrgMutation.mutate({
+      userId: selectedUser.id,
+      data: orgFormData,
+    })
+  }
+
+  const handleRemoveOrg = (org: UserOrganization) => {
+    if (!selectedUser) return
+    if (confirm(`Remove ${selectedUser.full_name} from ${org.organization.name}?`)) {
+      removeOrgMutation.mutate({
+        userId: selectedUser.id,
+        organizationId: org.organization.id,
+      })
+    }
+  }
+
+  // Filter out organizations the user is already a member of
+  const availableOrganizations = allOrganizations.filter(
+    (org: { id: string }) => !userOrgs.some((uo: UserOrganization) => uo.organization.id === org.id)
+  )
 
   const getUserStatus = (user: User) => {
     if (!user.is_active) return 'inactive'
@@ -459,8 +528,20 @@ export default function UserManagementPage() {
                               setSelectedUser(user)
                               setShowRoleModal(true)
                             }}
+                            title="Manage Roles"
                           >
                             <ShieldCheckIcon className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedUser(user)
+                              setShowOrgModal(true)
+                            }}
+                            title="Manage Organizations"
+                          >
+                            <BuildingOffice2Icon className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -787,6 +868,121 @@ export default function UserManagementPage() {
                   Assign Role
                 </Button>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Manage Organizations Modal */}
+      <Modal
+        isOpen={showOrgModal}
+        onClose={() => {
+          setShowOrgModal(false)
+          setSelectedUser(null)
+          setOrgFormData({ organization_id: '', role: 'member', is_default: false })
+        }}
+        title={`Manage Organizations - ${selectedUser?.full_name}`}
+        size="lg"
+      >
+        {selectedUser && (
+          <div className="space-y-6">
+            {/* Current Organizations */}
+            <div>
+              <h4 className="font-medium text-gray-900 mb-3">Current Organizations</h4>
+              {userOrgsLoading ? (
+                <p className="text-gray-500 text-sm">Loading...</p>
+              ) : userOrgs.length === 0 ? (
+                <p className="text-gray-500 text-sm">No organizations assigned</p>
+              ) : (
+                <div className="space-y-2">
+                  {userOrgs.map((uo: UserOrganization) => (
+                    <div
+                      key={uo.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <BuildingOffice2Icon className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="font-medium text-gray-900">{uo.organization.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {uo.organization.code} &bull; Role: <span className="capitalize">{uo.role}</span>
+                            {uo.is_default && (
+                              <Badge variant="info" className="ml-2">Default</Badge>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-danger-600"
+                        onClick={() => handleRemoveOrg(uo)}
+                        isLoading={removeOrgMutation.isPending}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add Organization */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium text-gray-900 mb-3">Add to Organization</h4>
+              {availableOrganizations.length === 0 ? (
+                <p className="text-gray-500 text-sm">
+                  {allOrganizations.length === 0 ? 'No organizations found' : 'User is already a member of all organizations'}
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  <Select
+                    label="Organization"
+                    value={orgFormData.organization_id}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setOrgFormData({ ...orgFormData, organization_id: e.target.value })
+                    }
+                    options={[
+                      { value: '', label: 'Select an organization...' },
+                      ...availableOrganizations.map((org: { id: string; name: string; code: string }) => ({
+                        value: org.id,
+                        label: `${org.name} (${org.code})`,
+                      })),
+                    ]}
+                  />
+                  <Select
+                    label="Role"
+                    value={orgFormData.role}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setOrgFormData({ ...orgFormData, role: e.target.value as 'member' | 'admin' | 'viewer' })
+                    }
+                    options={[
+                      { value: 'member', label: 'Member' },
+                      { value: 'admin', label: 'Admin' },
+                      { value: 'viewer', label: 'Viewer' },
+                    ]}
+                  />
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={orgFormData.is_default}
+                      onChange={(e) =>
+                        setOrgFormData({ ...orgFormData, is_default: e.target.checked })
+                      }
+                      className="rounded"
+                    />
+                    <span className="text-sm">Set as default organization</span>
+                  </label>
+                  <Button
+                    onClick={handleAssignOrg}
+                    disabled={!orgFormData.organization_id}
+                    isLoading={addOrgMutation.isPending}
+                  >
+                    <BuildingOffice2Icon className="h-4 w-4 mr-2" />
+                    Assign Organization
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}

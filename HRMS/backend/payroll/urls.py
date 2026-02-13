@@ -28,6 +28,8 @@ router.register(r'salary-levels', views.SalaryLevelViewSet, basename='salary-lev
 router.register(r'salary-notches', views.SalaryNotchViewSet, basename='salary-notch')
 router.register(r'backpay', views.BackpayRequestViewSet, basename='backpay')
 router.register(r'salary-upgrades', views.SalaryUpgradeRequestViewSet, basename='salary-upgrade')
+router.register(r'validations', views.PayrollValidationViewSet, basename='payroll-validation')
+router.register(r'removal-reasons', views.RemovalReasonCategoryViewSet, basename='removal-reason')
 
 urlpatterns = [
     path('', include(router.urls)),

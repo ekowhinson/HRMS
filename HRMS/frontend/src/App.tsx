@@ -64,6 +64,7 @@ const TaxConfigurationPage = React.lazy(() => import('./pages/admin/TaxConfigura
 const LeaveTypeSetupPage = React.lazy(() => import('./pages/admin/LeaveTypeSetupPage'))
 const PayrollSetupPage = React.lazy(() => import('./pages/admin/PayrollSetupPage'))
 const PayrollImplementationPage = React.lazy(() => import('./pages/admin/PayrollImplementationPage'))
+const PayrollValidationPage = React.lazy(() => import('./pages/admin/PayrollValidationPage'))
 const BackpayPage = React.lazy(() => import('./pages/admin/BackpayPage'))
 const SalaryUpgradePage = React.lazy(() => import('./pages/admin/SalaryUpgradePage'))
 
@@ -401,6 +402,7 @@ function App() {
                     <Route path="/admin/payroll-implementation" element={<PayrollRoute><PayrollImplementationPage /></PayrollRoute>} />
                     <Route path="/admin/backpay" element={<PayrollRoute><BackpayPage /></PayrollRoute>} />
                     <Route path="/admin/salary-upgrades" element={<PayrollRoute><SalaryUpgradePage /></PayrollRoute>} />
+                    <Route path="/admin/payroll-validation" element={<PayrollRoute><PayrollValidationPage /></PayrollRoute>} />
                     <Route path="/payroll/employees" element={<PayrollRoute><PayrollEmployeesPage /></PayrollRoute>} />
                     <Route path="/payroll/employees/:id" element={<PayrollRoute><PayrollEmployeeDetailPage /></PayrollRoute>} />
 

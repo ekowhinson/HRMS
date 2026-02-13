@@ -320,8 +320,10 @@ class PayrollService:
         )
 
     def get_eligible_employees(self):
-        """Get all employees eligible for this payroll run."""
-        return Employee.objects.filter(
+        """Get all employees eligible for this payroll run, excluding flagged employees."""
+        from .models import PayrollValidation, EmployeePayrollFlag
+
+        qs = Employee.objects.filter(
             status__in=['ACTIVE', 'ON_LEAVE', 'PROBATION', 'NOTICE'],
             date_of_joining__lte=self.period.end_date
         ).select_related(
@@ -329,6 +331,17 @@ class PayrollService:
         ).prefetch_related(
             'salaries', 'bank_accounts'
         )
+
+        # Exclude employees flagged for removal in validated payroll validations
+        flagged_ids = EmployeePayrollFlag.objects.filter(
+            validation__payroll_period=self.period,
+            status=EmployeePayrollFlag.Status.FLAGGED,
+        ).values_list('employee_id', flat=True)
+
+        if flagged_ids:
+            qs = qs.exclude(id__in=flagged_ids)
+
+        return qs
 
     def get_employee_salary(self, employee: Employee) -> Optional[EmployeeSalary]:
         """Get the current salary for an employee."""
@@ -754,6 +767,20 @@ class PayrollService:
             raise ValueError(
                 f'Cannot compute payroll for {self.period.status.lower()} period. '
                 f'The payroll period must be open for recomputation.'
+            )
+
+        # Check payroll validation status — warn if not all districts validated
+        from .models import PayrollValidation
+        pending_validations = PayrollValidation.objects.filter(
+            payroll_period=self.period,
+        ).exclude(status=PayrollValidation.Status.VALIDATED)
+        if pending_validations.exists() and self.period.status not in closed_period_statuses:
+            # Log warning but don't block — validation is advisory
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f'Computing payroll with {pending_validations.count()} unvalidated districts '
+                f'for period {self.period.name}'
             )
 
         # Clear existing payroll items before recomputation

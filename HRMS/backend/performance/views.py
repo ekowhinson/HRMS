@@ -793,6 +793,52 @@ class TrainingNeedViewSet(viewsets.ModelViewSet):
             'actual_cost': costs['actual_total']
         })
 
+    @action(detail=False, methods=['post'])
+    def consolidate_department_needs(self, request):
+        """Consolidate training needs by department."""
+        department_id = request.data.get('department_id')
+        if not department_id:
+            return Response(
+                {'detail': 'department_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        needs = TrainingNeed.objects.filter(
+            employee__department_id=department_id,
+            status='IDENTIFIED',
+            is_deleted=False
+        ).select_related('employee', 'competency')
+
+        # Group by training_type and title similarity
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        for need in needs:
+            key = need.training_type
+            grouped[key].append({
+                'id': str(need.id),
+                'title': need.title,
+                'employee_name': need.employee.full_name,
+                'employee_id': str(need.employee.id),
+                'priority': need.priority,
+                'competency': need.competency.name if need.competency else None,
+                'estimated_cost': float(need.estimated_cost) if need.estimated_cost else None,
+            })
+
+        summary = []
+        for training_type, items in grouped.items():
+            summary.append({
+                'training_type': training_type,
+                'training_type_display': dict(TrainingNeed.Type.choices).get(training_type, training_type),
+                'count': len(items),
+                'employees': items,
+            })
+
+        return Response({
+            'department_id': department_id,
+            'total_needs': needs.count(),
+            'groups': summary,
+        })
+
 
 class PerformanceAppealViewSet(viewsets.ModelViewSet):
     """Performance appeal management."""

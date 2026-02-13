@@ -293,4 +293,45 @@ export const trainingService = {
     const response = await api.get('/training/impact-assessments/my_assessments/', { params })
     return response.data
   },
+
+  // Training Requests (Self-Service)
+  getTrainingRequests: async (params: { status?: string; department?: string; page?: number; page_size?: number } = {}): Promise<any> => {
+    const response = await api.get('/training/requests/', { params })
+    return response.data
+  },
+
+  getTrainingRequest: async (id: string): Promise<any> => {
+    const response = await api.get(`/training/requests/${id}/`)
+    return response.data
+  },
+
+  createTrainingRequest: async (data: any): Promise<any> => {
+    const response = await api.post('/training/requests/', data)
+    return response.data
+  },
+
+  updateTrainingRequest: async (id: string, data: any): Promise<any> => {
+    const response = await api.patch(`/training/requests/${id}/`, data)
+    return response.data
+  },
+
+  getMyTrainingRequests: async (params: { status?: string } = {}): Promise<any> => {
+    const response = await api.get('/training/requests/my_requests/', { params })
+    return response.data
+  },
+
+  submitTrainingRequest: async (id: string): Promise<any> => {
+    const response = await api.post(`/training/requests/${id}/submit/`)
+    return response.data
+  },
+
+  approveTrainingRequest: async (id: string, notes?: string): Promise<any> => {
+    const response = await api.post(`/training/requests/${id}/approve/`, { review_notes: notes })
+    return response.data
+  },
+
+  rejectTrainingRequest: async (id: string, notes: string): Promise<any> => {
+    const response = await api.post(`/training/requests/${id}/reject/`, { review_notes: notes })
+    return response.data
+  },
 }

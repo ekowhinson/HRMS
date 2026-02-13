@@ -841,11 +841,11 @@ class PortalTokenMixin:
             )
 
         try:
-            access = ApplicantPortalAccess.objects.select_related(
+            access = ApplicantPortalAccess.all_objects.select_related(
                 'applicant', 'applicant__vacancy',
                 'applicant__vacancy__department', 'applicant__vacancy__position',
                 'applicant__vacancy__work_location'
-            ).get(access_token=token)
+            ).get(access_token=token, is_deleted=False)
         except ApplicantPortalAccess.DoesNotExist:
             return None, Response(
                 {'error': 'Invalid access token'},
@@ -882,7 +882,7 @@ class ApplicantPortalDashboardView(PortalTokenMixin, APIView):
                 'offer_number': offer.offer_number,
                 'status': offer.status,
                 'status_display': offer.get_status_display(),
-                'position': offer.position.name if offer.position else '',
+                'position': offer.position.title if offer.position else '',
                 'department': offer.department.name if offer.department else '',
                 'basic_salary': str(offer.basic_salary),
                 'total_compensation': str(offer.total_compensation),

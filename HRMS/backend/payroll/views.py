@@ -26,6 +26,7 @@ from .models import (
     SalaryBand, SalaryLevel, SalaryNotch, PayrollCalendar, PayrollSettings,
     BackpayRequest, BackpayDetail, SalaryUpgradeRequest,
     SalaryIncrementHistory,
+    RemovalReasonCategory, PayrollValidation, EmployeePayrollFlag,
 )
 from .serializers import (
     PayComponentSerializer, SalaryStructureSerializer,
@@ -49,6 +50,9 @@ from .serializers import (
     SalaryUpgradeRejectSerializer,
     SalaryIncrementPreviewSerializer, SalaryIncrementApplySerializer,
     SalaryIncrementHistorySerializer,
+    RemovalReasonCategorySerializer, PayrollValidationListSerializer,
+    PayrollValidationDetailSerializer, EmployeePayrollFlagSerializer,
+    EmployeePayrollFlagCreateSerializer, ValidationDashboardSerializer,
 )
 from .services import PayrollService
 from .salary_upgrade_service import SalaryUpgradeService
@@ -2636,3 +2640,318 @@ class SalaryUpgradeRequestViewSet(viewsets.ModelViewSet):
             return Response(result)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RemovalReasonCategoryViewSet(viewsets.ModelViewSet):
+    """CRUD for payroll removal reason categories."""
+    queryset = RemovalReasonCategory.objects.all()
+    serializer_class = RemovalReasonCategorySerializer
+    filterset_fields = ['is_active']
+    search_fields = ['code', 'name']
+    ordering_fields = ['sort_order', 'name', 'code']
+
+
+class PayrollValidationViewSet(viewsets.ModelViewSet):
+    """Payroll validation management for district managers."""
+    queryset = PayrollValidation.objects.select_related(
+        'payroll_period', 'district', 'validated_by', 'approved_by'
+    ).prefetch_related('flags__employee', 'flags__removal_reason')
+    filterset_fields = ['payroll_period', 'status', 'district']
+    search_fields = ['district__name', 'district__code']
+    ordering_fields = ['status', 'deadline', 'created_at']
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return PayrollValidationListSerializer
+        return PayrollValidationDetailSerializer
+
+    @action(detail=False, methods=['post'], url_path='open-window')
+    def open_validation_window(self, request):
+        """Create PayrollValidation records for all active districts in a period."""
+        period_id = request.data.get('period_id')
+        deadline = request.data.get('deadline')
+
+        if not period_id:
+            return Response({'error': 'period_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            period = PayrollPeriod.objects.get(pk=period_id)
+        except PayrollPeriod.DoesNotExist:
+            return Response({'error': 'Period not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        from core.models import District
+        from employees.models import Employee
+
+        districts = District.objects.filter(is_active=True, is_deleted=False)
+        created_count = 0
+
+        for district in districts:
+            emp_count = Employee.objects.filter(
+                district=district,
+                status__in=['ACTIVE', 'ON_LEAVE', 'PROBATION', 'NOTICE'],
+                is_deleted=False
+            ).count()
+
+            if emp_count == 0:
+                continue
+
+            _, created = PayrollValidation.objects.get_or_create(
+                payroll_period=period,
+                district=district,
+                defaults={
+                    'status': PayrollValidation.Status.PENDING,
+                    'total_employees': emp_count,
+                    'deadline': deadline,
+                    'created_by': request.user,
+                }
+            )
+            if created:
+                created_count += 1
+
+        return Response({
+            'message': f'Validation window opened for {created_count} districts',
+            'created': created_count,
+            'total_districts': districts.count()
+        })
+
+    @action(detail=True, methods=['post'], url_path='submit')
+    def submit_validation(self, request, pk=None):
+        """Submit a validation for Regional Director approval."""
+        validation = self.get_object()
+        if validation.status == PayrollValidation.Status.VALIDATED:
+            return Response({'error': 'Already validated'}, status=status.HTTP_400_BAD_REQUEST)
+        if validation.status == PayrollValidation.Status.SUBMITTED:
+            return Response({'error': 'Already submitted'}, status=status.HTTP_400_BAD_REQUEST)
+
+        validation.status = PayrollValidation.Status.SUBMITTED
+        validation.validated_employees = validation.total_employees - validation.flagged_employees
+        validation.notes = request.data.get('notes', '')
+        validation.save()
+
+        return Response(PayrollValidationDetailSerializer(validation).data)
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve_validation(self, request, pk=None):
+        """Regional Director approves a submitted validation."""
+        validation = self.get_object()
+        if validation.status != PayrollValidation.Status.SUBMITTED:
+            return Response(
+                {'error': 'Only submitted validations can be approved'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from django.utils import timezone as tz
+        validation.status = PayrollValidation.Status.VALIDATED
+        validation.approved_by = request.user
+        validation.approved_at = tz.now()
+        validation.approval_notes = request.data.get('notes', '')
+        validation.validated_by = request.user
+        validation.validated_at = tz.now()
+        validation.save()
+
+        return Response(PayrollValidationDetailSerializer(validation).data)
+
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject_validation(self, request, pk=None):
+        """Regional Director rejects a submitted validation back to IN_PROGRESS."""
+        validation = self.get_object()
+        if validation.status != PayrollValidation.Status.SUBMITTED:
+            return Response(
+                {'error': 'Only submitted validations can be rejected'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        reason = request.data.get('reason', '')
+        if not reason:
+            return Response(
+                {'error': 'A rejection reason is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from django.utils import timezone as tz
+        validation.status = PayrollValidation.Status.IN_PROGRESS
+        validation.rejected_by = request.user
+        validation.rejected_at = tz.now()
+        validation.rejection_reason = reason
+        validation.save()
+
+        return Response(PayrollValidationDetailSerializer(validation).data)
+
+    @action(detail=False, methods=['get'], url_path='regional-validations')
+    def regional_validations(self, request):
+        """Get submitted validations for the current user's region (for Regional Directors)."""
+        from employees.models import Employee
+
+        try:
+            employee = Employee.objects.get(user=request.user, is_deleted=False)
+        except Employee.DoesNotExist:
+            return Response([])
+
+        # Get districts in the employee's region
+        region = employee.residential_region
+        if not region:
+            return Response([])
+
+        from core.models import District
+        district_ids = District.objects.filter(
+            region=region, is_active=True, is_deleted=False
+        ).values_list('id', flat=True)
+
+        validations = PayrollValidation.objects.filter(
+            district_id__in=district_ids
+        ).select_related('payroll_period', 'district', 'validated_by', 'approved_by')
+
+        period_id = request.query_params.get('period_id')
+        if period_id:
+            validations = validations.filter(payroll_period_id=period_id)
+
+        # Optionally filter by status
+        filter_status = request.query_params.get('status')
+        if filter_status:
+            validations = validations.filter(status=filter_status)
+
+        serializer = PayrollValidationListSerializer(validations, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='flag-employee')
+    def flag_employee(self, request, pk=None):
+        """Flag an employee for removal from payroll."""
+        validation = self.get_object()
+        serializer = EmployeePayrollFlagCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from employees.models import Employee
+
+        try:
+            employee = Employee.objects.get(pk=serializer.validated_data['employee'])
+        except Employee.DoesNotExist:
+            return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            reason = RemovalReasonCategory.objects.get(pk=serializer.validated_data['removal_reason'])
+        except RemovalReasonCategory.DoesNotExist:
+            return Response({'error': 'Removal reason not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        flag, created = EmployeePayrollFlag.objects.get_or_create(
+            validation=validation,
+            employee=employee,
+            defaults={
+                'removal_reason': reason,
+                'reason_detail': serializer.validated_data.get('reason_detail', ''),
+                'flagged_by': request.user,
+                'status': EmployeePayrollFlag.Status.FLAGGED,
+                'created_by': request.user,
+            }
+        )
+
+        if not created:
+            if flag.status == EmployeePayrollFlag.Status.FLAGGED:
+                return Response({'error': 'Employee already flagged'}, status=status.HTTP_400_BAD_REQUEST)
+            # Re-flag a previously reinstated employee
+            flag.removal_reason = reason
+            flag.reason_detail = serializer.validated_data.get('reason_detail', '')
+            flag.flagged_by = request.user
+            flag.status = EmployeePayrollFlag.Status.FLAGGED
+            flag.reinstated_by = None
+            flag.reinstated_at = None
+            flag.save()
+
+        # Update counts
+        validation.flagged_employees = validation.flags.filter(
+            status=EmployeePayrollFlag.Status.FLAGGED
+        ).count()
+        validation.save(update_fields=['flagged_employees'])
+
+        return Response(EmployeePayrollFlagSerializer(flag).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='reinstate-employee')
+    def reinstate_employee(self, request, pk=None):
+        """Reinstate a previously flagged employee."""
+        validation = self.get_object()
+        employee_id = request.data.get('employee_id')
+
+        if not employee_id:
+            return Response({'error': 'employee_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            flag = EmployeePayrollFlag.objects.get(
+                validation=validation,
+                employee_id=employee_id,
+                status=EmployeePayrollFlag.Status.FLAGGED
+            )
+        except EmployeePayrollFlag.DoesNotExist:
+            return Response({'error': 'Flag not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        from django.utils import timezone as tz
+        flag.status = EmployeePayrollFlag.Status.REINSTATED
+        flag.reinstated_by = request.user
+        flag.reinstated_at = tz.now()
+        flag.save()
+
+        # Update counts
+        validation.flagged_employees = validation.flags.filter(
+            status=EmployeePayrollFlag.Status.FLAGGED
+        ).count()
+        validation.save(update_fields=['flagged_employees'])
+
+        return Response(EmployeePayrollFlagSerializer(flag).data)
+
+    @action(detail=False, methods=['get'], url_path='dashboard')
+    def dashboard(self, request):
+        """Aggregated validation status across all districts for a period."""
+        period_id = request.query_params.get('period_id')
+        if not period_id:
+            return Response({'error': 'period_id query param is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            period = PayrollPeriod.objects.get(pk=period_id)
+        except PayrollPeriod.DoesNotExist:
+            return Response({'error': 'Period not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        from django.db.models import Sum, Count
+
+        validations = PayrollValidation.objects.filter(payroll_period=period)
+        stats = validations.aggregate(
+            total_flagged=Sum('flagged_employees'),
+            total_employees=Sum('total_employees'),
+        )
+
+        data = {
+            'period_id': str(period.id),
+            'period_name': period.name,
+            'total_districts': validations.count(),
+            'validated_count': validations.filter(status='VALIDATED').count(),
+            'pending_count': validations.filter(status='PENDING').count(),
+            'in_progress_count': validations.filter(status='IN_PROGRESS').count(),
+            'submitted_count': validations.filter(status='SUBMITTED').count(),
+            'overdue_count': validations.filter(status='OVERDUE').count(),
+            'total_flagged': stats['total_flagged'] or 0,
+            'total_employees': stats['total_employees'] or 0,
+            'completion_percentage': round(
+                (validations.filter(status='VALIDATED').count() / validations.count() * 100)
+                if validations.count() > 0 else 0, 1
+            ),
+        }
+
+        return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='my-validations')
+    def my_validations(self, request):
+        """Get validations for the current user's district(s)."""
+        from employees.models import Employee
+
+        try:
+            employee = Employee.objects.get(user=request.user, is_deleted=False)
+        except Employee.DoesNotExist:
+            return Response([])
+
+        validations = PayrollValidation.objects.filter(
+            district=employee.district
+        ).select_related('payroll_period', 'district', 'validated_by')
+
+        period_id = request.query_params.get('period_id')
+        if period_id:
+            validations = validations.filter(payroll_period_id=period_id)
+
+        serializer = PayrollValidationListSerializer(validations, many=True)
+        return Response(serializer.data)

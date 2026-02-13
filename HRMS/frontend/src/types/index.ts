@@ -1026,4 +1026,8 @@ export interface TrainingDashboardData {
   recent_completions: TrainingSession[]
   by_category: { category: string; count: number }[]
   top_programs: { id: string; name: string; code: string; category: string; total_enrolled: number }[]
+  completion_rate_by_department?: { department: string; total_enrollments: number; completed_enrollments: number; completion_rate: number }[]
+  staff_trained_by_department?: { department: string; total_staff: number; trained_count: number; percentage: number; avg_cost?: number }[]
+  cost_analysis?: { total_estimated_cost: number; total_actual_cost: number; avg_cost_per_employee: number }
+  training_type_distribution?: { training_type: string; training_type_display?: string; count: number }[]
 }

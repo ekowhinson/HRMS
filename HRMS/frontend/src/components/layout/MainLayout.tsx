@@ -213,6 +213,13 @@ const payrollSections: NavSection[] = [
     ],
   },
   {
+    name: 'Validation',
+    icon: ClipboardDocumentCheckIcon,
+    items: [
+      { name: 'Payroll Validation', href: '/admin/payroll-validation', icon: ClipboardDocumentCheckIcon },
+    ],
+  },
+  {
     name: 'Setup',
     icon: WrenchScrewdriverIcon,
     items: [
