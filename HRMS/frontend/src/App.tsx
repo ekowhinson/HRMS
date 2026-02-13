@@ -136,6 +136,7 @@ const UserManagementPage = React.lazy(() => import('./pages/admin/UserManagement
 const RoleManagementPage = React.lazy(() => import('./pages/admin/RoleManagementPage'))
 const AuthProvidersPage = React.lazy(() => import('./pages/admin/AuthProvidersPage'))
 const AuditLogsPage = React.lazy(() => import('./pages/admin/AuditLogsPage'))
+const TenantManagementPage = React.lazy(() => import('./pages/admin/TenantManagementPage'))
 
 // Backup & Restore
 const BackupManagementPage = React.lazy(() => import('./pages/admin/BackupManagementPage'))
@@ -455,6 +456,7 @@ function App() {
                     <Route path="/admin/roles" element={<SystemAdminRoute><RoleManagementPage /></SystemAdminRoute>} />
                     <Route path="/admin/auth-providers" element={<SystemAdminRoute><AuthProvidersPage /></SystemAdminRoute>} />
                     <Route path="/admin/audit-logs" element={<SystemAdminRoute><AuditLogsPage /></SystemAdminRoute>} />
+                    <Route path="/admin/tenants" element={<SystemAdminRoute><TenantManagementPage /></SystemAdminRoute>} />
 
                     {/* Finance Routes - Admin only */}
                     <Route path="/finance/accounts" element={<AdminRoute><ChartOfAccountsPage /></AdminRoute>} />

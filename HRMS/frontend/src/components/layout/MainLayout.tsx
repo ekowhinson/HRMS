@@ -16,6 +16,7 @@ import {
   ArrowRightOnRectangleIcon,
   ArrowPathIcon,
   BuildingOfficeIcon,
+  BuildingOffice2Icon,
   ClipboardDocumentCheckIcon,
   CalculatorIcon,
   CreditCardIcon,
@@ -334,6 +335,7 @@ const adminSections: NavSection[] = [
     name: 'Security',
     icon: LockClosedIcon,
     items: [
+      { name: 'Tenants', href: '/admin/tenants', icon: BuildingOffice2Icon },
       { name: 'User Management', href: '/admin/users', icon: UsersIcon },
       { name: 'Roles & Permissions', href: '/admin/roles', icon: KeyIcon },
       { name: 'Auth Providers', href: '/admin/auth-providers', icon: ShieldCheckIcon },
