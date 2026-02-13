@@ -710,7 +710,7 @@ function NotificationBell() {
 }
 
 // Roles that grant access to HR/Admin features
-const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER'];
+const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'HR_OFFICER', 'HR_DIRECTOR', 'ADMIN', 'SUPERUSER'];
 
 export default function MainLayout({ children }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -776,7 +776,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const isPayrollAdmin = (() => {
     if (!user) return false
     if (user.is_staff || user.is_superuser) return true
-    return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'PAYROLL_DATA_ENTRY', 'ADMIN', 'SUPERUSER'].includes(role))
+    return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'PAYROLL_OFFICER', 'PAYROLL_DATA_ENTRY', 'ADMIN', 'SUPERUSER'].includes(role))
   })();
 
   // Check if user has full Admin access (Administration section - system settings, user mgmt, etc.)

@@ -206,7 +206,7 @@ const PortalOfferPage = React.lazy(() => import('./pages/careers/PortalOfferPage
 const PortalDocumentsPage = React.lazy(() => import('./pages/careers/PortalDocumentsPage'))
 
 // ─── Roles that grant access to HR features ─────────────────────
-const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'ADMIN', 'SUPERUSER']
+const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'HR_OFFICER', 'HR_DIRECTOR', 'ADMIN', 'SUPERUSER']
 
 function useUserRoles() {
   const user = useAuthStore((state) => state.user)
@@ -235,7 +235,7 @@ function useIsPayrollAdmin() {
   const userRoles = useUserRoles()
   if (!user) return false
   if (user.is_staff || user.is_superuser) return true
-  return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'PAYROLL_DATA_ENTRY', 'ADMIN', 'SUPERUSER'].includes(role))
+  return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'PAYROLL_OFFICER', 'PAYROLL_DATA_ENTRY', 'ADMIN', 'SUPERUSER'].includes(role))
 }
 
 function useIsSystemAdmin() {
