@@ -16,6 +16,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from core.pagination import LargeResultsSetPagination, StandardResultsSetPagination
 from core.caching import cached_view
+from core.permissions import RoleRequired, PAYROLL_ADMIN_ROLES
 
 from django.http import HttpResponse
 from .models import (
@@ -323,6 +324,11 @@ class PayrollPeriodViewSet(viewsets.ModelViewSet):
     filterset_fields = ['year', 'month', 'status', 'calendar']
     search_fields = ['name']
     ordering = ['-year', '-month']
+
+    def get_permissions(self):
+        if self.action in ('reopen', 'close'):
+            return [IsAuthenticated(), RoleRequired(PAYROLL_ADMIN_ROLES)()]
+        return [IsAuthenticated()]
 
     @action(detail=False, methods=['post'])
     def create_year(self, request):

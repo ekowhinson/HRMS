@@ -33,6 +33,7 @@ import BarChartCard from '@/components/charts/BarChartCard'
 import PieChartCard from '@/components/charts/PieChartCard'
 import { chartColors } from '@/lib/design-tokens'
 import { formatCurrency } from '@/lib/utils'
+import { useModuleAccess } from '@/hooks/useModuleAccess'
 import type { PayrollRun, PayrollPeriod } from '@/types'
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
@@ -50,6 +51,8 @@ const statusSteps = ['DRAFT', 'COMPUTED', 'APPROVED', 'PAID']
 
 export default function PayrollProcessingPage() {
   const queryClient = useQueryClient()
+  const { canAccess } = useModuleAccess()
+  const canManagePeriods = canAccess('payroll_setup')
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview')
   const [selectedPeriod, setSelectedPeriod] = useState('')
   const [page, setPage] = useState(1)
@@ -933,7 +936,7 @@ export default function PayrollProcessingPage() {
                         Reset to Draft
                       </Button>
                     )}
-                    {status === 'PAID' && periodStatus !== 'CLOSED' && (
+                    {status === 'PAID' && periodStatus !== 'CLOSED' && canManagePeriods && (
                       <Button
                         variant="outline"
                         className="text-orange-600 border-orange-300 hover:bg-orange-50"

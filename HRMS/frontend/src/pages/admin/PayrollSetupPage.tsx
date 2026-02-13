@@ -40,6 +40,7 @@ import Modal from '@/components/ui/Modal'
 import Table, { TablePagination } from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import { formatCurrency } from '@/lib/utils'
+import { useModuleAccess } from '@/hooks/useModuleAccess'
 
 type TabType = 'settings' | 'banks' | 'branches' | 'categories' | 'bands' | 'levels' | 'notches'
 
@@ -52,6 +53,8 @@ const MONTHS = [
 
 export default function PayrollSetupPage() {
   const queryClient = useQueryClient()
+  const { canAccess } = useModuleAccess()
+  const canManagePeriods = canAccess('payroll_setup')
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Get initial tab from URL or default to 'settings'
@@ -1279,7 +1282,7 @@ export default function PayrollSetupPage() {
                               </td>
                               <td className="px-4 py-2 text-right">
                                 <div className="flex justify-end gap-2">
-                                  {canClose && (
+                                  {canClose && canManagePeriods && (
                                     <Button
                                       size="sm"
                                       variant="outline"
@@ -1292,7 +1295,7 @@ export default function PayrollSetupPage() {
                                       Close
                                     </Button>
                                   )}
-                                  {canReopen && (
+                                  {canReopen && canManagePeriods && (
                                     <Button
                                       size="sm"
                                       variant="outline"
