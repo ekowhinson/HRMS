@@ -338,8 +338,10 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Payroll Summary - Clean Card with Header Strip */}
-      {(stats?.latest_payroll || payrollData?.latest_payroll) && (
+      {/* Payroll Summary - Detailed Card */}
+      {(stats?.latest_payroll || payrollData?.latest_payroll) && (() => {
+        const lp = payrollData?.latest_payroll || stats?.latest_payroll
+        return (
         <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
           {/* Primary header strip */}
           <div className="bg-primary-700 px-6 py-4">
@@ -350,57 +352,91 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">
-                    Latest Payroll - {payrollData?.latest_payroll?.period || stats?.latest_payroll?.period}
+                    Latest Payroll - {lp?.period}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white/20 text-white">
-                      {payrollData?.latest_payroll?.status || 'Processed'}
+                      {lp?.status || 'Processed'}
                     </span>
+                    {lp?.run_number && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-white/80">
+                        {lp.run_number}
+                      </span>
+                    )}
+                    {lp?.run_date && (
+                      <span className="text-xs text-white/70">
+                        Run: {new Date(lp.run_date).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
-              <Link to="/admin/payroll">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-                >
-                  View Details
-                  <ArrowRightIcon className="w-4 h-4 ml-1" />
-                </Button>
-              </Link>
             </div>
           </div>
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6">
+          {/* Main payroll figures */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 pb-4">
             <div className="border-l-4 border-l-gray-500 bg-gray-50 p-4 rounded-r-lg">
-              <p className="text-3xl font-bold text-gray-900">
-                {formatNumber(payrollData?.latest_payroll?.total_employees || stats?.latest_payroll?.total_employees || 0)}
+              <p className="text-2xl font-bold text-gray-900">
+                {formatNumber(lp?.total_employees || 0)}
               </p>
               <p className="text-sm text-gray-500 mt-1">Employees Processed</p>
             </div>
             <div className="border-l-4 border-l-primary-500 bg-gray-50 p-4 rounded-r-lg">
-              <p className="text-3xl font-bold text-gray-900">
-                {formatCurrency(payrollData?.latest_payroll?.total_gross || stats?.latest_payroll?.total_gross || 0)}
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(lp?.total_gross || 0)}
               </p>
-              <p className="text-sm text-gray-500 mt-1">Total Gross</p>
+              <p className="text-sm text-gray-500 mt-1">Total Gross Pay</p>
             </div>
             <div className="border-l-4 border-l-amber-500 bg-gray-50 p-4 rounded-r-lg">
-              <p className="text-3xl font-bold text-gray-900">
-                {formatCurrency(payrollData?.latest_payroll?.total_deductions || 0)}
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(lp?.total_deductions || 0)}
               </p>
               <p className="text-sm text-gray-500 mt-1">Total Deductions</p>
             </div>
             <div className="border-l-4 border-l-green-500 bg-gray-50 p-4 rounded-r-lg">
-              <p className="text-3xl font-bold text-gray-900">
-                {formatCurrency(payrollData?.latest_payroll?.total_net || stats?.latest_payroll?.total_net || 0)}
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(lp?.total_net || 0)}
               </p>
               <p className="text-sm text-gray-500 mt-1">Total Net Pay</p>
             </div>
           </div>
+
+          {/* Deduction breakdown */}
+          <div className="px-6 pb-6">
+            <div className="border-t border-gray-100 pt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Deduction & Contribution Breakdown</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
+                  <p className="text-lg font-semibold text-gray-900">{formatCurrency(lp?.total_paye || 0)}</p>
+                  <p className="text-xs text-gray-500 mt-1">PAYE Tax</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
+                  <p className="text-lg font-semibold text-gray-900">{formatCurrency(lp?.total_ssnit_employee || 0)}</p>
+                  <p className="text-xs text-gray-500 mt-1">SSNIT (Employee)</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
+                  <p className="text-lg font-semibold text-gray-900">{formatCurrency(lp?.total_ssnit_employer || 0)}</p>
+                  <p className="text-xs text-gray-500 mt-1">SSNIT (Employer)</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
+                  <p className="text-lg font-semibold text-gray-900">{formatCurrency(lp?.total_tier2_employer || 0)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Tier 2 (Employer)</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
+                  <p className="text-lg font-semibold text-gray-900">{formatCurrency((lp?.total_overtime_tax || 0) + (lp?.total_bonus_tax || 0))}</p>
+                  <p className="text-xs text-gray-500 mt-1">OT & Bonus Tax</p>
+                </div>
+                <div className="bg-primary-50 border border-primary-100 rounded-lg p-3 text-center">
+                  <p className="text-lg font-semibold text-primary-700">{formatCurrency(lp?.total_employer_cost || 0)}</p>
+                  <p className="text-xs text-primary-600 mt-1">Total Employer Cost</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Charts Row 1: Workforce Overview */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
