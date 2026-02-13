@@ -339,20 +339,20 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-// Clean HRMS Logo Component
+// Clean ERP Logo Component
 function HRMSLogo({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div className="flex items-center gap-3">
       <div className="w-10 h-10 rounded-lg bg-primary-600 flex items-center justify-center">
-        <span className="text-white font-bold text-sm">HR</span>
+        <span className="text-white font-bold text-[11px]">ERP</span>
       </div>
       {!collapsed && (
         <div className="flex flex-col">
           <span className="text-lg font-bold text-gray-900">
-            HRMS
+            ERP
           </span>
           <span className="text-[10px] text-gray-500 -mt-1 tracking-wider uppercase">
-            Management
+            Suite
           </span>
         </div>
       )}
@@ -432,7 +432,40 @@ function SubNavLink({
   );
 }
 
-function SectionDivider({ label, icon }: { label: string; icon?: React.ReactNode }) {
+function SectionDivider({
+  label,
+  icon,
+  onClick,
+  isOpen,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  onClick?: () => void;
+  isOpen?: boolean;
+}) {
+  if (onClick !== undefined) {
+    return (
+      <button
+        onClick={onClick}
+        className="flex items-center gap-2 px-3 pt-6 pb-2 w-full group cursor-pointer"
+      >
+        {icon && <span className="text-gray-400">{icon}</span>}
+        <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider group-hover:text-gray-600 transition-colors">
+          {label}
+        </span>
+        <div className="flex-1 h-px bg-gray-200" />
+        <span
+          className={cn(
+            'transition-transform duration-200 text-gray-400',
+            isOpen && 'rotate-90'
+          )}
+        >
+          <ChevronRightIcon className="h-3.5 w-3.5" />
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 px-3 pt-6 pb-2">
       {icon && <span className="text-gray-400">{icon}</span>}
@@ -736,6 +769,48 @@ export default function MainLayout({ children }: MainLayoutProps) {
     }));
   };
 
+  // Module-level collapse state — all modules open by default
+  const MODULE_NAMES = ['Self Service', 'HR', 'Payroll', 'Finance', 'Procurement', 'Inventory', 'Projects', 'Administration'] as const;
+
+  const moduleNavMap = useMemo(() => ({
+    'Self Service': selfServiceNavigation,
+    'HR': [...hrNavigation, ...hrSections.flatMap(s => s.items)],
+    'Payroll': [...payrollNavigation, ...payrollSections.flatMap(s => s.items)],
+    'Finance': [...financeNavigation, ...financeSections.flatMap(s => s.items)],
+    'Procurement': procurementNavigation,
+    'Inventory': [...inventoryNavigation, ...inventorySections.flatMap(s => s.items)],
+    'Projects': projectsNavigation,
+    'Administration': [...adminNavigation, ...adminSections.flatMap(s => s.items)],
+  }), []);
+
+  const [openModules, setOpenModules] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    MODULE_NAMES.forEach(name => { initial[name] = true; });
+    return initial;
+  });
+
+  const toggleModule = (name: string) => {
+    setOpenModules(prev => ({ ...prev, [name]: !prev[name] }));
+  };
+
+  // Auto-expand module when route changes to an item inside it
+  useEffect(() => {
+    setOpenModules(prev => {
+      const updated = { ...prev };
+      let changed = false;
+      for (const [moduleName, items] of Object.entries(moduleNavMap)) {
+        const hasActive = items.some(item =>
+          location.pathname.startsWith(item.href.split('?')[0])
+        );
+        if (hasActive && !prev[moduleName]) {
+          updated[moduleName] = true;
+          changed = true;
+        }
+      }
+      return changed ? updated : prev;
+    });
+  }, [location.pathname, moduleNavMap]);
+
   const renderSidebarContent = (onLinkClick?: () => void) => (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
@@ -749,42 +824,56 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </div>
 
         {/* Self-Service Section - Always visible */}
-        <SectionDivider label="Self Service" />
-        <div className="px-2 space-y-0.5">
-          {selfServiceNavigation.map((item) => (
-            <NavLink
-              key={item.name}
-              item={item}
-              isActive={location.pathname.startsWith(item.href)}
-              onClick={onLinkClick}
-            />
-          ))}
+        <SectionDivider label="Self Service" onClick={() => toggleModule('Self Service')} isOpen={openModules['Self Service']} />
+        <div
+          className={cn(
+            'overflow-hidden transition-all duration-200',
+            openModules['Self Service'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+          )}
+        >
+          <div className="px-2 space-y-0.5">
+            {selfServiceNavigation.map((item) => (
+              <NavLink
+                key={item.name}
+                item={item}
+                isActive={location.pathname.startsWith(item.href)}
+                onClick={onLinkClick}
+              />
+            ))}
+          </div>
         </div>
 
         {/* HR Section - Only for HR/Admin users */}
         {isHROrAdmin && (
           <>
-            <SectionDivider label="HR" icon={<UsersIcon className="h-3.5 w-3.5" />} />
-            <div className="px-2 space-y-0.5">
-              {hrNavigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  item={item}
-                  isActive={location.pathname === item.href ||
-                    (item.href !== '/dashboard' && location.pathname.startsWith(item.href))}
-                  onClick={onLinkClick}
-                />
-              ))}
-              {hrSections.map((section) => (
-                <CollapsibleSection
-                  key={section.name}
-                  section={section}
-                  isOpen={openSections[section.name] ?? false}
-                  onToggle={() => toggleSection(section.name)}
-                  location={location}
-                  onLinkClick={onLinkClick}
-                />
-              ))}
+            <SectionDivider label="HR" icon={<UsersIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('HR')} isOpen={openModules['HR']} />
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-200',
+                openModules['HR'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <div className="px-2 space-y-0.5">
+                {hrNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    item={item}
+                    isActive={location.pathname === item.href ||
+                      (item.href !== '/dashboard' && location.pathname.startsWith(item.href))}
+                    onClick={onLinkClick}
+                  />
+                ))}
+                {hrSections.map((section) => (
+                  <CollapsibleSection
+                    key={section.name}
+                    section={section}
+                    isOpen={openSections[section.name] ?? false}
+                    onToggle={() => toggleSection(section.name)}
+                    location={location}
+                    onLinkClick={onLinkClick}
+                  />
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -792,27 +881,34 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Payroll Section - For payroll admins and system admins */}
         {isPayrollAdmin && (
           <>
-            <SectionDivider label="Payroll" icon={<BanknotesIcon className="h-3.5 w-3.5" />} />
-            <div className="px-2 space-y-0.5">
-              {payrollNavigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  item={item}
-                  isActive={location.pathname === item.href ||
-                    (item.href !== '/payroll' && location.pathname.startsWith(item.href))}
-                  onClick={onLinkClick}
-                />
-              ))}
-              {payrollSections.map((section) => (
-                <CollapsibleSection
-                  key={section.name}
-                  section={section}
-                  isOpen={openSections[section.name] ?? false}
-                  onToggle={() => toggleSection(section.name)}
-                  location={location}
-                  onLinkClick={onLinkClick}
-                />
-              ))}
+            <SectionDivider label="Payroll" icon={<BanknotesIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Payroll')} isOpen={openModules['Payroll']} />
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-200',
+                openModules['Payroll'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <div className="px-2 space-y-0.5">
+                {payrollNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    item={item}
+                    isActive={location.pathname === item.href ||
+                      (item.href !== '/payroll' && location.pathname.startsWith(item.href))}
+                    onClick={onLinkClick}
+                  />
+                ))}
+                {payrollSections.map((section) => (
+                  <CollapsibleSection
+                    key={section.name}
+                    section={section}
+                    isOpen={openSections[section.name] ?? false}
+                    onToggle={() => toggleSection(section.name)}
+                    location={location}
+                    onLinkClick={onLinkClick}
+                  />
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -820,27 +916,34 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Finance Section - For finance admins */}
         {isHROrAdmin && (
           <>
-            <SectionDivider label="Finance" icon={<CurrencyDollarIcon className="h-3.5 w-3.5" />} />
-            <div className="px-2 space-y-0.5">
-              {financeNavigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  item={item}
-                  isActive={location.pathname === item.href ||
-                    (location.pathname.startsWith(item.href) && item.href !== '/finance/reports')}
-                  onClick={onLinkClick}
-                />
-              ))}
-              {financeSections.map((section) => (
-                <CollapsibleSection
-                  key={section.name}
-                  section={section}
-                  isOpen={openSections[section.name] ?? false}
-                  onToggle={() => toggleSection(section.name)}
-                  location={location}
-                  onLinkClick={onLinkClick}
-                />
-              ))}
+            <SectionDivider label="Finance" icon={<CurrencyDollarIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Finance')} isOpen={openModules['Finance']} />
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-200',
+                openModules['Finance'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <div className="px-2 space-y-0.5">
+                {financeNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    item={item}
+                    isActive={location.pathname === item.href ||
+                      (location.pathname.startsWith(item.href) && item.href !== '/finance/reports')}
+                    onClick={onLinkClick}
+                  />
+                ))}
+                {financeSections.map((section) => (
+                  <CollapsibleSection
+                    key={section.name}
+                    section={section}
+                    isOpen={openSections[section.name] ?? false}
+                    onToggle={() => toggleSection(section.name)}
+                    location={location}
+                    onLinkClick={onLinkClick}
+                  />
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -848,16 +951,23 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Procurement Section */}
         {isHROrAdmin && (
           <>
-            <SectionDivider label="Procurement" icon={<TruckIcon className="h-3.5 w-3.5" />} />
-            <div className="px-2 space-y-0.5">
-              {procurementNavigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  item={item}
-                  isActive={location.pathname === item.href || location.pathname.startsWith(item.href)}
-                  onClick={onLinkClick}
-                />
-              ))}
+            <SectionDivider label="Procurement" icon={<TruckIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Procurement')} isOpen={openModules['Procurement']} />
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-200',
+                openModules['Procurement'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <div className="px-2 space-y-0.5">
+                {procurementNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    item={item}
+                    isActive={location.pathname === item.href || location.pathname.startsWith(item.href)}
+                    onClick={onLinkClick}
+                  />
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -865,26 +975,33 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Inventory & Assets Section */}
         {isHROrAdmin && (
           <>
-            <SectionDivider label="Inventory" icon={<ArchiveBoxIcon className="h-3.5 w-3.5" />} />
-            <div className="px-2 space-y-0.5">
-              {inventoryNavigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  item={item}
-                  isActive={location.pathname === item.href || location.pathname.startsWith(item.href)}
-                  onClick={onLinkClick}
-                />
-              ))}
-              {inventorySections.map((section) => (
-                <CollapsibleSection
-                  key={section.name}
-                  section={section}
-                  isOpen={openSections[section.name] ?? false}
-                  onToggle={() => toggleSection(section.name)}
-                  location={location}
-                  onLinkClick={onLinkClick}
-                />
-              ))}
+            <SectionDivider label="Inventory" icon={<ArchiveBoxIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Inventory')} isOpen={openModules['Inventory']} />
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-200',
+                openModules['Inventory'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <div className="px-2 space-y-0.5">
+                {inventoryNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    item={item}
+                    isActive={location.pathname === item.href || location.pathname.startsWith(item.href)}
+                    onClick={onLinkClick}
+                  />
+                ))}
+                {inventorySections.map((section) => (
+                  <CollapsibleSection
+                    key={section.name}
+                    section={section}
+                    isOpen={openSections[section.name] ?? false}
+                    onToggle={() => toggleSection(section.name)}
+                    location={location}
+                    onLinkClick={onLinkClick}
+                  />
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -892,17 +1009,24 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Projects Section */}
         {isHROrAdmin && (
           <>
-            <SectionDivider label="Projects" icon={<FolderIcon className="h-3.5 w-3.5" />} />
-            <div className="px-2 space-y-0.5">
-              {projectsNavigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  item={item}
-                  isActive={location.pathname === item.href ||
-                    (item.href !== '/projects' && location.pathname.startsWith(item.href))}
-                  onClick={onLinkClick}
-                />
-              ))}
+            <SectionDivider label="Projects" icon={<FolderIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Projects')} isOpen={openModules['Projects']} />
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-200',
+                openModules['Projects'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <div className="px-2 space-y-0.5">
+                {projectsNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    item={item}
+                    isActive={location.pathname === item.href ||
+                      (item.href !== '/projects' && location.pathname.startsWith(item.href))}
+                    onClick={onLinkClick}
+                  />
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -910,26 +1034,33 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Administration Section - Only for system admins */}
         {isSystemAdmin && (
           <>
-            <SectionDivider label="Administration" icon={<Cog6ToothIcon className="h-3.5 w-3.5" />} />
-            <div className="px-2 space-y-0.5">
-              {adminNavigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  item={item}
-                  isActive={location.pathname.startsWith(item.href)}
-                  onClick={onLinkClick}
-                />
-              ))}
-              {adminSections.map((section) => (
-                <CollapsibleSection
-                  key={section.name}
-                  section={section}
-                  isOpen={openSections[section.name] ?? false}
-                  onToggle={() => toggleSection(section.name)}
-                  location={location}
-                  onLinkClick={onLinkClick}
-                />
-              ))}
+            <SectionDivider label="Administration" icon={<Cog6ToothIcon className="h-3.5 w-3.5" />} onClick={() => toggleModule('Administration')} isOpen={openModules['Administration']} />
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-200',
+                openModules['Administration'] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <div className="px-2 space-y-0.5">
+                {adminNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    item={item}
+                    isActive={location.pathname.startsWith(item.href)}
+                    onClick={onLinkClick}
+                  />
+                ))}
+                {adminSections.map((section) => (
+                  <CollapsibleSection
+                    key={section.name}
+                    section={section}
+                    isOpen={openSections[section.name] ?? false}
+                    onToggle={() => toggleSection(section.name)}
+                    location={location}
+                    onLinkClick={onLinkClick}
+                  />
+                ))}
+              </div>
             </div>
           </>
         )}
