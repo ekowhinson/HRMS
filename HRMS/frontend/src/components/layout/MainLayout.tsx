@@ -65,6 +65,7 @@ import {
 import { useAuthStore } from '@/features/auth/store';
 import Avatar from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
+import { HR_ROLES, PAYROLL_ROLES, SYSTEM_ADMIN_ROLES } from '@/lib/roles';
 import { CountBadge } from '@/components/ui/Badge';
 
 interface NavItem {
@@ -709,9 +710,6 @@ function NotificationBell() {
   );
 }
 
-// Roles that grant access to HR/Admin features
-const HR_ADMIN_ROLES = ['HR', 'HR_ADMIN', 'HR_MANAGER', 'HR_OFFICER', 'HR_DIRECTOR', 'ADMIN', 'SUPERUSER'];
-
 export default function MainLayout({ children }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
@@ -769,21 +767,21 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const isHROrAdmin = (() => {
     if (!user) return false
     if (user.is_staff || user.is_superuser) return true
-    return userRoles.some((role) => HR_ADMIN_ROLES.includes(role))
+    return userRoles.some((role) => (HR_ROLES as readonly string[]).includes(role))
   })();
 
   // Check if user has Payroll access
   const isPayrollAdmin = (() => {
     if (!user) return false
     if (user.is_staff || user.is_superuser) return true
-    return userRoles.some((role) => ['PAYROLL_ADMIN', 'PAYROLL_MANAGER', 'PAYROLL_OFFICER', 'PAYROLL_DATA_ENTRY', 'ADMIN', 'SUPERUSER'].includes(role))
+    return userRoles.some((role) => (PAYROLL_ROLES as readonly string[]).includes(role))
   })();
 
   // Check if user has full Admin access (Administration section - system settings, user mgmt, etc.)
   const isSystemAdmin = (() => {
     if (!user) return false
     if (user.is_staff || user.is_superuser) return true
-    return userRoles.some((role) => ['ADMIN', 'SUPERUSER'].includes(role))
+    return userRoles.some((role) => (SYSTEM_ADMIN_ROLES as readonly string[]).includes(role))
   })();
 
   // Strictly superuser check (for Tenants / Licensing)
