@@ -20,6 +20,7 @@ interface JournalEntry {
   component_type: string
   credit_amount: number | null
   debit_amount: number | null
+  is_arrear?: boolean
 }
 
 interface JournalData {
@@ -396,7 +397,7 @@ export default function PayrollJournalPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {/* Credit Entries */}
               {creditEntries.map((entry, idx) => (
-                <tr key={`credit-${idx}`} className="hover:bg-gray-50">
+                <tr key={`credit-${idx}`} className={entry.is_arrear ? 'hover:bg-blue-50 bg-blue-50/30' : 'hover:bg-gray-50'}>
                   <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                     {entry.account_name}
                     {entry.component_type === 'EMPLOYER' && (
@@ -404,6 +405,9 @@ export default function PayrollJournalPage() {
                     )}
                     {entry.component_type === 'PAYMENT' && (
                       <Badge variant="success" className="ml-2 text-xs">Net Pay</Badge>
+                    )}
+                    {entry.is_arrear && (
+                      <Badge variant="warning" className="ml-2 text-xs">Backpay</Badge>
                     )}
                   </td>
                   <td className="px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900">
@@ -417,11 +421,14 @@ export default function PayrollJournalPage() {
 
               {/* Debit Entries */}
               {debitEntries.map((entry, idx) => (
-                <tr key={`debit-${idx}`} className="hover:bg-gray-50">
+                <tr key={`debit-${idx}`} className={entry.is_arrear ? 'hover:bg-blue-50 bg-blue-50/30' : 'hover:bg-gray-50'}>
                   <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                     {entry.account_name}
                     {entry.component_type === 'EMPLOYER' && (
                       <Badge variant="info" className="ml-2 text-xs">Employer</Badge>
+                    )}
+                    {entry.is_arrear && (
+                      <Badge variant="warning" className="ml-2 text-xs">Backpay</Badge>
                     )}
                   </td>
                   <td className="px-6 py-3 whitespace-nowrap text-sm text-right text-gray-400">

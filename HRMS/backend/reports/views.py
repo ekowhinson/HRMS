@@ -3284,7 +3284,7 @@ class PayrollJournalReportView(APIView):
         emp_filter = self._build_employee_filter(request)
         item_filter = self._build_item_filter(request)
 
-        # Get aggregated amounts by component
+        # Get aggregated amounts by component, split regular vs arrears
         details = PayrollItemDetail.objects.filter(
             emp_filter,
             payroll_item__payroll_run=run,
@@ -3295,9 +3295,10 @@ class PayrollJournalReportView(APIView):
             'pay_component__code',
             'pay_component__name',
             'pay_component__component_type',
+            'is_arrear',
         ).annotate(
             total_amount=Sum('amount')
-        ).order_by('pay_component__name')
+        ).order_by('is_arrear', 'pay_component__name')
 
         if not details.exists():
             return Response({'message': 'No journal data found'}, status=404)
@@ -3333,6 +3334,11 @@ class PayrollJournalReportView(APIView):
             component_type = detail['pay_component__component_type']
             account_code = detail['pay_component__code']
             account_name = detail['pay_component__name']
+            is_arrear = detail['is_arrear']
+
+            if is_arrear:
+                account_code = f'{account_code}_ARREAR'
+                account_name = f'{account_name} (Arrears)'
 
             if component_type == 'EARNING':
                 # Earnings go to debit only (salary expense)
@@ -3340,6 +3346,7 @@ class PayrollJournalReportView(APIView):
                     'account_code': account_code,
                     'account_name': account_name,
                     'component_type': component_type,
+                    'is_arrear': is_arrear,
                     'credit_amount': None,
                     'debit_amount': float(amount),
                 })
@@ -3350,6 +3357,7 @@ class PayrollJournalReportView(APIView):
                     'account_code': account_code,
                     'account_name': account_name,
                     'component_type': component_type,
+                    'is_arrear': is_arrear,
                     'credit_amount': float(amount),
                     'debit_amount': None,
                 })
@@ -3482,7 +3490,7 @@ class ExportPayrollJournalView(APIView):
         emp_filter = PayrollJournalReportView._build_employee_filter(request)
         item_filter = PayrollJournalReportView._build_item_filter(request)
 
-        # Get aggregated amounts by component
+        # Get aggregated amounts by component, split regular vs arrears
         # Exclude SSNIT_EMP as it's handled via PayrollItem.ssnit_employee aggregate below
         details = PayrollItemDetail.objects.filter(
             emp_filter,
@@ -3494,9 +3502,10 @@ class ExportPayrollJournalView(APIView):
             'pay_component__code',
             'pay_component__name',
             'pay_component__component_type',
+            'is_arrear',
         ).annotate(
             total_amount=Sum('amount')
-        ).order_by('pay_component__name')
+        ).order_by('is_arrear', 'pay_component__name')
 
         if not details.exists():
             return Response({'message': 'No journal data found'}, status=404)
@@ -3531,6 +3540,10 @@ class ExportPayrollJournalView(APIView):
             amount = detail['total_amount'] or Decimal('0')
             component_type = detail['pay_component__component_type']
             account_name = detail['pay_component__name']
+            is_arrear = detail['is_arrear']
+
+            if is_arrear:
+                account_name = f'{account_name} (Arrears)'
 
             if component_type == 'EARNING':
                 # Earnings go to debit only (salary expense)
