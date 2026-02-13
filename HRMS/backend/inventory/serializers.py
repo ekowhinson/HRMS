@@ -107,12 +107,17 @@ class AssetListSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True, allow_null=True)
     custodian_name = serializers.CharField(source='custodian.full_name', read_only=True, allow_null=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    monthly_depreciation = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True,
+    )
 
     class Meta:
         model = Asset
         fields = [
             'id', 'asset_number', 'name', 'category', 'category_name',
             'serial_number', 'acquisition_date', 'acquisition_cost', 'current_value',
+            'accumulated_depreciation', 'depreciation_method',
+            'useful_life_months', 'salvage_value', 'monthly_depreciation',
             'location', 'location_name', 'department', 'department_name',
             'custodian', 'custodian_name', 'status', 'status_display',
         ]
@@ -128,6 +133,9 @@ class AssetSerializer(serializers.ModelSerializer):
     custodian_name = serializers.CharField(source='custodian.full_name', read_only=True, allow_null=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     depreciation_method_display = serializers.CharField(source='get_depreciation_method_display', read_only=True)
+    monthly_depreciation = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True,
+    )
 
     class Meta:
         model = Asset
@@ -137,7 +145,7 @@ class AssetSerializer(serializers.ModelSerializer):
             'serial_number', 'acquisition_date', 'acquisition_cost',
             'current_value', 'accumulated_depreciation',
             'depreciation_method', 'depreciation_method_display',
-            'useful_life_months', 'salvage_value',
+            'useful_life_months', 'salvage_value', 'monthly_depreciation',
             'location', 'location_name', 'department', 'department_name',
             'custodian', 'custodian_name',
             'status', 'status_display',

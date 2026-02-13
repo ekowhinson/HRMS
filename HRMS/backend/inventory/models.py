@@ -153,6 +153,15 @@ class Asset(BaseModel):
     def __str__(self):
         return f"{self.asset_number} - {self.name}"
 
+    @property
+    def monthly_depreciation(self):
+        """Compute monthly depreciation (straight-line)."""
+        from decimal import Decimal
+        if self.useful_life_months and self.useful_life_months > 0:
+            depreciable = self.acquisition_cost - self.salvage_value
+            return (depreciable / Decimal(self.useful_life_months)).quantize(Decimal('0.01'))
+        return Decimal('0.00')
+
 
 class AssetDepreciation(BaseModel):
     """Monthly depreciation record."""
