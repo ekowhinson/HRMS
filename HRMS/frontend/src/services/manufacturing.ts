@@ -344,27 +344,27 @@ export const manufacturingService = {
   // ==================== Production Routings ====================
 
   getProductionRoutings: async (bomId: string, filters: ProductionRoutingFilters = {}): Promise<PaginatedResponse<ProductionRouting>> => {
-    const response = await api.get('/manufacturing/production-routings/', { params: { bom: bomId, ...filters } })
+    const response = await api.get('/manufacturing/routings/', { params: { bom: bomId, ...filters } })
     return response.data
   },
 
   getProductionRouting: async (id: string): Promise<ProductionRouting> => {
-    const response = await api.get(`/manufacturing/production-routings/${id}/`)
+    const response = await api.get(`/manufacturing/routings/${id}/`)
     return response.data
   },
 
   createProductionRouting: async (data: Partial<ProductionRouting>): Promise<ProductionRouting> => {
-    const response = await api.post('/manufacturing/production-routings/', data)
+    const response = await api.post('/manufacturing/routings/', data)
     return response.data
   },
 
   updateProductionRouting: async (id: string, data: Partial<ProductionRouting>): Promise<ProductionRouting> => {
-    const response = await api.patch(`/manufacturing/production-routings/${id}/`, data)
+    const response = await api.patch(`/manufacturing/routings/${id}/`, data)
     return response.data
   },
 
   deleteProductionRouting: async (id: string): Promise<void> => {
-    await api.delete(`/manufacturing/production-routings/${id}/`)
+    await api.delete(`/manufacturing/routings/${id}/`)
   },
 
   // ==================== Work Orders ====================

@@ -333,24 +333,24 @@ export const procurementService = {
   // ==================== Contract Milestones ====================
 
   getMilestones: async (contractId: string): Promise<ContractMilestone[]> => {
-    const response = await api.get('/procurement/milestones/', {
+    const response = await api.get('/procurement/contract-milestones/', {
       params: { contract: contractId },
     })
     return response.data.results || response.data
   },
 
   createMilestone: async (data: Partial<ContractMilestone>): Promise<ContractMilestone> => {
-    const response = await api.post('/procurement/milestones/', data)
+    const response = await api.post('/procurement/contract-milestones/', data)
     return response.data
   },
 
   updateMilestone: async (id: string, data: Partial<ContractMilestone>): Promise<ContractMilestone> => {
-    const response = await api.patch(`/procurement/milestones/${id}/`, data)
+    const response = await api.patch(`/procurement/contract-milestones/${id}/`, data)
     return response.data
   },
 
   deleteMilestone: async (id: string): Promise<void> => {
-    await api.delete(`/procurement/milestones/${id}/`)
+    await api.delete(`/procurement/contract-milestones/${id}/`)
   },
 
   // ==================== RFQs ====================

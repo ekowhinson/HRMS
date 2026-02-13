@@ -571,15 +571,15 @@ export const financeService = {
 
   // ─── Financial Statements ─────────────────────────────
   getTrialBalance: async (params?: Record<string, any>): Promise<{ rows: TrialBalanceRow[]; total_debit: number; total_credit: number }> => {
-    const response = await api.get('/finance/financial-statements/trial_balance/', { params })
+    const response = await api.get('/finance/reports/trial-balance/', { params })
     return response.data
   },
   getIncomeStatement: async (params?: Record<string, any>): Promise<{ sections: IncomeStatementSection[]; net_income: number }> => {
-    const response = await api.get('/finance/financial-statements/income_statement/', { params })
+    const response = await api.get('/finance/reports/income-statement/', { params })
     return response.data
   },
   getBalanceSheet: async (params?: Record<string, any>): Promise<{ sections: BalanceSheetSection[]; total_assets: number; total_liabilities_equity: number }> => {
-    const response = await api.get('/finance/financial-statements/balance_sheet/', { params })
+    const response = await api.get('/finance/reports/balance-sheet/', { params })
     return response.data
   },
 
