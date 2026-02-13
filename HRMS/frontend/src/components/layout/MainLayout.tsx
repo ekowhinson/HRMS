@@ -316,6 +316,7 @@ const projectsNavigation: NavItem[] = [
 
 // Administration Section - Top level items
 const adminNavigation: NavItem[] = [
+  { name: 'Tenants', href: '/admin/tenants', icon: BuildingOffice2Icon },
   { name: 'Approval Workflows', href: '/admin/approval-workflows', icon: ClipboardDocumentCheckIcon },
   { name: 'Company Policies', href: '/admin/policies', icon: DocumentTextIcon },
   { name: 'Announcements', href: '/admin/announcements', icon: MegaphoneIcon },
@@ -335,7 +336,6 @@ const adminSections: NavSection[] = [
     name: 'Security',
     icon: LockClosedIcon,
     items: [
-      { name: 'Tenants', href: '/admin/tenants', icon: BuildingOffice2Icon },
       { name: 'User Management', href: '/admin/users', icon: UsersIcon },
       { name: 'Roles & Permissions', href: '/admin/roles', icon: KeyIcon },
       { name: 'Auth Providers', href: '/admin/auth-providers', icon: ShieldCheckIcon },
