@@ -317,15 +317,6 @@ const adminNavigation: NavItem[] = [
 // Administration Section - Collapsible sub-sections
 const adminSections: NavSection[] = [
   {
-    name: 'Data Tools',
-    icon: DocumentArrowUpIcon,
-    items: [
-      { name: 'Data Import', href: '/admin/data-import', icon: DocumentArrowUpIcon },
-      { name: 'Data Analyzer', href: '/admin/data-analyzer', icon: SparklesIcon },
-      { name: 'Saved Reports', href: '/reports/saved', icon: DocumentChartBarIcon },
-    ],
-  },
-  {
     name: 'Backup & Restore',
     icon: CloudArrowDownIcon,
     items: [

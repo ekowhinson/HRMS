@@ -32,7 +32,6 @@ urlpatterns = [
         path('payroll/', include('payroll.urls')),
         path('performance/', include('performance.urls')),
         path('reports/', include('reports.urls')),
-        path('imports/', include('imports.urls')),
         path('core/', include('core.urls')),  # Cache, lookups, dashboard stats, system status
         path('policies/', include('policies.urls')),  # Company policies & SOPs
         path('exits/', include('exits.urls')),  # Exit/Offboarding management

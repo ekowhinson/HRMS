@@ -81,10 +81,6 @@ class Command(BaseCommand):
             ),
         },
         {
-            'label': 'imports.ImportRecord — row count',
-            'sql': 'SELECT COUNT(*) FROM imports_importrecord',
-        },
-        {
             'label': 'pg_stat_user_tables — table sizes',
             'sql': (
                 'SELECT relname, n_live_tup '

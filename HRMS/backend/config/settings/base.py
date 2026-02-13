@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'payroll.apps.PayrollConfig',
     'reports.apps.ReportsConfig',
     'workflow.apps.WorkflowConfig',
-    'imports.apps.ImportsConfig',
     'policies.apps.PoliciesConfig',
     'exits.apps.ExitsConfig',
     'training.apps.TrainingConfig',

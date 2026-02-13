@@ -49,7 +49,6 @@ app.conf.update(
 
     # Task routing
     task_routes={
-        'imports.tasks.*': {'queue': 'imports'},
         'reports.tasks.*': {'queue': 'reports'},
         'payroll.tasks.*': {'queue': 'payroll'},
         'finance.tasks.*': {'queue': 'finance'},
@@ -62,10 +61,6 @@ app.conf.update(
     # Beat schedule for periodic tasks
     beat_schedule={
         # ── Cleanup tasks ────────────────────────────────────────────
-        'cleanup-expired-imports': {
-            'task': 'imports.tasks.cleanup_expired_imports',
-            'schedule': 3600.0,  # Every hour
-        },
         'cleanup-old-audit-logs': {
             'task': 'core.tasks.cleanup_old_audit_logs',
             'schedule': crontab(hour=2, minute=0),  # Daily at 2:00 AM
@@ -124,7 +119,7 @@ app.conf.update(
 )
 
 # Auto-discover tasks from all installed apps
-app.autodiscover_tasks(['imports', 'core', 'payroll', 'reports', 'training', 'finance', 'procurement', 'inventory', 'projects'])
+app.autodiscover_tasks(['core', 'payroll', 'reports', 'training', 'finance', 'procurement', 'inventory', 'projects'])
 
 
 # ── Task lifecycle signal handlers ──────────────────────────────────────────

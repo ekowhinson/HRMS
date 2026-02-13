@@ -62,8 +62,6 @@ const TransactionTypeSetupPage = React.lazy(() => import('./pages/admin/Transact
 const EmployeeTransactionsPage = React.lazy(() => import('./pages/admin/EmployeeTransactionsPage'))
 const TaxConfigurationPage = React.lazy(() => import('./pages/admin/TaxConfigurationPage'))
 const LeaveTypeSetupPage = React.lazy(() => import('./pages/admin/LeaveTypeSetupPage'))
-const DataImportPage = React.lazy(() => import('./pages/admin/DataImportPage'))
-const DataAnalyzerPage = React.lazy(() => import('./pages/admin/DataAnalyzerPage'))
 const PayrollSetupPage = React.lazy(() => import('./pages/admin/PayrollSetupPage'))
 const PayrollImplementationPage = React.lazy(() => import('./pages/admin/PayrollImplementationPage'))
 const BackpayPage = React.lazy(() => import('./pages/admin/BackpayPage'))
@@ -405,10 +403,6 @@ function App() {
                     <Route path="/admin/salary-upgrades" element={<PayrollRoute><SalaryUpgradePage /></PayrollRoute>} />
                     <Route path="/payroll/employees" element={<PayrollRoute><PayrollEmployeesPage /></PayrollRoute>} />
                     <Route path="/payroll/employees/:id" element={<PayrollRoute><PayrollEmployeeDetailPage /></PayrollRoute>} />
-
-                    {/* Data Tools - System Admin only */}
-                    <Route path="/admin/data-import" element={<SystemAdminRoute><DataImportPage /></SystemAdminRoute>} />
-                    <Route path="/admin/data-analyzer" element={<SystemAdminRoute><DataAnalyzerPage /></SystemAdminRoute>} />
 
                     {/* Performance Management Routes */}
                     <Route path="/admin/appraisal-cycles" element={<AdminRoute><AppraisalCyclesPage /></AdminRoute>} />
