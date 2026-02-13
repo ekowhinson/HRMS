@@ -19,7 +19,7 @@ class Bank(BaseModel):
     """
     Bank setup for salary payments.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     short_name = models.CharField(max_length=50, null=True, blank=True)
     swift_code = models.CharField(max_length=20, null=True, blank=True)
@@ -35,6 +35,7 @@ class Bank(BaseModel):
         ordering = ['name']
         verbose_name = 'Bank'
         verbose_name_plural = 'Banks'
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -86,7 +87,7 @@ class StaffCategory(BaseModel):
     Staff category for payroll groupings (e.g., District Staff, HQ Staff, Contract Staff).
     Used to group employees for payroll processing and reporting.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     payroll_group = models.CharField(
@@ -112,6 +113,7 @@ class StaffCategory(BaseModel):
         ordering = ['sort_order', 'name']
         verbose_name = 'Staff Category'
         verbose_name_plural = 'Staff Categories'
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -121,7 +123,7 @@ class SalaryBand(BaseModel):
     """
     Salary band/scale (e.g., Band 1, Band 2, Band 3, Band 4).
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     min_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -134,6 +136,7 @@ class SalaryBand(BaseModel):
         ordering = ['sort_order', 'code']
         verbose_name = 'Salary Band'
         verbose_name_plural = 'Salary Bands'
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -236,7 +239,7 @@ class PayComponent(BaseModel):
         FUND = 'FUND', 'Fund Contribution'
         OTHER = 'OTHER', 'Other'
 
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     short_name = models.CharField(max_length=50, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
@@ -316,6 +319,7 @@ class PayComponent(BaseModel):
     class Meta:
         db_table = 'pay_components'
         ordering = ['component_type', 'display_order', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -325,7 +329,7 @@ class SalaryStructure(BaseModel):
     """
     Salary structure template for grades/positions.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     grade = models.ForeignKey(
@@ -342,6 +346,7 @@ class SalaryStructure(BaseModel):
     class Meta:
         db_table = 'salary_structures'
         ordering = ['grade__level', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -484,7 +489,7 @@ class TaxRelief(BaseModel):
     """
     Tax relief types and amounts.
     """
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     relief_type = models.CharField(
@@ -505,6 +510,7 @@ class TaxRelief(BaseModel):
     class Meta:
         db_table = 'tax_reliefs'
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -669,7 +675,7 @@ class PayrollCalendar(BaseModel):
     class Meta:
         db_table = 'payroll_calendar'
         ordering = ['-year', '-month']
-        unique_together = ['year', 'month']
+        unique_together = [('tenant', 'year', 'month')]
         verbose_name = 'Payroll Calendar'
         verbose_name_plural = 'Payroll Calendar'
 
@@ -981,7 +987,7 @@ class PayrollPeriod(BaseModel):
     class Meta:
         db_table = 'payroll_periods'
         ordering = ['-year', '-month']
-        unique_together = ['year', 'month', 'is_supplementary']
+        unique_together = [('tenant', 'year', 'month', 'is_supplementary')]
 
     def __str__(self):
         return f"{self.name} ({self.year}-{self.month:02d})"
@@ -2306,3 +2312,139 @@ class SalaryIncrementDetail(BaseModel):
 
     def __str__(self):
         return f"{self.increment.reference_number} - {self.notch} ({self.old_amount} -> {self.new_amount})"
+
+
+class RemovalReasonCategory(BaseModel):
+    code = models.CharField(max_length=20, db_index=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'removal_reason_categories'
+        ordering = ['sort_order', 'name']
+        verbose_name = 'Removal Reason Category'
+        verbose_name_plural = 'Removal Reason Categories'
+        unique_together = [('tenant', 'code')]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class PayrollValidation(BaseModel):
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+        VALIDATED = 'VALIDATED', 'Validated'
+        OVERDUE = 'OVERDUE', 'Overdue'
+
+    payroll_period = models.ForeignKey(
+        PayrollPeriod,
+        on_delete=models.PROTECT,
+        related_name='validations'
+    )
+    district = models.ForeignKey(
+        'core.District',
+        on_delete=models.PROTECT,
+        related_name='payroll_validations'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True
+    )
+    total_employees = models.PositiveIntegerField(default=0)
+    validated_employees = models.PositiveIntegerField(default=0)
+    flagged_employees = models.PositiveIntegerField(default=0)
+    deadline = models.DateTimeField(null=True, blank=True)
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='validated_payrolls'
+    )
+    validated_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, default='')
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_payroll_validations'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approval_notes = models.TextField(blank=True, default='')
+    rejected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='rejected_payroll_validations'
+    )
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, default='')
+
+    class Meta:
+        db_table = 'payroll_validations'
+        ordering = ['-created_at']
+        unique_together = ['payroll_period', 'district']
+
+    def __str__(self):
+        return f"{self.payroll_period.name} - {self.district.name} ({self.get_status_display()})"
+
+
+class EmployeePayrollFlag(BaseModel):
+    class Status(models.TextChoices):
+        FLAGGED = 'FLAGGED', 'Flagged'
+        REINSTATED = 'REINSTATED', 'Reinstated'
+
+    validation = models.ForeignKey(
+        PayrollValidation,
+        on_delete=models.CASCADE,
+        related_name='flags'
+    )
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.PROTECT,
+        related_name='payroll_flags'
+    )
+    removal_reason = models.ForeignKey(
+        RemovalReasonCategory,
+        on_delete=models.PROTECT,
+        related_name='flags'
+    )
+    reason_detail = models.TextField(blank=True, default='')
+    flagged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='flagged_employees'
+    )
+    flagged_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.FLAGGED,
+        db_index=True
+    )
+    reinstated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reinstated_employees'
+    )
+    reinstated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'employee_payroll_flags'
+        ordering = ['-flagged_at']
+        unique_together = ['validation', 'employee']
+
+    def __str__(self):
+        return f"{self.employee.employee_number} - {self.removal_reason.name} ({self.get_status_display()})"

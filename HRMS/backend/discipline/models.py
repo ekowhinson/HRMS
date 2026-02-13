@@ -21,7 +21,7 @@ class MisconductCategory(BaseModel):
         GROSS = 'GROSS', 'Gross Misconduct'
 
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     description = models.TextField()
     severity = models.CharField(
         max_length=20, choices=Severity.choices, default=Severity.MINOR
@@ -32,6 +32,7 @@ class MisconductCategory(BaseModel):
     class Meta:
         verbose_name_plural = 'Misconduct Categories'
         ordering = ['severity', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -416,13 +417,14 @@ class GrievanceCategory(BaseModel):
     """Categories for grievances."""
 
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     description = models.TextField()
     is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name_plural = 'Grievance Categories'
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"

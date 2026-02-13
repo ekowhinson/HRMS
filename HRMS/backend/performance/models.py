@@ -239,7 +239,7 @@ class Competency(BaseModel):
         TECHNICAL = 'TECHNICAL', 'Technical Competency'
 
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     description = models.TextField()
     category = models.CharField(
         max_length=20, choices=Category.choices, default=Category.CORE
@@ -252,6 +252,7 @@ class Competency(BaseModel):
     class Meta:
         verbose_name_plural = 'Competencies'
         ordering = ['category', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -800,7 +801,7 @@ class CoreValue(BaseModel):
     """Organization core values for assessment."""
 
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     description = models.TextField()
     behavioral_indicators = models.TextField(
         blank=True,
@@ -811,6 +812,7 @@ class CoreValue(BaseModel):
 
     class Meta:
         ordering = ['sort_order', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"

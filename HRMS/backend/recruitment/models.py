@@ -614,7 +614,7 @@ class InterviewScoreTemplate(BaseModel):
         TECHNICAL = 'TECHNICAL', 'Technical Assessment'
         CUSTOM = 'CUSTOM', 'Custom Template'
 
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     template_type = models.CharField(
         max_length=20, choices=TemplateType.choices, default=TemplateType.RECRUITMENT
@@ -628,6 +628,7 @@ class InterviewScoreTemplate(BaseModel):
     class Meta:
         db_table = 'interview_score_templates'
         ordering = ['template_type', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -1444,7 +1445,7 @@ class ShortlistTemplate(BaseModel):
     """
     Reusable templates for shortlisting criteria.
     """
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     job_family = models.CharField(
@@ -1456,6 +1457,7 @@ class ShortlistTemplate(BaseModel):
     class Meta:
         db_table = 'shortlist_templates'
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"

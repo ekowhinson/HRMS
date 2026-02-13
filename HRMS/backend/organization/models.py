@@ -82,7 +82,7 @@ class Division(BaseModel):
     """
     Top-level organizational division (e.g., ADMIN & HR, EXECUTIVE, OPERATIONS).
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     short_name = models.CharField(max_length=50, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
@@ -101,6 +101,7 @@ class Division(BaseModel):
         ordering = ['sort_order', 'name']
         verbose_name = 'Division'
         verbose_name_plural = 'Divisions'
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -110,7 +111,7 @@ class Directorate(BaseModel):
     """
     Directorate within a Division (e.g., MEMBERSHIP & REGIONAL OPERATIONS, INTERNAL AUDIT).
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     short_name = models.CharField(max_length=50, null=True, blank=True)
     division = models.ForeignKey(
@@ -134,6 +135,7 @@ class Directorate(BaseModel):
         ordering = ['division__sort_order', 'sort_order', 'name']
         verbose_name = 'Directorate'
         verbose_name_plural = 'Directorates'
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -156,7 +158,7 @@ class OrganizationUnit(BaseModel):
         UNIT = 'UNIT', 'Unit'
         TEAM = 'TEAM', 'Team'
 
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     short_name = models.CharField(max_length=50, null=True, blank=True)
     unit_type = models.CharField(
@@ -201,6 +203,7 @@ class OrganizationUnit(BaseModel):
         ordering = ['level', 'sort_order', 'name']
         verbose_name = 'Organization Unit'
         verbose_name_plural = 'Organization Units'
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -236,7 +239,7 @@ class Department(BaseModel):
     This can be used alongside OrganizationUnit for simpler queries.
     Links to Directorate for organizational hierarchy.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     short_name = models.CharField(max_length=50, null=True, blank=True)
     directorate = models.ForeignKey(
@@ -274,6 +277,7 @@ class Department(BaseModel):
     class Meta:
         db_table = 'departments'
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -290,7 +294,7 @@ class JobGrade(BaseModel):
     """
     Job grades/levels for salary and hierarchy.
     """
-    code = models.CharField(max_length=10, unique=True, db_index=True)
+    code = models.CharField(max_length=10, db_index=True)
     name = models.CharField(max_length=100)
     level = models.PositiveSmallIntegerField(db_index=True)
     description = models.TextField(null=True, blank=True)
@@ -328,6 +332,7 @@ class JobGrade(BaseModel):
     class Meta:
         db_table = 'job_grades'
         ordering = ['level']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -337,7 +342,7 @@ class JobCategory(BaseModel):
     """
     Job categories/families (e.g., Administrative, Technical, Medical).
     """
-    code = models.CharField(max_length=10, unique=True, db_index=True)
+    code = models.CharField(max_length=10, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
@@ -347,6 +352,7 @@ class JobCategory(BaseModel):
         ordering = ['name']
         verbose_name = 'Job Category'
         verbose_name_plural = 'Job Categories'
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return self.name
@@ -356,7 +362,7 @@ class JobPosition(BaseModel):
     """
     Job positions/titles within the organization.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     title = models.CharField(max_length=200)
     short_title = models.CharField(max_length=100, null=True, blank=True)
     grade = models.ForeignKey(
@@ -397,6 +403,7 @@ class JobPosition(BaseModel):
     class Meta:
         db_table = 'job_positions'
         ordering = ['grade__level', 'title']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.title}"
@@ -419,7 +426,7 @@ class CostCenter(BaseModel):
     """
     Cost centers for financial tracking.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     description = models.TextField(null=True, blank=True)
     organization_unit = models.ForeignKey(
@@ -450,6 +457,7 @@ class CostCenter(BaseModel):
     class Meta:
         db_table = 'cost_centers'
         ordering = ['code']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -459,7 +467,7 @@ class WorkLocation(BaseModel):
     """
     Physical work locations.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     address = models.TextField()
     city = models.CharField(max_length=100)
@@ -486,6 +494,7 @@ class WorkLocation(BaseModel):
     class Meta:
         db_table = 'work_locations'
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.name} ({self.city})"

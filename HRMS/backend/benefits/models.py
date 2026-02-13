@@ -19,7 +19,7 @@ class LoanType(BaseModel):
         BASIC = 'BASIC', 'Basic Salary'
         NET = 'NET', 'Net Salary'
 
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
 
@@ -84,6 +84,7 @@ class LoanType(BaseModel):
     class Meta:
         db_table = 'loan_types'
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -300,7 +301,7 @@ class BenefitType(BaseModel):
     """
     Types of benefits available.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     category = models.CharField(
@@ -337,6 +338,7 @@ class BenefitType(BaseModel):
     class Meta:
         db_table = 'benefit_types'
         ordering = ['category', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -456,7 +458,7 @@ class ExpenseType(BaseModel):
     """
     Types of reimbursable expenses.
     """
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     category = models.CharField(
@@ -484,6 +486,7 @@ class ExpenseType(BaseModel):
     class Meta:
         db_table = 'expense_types'
         ordering = ['category', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -730,7 +733,7 @@ class MedicalLensBenefit(BaseModel):
     """
     Configuration for medical lens benefit (once every 2 years).
     """
-    code = models.CharField(max_length=20, default='MED_LENS', unique=True)
+    code = models.CharField(max_length=20, default='MED_LENS', db_index=True)
     name = models.CharField(max_length=100, default='Medical Lens Benefit')
     max_amount = models.DecimalField(max_digits=12, decimal_places=2)
     eligibility_period_months = models.PositiveSmallIntegerField(
@@ -743,6 +746,7 @@ class MedicalLensBenefit(BaseModel):
 
     class Meta:
         db_table = 'medical_lens_benefits'
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.name} - GHS {self.max_amount}"
@@ -871,7 +875,7 @@ class ProfessionalSubscriptionType(BaseModel):
     """
     Types of professional subscriptions/memberships.
     """
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     max_annual_amount = models.DecimalField(max_digits=12, decimal_places=2)
@@ -887,6 +891,7 @@ class ProfessionalSubscriptionType(BaseModel):
     class Meta:
         db_table = 'professional_subscription_types'
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -1073,7 +1078,7 @@ class ThirdPartyLender(BaseModel):
         BANK = 'BANK', 'Bank/Financial Institution'
         OTHER = 'OTHER', 'Other'
 
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=200)
     lender_type = models.CharField(
         max_length=20,
@@ -1128,6 +1133,7 @@ class ThirdPartyLender(BaseModel):
     class Meta:
         db_table = 'third_party_lenders'
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -1645,7 +1651,7 @@ class CustomBenefitType(BaseModel):
         VARIABLE = 'VARIABLE', 'Variable Amount'
         SALARY_PERCENT = 'SALARY_PERCENT', 'Percentage of Salary'
 
-    code = models.CharField(max_length=30, unique=True)
+    code = models.CharField(max_length=30, db_index=True)
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     category = models.CharField(
@@ -1704,6 +1710,7 @@ class CustomBenefitType(BaseModel):
     class Meta:
         db_table = 'custom_benefit_types'
         ordering = ['category', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"

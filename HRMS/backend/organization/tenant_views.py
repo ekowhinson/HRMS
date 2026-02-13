@@ -87,6 +87,55 @@ class TenantSetupViewSet(viewsets.ModelViewSet):
         org.save(update_fields=['modules_enabled'])
         return Response({'modules_enabled': org.modules_enabled})
 
+    @action(detail=True, methods=['post'])
+    def setup(self, request, pk=None):
+        """Trigger organization setup with statutory and sample data."""
+        org = self.get_object()
+
+        modules = request.data.get('modules', None)
+        year = request.data.get('year', None)
+        force = request.data.get('force', False)
+        run_async = request.data.get('async', False)
+
+        if org.setup_completed and not force:
+            return Response(
+                {
+                    'status': 'already_completed',
+                    'setup_completed': True,
+                    'message': 'Organization setup already completed. Use force=true to re-run.',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if run_async:
+            from .tasks import setup_organization_task
+            task = setup_organization_task.delay(
+                str(org.id), modules=modules, year=year
+            )
+            return Response({
+                'status': 'started',
+                'task_id': task.id,
+            })
+
+        from .setup import setup_organization
+        result = setup_organization(org=org, modules=modules, year=year)
+        return Response(result)
+
+    @action(detail=True, methods=['get'], url_path='setup-status')
+    def setup_status(self, request, pk=None):
+        """Check setup status for an organization."""
+        org = self.get_object()
+        return Response({
+            'setup_completed': org.setup_completed,
+            'organization': OrganizationSerializer(org).data,
+        })
+
+    def perform_create(self, serializer):
+        """Auto-trigger setup when a new organization is created."""
+        org = serializer.save()
+        from .tasks import setup_organization_task
+        setup_organization_task.delay(str(org.id))
+
 
 class TenantConfigViewSet(viewsets.ViewSet):
     """Current tenant's configuration management."""

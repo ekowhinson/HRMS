@@ -24,7 +24,7 @@ class LeaveType(BaseModel):
         YEARLY = 'YEARLY', 'Yearly'
         ON_HIRE = 'ON_HIRE', 'On Hire Date'
 
-    code = models.CharField(max_length=20, unique=True, db_index=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
 
@@ -80,6 +80,7 @@ class LeaveType(BaseModel):
     class Meta:
         db_table = 'leave_types'
         ordering = ['sort_order', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -782,7 +783,7 @@ class LeaveApprovalWorkflowTemplate(BaseModel):
         HEAD_OFFICE = 'HEAD_OFFICE', 'Head Office'
         STANDALONE = 'STANDALONE', 'Standalone Office'
 
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     location_category = models.CharField(
@@ -801,6 +802,7 @@ class LeaveApprovalWorkflowTemplate(BaseModel):
     class Meta:
         db_table = 'leave_approval_workflow_templates'
         ordering = ['location_category', 'name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name} ({self.location_category})"

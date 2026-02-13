@@ -28,7 +28,7 @@ class TrainingProgram(BaseModel):
         CERTIFICATION = 'CERTIFICATION', 'Certification'
 
     name = models.CharField(max_length=200)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20, db_index=True)
     description = models.TextField(blank=True)
     category = models.CharField(
         max_length=20, choices=ProgramCategory.choices, default=ProgramCategory.OTHER
@@ -53,6 +53,7 @@ class TrainingProgram(BaseModel):
 
     class Meta:
         ordering = ['name']
+        unique_together = [('tenant', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -221,3 +222,50 @@ class TrainingImpactAssessment(BaseModel):
 
     def __str__(self):
         return f"Impact Assessment: {self.enrollment}"
+
+
+class TrainingRequest(BaseModel):
+    """Self-service training request from employees."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SUBMITTED = 'SUBMITTED', 'Submitted'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    employee = models.ForeignKey(
+        'employees.Employee', on_delete=models.CASCADE,
+        related_name='training_requests'
+    )
+    training_program = models.ForeignKey(
+        TrainingProgram, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='requests',
+        help_text='Optional existing program'
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    justification = models.TextField(blank=True)
+    training_type = models.CharField(
+        max_length=20, choices=TrainingProgram.TrainingType.choices,
+        default=TrainingProgram.TrainingType.INTERNAL
+    )
+    estimated_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    preferred_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='reviewed_training_requests'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.employee} - {self.title} ({self.get_status_display()})"
