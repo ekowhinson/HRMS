@@ -20,6 +20,9 @@ const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage')
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'))
 const OnboardingPage = React.lazy(() => import('./pages/OnboardingPage'))
 
+// AI Assistant
+const AIAssistantPage = React.lazy(() => import('./pages/AIAssistantPage'))
+
 // Core pages
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'))
 const EmployeesPage = React.lazy(() => import('./pages/EmployeesPage'))
@@ -328,6 +331,9 @@ function App() {
                     <Route path="/employees/new" element={<AdminRoute><EmployeeFormPage /></AdminRoute>} />
                     <Route path="/employees/:id" element={<AdminRoute><EmployeeDetailPage /></AdminRoute>} />
                     <Route path="/employees/:id/edit" element={<AdminRoute><EmployeeFormPage /></AdminRoute>} />
+
+                    {/* AI Assistant - Available to all authenticated users */}
+                    <Route path="/ai-assistant" element={<AIAssistantPage />} />
 
                     {/* Self-Service Portal - Available to all authenticated users */}
                     <Route path="/self-service" element={<SelfServiceDashboard />} />

@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'procurement.apps.ProcurementConfig',
     'inventory.apps.InventoryConfig',
     'projects.apps.ProjectsConfig',
+    'assistant.apps.AssistantConfig',
 ]
 
 MIDDLEWARE = [
@@ -274,3 +275,7 @@ BACKUP_SETTINGS = {
     'DEFAULT_RETENTION_DAYS': 90,
     'COMPRESSION': 'gzip',
 }
+
+# ── Ollama AI Assistant ──────────────────────────────────────────
+OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.1')

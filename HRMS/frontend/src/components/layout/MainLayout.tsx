@@ -748,6 +748,15 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const renderSidebarContent = (onLinkClick?: () => void) => (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
+        {/* AI Assistant - First item, available to all */}
+        <div className="px-2 pt-2 pb-1">
+          <NavLink
+            item={{ name: 'AI Assistant', href: '/ai-assistant', icon: SparklesIcon }}
+            isActive={location.pathname === '/ai-assistant'}
+            onClick={onLinkClick}
+          />
+        </div>
+
         {/* Self-Service Section - Always visible */}
         <SectionDivider label="Self Service" />
         <div className="px-2 space-y-0.5">

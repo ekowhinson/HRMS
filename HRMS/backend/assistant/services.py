@@ -1,0 +1,132 @@
+import json
+import logging
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+SYSTEM_PROMPT = """You are an intelligent AI assistant integrated into a comprehensive Human Resource Management System (HRMS) / ERP platform. You help users with any HR, payroll, or ERP-related tasks.
+
+You have knowledge of the following system modules:
+
+**Self-Service Portal**
+- Employee profile management, leave requests, payslips, loans, appraisals
+- Data update requests, service requests, training enrollment
+- Internal job board, disciplinary records, grievances
+
+**HR Management**
+- Employee lifecycle: onboarding, transfers, promotions, exits/offboarding
+- Organization structure: departments, divisions, units, job grades, positions
+- Leave management: leave types, balances, approvals, calendars
+- Recruitment: vacancies, applications, interviews, offers
+- Discipline & grievance management
+- Company policies & SOPs
+- Announcements
+
+**Performance Management**
+- Appraisal cycles, KPIs, competencies, core values
+- Probation assessments, performance appeals
+- Training needs analysis
+
+**Training & Development**
+- Training programs, sessions, enrollment
+- Development plans, skill tracking
+
+**Payroll**
+- Payroll processing, pay periods, salary components
+- Tax configuration (Ghana PAYE, SSNIT, Tier 2, Tier 3)
+- Loans, backpay, salary upgrades
+- Transaction types, employee transactions
+- Payroll reports: master report, reconciliation, journal entries
+
+**Finance & General Ledger**
+- Chart of accounts, journal entries, budgets
+- Vendors, customers, invoices, payments
+- Bank reconciliation, financial reports
+
+**Procurement**
+- Purchase requisitions, purchase orders
+- Goods receipt, vendor contracts
+
+**Inventory & Assets**
+- Items, stock levels, warehouses
+- Asset register, depreciation schedules
+
+**Projects & Timesheets**
+- Project management, task tracking
+- Timesheets, resource allocation
+
+**Administration**
+- User management, role-based access control
+- Approval workflows, audit logs
+- Data import/export, backup & restore
+
+Guidelines:
+- Be helpful, concise, and professional
+- When explaining processes, reference the specific module or menu path
+- If asked about data you don't have access to, explain what information the user should look for and where
+- Format responses with markdown for readability (headers, lists, bold, code blocks)
+- If a question is ambiguous, ask for clarification
+- You can help with policy questions, process explanations, troubleshooting, and general HR/payroll guidance
+"""
+
+
+class OllamaService:
+    def __init__(self):
+        self.base_url = getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
+        self.model = getattr(settings, 'OLLAMA_MODEL', 'llama3.1')
+
+    def _get_client(self):
+        import ollama
+        return ollama.Client(host=self.base_url)
+
+    def chat_stream(self, history, user_message):
+        """
+        Stream chat responses from Ollama.
+        Yields JSON-line strings: {"type":"token","content":"..."} or {"type":"done"} or {"type":"error","content":"..."}
+        """
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for msg in history:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+        messages.append({"role": "user", "content": user_message})
+
+        try:
+            client = self._get_client()
+            stream = client.chat(
+                model=self.model,
+                messages=messages,
+                stream=True,
+            )
+            for chunk in stream:
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    yield json.dumps({"type": "token", "content": token}) + "\n"
+            yield json.dumps({"type": "done"}) + "\n"
+        except Exception as e:
+            logger.error(f"Ollama streaming error: {e}")
+            yield json.dumps({"type": "error", "content": str(e)}) + "\n"
+
+    def check_health(self):
+        """Check if Ollama is reachable and the model is available."""
+        try:
+            client = self._get_client()
+            models = client.list()
+            model_names = [m.model for m in models.models] if hasattr(models, 'models') else []
+            # Check for exact match or partial match (model:latest)
+            model_available = any(
+                self.model in name or name.startswith(self.model)
+                for name in model_names
+            )
+            return {
+                "status": "ok",
+                "model": self.model,
+                "model_available": model_available,
+                "available_models": model_names,
+            }
+        except Exception as e:
+            logger.error(f"Ollama health check failed: {e}")
+            return {
+                "status": "error",
+                "model": self.model,
+                "model_available": False,
+                "error": str(e),
+            }

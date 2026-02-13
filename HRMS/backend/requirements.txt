@@ -39,6 +39,7 @@ wcwidth==0.5.3
 
 # AI/LLM
 anthropic>=0.39.0
+ollama>=0.4.0
 
 # Data processing
 pandas>=2.0.0
