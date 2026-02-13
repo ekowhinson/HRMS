@@ -54,7 +54,7 @@ export default function RoleManagementPage() {
   const { data: districts } = useQuery({
     queryKey: ['districts'],
     queryFn: async () => {
-      const response = await api.get('/core/districts/')
+      const response = await api.get('/organization/districts/')
       return response.data.results || response.data
     },
   })

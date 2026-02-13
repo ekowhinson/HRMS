@@ -1360,10 +1360,7 @@ class OvertimeBonusTaxConfigViewSet(viewsets.ModelViewSet):
         if config:
             serializer = self.get_serializer(config)
             return Response(serializer.data)
-        return Response(
-            {'message': 'No active configuration found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+        return Response(None)
 
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):

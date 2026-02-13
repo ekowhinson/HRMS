@@ -158,19 +158,19 @@ class ProbationService:
 
         # Get employees on probation
         probation_employees = Employee.objects.filter(
-            employment_status='PROBATION'
+            status='PROBATION'
         )
 
         due_assessments = []
 
         for emp in probation_employees:
-            if not emp.hire_date:
+            if not emp.date_of_joining:
                 continue
 
             # Check if 3-month assessment is due
-            three_month_date = emp.hire_date + timedelta(days=90)
-            six_month_date = emp.hire_date + timedelta(days=180)
-            twelve_month_date = emp.hire_date + timedelta(days=365)
+            three_month_date = emp.date_of_joining + timedelta(days=90)
+            six_month_date = emp.date_of_joining + timedelta(days=180)
+            twelve_month_date = emp.date_of_joining + timedelta(days=365)
 
             # Check which assessments already exist
             existing = ProbationAssessment.objects.filter(employee=emp).values_list(

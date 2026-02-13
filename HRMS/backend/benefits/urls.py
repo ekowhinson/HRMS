@@ -41,9 +41,7 @@ router.register(r'student-loan-accounts', views.StudentLoanAccountViewSet, basen
 router.register(r'rent-deductions', views.RentDeductionViewSet, basename='rent-deduction')
 
 urlpatterns = [
-    path('', include(router.urls)),
-
-    # Loan utility endpoints
+    # Explicit paths must come before router to avoid loans/<pk>/ capturing 'summary' as pk
     path('loans/check-eligibility/', views.CheckLoanEligibilityView.as_view(), name='check-loan-eligibility'),
     path('loans/summary/', views.LoanSummaryView.as_view(), name='loan-summary'),
 
@@ -54,4 +52,7 @@ urlpatterns = [
     # Employee summary endpoints
     path('employee/<uuid:employee_id>/loans/', views.EmployeeLoanSummaryView.as_view(), name='employee-loans'),
     path('employee/<uuid:employee_id>/benefits/', views.EmployeeBenefitSummaryView.as_view(), name='employee-benefits'),
+
+    # Router URLs last
+    path('', include(router.urls)),
 ]
