@@ -24,10 +24,10 @@ import { organizationService, type Organization } from '@/services/organization'
 import type { License } from '@/types'
 
 const planColors: Record<string, 'success' | 'info' | 'warning' | 'default'> = {
-  enterprise: 'success',
-  professional: 'info',
-  starter: 'warning',
-  trial: 'default',
+  ENTERPRISE: 'success',
+  PREMIUM: 'info',
+  STANDARD: 'warning',
+  FREE: 'default',
 }
 
 const licenseTypeColors: Record<string, 'success' | 'info' | 'warning' | 'default' | 'danger'> = {
@@ -70,7 +70,7 @@ export default function TenantManagementPage() {
     email_domain: '',
     phone: '',
     address: '',
-    subscription_plan: 'starter',
+    subscription_plan: 'STANDARD',
     max_employees: 50,
     max_users: 10,
   })
@@ -224,7 +224,7 @@ export default function TenantManagementPage() {
       email_domain: '',
       phone: '',
       address: '',
-      subscription_plan: 'starter',
+      subscription_plan: 'STANDARD',
       max_employees: 50,
       max_users: 10,
     })
@@ -570,10 +570,10 @@ export default function TenantManagementPage() {
               value={formData.subscription_plan}
               onChange={(e) => setFormData({ ...formData, subscription_plan: e.target.value })}
               options={[
-                { value: 'trial', label: 'Trial' },
-                { value: 'starter', label: 'Starter' },
-                { value: 'professional', label: 'Professional' },
-                { value: 'enterprise', label: 'Enterprise' },
+                { value: 'FREE', label: 'Free' },
+                { value: 'STANDARD', label: 'Standard' },
+                { value: 'PREMIUM', label: 'Premium' },
+                { value: 'ENTERPRISE', label: 'Enterprise' },
               ]}
             />
             <Input
@@ -657,10 +657,10 @@ export default function TenantManagementPage() {
               value={formData.subscription_plan}
               onChange={(e) => setFormData({ ...formData, subscription_plan: e.target.value })}
               options={[
-                { value: 'trial', label: 'Trial' },
-                { value: 'starter', label: 'Starter' },
-                { value: 'professional', label: 'Professional' },
-                { value: 'enterprise', label: 'Enterprise' },
+                { value: 'FREE', label: 'Free' },
+                { value: 'STANDARD', label: 'Standard' },
+                { value: 'PREMIUM', label: 'Premium' },
+                { value: 'ENTERPRISE', label: 'Enterprise' },
               ]}
             />
             <Input
