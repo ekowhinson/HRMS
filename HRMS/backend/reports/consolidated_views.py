@@ -70,39 +70,53 @@ def get_items_for_period_range(from_period_id, to_period_id, filters=None):
     return items, periods, from_period, to_period
 
 
-def _build_employee_statements(items, periods, columns_config):
+def _build_detail_statements(from_period_id, to_period_id, filters, period_extractor,
+                              needs_prefetch=False, periods_key='periods',
+                              prefetched_items=None):
     """
-    Build per-employee monthly breakdown with yearly subtotals.
-    Used by SSF, Tax, and Allowance statement views.
+    Shared scaffolding for all per-employee statement reports (SRP).
+    Handles: fetch → prefetch → group-by-employee → sort-by-period → build employee list.
 
-    columns_config: list of dicts with 'key' and 'item_field' (field on PayrollItem)
-    Returns list of employee statement dicts.
+    period_extractor(item): called for each PayrollItem, returns a dict with:
+        'row': dict with at least 'period_name' and 'year' (stored in period list).
+        'sums': optional dict of {key: Decimal} for yearly subtotal accumulation.
+    needs_prefetch: set True if period_extractor needs item.details.
+    periods_key: key name for period data in employee dict (default 'periods').
+    prefetched_items: if provided, skip fetching and use these items directly.
+
+    Returns (employee_items_map, employees_list, from_period, to_period).
     """
-    # Group items by employee
-    employee_items = defaultdict(list)
+    if prefetched_items is not None:
+        items = prefetched_items
+        from_period = PayrollPeriod.objects.get(id=from_period_id)
+        to_period = PayrollPeriod.objects.get(id=to_period_id)
+    else:
+        items, _periods, from_period, to_period = get_items_for_period_range(
+            from_period_id, to_period_id, filters
+        )
+        if needs_prefetch:
+            items = list(items.prefetch_related('details', 'details__pay_component'))
+
+    # Group by employee
+    employee_items_map = defaultdict(list)
     for item in items:
-        employee_items[item.employee_id].append(item)
+        employee_items_map[item.employee_id].append(item)
 
     employees = []
-    for emp_id, emp_items in employee_items.items():
+    for emp_id, emp_items in employee_items_map.items():
         emp = emp_items[0].employee
         period_data = []
         yearly_sums = defaultdict(lambda: defaultdict(Decimal))
 
         for item in sorted(emp_items, key=lambda x: x.payroll_run.payroll_period.start_date):
-            period = item.payroll_run.payroll_period
-            row = {
-                'period_name': period.name,
-                'year': period.year,
-            }
-            for col in columns_config:
-                val = getattr(item, col['item_field'], 0) or Decimal('0')
-                row[col['key']] = float(val)
-                yearly_sums[period.year][col['key']] += val
+            result = period_extractor(item)
+            period_data.append(result['row'])
 
-            period_data.append(row)
+            # Accumulate yearly sums if provided
+            for k, v in result.get('sums', {}).items():
+                yearly_sums[result['row']['year']][k] += v
 
-        # Compute grand total
+        # Compute grand total and yearly subtotals
         grand_total = {}
         yearly_subtotals = {}
         for year, sums in sorted(yearly_sums.items()):
@@ -110,7 +124,7 @@ def _build_employee_statements(items, periods, columns_config):
             for k, v in sums.items():
                 grand_total[k] = grand_total.get(k, 0) + float(v)
 
-        employees.append({
+        emp_dict = {
             'employee_number': emp.employee_number,
             'full_name': f"{emp.first_name or ''} {emp.last_name or ''}".strip(),
             'department': emp.department.name if emp.department else '',
@@ -118,14 +132,16 @@ def _build_employee_statements(items, periods, columns_config):
             'tin': getattr(emp, 'tin_number', '') or '',
             'dob': str(emp.date_of_birth) if emp.date_of_birth else '',
             'hire_date': str(emp.date_of_joining) if emp.date_of_joining else '',
-            'periods': period_data,
-            'yearly_subtotals': yearly_subtotals,
-            'grand_total': grand_total,
-        })
+            periods_key: period_data,
+        }
+        if yearly_sums:
+            emp_dict['yearly_subtotals'] = yearly_subtotals
+            emp_dict['grand_total'] = grand_total
 
-    # Sort by employee number
+        employees.append(emp_dict)
+
     employees.sort(key=lambda e: e['employee_number'])
-    return employees
+    return employee_items_map, employees, from_period, to_period
 
 
 def _get_period_range_params(request):
@@ -260,124 +276,107 @@ def _compute_labour_cost(from_period_id, to_period_id, group_by='department', fi
 
 def _compute_ssf_data(from_period_id, to_period_id, filters=None):
     """Compute SSF contribution statement data."""
-    items, periods, from_period, to_period = get_items_for_period_range(
-        from_period_id, to_period_id, filters
+    def period_extractor(item):
+        period = item.payroll_run.payroll_period
+        basic = item.basic_salary or Decimal('0')
+        emp_ssf = item.ssnit_employee or Decimal('0')
+        er_ssf = item.ssnit_employer or Decimal('0')
+        total = emp_ssf + er_ssf
+        return {
+            'row': {
+                'period_name': period.name,
+                'year': period.year,
+                'basic': float(basic),
+                'employee_ssf': float(emp_ssf),
+                'employer_ssf': float(er_ssf),
+                'total': float(total),
+            },
+            'sums': {
+                'basic': basic,
+                'employee_ssf': emp_ssf,
+                'employer_ssf': er_ssf,
+                'total': total,
+            },
+        }
+
+    _, employees, from_period, to_period = _build_detail_statements(
+        from_period_id, to_period_id, filters, period_extractor
     )
-
-    columns_config = [
-        {'key': 'basic', 'item_field': 'basic_salary'},
-        {'key': 'employee_ssf', 'item_field': 'ssnit_employee'},
-        {'key': 'employer_ssf', 'item_field': 'ssnit_employer'},
-    ]
-
-    employees = _build_employee_statements(items, periods, columns_config)
-
-    # Add 'total' to each period and subtotals
-    for emp in employees:
-        for period in emp['periods']:
-            period['total'] = period.get('employee_ssf', 0) + period.get('employer_ssf', 0)
-        for year, subs in emp['yearly_subtotals'].items():
-            subs['total'] = subs.get('employee_ssf', 0) + subs.get('employer_ssf', 0)
-        emp['grand_total']['total'] = emp['grand_total'].get('employee_ssf', 0) + emp['grand_total'].get('employer_ssf', 0)
-
-    return employees, columns_config, from_period, to_period
+    return employees, from_period, to_period
 
 
 def _compute_tax_data(from_period_id, to_period_id, filters=None):
     """Compute income tax statement data."""
-    items, periods, from_period, to_period = get_items_for_period_range(
-        from_period_id, to_period_id, filters
+    def period_extractor(item):
+        period = item.payroll_run.payroll_period
+        basic = item.basic_salary or Decimal('0')
+        taxable = item.taxable_income or Decimal('0')
+        paye = item.paye or Decimal('0')
+        return {
+            'row': {
+                'period_name': period.name,
+                'year': period.year,
+                'basic': float(basic),
+                'taxable': float(taxable),
+                'paye': float(paye),
+            },
+            'sums': {
+                'basic': basic,
+                'taxable': taxable,
+                'paye': paye,
+            },
+        }
+
+    _, employees, from_period, to_period = _build_detail_statements(
+        from_period_id, to_period_id, filters, period_extractor
     )
-
-    columns_config = [
-        {'key': 'basic', 'item_field': 'basic_salary'},
-        {'key': 'taxable', 'item_field': 'taxable_income'},
-        {'key': 'paye', 'item_field': 'paye'},
-    ]
-
-    employees = _build_employee_statements(items, periods, columns_config)
-    return employees, columns_config, from_period, to_period
+    return employees, from_period, to_period
 
 
 def _compute_allowance_data(from_period_id, to_period_id, filters=None):
     """Compute allowance statement data."""
-    items, _periods, from_period, to_period = get_items_for_period_range(
+    # Pre-fetch items and scan for all unique allowance names
+    items, _periods, _fp, _tp = get_items_for_period_range(
         from_period_id, to_period_id, filters
     )
-
     items_list = list(items.prefetch_related('details', 'details__pay_component'))
 
-    # Group by employee
-    employee_items = defaultdict(list)
-    for item in items_list:
-        employee_items[item.employee_id].append(item)
-
-    # Collect all unique allowance names across all items
     all_allowance_names = set()
-    for emp_items in employee_items.values():
-        for item in emp_items:
-            for detail in item.details.all():
-                if detail.pay_component.category == 'ALLOWANCE':
-                    all_allowance_names.add(detail.pay_component.name)
-
+    for item in items_list:
+        for detail in item.details.all():
+            if detail.pay_component.category == 'ALLOWANCE':
+                all_allowance_names.add(detail.pay_component.name)
     allowance_names = sorted(all_allowance_names)
 
-    employees = []
-    for emp_id, emp_items in employee_items.items():
-        emp = emp_items[0].employee
-        period_data = []
-        yearly_sums = defaultdict(lambda: defaultdict(Decimal))
+    # period_extractor uses closure over allowance_names
+    def period_extractor(item):
+        period = item.payroll_run.payroll_period
+        basic = item.basic_salary or Decimal('0')
+        row = {
+            'period_name': period.name,
+            'year': period.year,
+            'basic': float(basic),
+            'allowances': {},
+            'total_allowances': 0,
+        }
+        total_allowances = Decimal('0')
+        for detail in item.details.all():
+            if detail.pay_component.category == 'ALLOWANCE':
+                name = detail.pay_component.name
+                amt = detail.amount or Decimal('0')
+                row['allowances'][name] = float(amt)
+                total_allowances += amt
+        row['total_allowances'] = float(total_allowances)
 
-        for item in sorted(emp_items, key=lambda x: x.payroll_run.payroll_period.start_date):
-            period = item.payroll_run.payroll_period
-            row = {
-                'period_name': period.name,
-                'year': period.year,
-                'basic': float(item.basic_salary or 0),
-                'allowances': {},
-                'total_allowances': 0,
-            }
+        sums = {'basic': basic, 'total_allowances': total_allowances}
+        for name in allowance_names:
+            sums[name] = Decimal(str(row['allowances'].get(name, 0)))
+        return {'row': row, 'sums': sums}
 
-            # Get allowance details
-            total_allowances = Decimal('0')
-            for detail in item.details.all():
-                if detail.pay_component.category == 'ALLOWANCE':
-                    name = detail.pay_component.name
-                    amt = detail.amount or Decimal('0')
-                    row['allowances'][name] = float(amt)
-                    total_allowances += amt
-
-            row['total_allowances'] = float(total_allowances)
-
-            yearly_sums[period.year]['basic'] += item.basic_salary or Decimal('0')
-            yearly_sums[period.year]['total_allowances'] += total_allowances
-            for name in allowance_names:
-                yearly_sums[period.year][name] += Decimal(str(row['allowances'].get(name, 0)))
-
-            period_data.append(row)
-
-        # Compute grand total and yearly subtotals
-        grand_total = {}
-        yearly_subtotals = {}
-        for year, sums in sorted(yearly_sums.items()):
-            yearly_subtotals[str(year)] = {k: float(v) for k, v in sums.items()}
-            for k, v in sums.items():
-                grand_total[k] = grand_total.get(k, 0) + float(v)
-
-        employees.append({
-            'employee_number': emp.employee_number,
-            'full_name': f"{emp.first_name or ''} {emp.last_name or ''}".strip(),
-            'department': emp.department.name if emp.department else '',
-            'ssf_number': getattr(emp, 'ssnit_number', '') or '',
-            'tin': getattr(emp, 'tin_number', '') or '',
-            'dob': str(emp.date_of_birth) if emp.date_of_birth else '',
-            'hire_date': str(emp.date_of_joining) if emp.date_of_joining else '',
-            'periods': period_data,
-            'yearly_subtotals': yearly_subtotals,
-            'grand_total': grand_total,
-        })
-
-    employees.sort(key=lambda e: e['employee_number'])
+    _, employees, from_period, to_period = _build_detail_statements(
+        from_period_id, to_period_id, filters, period_extractor,
+        prefetched_items=items_list,
+    )
     return employees, allowance_names, from_period, to_period
 
 
@@ -482,7 +481,7 @@ class SSFContributionStatementView(APIView):
             })
 
         filters = _get_statement_filters(request)
-        employees, _columns_config, from_period, to_period = _compute_ssf_data(
+        employees, from_period, to_period = _compute_ssf_data(
             from_period_id, to_period_id, filters
         )
 
@@ -508,7 +507,7 @@ class IncomeTaxStatementView(APIView):
             })
 
         filters = _get_statement_filters(request)
-        employees, _columns_config, from_period, to_period = _compute_tax_data(
+        employees, from_period, to_period = _compute_tax_data(
             from_period_id, to_period_id, filters
         )
 
@@ -550,20 +549,16 @@ class AllowanceStatementView(APIView):
 # Export Views (thin wrappers: format data from computation functions for export)
 # =============================================================================
 
-def _flatten_statement_for_export(employees, columns_config, col_headers):
-    """Flatten per-employee statement data into flat rows for export."""
+def _flatten_employees_for_export(employees, row_extractor, periods_key='periods'):
+    """
+    Generic flattener for any per-employee statement export (OCP).
+    row_extractor(emp, period_row): returns a dict of {column_header: value}.
+    New export formats are added by supplying a new row_extractor, not modifying this function.
+    """
     data = []
     for emp in employees:
-        for period in emp['periods']:
-            row = {
-                'Employee #': emp['employee_number'],
-                'Name': emp['full_name'],
-                'Department': emp['department'],
-                'Period': period['period_name'],
-            }
-            for i, col in enumerate(columns_config):
-                row[col_headers[i]] = period.get(col['key'], 0)
-            data.append(row)
+        for period in emp[periods_key]:
+            data.append(row_extractor(emp, period))
     return data
 
 
@@ -639,13 +634,21 @@ class ExportSSFStatementView(APIView):
             return Response({'error': 'from_period and to_period are required'}, status=400)
 
         filters = _get_statement_filters(request)
-        employees, columns_config, from_period, to_period = _compute_ssf_data(
+        employees, from_period, to_period = _compute_ssf_data(
             from_period_id, to_period_id, filters
         )
 
-        col_headers = ['Basic Salary', 'Employee SSF', 'Employer SSF']
-        headers = ['Employee #', 'Name', 'Department', 'Period'] + col_headers
-        data = _flatten_statement_for_export(employees, columns_config, col_headers)
+        headers = ['Employee #', 'Name', 'Department', 'Period', 'Basic Salary', 'Employee SSF', 'Employer SSF', 'Total']
+        data = _flatten_employees_for_export(employees, lambda emp, p: {
+            'Employee #': emp['employee_number'],
+            'Name': emp['full_name'],
+            'Department': emp['department'],
+            'Period': p['period_name'],
+            'Basic Salary': p.get('basic', 0),
+            'Employee SSF': p.get('employee_ssf', 0),
+            'Employer SSF': p.get('employer_ssf', 0),
+            'Total': p.get('total', 0),
+        })
 
         title = f'SSF Contribution Statement ({from_period.name} - {to_period.name})'
         return ReportExporter.export_data(data, headers, 'ssf_statement', file_format, title=title)
@@ -660,13 +663,20 @@ class ExportTaxStatementView(APIView):
             return Response({'error': 'from_period and to_period are required'}, status=400)
 
         filters = _get_statement_filters(request)
-        employees, columns_config, from_period, to_period = _compute_tax_data(
+        employees, from_period, to_period = _compute_tax_data(
             from_period_id, to_period_id, filters
         )
 
-        col_headers = ['Basic Salary', 'Taxable Income', 'PAYE Tax']
-        headers = ['Employee #', 'Name', 'Department', 'Period'] + col_headers
-        data = _flatten_statement_for_export(employees, columns_config, col_headers)
+        headers = ['Employee #', 'Name', 'Department', 'Period', 'Basic Salary', 'Taxable Income', 'PAYE Tax']
+        data = _flatten_employees_for_export(employees, lambda emp, p: {
+            'Employee #': emp['employee_number'],
+            'Name': emp['full_name'],
+            'Department': emp['department'],
+            'Period': p['period_name'],
+            'Basic Salary': p.get('basic', 0),
+            'Taxable Income': p.get('taxable', 0),
+            'PAYE Tax': p.get('paye', 0),
+        })
 
         title = f'Income Tax Statement ({from_period.name} - {to_period.name})'
         return ReportExporter.export_data(data, headers, 'tax_statement', file_format, title=title)
@@ -686,20 +696,21 @@ class ExportAllowanceStatementView(APIView):
         )
 
         headers = ['Employee #', 'Name', 'Department', 'Period', 'Basic Salary'] + allowance_names + ['Total Allowances']
-        data = []
-        for emp in employees:
-            for period in emp['periods']:
-                row = {
-                    'Employee #': emp['employee_number'],
-                    'Name': emp['full_name'],
-                    'Department': emp['department'],
-                    'Period': period['period_name'],
-                    'Basic Salary': period['basic'],
-                }
-                for name in allowance_names:
-                    row[name] = period['allowances'].get(name, 0)
-                row['Total Allowances'] = period['total_allowances']
-                data.append(row)
+
+        def row_extractor(emp, p):
+            row = {
+                'Employee #': emp['employee_number'],
+                'Name': emp['full_name'],
+                'Department': emp['department'],
+                'Period': p['period_name'],
+                'Basic Salary': p['basic'],
+            }
+            for name in allowance_names:
+                row[name] = p['allowances'].get(name, 0)
+            row['Total Allowances'] = p['total_allowances']
+            return row
+
+        data = _flatten_employees_for_export(employees, row_extractor)
 
         title = f'Allowance Statement ({from_period.name} - {to_period.name})'
         return ReportExporter.export_data(data, headers, 'allowance_statement', file_format, title=title)
@@ -708,55 +719,36 @@ class ExportAllowanceStatementView(APIView):
 def _compute_payslip_data(from_period_id, to_period_id, filters=None):
     """
     Compute payslip statement data in the same format as individual payslips.
-    Each period returns: basic_salary, gross_pay, net_pay, paye_tax,
-    ssnit_employee, ssnit_employer, total_deductions, allowances[], other_deductions[],
-    arrear_allowances[], arrear_deductions[].
+    Uses _build_detail_statements with a payslip-specific period_extractor.
     Returns (employees, from_period, to_period).
     """
-    items, _periods, from_period, to_period = get_items_for_period_range(
-        from_period_id, to_period_id, filters
-    )
+    def period_extractor(item):
+        period = item.payroll_run.payroll_period
+        allowances = []
+        other_deductions = []
+        arrear_allowances = []
+        arrear_deductions = []
 
-    items_list = list(items.prefetch_related('details', 'details__pay_component'))
+        for detail in item.details.all():
+            comp = detail.pay_component
+            entry = {'name': comp.name, 'amount': float(detail.amount or 0)}
+            is_arrear = getattr(detail, 'is_arrear', False)
 
-    # Group by employee
-    employee_items = defaultdict(list)
-    for item in items_list:
-        employee_items[item.employee_id].append(item)
+            if comp.component_type == 'EARNING':
+                if comp.name.upper() == 'BASIC SALARY':
+                    continue
+                if is_arrear:
+                    arrear_allowances.append(entry)
+                else:
+                    allowances.append(entry)
+            elif comp.component_type == 'DEDUCTION':
+                if is_arrear:
+                    arrear_deductions.append(entry)
+                else:
+                    other_deductions.append(entry)
 
-    employees = []
-    for emp_id, emp_items in employee_items.items():
-        emp = emp_items[0].employee
-        payslips = []
-
-        for item in sorted(emp_items, key=lambda x: x.payroll_run.payroll_period.start_date):
-            period = item.payroll_run.payroll_period
-
-            # Build allowances and deductions from details (same logic as MyPayslipSerializer)
-            allowances = []
-            other_deductions = []
-            arrear_allowances = []
-            arrear_deductions = []
-
-            for detail in item.details.all():
-                comp = detail.pay_component
-                entry = {'name': comp.name, 'amount': float(detail.amount or 0)}
-                is_arrear = getattr(detail, 'is_arrear', False)
-
-                if comp.component_type == 'EARNING':
-                    if comp.name.upper() == 'BASIC SALARY':
-                        continue
-                    if is_arrear:
-                        arrear_allowances.append(entry)
-                    else:
-                        allowances.append(entry)
-                elif comp.component_type == 'DEDUCTION':
-                    if is_arrear:
-                        arrear_deductions.append(entry)
-                    else:
-                        other_deductions.append(entry)
-
-            payslips.append({
+        return {
+            'row': {
                 'period_name': period.name,
                 'year': period.year,
                 'basic_salary': float(item.basic_salary or 0),
@@ -770,16 +762,13 @@ def _compute_payslip_data(from_period_id, to_period_id, filters=None):
                 'other_deductions': other_deductions,
                 'arrear_allowances': arrear_allowances,
                 'arrear_deductions': arrear_deductions,
-            })
+            },
+        }
 
-        employees.append({
-            'employee_number': emp.employee_number,
-            'full_name': f"{emp.first_name or ''} {emp.last_name or ''}".strip(),
-            'department': emp.department.name if emp.department else '',
-            'payslips': payslips,
-        })
-
-    employees.sort(key=lambda e: e['employee_number'])
+    _, employees, from_period, to_period = _build_detail_statements(
+        from_period_id, to_period_id, filters, period_extractor,
+        needs_prefetch=True, periods_key='payslips',
+    )
     return employees, from_period, to_period
 
 
@@ -810,7 +799,11 @@ class PayslipStatementView(APIView):
 
 
 class ExportPayslipStatementView(APIView):
-    """Export payslip statement to CSV/Excel/PDF."""
+    """Export payslip statement to CSV/Excel/PDF.
+
+    PDF: generates actual payslip pages (one per employee per period) using PayslipGenerator.
+    CSV/Excel: flat tabular export.
+    """
 
     def get(self, request):
         from_period_id, to_period_id, file_format = _get_period_range_params(request)
@@ -818,6 +811,12 @@ class ExportPayslipStatementView(APIView):
             return Response({'error': 'from_period and to_period are required'}, status=400)
 
         filters = _get_statement_filters(request)
+
+        # PDF: generate actual payslip pages
+        if file_format.lower() == 'pdf':
+            return self._export_pdf(from_period_id, to_period_id, filters)
+
+        # CSV/Excel: flat tabular export
         employees, from_period, to_period = _compute_payslip_data(
             from_period_id, to_period_id, filters
         )
@@ -828,30 +827,64 @@ class ExportPayslipStatementView(APIView):
             'PAYE Tax', 'SSNIT (Employee)', 'SSNIT (Employer)',
             'Allowances', 'Other Deductions',
         ]
-        data = []
-        for emp in employees:
-            for ps in emp['payslips']:
-                allowances_str = '; '.join(
-                    f"{a['name']}: {a['amount']:.2f}" for a in ps['allowances']
-                ) if ps['allowances'] else ''
-                deductions_str = '; '.join(
-                    f"{d['name']}: {d['amount']:.2f}" for d in ps['other_deductions']
-                ) if ps['other_deductions'] else ''
-                data.append({
-                    'Employee #': emp['employee_number'],
-                    'Name': emp['full_name'],
-                    'Department': emp['department'],
-                    'Period': ps['period_name'],
-                    'Basic Salary': ps['basic_salary'],
-                    'Gross Pay': ps['gross_pay'],
-                    'Total Deductions': ps['total_deductions'],
-                    'Net Pay': ps['net_pay'],
-                    'PAYE Tax': ps['paye_tax'],
-                    'SSNIT (Employee)': ps['ssnit_employee'],
-                    'SSNIT (Employer)': ps['ssnit_employer'],
-                    'Allowances': allowances_str,
-                    'Other Deductions': deductions_str,
-                })
+
+        def row_extractor(emp, ps):
+            allowances_str = '; '.join(
+                f"{a['name']}: {a['amount']:.2f}" for a in ps['allowances']
+            ) if ps['allowances'] else ''
+            deductions_str = '; '.join(
+                f"{d['name']}: {d['amount']:.2f}" for d in ps['other_deductions']
+            ) if ps['other_deductions'] else ''
+            return {
+                'Employee #': emp['employee_number'],
+                'Name': emp['full_name'],
+                'Department': emp['department'],
+                'Period': ps['period_name'],
+                'Basic Salary': ps['basic_salary'],
+                'Gross Pay': ps['gross_pay'],
+                'Total Deductions': ps['total_deductions'],
+                'Net Pay': ps['net_pay'],
+                'PAYE Tax': ps['paye_tax'],
+                'SSNIT (Employee)': ps['ssnit_employee'],
+                'SSNIT (Employer)': ps['ssnit_employer'],
+                'Allowances': allowances_str,
+                'Other Deductions': deductions_str,
+            }
+
+        data = _flatten_employees_for_export(employees, row_extractor, periods_key='payslips')
 
         title = f'Payslip Statement ({from_period.name} - {to_period.name})'
         return ReportExporter.export_data(data, headers, 'payslip_statement', file_format, title=title)
+
+    def _export_pdf(self, from_period_id, to_period_id, filters):
+        """Generate PDF with actual payslip pages using PayslipGenerator."""
+        from datetime import datetime as dt
+        from django.http import HttpResponse
+        from payroll.generators import PayslipGenerator
+
+        items, _periods, from_period, to_period = get_items_for_period_range(
+            from_period_id, to_period_id, filters
+        )
+        items = items.prefetch_related(
+            'details', 'details__pay_component'
+        ).select_related(
+            'employee__position', 'employee__grade', 'employee__work_location',
+            'employee__salary_notch', 'employee__salary_notch__level',
+            'employee__salary_notch__level__band',
+        ).order_by('employee__employee_number', 'payroll_run__payroll_period__start_date')
+
+        items_with_periods = [
+            (item, item.payroll_run.payroll_period) for item in items
+        ]
+
+        if not items_with_periods:
+            return Response({'error': 'No payslip data found for the selected period range'}, status=404)
+
+        pdf_bytes = PayslipGenerator.generate_statement_pdf(items_with_periods)
+
+        timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'attachment; filename="payslip_statement_{timestamp}.pdf"'
+        )
+        return response

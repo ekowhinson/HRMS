@@ -19,7 +19,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 from organization.utils import get_org_settings
@@ -139,7 +139,7 @@ class PayslipGenerator:
         return ''
 
     def generate_pdf(self) -> bytes:
-        """Generate payslip as PDF."""
+        """Generate a single payslip as PDF."""
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -149,7 +149,38 @@ class PayslipGenerator:
             topMargin=1*cm,
             bottomMargin=1*cm
         )
+        doc.build(self._build_pdf_elements())
+        buffer.seek(0)
+        return buffer.read()
 
+    @classmethod
+    def generate_statement_pdf(cls, payroll_items_with_periods) -> bytes:
+        """Generate a multi-page PDF with one payslip per page.
+
+        Args:
+            payroll_items_with_periods: list of (PayrollItem, PayrollPeriod) tuples
+        """
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=1.5*cm,
+            leftMargin=1.5*cm,
+            topMargin=1*cm,
+            bottomMargin=1*cm
+        )
+        all_elements = []
+        for i, (item, period) in enumerate(payroll_items_with_periods):
+            gen = cls(item, period)
+            all_elements.extend(gen._build_pdf_elements())
+            if i < len(payroll_items_with_periods) - 1:
+                all_elements.append(PageBreak())
+        doc.build(all_elements)
+        buffer.seek(0)
+        return buffer.read()
+
+    def _build_pdf_elements(self):
+        """Build and return the list of reportlab elements for this payslip."""
         elements = []
         styles = getSampleStyleSheet()
 
@@ -455,9 +486,7 @@ class PayslipGenerator:
         footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, textColor=colors.grey)
         elements.append(Paragraph(f'Printed On: {timezone.now().isoformat()}', footer_style))
 
-        doc.build(elements)
-        buffer.seek(0)
-        return buffer.read()
+        return elements
 
     def generate_excel(self) -> bytes:
         """Generate payslip as Excel file."""
