@@ -1,65 +1,51 @@
 # ============================================================
 # Celery worker / beat image
-# Same base as the API container but with a different entrypoint.
-# Deploy as a separate Cloud Run service or Cloud Run Job.
 # ============================================================
 FROM python:3.12-slim AS builder
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
-
 WORKDIR /app
-
-# System deps for psycopg2 and python-ldap
-RUN apt-get update && \
+# BUILD deps (gcc, dev headers needed to compile python-ldap, psycopg2, etc.)
+RUN apt-get clean && \
+    apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends \
         build-essential \
+        gcc \
+        g++ \
+        make \
         libpq-dev \
         libldap2-dev \
         libsasl2-dev \
     && rm -rf /var/lib/apt/lists/*
-
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir gunicorn flower
-
 COPY . .
 RUN mkdir -p /app/logs
-
 # ── Runtime stage ────────────────────────────────────────────
 FROM python:3.12-slim
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DJANGO_SETTINGS_MODULE=config.settings \
     DJANGO_ENV=production
-
 WORKDIR /app
-
-RUN apt-get update && \
+# RUNTIME deps only (lightweight, no compiler needed)
+RUN apt-get clean && \
+    apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends \
         libpq5 \
-        libldap-2.5-0 \
+        libldap2 \
         libsasl2-2 \
     && rm -rf /var/lib/apt/lists/*
-
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-
 COPY --from=builder /app /app
-
 RUN groupadd -g 1000 appuser && \
     useradd -u 1000 -g appuser -s /bin/bash -m appuser && \
     chown -R appuser:appuser /app
-
 USER appuser
-
-# Default: run the Celery worker.
-# Override CMD in docker-compose for beat or flower.
-CMD ["celery", "-A", "config", "worker", "--loglevel=info", \
-     "-Q", "default,imports,reports,payroll", \
-     "--concurrency=4"]
+EXPOSE 8080
+CMD ["python", "-c", "\nimport subprocess, threading, os, signal, sys\nfrom http.server import HTTPServer, BaseHTTPRequestHandler\n\nclass H(BaseHTTPRequestHandler):\n    def do_GET(self):\n        self.send_response(200)\n        self.end_headers()\n        self.wfile.write(b'ok')\n    def log_message(self, *a): pass\n\nport = int(os.environ.get('PORT', 8080))\nserver = HTTPServer(('0.0.0.0', port), H)\nt = threading.Thread(target=server.serve_forever, daemon=True)\nt.start()\nprint(f'Health check listening on port {port}')\n\nproc = subprocess.Popen(['celery', '-A', 'config', 'worker', '--loglevel=info', '-Q', 'default,imports,reports,payroll', '--concurrency=4'])\n\ndef handler(sig, frame):\n    proc.terminate()\n    proc.wait()\n    sys.exit(0)\n\nsignal.signal(signal.SIGTERM, handler)\nproc.wait()\n"]
