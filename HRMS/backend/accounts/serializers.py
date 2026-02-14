@@ -80,10 +80,28 @@ class UserRoleDetailSerializer(serializers.ModelSerializer):
 
 class OrganizationBriefSerializer(serializers.ModelSerializer):
     """Brief serializer for Organization — used in auth responses."""
+    active_license = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
-        fields = ['id', 'name', 'code', 'logo_data', 'primary_color']
+        fields = [
+            'id', 'name', 'code', 'logo_data', 'primary_color',
+            'modules_enabled', 'active_license',
+        ]
+
+    def get_active_license(self, obj):
+        license_obj = obj.get_active_license()
+        if not license_obj:
+            return None
+        return {
+            'id': str(license_obj.id),
+            'license_type': license_obj.license_type,
+            'modules_allowed': license_obj.modules_allowed,
+            'max_users': license_obj.max_users,
+            'max_employees': license_obj.max_employees,
+            'valid_from': str(license_obj.valid_from),
+            'valid_until': str(license_obj.valid_until) if license_obj.valid_until else None,
+        }
 
 
 class UserOrganizationSerializer(serializers.ModelSerializer):

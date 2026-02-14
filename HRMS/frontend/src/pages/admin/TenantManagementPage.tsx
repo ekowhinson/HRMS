@@ -43,7 +43,7 @@ const licenseTypeColors: Record<string, 'success' | 'info' | 'warning' | 'defaul
 const ALL_MODULES = [
   'employees', 'payroll', 'leave', 'benefits', 'performance',
   'recruitment', 'discipline', 'training', 'exits', 'finance',
-  'procurement', 'inventory', 'projects',
+  'procurement', 'inventory', 'projects', 'reports', 'manufacturing',
 ]
 
 export default function TenantManagementPage() {

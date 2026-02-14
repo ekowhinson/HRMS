@@ -82,6 +82,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   { code: 'inventory', label: 'Inventory & Assets', description: 'Items, stock, warehouses, fixed assets' },
   { code: 'projects', label: 'Projects', description: 'Projects, timesheets, resources' },
   { code: 'manufacturing', label: 'Manufacturing', description: 'Production, BOM, work orders, quality control' },
+  { code: 'reports', label: 'Reports', description: 'Analytics, dashboards, custom report builder, data exports' },
   { code: 'administration', label: 'Administration', description: 'User management, roles, audit logs, workflows' },
 ]
 

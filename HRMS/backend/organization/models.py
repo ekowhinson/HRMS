@@ -92,15 +92,9 @@ class Organization(UUIDModel, TimeStampedModel):
         ).order_by('-valid_from').first()
 
     def is_module_enabled(self, module_name):
-        """Check if a module is enabled via the active license or modules_enabled field."""
-        license_obj = self.get_active_license()
-        if license_obj and license_obj.modules_allowed:
-            return module_name in license_obj.modules_allowed
-        # Fallback to the Organization-level field
-        if self.modules_enabled:
-            return module_name in self.modules_enabled
-        # If no license and no modules_enabled set, allow all
-        return True
+        """Check if a module is enabled for this organization."""
+        from organization.module_resolvers import module_access_chain
+        return module_access_chain.is_enabled(self, module_name)
 
     def get_user_limit(self):
         """Return user limit from active license, falling back to Organization field."""
