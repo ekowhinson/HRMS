@@ -48,6 +48,7 @@ class ChatRequestSerializer(serializers.Serializer):
         required=False,
         default=list,
     )
+    payroll_run_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class PromptTemplateSerializer(serializers.ModelSerializer):

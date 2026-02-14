@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -19,6 +19,7 @@ import {
   CurrencyDollarIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { payrollService } from '@/services/payroll'
 import { dashboardService } from '@/services/dashboard'
@@ -51,6 +52,7 @@ const statusSteps = ['DRAFT', 'COMPUTED', 'APPROVED', 'PAID']
 
 export default function PayrollProcessingPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { canAccess } = useModuleAccess()
   const canManagePeriods = canAccess('payroll_setup')
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview')
@@ -916,6 +918,13 @@ export default function PayrollProcessingPage() {
                         >
                           <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
                           Payslips
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/ai-assistant?payroll_run_id=${run.id}`)}
+                        >
+                          <SparklesIcon className="h-4 w-4 mr-2" />
+                          Analyze with AI
                         </Button>
                       </>
                     )}

@@ -56,6 +56,9 @@ urlpatterns = [
     path('runs/<uuid:pk>/generate-bank-file/', views.GenerateBankFileView.as_view(), name='generate-bank-file'),
     path('runs/<uuid:pk>/generate-payslips/', views.GeneratePayslipsView.as_view(), name='generate-payslips'),
 
+    # Payroll audit
+    path('runs/<uuid:pk>/audit/', views.PayrollAuditView.as_view(), name='payroll-audit'),
+
     # Payroll items
     path('runs/<uuid:run_id>/items/', views.PayrollItemListView.as_view(), name='payroll-items'),
     path('items/<uuid:pk>/', views.PayrollItemDetailView.as_view(), name='payroll-item-detail'),

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import {
@@ -30,6 +31,7 @@ import {
   type MessageAttachment,
   type PromptTemplate,
   type StreamChunk,
+  type AuditSummary,
 } from '@/services/assistant'
 
 const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
@@ -110,6 +112,7 @@ function AttachmentDisplay({ attachments }: { attachments: MessageAttachment[] }
 
 export default function AIAssistantPage() {
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
@@ -117,6 +120,8 @@ export default function AIAssistantPage() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [payrollRunId, setPayrollRunId] = useState<string | null>(null)
+  const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -144,6 +149,10 @@ export default function AIAssistantPage() {
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px'
     }
   }, [inputValue])
+
+  // Handle payroll_run_id from URL params (e.g. navigated from PayrollProcessingPage)
+  const payrollAutoSentRef = useRef(false)
+  const sendMessageRef = useRef<(msg: string) => void>(() => {})
 
   const loadConversation = useCallback(async (id: string) => {
     try {
@@ -247,12 +256,16 @@ export default function AIAssistantPage() {
         message: messageText.trim(),
         conversation_id: activeConversationId,
         attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
+        payroll_run_id: payrollRunId,
       },
       (chunk: StreamChunk) => {
         switch (chunk.type) {
           case 'meta':
             if (chunk.conversation_id) {
               setActiveConversationId(chunk.conversation_id)
+            }
+            if (chunk.audit_summary) {
+              setAuditSummary(chunk.audit_summary)
             }
             break
           case 'token':
@@ -311,7 +324,25 @@ export default function AIAssistantPage() {
       setMessages(prev => [...prev, partialMessage])
       setStreamingContent('')
     }
-  }, [activeConversationId, isStreaming, queryClient, pendingAttachments])
+  }, [activeConversationId, isStreaming, queryClient, pendingAttachments, payrollRunId])
+
+  // Keep ref in sync for useEffect access
+  sendMessageRef.current = sendMessage
+
+  // Auto-send payroll check when navigated from payroll page
+  useEffect(() => {
+    const runId = searchParams.get('payroll_run_id')
+    if (runId && !payrollAutoSentRef.current) {
+      payrollAutoSentRef.current = true
+      setPayrollRunId(runId)
+      setSearchParams({}, { replace: true })
+      setTimeout(() => {
+        sendMessageRef.current(
+          'Analyze this payroll run for consistency. Check the automated audit findings, review the employee details, and identify any anomalies or issues that need attention. Provide a clear summary of what looks correct and what needs review.'
+        )
+      }, 100)
+    }
+  }, [searchParams, setSearchParams])
 
   const handleTemplateClick = useCallback((template: PromptTemplate) => {
     setInputValue(template.prompt_text)
@@ -375,6 +406,35 @@ export default function AIAssistantPage() {
 
       {/* Center Panel - Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Audit Summary Badges */}
+        {auditSummary && (
+          <div className="flex items-center gap-3 px-6 py-2.5 bg-white border-b border-gray-200">
+            <span className="text-sm font-medium text-gray-600">Payroll Audit:</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              {auditSummary.checks_passed}/{auditSummary.total_checks} checks passed
+            </span>
+            {auditSummary.errors > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                {auditSummary.errors} errors
+              </span>
+            )}
+            {auditSummary.warnings > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                {auditSummary.warnings} warnings
+              </span>
+            )}
+            {auditSummary.info > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {auditSummary.info} info
+              </span>
+            )}
+            {auditSummary.total_findings === 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                All clear
+              </span>
+            )}
+          </div>
+        )}
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto">
           {!hasMessages ? (

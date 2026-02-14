@@ -19,12 +19,23 @@ export interface ChatRequest {
   message: string
   conversation_id?: string | null
   attachment_ids?: string[]
+  payroll_run_id?: string | null
+}
+
+export interface AuditSummary {
+  total_findings: number
+  errors: number
+  warnings: number
+  info: number
+  checks_passed: number
+  total_checks: number
 }
 
 export interface StreamChunk {
   type: 'meta' | 'token' | 'done' | 'error'
   content?: string
   conversation_id?: string
+  audit_summary?: AuditSummary
 }
 
 export interface Conversation {

@@ -112,6 +112,7 @@ class PromptTemplate(models.Model):
         VARIATION_CHECK = 'VARIATION_CHECK', 'Variation Check'
         IMAGE_RECOGNITION = 'IMAGE_RECOGNITION', 'Image Recognition'
         DATA_EXTRACTION = 'DATA_EXTRACTION', 'Data Extraction'
+        PAYROLL_CHECK = 'PAYROLL_CHECK', 'Payroll Check'
         GENERAL = 'GENERAL', 'General'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

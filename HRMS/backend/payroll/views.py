@@ -3070,3 +3070,31 @@ class PayrollValidationViewSet(viewsets.ModelViewSet):
 
         serializer = PayrollValidationListSerializer(validations, many=True)
         return Response(serializer.data)
+
+
+class PayrollAuditView(APIView):
+    """Standalone audit endpoint for a payroll run."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            run = PayrollRun.objects.select_related('payroll_period').get(pk=pk)
+        except PayrollRun.DoesNotExist:
+            return Response({'error': 'Payroll run not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        allowed_statuses = [
+            PayrollRun.Status.COMPUTED,
+            PayrollRun.Status.REVIEWING,
+            PayrollRun.Status.APPROVED,
+            PayrollRun.Status.PAID,
+        ]
+        if run.status not in allowed_statuses:
+            return Response(
+                {'error': f'Audit is only available for runs in {", ".join(allowed_statuses)} status'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .audit_service import PayrollAuditService
+        audit_service = PayrollAuditService()
+        report = audit_service.run_audit(run)
+        return Response(report.to_dict())

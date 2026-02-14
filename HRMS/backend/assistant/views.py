@@ -16,7 +16,7 @@ from .serializers import (
     ConversationDetailSerializer,
     PromptTemplateSerializer,
 )
-from .services import OllamaService
+from .services import OllamaService, PAYROLL_AUDIT_SYSTEM_PROMPT
 from .file_processor import FileProcessor
 
 logger = logging.getLogger(__name__)
@@ -100,6 +100,13 @@ class FileUploadView(APIView):
 class ChatView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get_ollama_service(self):
+        return OllamaService()
+
+    def get_payroll_provider(self):
+        from .payroll_provider import PayrollDataProvider
+        return PayrollDataProvider()
+
     def post(self, request):
         serializer = ChatRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -107,6 +114,7 @@ class ChatView(APIView):
         user_message = serializer.validated_data['message']
         conversation_id = serializer.validated_data.get('conversation_id')
         attachment_ids = serializer.validated_data.get('attachment_ids', [])
+        payroll_run_id = serializer.validated_data.get('payroll_run_id')
 
         # Get or create conversation
         if conversation_id:
@@ -143,6 +151,15 @@ class ChatView(APIView):
                 id__in=[a.id for a in attachments]
             ).update(message=user_msg)
 
+        # Fetch payroll context if requested
+        payroll_context = None
+        if payroll_run_id:
+            try:
+                provider = self.get_payroll_provider()
+                payroll_context = provider.get_payroll_context(payroll_run_id)
+            except Exception as e:
+                logger.error(f"Failed to fetch payroll context: {e}")
+
         # Build history from last 20 messages
         history_qs = conversation.messages.order_by('-created_at')[:20]
         history = [
@@ -153,19 +170,29 @@ class ChatView(APIView):
         if history and history[-1]["role"] == "user":
             history = history[:-1]
 
-        service = OllamaService()
+        service = self.get_ollama_service()
 
         def event_stream():
             # Send conversation metadata first
-            yield json.dumps({
+            meta = {
                 "type": "meta",
                 "conversation_id": str(conversation.id),
-            }) + "\n"
+            }
+            if payroll_context and payroll_context.get('audit_summary'):
+                meta["audit_summary"] = payroll_context['audit_summary']
+            yield json.dumps(meta) + "\n"
 
             full_response = []
 
-            # Choose streaming method based on attachments
-            if attachments:
+            # Choose streaming method: payroll_run_id > attachments > plain chat
+            if payroll_context and payroll_context.get('context_text'):
+                stream_gen = service.chat_stream(
+                    history,
+                    user_message,
+                    context=f"[Payroll Data]\n{payroll_context['context_text']}",
+                    extra_system_prompt=PAYROLL_AUDIT_SYSTEM_PROMPT,
+                )
+            elif attachments:
                 stream_gen = service.chat_stream_with_files(history, user_message, attachments)
             else:
                 stream_gen = service.chat_stream(history, user_message)

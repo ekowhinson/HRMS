@@ -70,6 +70,18 @@ Guidelines:
 - You can help with policy questions, process explanations, troubleshooting, and general HR/payroll guidance
 """
 
+PAYROLL_AUDIT_SYSTEM_PROMPT = """You are also a payroll audit specialist for a Ghana-based organization. You have been provided with actual payroll run data and automated audit results.
+
+When analyzing payroll data:
+- Explain audit findings in plain, actionable language
+- Identify patterns and anomalies beyond what the automated checks found
+- Reference specific employee numbers, amounts, and component codes
+- Use Ghana payroll terminology: PAYE (Pay As You Earn), SSNIT (Social Security), Tier 2 (Occupational Pension), GHS (Ghana Cedis)
+- Clearly distinguish between critical errors (math mismatches, wrong statutory rates) and informational items (outliers, proration)
+- Provide a structured summary: what looks correct, what needs review, and recommended actions
+- If all automated checks passed, still look at the employee details and component breakdown for anything unusual
+"""
+
 
 class OllamaService:
     def __init__(self):
@@ -80,15 +92,30 @@ class OllamaService:
         import ollama
         return ollama.Client(host=self.base_url)
 
-    def chat_stream(self, history, user_message):
+    def chat_stream(self, history, user_message, context=None, extra_system_prompt=None):
         """
         Stream chat responses from Ollama.
+
+        Args:
+            history: List of prior messages [{"role": ..., "content": ...}]
+            user_message: The user's current message
+            context: Optional plain-text context injected after the user message
+            extra_system_prompt: Optional additional system prompt appended to base
+
         Yields JSON-line strings: {"type":"token","content":"..."} or {"type":"done"} or {"type":"error","content":"..."}
         """
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        system = SYSTEM_PROMPT
+        if extra_system_prompt:
+            system += "\n\n" + extra_system_prompt
+
+        enhanced_message = user_message
+        if context:
+            enhanced_message = f"{user_message}\n\n{context}"
+
+        messages = [{"role": "system", "content": system}]
         for msg in history:
             messages.append({"role": msg["role"], "content": msg["content"]})
-        messages.append({"role": "user", "content": user_message})
+        messages.append({"role": "user", "content": enhanced_message})
 
         try:
             client = self._get_client()
@@ -110,27 +137,31 @@ class OllamaService:
         """
         Stream chat with file context injection and vision support.
         For images: routes to vision model with base64 images param.
-        For data/documents: injects parsed summaries into prompt context.
+        For data/documents: delegates to chat_stream with context injection.
         """
         image_attachments = [a for a in attachments if a.file_type == 'IMAGE']
         context_attachments = [a for a in attachments if a.file_type != 'IMAGE']
 
-        # Build enhanced message with file context
-        enhanced_message = user_message
+        # Build file context string
+        file_context = None
         if context_attachments:
-            file_context = "\n\n".join([
+            file_context = "[Attached File Data]\n" + "\n\n".join([
                 f"--- File: {a.file_name} ---\n{a.parsed_summary}"
                 for a in context_attachments
             ])
-            enhanced_message = f"{user_message}\n\n[Attached File Data]\n{file_context}"
 
-        # Choose model based on attachments
-        if image_attachments:
-            model = getattr(settings, 'OLLAMA_VISION_MODEL', 'llava')
-            images = [base64.b64encode(bytes(a.file_data)).decode() for a in image_attachments]
-        else:
-            model = self.model
-            images = None
+        # Text-only path: delegate to unified chat_stream
+        if not image_attachments:
+            yield from self.chat_stream(history, user_message, context=file_context)
+            return
+
+        # Vision path: needs special model and base64 images
+        model = getattr(settings, 'OLLAMA_VISION_MODEL', 'llava')
+        images = [base64.b64encode(bytes(a.file_data)).decode() for a in image_attachments]
+
+        enhanced_message = user_message
+        if file_context:
+            enhanced_message = f"{user_message}\n\n{file_context}"
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         for msg in history:
@@ -144,9 +175,8 @@ class OllamaService:
                 'messages': messages,
                 'stream': True,
             }
-            if images:
-                # Ollama vision API: pass images as base64 strings on the last message
-                kwargs['messages'][-1]['images'] = images
+            # Ollama vision API: pass images as base64 strings on the last message
+            kwargs['messages'][-1]['images'] = images
 
             stream = client.chat(**kwargs)
             for chunk in stream:
