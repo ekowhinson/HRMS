@@ -851,6 +851,23 @@ export const reportsService = {
     downloadFile(response.data, `allowance_statement_${Date.now()}.${getFileExtension(format)}`)
   },
 
+  async getPayslipStatement(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/payroll/payslip-statement/?${params.toString()}`)
+    return response.data
+  },
+
+  async exportPayslipStatement(filters?: ReportFilters, format: ExportFormat = 'csv'): Promise<void> {
+    const params = buildParams(filters, format)
+    const response = await api.get(`/reports/export/payslip-statement/?${params.toString()}`, { responseType: 'blob' })
+    downloadFile(response.data, `payslip_statement_${Date.now()}.${getFileExtension(format)}`)
+  },
+
   async downloadFilteredBankFile(
     payrollRunId: string,
     filters?: ReportFilters,

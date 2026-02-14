@@ -606,6 +606,18 @@ export default function ReportsPage() {
             <p className="text-xs text-gray-500">Allowance breakdown by period</p>
           </div>
         </Link>
+        <Link
+          to="/reports/payslip-statement"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-colors group"
+        >
+          <div className="p-2 bg-teal-100 rounded-lg group-hover:bg-teal-200 transition-colors">
+            <DocumentTextIcon className="h-5 w-5 text-teal-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Payslip Statement</h3>
+            <p className="text-xs text-gray-500">Earnings & deductions by period</p>
+          </div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -57,6 +57,7 @@ urlpatterns = [
     path('payroll/ssf-statement/', consolidated_views.SSFContributionStatementView.as_view(), name='ssf-statement'),
     path('payroll/tax-statement/', consolidated_views.IncomeTaxStatementView.as_view(), name='tax-statement'),
     path('payroll/allowance-statement/', consolidated_views.AllowanceStatementView.as_view(), name='allowance-statement'),
+    path('payroll/payslip-statement/', consolidated_views.PayslipStatementView.as_view(), name='payslip-statement'),
 
     # Statutory reports
     path('statutory/paye/', views.PAYEStatutoryReportView.as_view(), name='paye-statutory'),
@@ -97,6 +98,7 @@ urlpatterns = [
     path('export/ssf-statement/', consolidated_views.ExportSSFStatementView.as_view(), name='export-ssf-statement'),
     path('export/tax-statement/', consolidated_views.ExportTaxStatementView.as_view(), name='export-tax-statement'),
     path('export/allowance-statement/', consolidated_views.ExportAllowanceStatementView.as_view(), name='export-allowance-statement'),
+    path('export/payslip-statement/', consolidated_views.ExportPayslipStatementView.as_view(), name='export-payslip-statement'),
     path('export/staff-payroll-data/', views.ExportStaffPayrollDataView.as_view(), name='export-staff-payroll-data'),
 
     # Analytics KPI endpoints
