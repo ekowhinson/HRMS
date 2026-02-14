@@ -3,10 +3,10 @@
 # Reduced sizing for cost optimization while maintaining functional parity.
 # ─────────────────────────────────────────────────────────────────────────────
 
-project_id         = "nhia-hrms-staging"
+project_id         = "erp-hr-pay-staging"
 environment        = "staging"
-domain             = "staging.hrms.nhia.gov.gh"
-notification_email = "devops@nhia.gov.gh"
+domain             = "faaberp.com"
+notification_email = "ekowhinson@gmail.com"
 region             = "us-central1"
 image_tag          = "latest"
 
@@ -43,10 +43,10 @@ worker_timeout       = 1800
 waf_rules_level = "basic"                      # SQLi + XSS + rate limit only
 
 # ── SSL Certificate ─────────────────────────────────────────────────────────
-ssl_certificate_domains = ["staging.hrms.nhia.gov.gh"]
+ssl_certificate_domains = ["faaberp.com"]
 
 # ── CI/CD ────────────────────────────────────────────────────────────────────
-github_repo = "nhia/hrms"
+github_repo = "ekowhinson/HRMS"
 
 # ── Labels ───────────────────────────────────────────────────────────────────
 labels = {

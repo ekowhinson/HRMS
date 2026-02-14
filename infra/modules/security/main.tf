@@ -226,7 +226,9 @@ resource "google_project_iam_member" "cicd_roles" {
   for_each = var.github_repo != "" ? toset([
     "roles/run.developer",
     "roles/artifactregistry.writer",
+    "roles/artifactregistry.repoAdmin",
     "roles/iam.serviceAccountUser",
+    "roles/storage.objectAdmin",
   ]) : toset([])
 
   project = var.project_id

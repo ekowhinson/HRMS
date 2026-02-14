@@ -1,2 +1,2 @@
-bucket = "nhia-hrms-terraform-state-staging"
+bucket = "erp-hr-pay-terraform-state-staging"
 prefix = "terraform/state"

@@ -16,7 +16,7 @@ env:
   GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_STAGING }}
   REGISTRY: ${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev
-  REPOSITORY: ${{ secrets.GCP_PROJECT_ID_STAGING }}/nhia-hrms-staging-docker
+  REPOSITORY: ${{ secrets.GCP_PROJECT_ID_STAGING }}/${{ vars.DOCKER_REPO || 'nhia-hrms-staging-docker' }}
   BACKEND_IMAGE: backend
   WORKER_IMAGE: celery-worker
   CLOUD_RUN_API: nhia-hrms-staging-api
