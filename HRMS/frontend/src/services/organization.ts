@@ -178,4 +178,20 @@ export const organizationService = {
     const response = await api.post(`/organization/licenses/${id}/deactivate/`)
     return response.data
   },
+
+  // ==================== Branding Methods ====================
+
+  // Get current branding (logo, color)
+  getBranding: async (): Promise<{ logo_url: string | null; primary_color: string }> => {
+    const response = await api.get('/organization/tenant/config/branding/')
+    return response.data
+  },
+
+  // Upload branding (logo file and/or primary color)
+  uploadBranding: async (data: FormData): Promise<{ logo_url: string | null; primary_color: string }> => {
+    const response = await api.post('/organization/tenant/config/branding/', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
 }

@@ -42,6 +42,7 @@ urlpatterns = [
         'put': 'create',
     }), name='tenant-config'),
     path('tenant/config/branding/', TenantConfigViewSet.as_view({
+        'get': 'branding',
         'post': 'branding',
     }), name='tenant-branding'),
 ]

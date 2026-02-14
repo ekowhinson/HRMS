@@ -57,6 +57,14 @@ def get_items_for_period_range(from_period_id, to_period_id, filters=None):
             items = items.filter(employee__department_id=filters['department'])
         if filters.get('staff_category'):
             items = items.filter(employee__staff_category_id=filters['staff_category'])
+        if filters.get('division'):
+            items = items.filter(employee__division_id=filters['division'])
+        if filters.get('directorate'):
+            items = items.filter(employee__directorate_id=filters['directorate'])
+        if filters.get('region'):
+            items = items.filter(employee__residential_region_id=filters['region'])
+        if filters.get('district'):
+            items = items.filter(employee__residential_district_id=filters['district'])
         if filters.get('employee'):
             items = items.filter(employee_id=filters['employee'])
         if filters.get('search'):
@@ -128,6 +136,9 @@ def _build_detail_statements(from_period_id, to_period_id, filters, period_extra
             'employee_number': emp.employee_number,
             'full_name': f"{emp.first_name or ''} {emp.last_name or ''}".strip(),
             'department': emp.department.name if emp.department else '',
+            'division': emp.division.name if emp.division else '',
+            'directorate': emp.directorate.name if emp.directorate else '',
+            'staff_category': emp.staff_category.name if emp.staff_category else '',
             'ssf_number': getattr(emp, 'ssnit_number', '') or '',
             'tin': getattr(emp, 'tin_number', '') or '',
             'dob': str(emp.date_of_birth) if emp.date_of_birth else '',
@@ -393,9 +404,14 @@ def _get_summary_filters(request):
 
 
 def _get_statement_filters(request):
-    """Extract department/employee/search filters from request."""
+    """Extract all statement filters from request."""
     return {
         'department': request.query_params.get('department'),
+        'division': request.query_params.get('division'),
+        'directorate': request.query_params.get('directorate'),
+        'staff_category': request.query_params.get('staff_category'),
+        'region': request.query_params.get('region'),
+        'district': request.query_params.get('district'),
         'employee': request.query_params.get('employee'),
         'search': request.query_params.get('search'),
     }

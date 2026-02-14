@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -12,6 +12,8 @@ import {
   ArrowPathIcon,
   KeyIcon,
   ExclamationTriangleIcon,
+  PhotoIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { TablePagination } from '@/components/ui/Table'
@@ -87,6 +89,12 @@ export default function TenantManagementPage() {
     valid_until: '',
     notes: '',
   })
+
+  // Logo state
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [removeLogo, setRemoveLogo] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
 
   // Query
   const { data: tenantsData, isLoading } = useQuery({
@@ -213,6 +221,13 @@ export default function TenantManagementPage() {
     },
   })
 
+  const brandingMutation = useMutation({
+    mutationFn: (data: FormData) => organizationService.uploadBranding(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenants'] })
+    },
+  })
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -266,12 +281,27 @@ export default function TenantManagementPage() {
       max_employees: tenant.max_employees,
       max_users: tenant.max_users,
     })
+    setLogoFile(null)
+    setLogoPreview(tenant.logo_url || null)
+    setRemoveLogo(false)
     setShowEditModal(true)
   }
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!selectedTenant) return
     updateMutation.mutate({ id: selectedTenant.id, data: formData })
+
+    // Upload logo if changed
+    if (logoFile || removeLogo) {
+      const fd = new FormData()
+      if (logoFile) {
+        fd.append('logo', logoFile)
+      }
+      if (removeLogo) {
+        fd.append('remove_logo', 'true')
+      }
+      brandingMutation.mutate(fd)
+    }
   }
 
   const handleOpenModules = (tenant: Organization) => {
@@ -377,9 +407,17 @@ export default function TenantManagementPage() {
                         <tr key={tenant.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
-                                <BuildingOffice2Icon className="h-4 w-4 text-primary-600" />
-                              </div>
+                              {tenant.logo_url ? (
+                                <img
+                                  src={tenant.logo_url}
+                                  alt={tenant.name}
+                                  className="w-8 h-8 rounded-lg object-contain border border-gray-200 bg-white"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
+                                  <BuildingOffice2Icon className="h-4 w-4 text-primary-600" />
+                                </div>
+                              )}
                               <div>
                                 <div className="font-medium text-gray-900">{tenant.name}</div>
                                 <div className="text-xs text-gray-500">{tenant.country}</div>
@@ -651,6 +689,63 @@ export default function TenantManagementPage() {
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
+          {/* Logo Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Logo</label>
+            <div className="flex items-center gap-4">
+              {(logoPreview && !removeLogo) ? (
+                <div className="relative">
+                  <img
+                    src={logoFile ? URL.createObjectURL(logoFile) : logoPreview}
+                    alt="Logo"
+                    className="w-16 h-16 rounded-lg object-contain border border-gray-200 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoFile(null)
+                      setLogoPreview(null)
+                      setRemoveLogo(true)
+                      if (logoInputRef.current) logoInputRef.current.value = ''
+                    }}
+                    className="absolute -top-2 -right-2 p-0.5 bg-red-100 text-red-600 rounded-full hover:bg-red-200"
+                    title="Remove logo"
+                  >
+                    <TrashIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center border border-dashed border-gray-300">
+                  <PhotoIcon className="h-6 w-6 text-gray-400" />
+                </div>
+              )}
+              <div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setLogoFile(file)
+                      setLogoPreview(URL.createObjectURL(file))
+                      setRemoveLogo(false)
+                    }
+                  }}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  <PhotoIcon className="h-4 w-4 mr-1" />
+                  {logoPreview && !removeLogo ? 'Change Logo' : 'Upload Logo'}
+                </Button>
+                <p className="text-xs text-gray-500 mt-1">PNG, JPG, or SVG. Max 2MB.</p>
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-3 gap-4">
             <Select
               label="Plan"
@@ -678,8 +773,8 @@ export default function TenantManagementPage() {
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+            <Button onClick={handleUpdate} disabled={updateMutation.isPending || brandingMutation.isPending}>
+              {(updateMutation.isPending || brandingMutation.isPending) ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

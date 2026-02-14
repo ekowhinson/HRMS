@@ -163,9 +163,9 @@ class TenantConfigViewSet(viewsets.ViewSet):
         serializer.save()
         return Response(serializer.data)
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['get', 'post'])
     def branding(self, request):
-        """Update branding (logo, colors)."""
+        """Get or update branding (logo, colors)."""
         tenant = getattr(request, 'tenant', None)
         if not tenant:
             return Response(
@@ -173,12 +173,21 @@ class TenantConfigViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if request.method == 'GET':
+            return Response(OrganizationBrandingSerializer(tenant).data)
+
         # Handle logo upload
         logo = request.FILES.get('logo')
         if logo:
             tenant.logo_data = logo.read()
             tenant.logo_name = logo.name
             tenant.logo_mime_type = logo.content_type
+
+        # Handle logo removal
+        if request.data.get('remove_logo') == 'true':
+            tenant.logo_data = None
+            tenant.logo_name = None
+            tenant.logo_mime_type = None
 
         primary_color = request.data.get('primary_color')
         if primary_color:

@@ -8,6 +8,8 @@ import {
   ChevronRightIcon,
 } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
+import { employeeService } from '@/services/employees'
+import { payrollSetupService } from '@/services/payrollSetup'
 import { usePeriodRange } from '@/hooks/usePeriodRange'
 import { useExport } from '@/hooks/useExport'
 import ExportMenu from '@/components/ui/ExportMenu'
@@ -37,6 +39,9 @@ interface PayslipEmployee {
   employee_number: string
   full_name: string
   department: string
+  division: string
+  directorate: string
+  staff_category: string
   payslips: PayslipEntry[]
 }
 
@@ -44,36 +49,50 @@ export default function PayslipStatementPage() {
   const { fromPeriod, setFromPeriod, toPeriod, setToPeriod, periodOptions, isLoading: periodsLoading } = usePeriodRange()
   const [search, setSearch] = useState('')
   const [department, setDepartment] = useState('')
+  const [division, setDivision] = useState('')
+  const [directorate, setDirectorate] = useState('')
+  const [staffCategory, setStaffCategory] = useState('')
   const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set())
 
+  // Fetch lookup data for filter dropdowns
+  const { data: departments = [] } = useQuery({
+    queryKey: ['lookup-departments'],
+    queryFn: () => employeeService.getDepartments(),
+  })
+  const { data: divisions = [] } = useQuery({
+    queryKey: ['lookup-divisions'],
+    queryFn: () => employeeService.getDivisions(),
+  })
+  const { data: directorates = [] } = useQuery({
+    queryKey: ['lookup-directorates'],
+    queryFn: () => employeeService.getDirectorates(),
+  })
+  const { data: staffCategories = [] } = useQuery({
+    queryKey: ['lookup-staff-categories'],
+    queryFn: () => payrollSetupService.getStaffCategories(),
+  })
+
+  const filters = {
+    from_period: fromPeriod,
+    to_period: toPeriod,
+    ...(department && { department }),
+    ...(division && { division }),
+    ...(directorate && { directorate }),
+    ...(staffCategory && { staff_category: staffCategory }),
+    ...(search && { search }),
+  }
+
   const { exporting, handleExport } = useExport((format) =>
-    reportsService.exportPayslipStatement(
-      { from_period: fromPeriod, to_period: toPeriod },
-      format
-    )
+    reportsService.exportPayslipStatement(filters, format)
   )
 
   const { data, isLoading } = useQuery({
-    queryKey: ['payslip-statement', fromPeriod, toPeriod],
-    queryFn: () =>
-      reportsService.getPayslipStatement({
-        from_period: fromPeriod,
-        to_period: toPeriod,
-      }),
+    queryKey: ['payslip-statement', fromPeriod, toPeriod, department, division, directorate, staffCategory, search],
+    queryFn: () => reportsService.getPayslipStatement(filters),
     enabled: !!fromPeriod && !!toPeriod,
   })
 
   const employees: PayslipEmployee[] = data?.employees || []
-  const departments = [...new Set(employees.map((e) => e.department).filter(Boolean))].sort()
-
-  const filtered = employees.filter((emp) => {
-    const matchesSearch =
-      !search ||
-      emp.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      emp.employee_number.toLowerCase().includes(search.toLowerCase())
-    const matchesDept = !department || emp.department === department
-    return matchesSearch && matchesDept
-  })
 
   const toggleEmployee = (empNo: string) => {
     setExpandedEmployees((prev) => {
@@ -118,20 +137,55 @@ export default function PayslipStatementPage() {
             />
             <div className="flex-1 min-w-[200px]">
               <Input
-                placeholder="Search by name or ID..."
+                placeholder="Search by name or employee ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
               />
             </div>
-            <div className="w-56">
+          </div>
+          <div className="flex flex-wrap gap-4 items-end mt-4">
+            <div className="w-48">
               <Select
                 label="Department"
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 options={[
                   { value: '', label: 'All Departments' },
-                  ...departments.map((d) => ({ value: d, label: d })),
+                  ...departments.map((d: any) => ({ value: d.id, label: d.name })),
+                ]}
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                label="Division"
+                value={division}
+                onChange={(e) => setDivision(e.target.value)}
+                options={[
+                  { value: '', label: 'All Divisions' },
+                  ...divisions.map((d: any) => ({ value: d.id, label: d.name })),
+                ]}
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                label="Directorate"
+                value={directorate}
+                onChange={(e) => setDirectorate(e.target.value)}
+                options={[
+                  { value: '', label: 'All Directorates' },
+                  ...directorates.map((d: any) => ({ value: d.id, label: d.name })),
+                ]}
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                label="Staff Category"
+                value={staffCategory}
+                onChange={(e) => setStaffCategory(e.target.value)}
+                options={[
+                  { value: '', label: 'All Categories' },
+                  ...staffCategories.map((c: any) => ({ value: c.id, label: c.name })),
                 ]}
               />
             </div>
@@ -140,14 +194,14 @@ export default function PayslipStatementPage() {
       </Card>
 
       {/* Controls */}
-      {!isLoading && filtered.length > 0 && (
+      {!isLoading && employees.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            Showing {filtered.length} employee{filtered.length !== 1 ? 's' : ''}
+            Showing {employees.length} employee{employees.length !== 1 ? 's' : ''}
           </p>
           <div className="flex gap-2">
             <button
-              onClick={() => setExpandedEmployees(new Set(filtered.map((e) => e.employee_number)))}
+              onClick={() => setExpandedEmployees(new Set(employees.map((e) => e.employee_number)))}
               className="px-3 py-1 text-xs border rounded hover:bg-gray-50"
             >
               Expand All
@@ -171,7 +225,7 @@ export default function PayslipStatementPage() {
             </div>
           </CardContent>
         </Card>
-      ) : filtered.length === 0 ? (
+      ) : employees.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center text-sm text-gray-500">
             {!fromPeriod || !toPeriod
@@ -181,7 +235,7 @@ export default function PayslipStatementPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {filtered.map((emp) => {
+          {employees.map((emp) => {
             const isExpanded = expandedEmployees.has(emp.employee_number)
             const totalNet = emp.payslips.reduce((sum, ps) => sum + ps.net_pay, 0)
             return (
@@ -200,7 +254,9 @@ export default function PayslipStatementPage() {
                       <p className="font-medium text-gray-900">
                         {emp.employee_number} - {emp.full_name}
                       </p>
-                      <p className="text-sm text-gray-500">{emp.department}</p>
+                      <p className="text-sm text-gray-500">
+                        {[emp.department, emp.directorate, emp.division].filter(Boolean).join(' / ')}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">

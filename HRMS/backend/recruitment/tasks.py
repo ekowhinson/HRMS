@@ -9,8 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 def _get_org_name():
-    """Get organization name from settings."""
-    return settings.HRMS_SETTINGS.get('ORGANIZATION_NAME', 'Our Organization')
+    """Get organization name from tenant or settings."""
+    from organization.utils import get_org_settings
+    return get_org_settings()['name']
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
