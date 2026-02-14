@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   DocumentArrowDownIcon,
@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
 import { formatCurrency } from '@/lib/utils'
+import { useGroupBy } from '@/hooks/useGroupBy'
 import type { PayrollRun } from '@/types'
 
 interface StaffPayrollEmployee {
@@ -45,6 +46,26 @@ interface StaffPayrollDataResponse {
   employees: StaffPayrollEmployee[]
 }
 
+const STAFF_NUMERIC_KEYS = [
+  'basic_salary', 'transport_allowance', 'utility_allowance',
+  'fuel_allowance', 'vehicle_allowance', 'acting_allowance',
+]
+
+const GROUP_BY_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'location', label: 'Location' },
+  { value: 'grade', label: 'Grade' },
+  { value: 'position', label: 'Position' },
+]
+
+const GROUP_BY_LABELS: Record<string, string> = {
+  location: 'Location',
+  grade: 'Grade',
+  position: 'Position',
+}
+
+const TOTAL_COLUMNS = 14
+
 export default function StaffPayrollDataReportPage() {
   const [selectedRun, setSelectedRun] = useState('')
   const [selectedStaffCategory, setSelectedStaffCategory] = useState('')
@@ -52,6 +73,7 @@ export default function StaffPayrollDataReportPage() {
   const [selectedGrade, setSelectedGrade] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [exportFormat, setExportFormat] = useState<ExportFormat>('excel')
+  const [groupByField, setGroupByField] = useState('')
 
   // Fetch payroll runs
   const { data: runs } = useQuery({
@@ -99,12 +121,23 @@ export default function StaffPayrollDataReportPage() {
   const data = reportData as StaffPayrollDataResponse | undefined
 
   // Filter employees by search term
-  const filteredEmployees =
+  const filteredEmployees = useMemo(() =>
     data?.employees.filter(
       (emp) =>
         emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.staff_number.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || []
+    ) || [],
+    [data?.employees, searchTerm]
+  )
+
+  // Group data
+  const { groups, grandTotals } = useGroupBy<StaffPayrollEmployee>(
+    filteredEmployees,
+    groupByField || null,
+    STAFF_NUMERIC_KEYS
+  )
+
+  const isGrouped = !!groupByField
 
   // Get computed/approved/paid runs for dropdown
   const availableRuns =
@@ -128,26 +161,6 @@ export default function StaffPayrollDataReportPage() {
     }
   }
 
-  // Compute totals for footer row
-  const totals = filteredEmployees.reduce(
-    (acc, emp) => ({
-      basic_salary: acc.basic_salary + emp.basic_salary,
-      transport_allowance: acc.transport_allowance + emp.transport_allowance,
-      utility_allowance: acc.utility_allowance + emp.utility_allowance,
-      fuel_allowance: acc.fuel_allowance + emp.fuel_allowance,
-      vehicle_allowance: acc.vehicle_allowance + emp.vehicle_allowance,
-      acting_allowance: acc.acting_allowance + emp.acting_allowance,
-    }),
-    {
-      basic_salary: 0,
-      transport_allowance: 0,
-      utility_allowance: 0,
-      fuel_allowance: 0,
-      vehicle_allowance: 0,
-      acting_allowance: 0,
-    }
-  )
-
   // Helper to parse locations/grades from possible paginated response
   const locationsList = Array.isArray(locations?.results)
     ? locations.results
@@ -160,6 +173,17 @@ export default function StaffPayrollDataReportPage() {
     : Array.isArray(grades)
       ? grades
       : []
+
+  const renderTotalCells = (totals: Record<string, number>) => (
+    <>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.basic_salary)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.transport_allowance)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.utility_allowance)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.fuel_allowance)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.vehicle_allowance)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.acting_allowance)}</td>
+    </>
+  )
 
   return (
     <div className="space-y-6">
@@ -249,6 +273,14 @@ export default function StaffPayrollDataReportPage() {
                     label: g.name || g.code,
                   })),
                 ]}
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                label="Group By"
+                value={groupByField}
+                onChange={(e) => setGroupByField(e.target.value)}
+                options={GROUP_BY_OPTIONS}
               />
             </div>
             <div className="flex-1 min-w-[200px]">
@@ -348,39 +380,51 @@ export default function StaffPayrollDataReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEmployees.map((emp, index) => (
-                    <tr
-                      key={emp.staff_number}
-                      className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                    >
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.no}</td>
-                      <td className="px-2 py-2 whitespace-nowrap font-medium">{emp.staff_number}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.full_name}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.hire_date}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.location}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.position}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.grade}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.grade_step}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.basic_salary)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.transport_allowance)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.utility_allowance)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.fuel_allowance)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.vehicle_allowance)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.acting_allowance)}</td>
-                    </tr>
+                  {groups.map((group) => (
+                    <>
+                      {isGrouped && (
+                        <tr key={`header-${group.label}`} className="bg-blue-100 text-blue-900">
+                          <td colSpan={TOTAL_COLUMNS} className="px-2 py-2 font-semibold">
+                            {GROUP_BY_LABELS[groupByField] || groupByField}: {group.label} ({group.items.length} employee{group.items.length !== 1 ? 's' : ''})
+                          </td>
+                        </tr>
+                      )}
+                      {group.items.map((emp, index) => (
+                        <tr
+                          key={emp.staff_number}
+                          className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                        >
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.no}</td>
+                          <td className="px-2 py-2 whitespace-nowrap font-medium">{emp.staff_number}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.full_name}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.hire_date}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.location}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.position}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.grade}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.grade_step}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.basic_salary)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.transport_allowance)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.utility_allowance)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.fuel_allowance)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.vehicle_allowance)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.acting_allowance)}</td>
+                        </tr>
+                      ))}
+                      {isGrouped && (
+                        <tr key={`footer-${group.label}`} className="bg-blue-50 font-semibold text-gray-800 border-b-2 border-blue-200">
+                          <td className="px-2 py-2" colSpan={8}>Sub-Total</td>
+                          {renderTotalCells(group.totals)}
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-200 font-bold text-gray-900 border-t-2 border-gray-400">
                     <td className="px-2 py-3" colSpan={8}>
-                      TOTAL
+                      GRAND TOTAL
                     </td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.basic_salary)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.transport_allowance)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.utility_allowance)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.fuel_allowance)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.vehicle_allowance)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.acting_allowance)}</td>
+                    {renderTotalCells(grandTotals)}
                   </tr>
                 </tfoot>
               </table>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   DocumentArrowDownIcon,
@@ -13,12 +13,16 @@ import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
 import { formatCurrency } from '@/lib/utils'
+import { useGroupBy } from '@/hooks/useGroupBy'
 import type { PayrollRun } from '@/types'
 
 interface CostingEmployee {
   srn: number
   staff_id: string
   full_name: string
+  department: string
+  grade: string
+  staff_category: string
   basic_salary: number
   total_allowances: number
   total_emoluments: number
@@ -51,12 +55,37 @@ interface PayrollCostingData {
   employees: CostingEmployee[]
 }
 
+const COSTING_NUMERIC_KEYS = [
+  'basic_salary', 'total_allowances', 'total_emoluments',
+  'emp_ssf', 'emp_pf', 'employer_ssf', 'employer_pf',
+  'tax_relief', 'net_taxable_pay', 'paye_tax',
+  'duties_and_tax', 'tax_refund', 'union_dues',
+  'ext_car_loan', 'int_car_loan', 'student_loan',
+  'rent', 'sal_adv_surcharge', 'net_salary',
+]
+
+const GROUP_BY_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'department', label: 'Department' },
+  { value: 'grade', label: 'Grade' },
+  { value: 'staff_category', label: 'Staff Category' },
+]
+
+const GROUP_BY_LABELS: Record<string, string> = {
+  department: 'Department',
+  grade: 'Grade',
+  staff_category: 'Staff Category',
+}
+
+const TOTAL_COLUMNS = 22
+
 export default function PayrollCostingReportPage() {
   const [selectedRun, setSelectedRun] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState('')
   const [selectedStaffCategory, setSelectedStaffCategory] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [exportFormat, setExportFormat] = useState<ExportFormat>('excel')
+  const [groupByField, setGroupByField] = useState('')
 
   // Fetch payroll runs
   const { data: runs } = useQuery({
@@ -94,12 +123,23 @@ export default function PayrollCostingReportPage() {
   const data = reportData as PayrollCostingData | undefined
 
   // Filter employees by search term
-  const filteredEmployees =
+  const filteredEmployees = useMemo(() =>
     data?.employees.filter(
       (emp) =>
         emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.staff_id.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || []
+    ) || [],
+    [data?.employees, searchTerm]
+  )
+
+  // Group data
+  const { groups, grandTotals } = useGroupBy<CostingEmployee>(
+    filteredEmployees,
+    groupByField || null,
+    COSTING_NUMERIC_KEYS
+  )
+
+  const isGrouped = !!groupByField
 
   // Get computed/approved/paid runs for dropdown
   const availableRuns =
@@ -122,50 +162,28 @@ export default function PayrollCostingReportPage() {
     }
   }
 
-  // Compute totals for footer row
-  const totals = filteredEmployees.reduce(
-    (acc, emp) => ({
-      basic_salary: acc.basic_salary + emp.basic_salary,
-      total_allowances: acc.total_allowances + emp.total_allowances,
-      total_emoluments: acc.total_emoluments + emp.total_emoluments,
-      emp_ssf: acc.emp_ssf + emp.emp_ssf,
-      emp_pf: acc.emp_pf + emp.emp_pf,
-      employer_ssf: acc.employer_ssf + emp.employer_ssf,
-      employer_pf: acc.employer_pf + emp.employer_pf,
-      tax_relief: acc.tax_relief + emp.tax_relief,
-      net_taxable_pay: acc.net_taxable_pay + emp.net_taxable_pay,
-      paye_tax: acc.paye_tax + emp.paye_tax,
-      duties_and_tax: acc.duties_and_tax + emp.duties_and_tax,
-      tax_refund: acc.tax_refund + emp.tax_refund,
-      union_dues: acc.union_dues + emp.union_dues,
-      ext_car_loan: acc.ext_car_loan + emp.ext_car_loan,
-      int_car_loan: acc.int_car_loan + emp.int_car_loan,
-      student_loan: acc.student_loan + emp.student_loan,
-      rent: acc.rent + emp.rent,
-      sal_adv_surcharge: acc.sal_adv_surcharge + emp.sal_adv_surcharge,
-      net_salary: acc.net_salary + emp.net_salary,
-    }),
-    {
-      basic_salary: 0,
-      total_allowances: 0,
-      total_emoluments: 0,
-      emp_ssf: 0,
-      emp_pf: 0,
-      employer_ssf: 0,
-      employer_pf: 0,
-      tax_relief: 0,
-      net_taxable_pay: 0,
-      paye_tax: 0,
-      duties_and_tax: 0,
-      tax_refund: 0,
-      union_dues: 0,
-      ext_car_loan: 0,
-      int_car_loan: 0,
-      student_loan: 0,
-      rent: 0,
-      sal_adv_surcharge: 0,
-      net_salary: 0,
-    }
+  const renderTotalCells = (totals: Record<string, number>) => (
+    <>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.basic_salary)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.total_allowances)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.total_emoluments)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.emp_ssf)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.emp_pf)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.employer_ssf)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.employer_pf)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.tax_relief)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.net_taxable_pay)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.paye_tax)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.duties_and_tax)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.tax_refund)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.union_dues)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.ext_car_loan)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.int_car_loan)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.student_loan)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.rent)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.sal_adv_surcharge)}</td>
+      <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.net_salary)}</td>
+    </>
   )
 
   return (
@@ -248,6 +266,14 @@ export default function PayrollCostingReportPage() {
                     label: d.name,
                   })),
                 ]}
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                label="Group By"
+                value={groupByField}
+                onChange={(e) => setGroupByField(e.target.value)}
+                options={GROUP_BY_OPTIONS}
               />
             </div>
             <div className="flex-1 min-w-[200px]">
@@ -343,60 +369,59 @@ export default function PayrollCostingReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEmployees.map((emp, index) => (
-                    <tr
-                      key={emp.staff_id}
-                      className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                    >
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.srn}</td>
-                      <td className="px-2 py-2 whitespace-nowrap font-medium">{emp.staff_id}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{emp.full_name}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.basic_salary)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.total_allowances)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.total_emoluments)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.emp_ssf)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.emp_pf)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.employer_ssf)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.employer_pf)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.tax_relief)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.net_taxable_pay)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.paye_tax)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.duties_and_tax)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.tax_refund)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.union_dues)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.ext_car_loan)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.int_car_loan)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.student_loan)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.rent)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.sal_adv_surcharge)}</td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap font-bold">{formatCurrency(emp.net_salary)}</td>
-                    </tr>
+                  {groups.map((group) => (
+                    <>
+                      {isGrouped && (
+                        <tr key={`header-${group.label}`} className="bg-blue-100 text-blue-900">
+                          <td colSpan={TOTAL_COLUMNS} className="px-2 py-2 font-semibold">
+                            {GROUP_BY_LABELS[groupByField] || groupByField}: {group.label} ({group.items.length} employee{group.items.length !== 1 ? 's' : ''})
+                          </td>
+                        </tr>
+                      )}
+                      {group.items.map((emp, index) => (
+                        <tr
+                          key={emp.staff_id}
+                          className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                        >
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.srn}</td>
+                          <td className="px-2 py-2 whitespace-nowrap font-medium">{emp.staff_id}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{emp.full_name}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.basic_salary)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.total_allowances)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.total_emoluments)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.emp_ssf)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.emp_pf)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.employer_ssf)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.employer_pf)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.tax_relief)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.net_taxable_pay)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.paye_tax)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.duties_and_tax)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.tax_refund)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.union_dues)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.ext_car_loan)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.int_car_loan)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.student_loan)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.rent)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">{formatCurrency(emp.sal_adv_surcharge)}</td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap font-bold">{formatCurrency(emp.net_salary)}</td>
+                        </tr>
+                      ))}
+                      {isGrouped && (
+                        <tr key={`footer-${group.label}`} className="bg-blue-50 font-semibold text-gray-800 border-b-2 border-blue-200">
+                          <td className="px-2 py-2" colSpan={3}>Sub-Total</td>
+                          {renderTotalCells(group.totals)}
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-200 font-bold text-gray-900 border-t-2 border-gray-400">
                     <td className="px-2 py-3" colSpan={3}>
-                      TOTAL
+                      GRAND TOTAL
                     </td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.basic_salary)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.total_allowances)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.total_emoluments)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.emp_ssf)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.emp_pf)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.employer_ssf)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.employer_pf)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.tax_relief)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.net_taxable_pay)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.paye_tax)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.duties_and_tax)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.tax_refund)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.union_dues)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.ext_car_loan)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.int_car_loan)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.student_loan)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.rent)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.sal_adv_surcharge)}</td>
-                    <td className="px-2 py-3 text-right whitespace-nowrap">{formatCurrency(totals.net_salary)}</td>
+                    {renderTotalCells(grandTotals)}
                   </tr>
                 </tfoot>
               </table>
