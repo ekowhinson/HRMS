@@ -187,7 +187,7 @@ const hrSections: NavSection[] = [
 const payrollNavigation: NavItem[] = [
   { name: 'Payroll Overview', href: '/payroll', icon: BanknotesIcon },
   { name: 'Employee Directory', href: '/payroll/employees', icon: UsersIcon },
-  { name: 'Reports', href: '/reports', icon: ChartBarIcon },
+  { name: 'Payroll Reports', href: '/reports', icon: ChartBarIcon },
 ];
 
 // Payroll Section - Collapsible sub-sections

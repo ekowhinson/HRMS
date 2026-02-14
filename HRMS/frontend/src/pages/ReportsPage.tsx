@@ -7,8 +7,6 @@ import {
   DocumentArrowDownIcon,
   UsersIcon,
   BanknotesIcon,
-  CalendarIcon,
-  CreditCardIcon,
   FunnelIcon,
   TableCellsIcon,
   DocumentTextIcon,
@@ -31,7 +29,6 @@ interface ReportConfig {
   name: string
   description: string
   icon: React.ForwardRefExoticComponent<any>
-  category: 'hr' | 'payroll' | 'leave' | 'loans'
   filters?: string[]
   exportFn: (filters: Record<string, string>, format: ExportFormat) => Promise<void>
   // Optional: specific formats available (if not set, all formats are shown)
@@ -43,29 +40,10 @@ interface ReportConfig {
 
 const reportConfigs: ReportConfig[] = [
   {
-    id: 'employee-master',
-    name: 'Employee Master Report',
-    description: 'Complete list of all employees with their details',
-    icon: UsersIcon,
-    category: 'hr',
-    filters: ['employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category', 'status'],
-    exportFn: (filters, format) => reportsService.exportEmployeeMaster(filters, format),
-  },
-  {
-    id: 'headcount',
-    name: 'Headcount Report',
-    description: 'Employee count by department, region, and grade',
-    icon: UsersIcon,
-    category: 'hr',
-    filters: ['division', 'directorate', 'department', 'grade', 'staff_category'],
-    exportFn: (filters, format) => reportsService.exportHeadcount(format, filters),
-  },
-  {
     id: 'payroll-summary',
     name: 'Payroll Summary',
     description: 'Summary of payroll by period with all employee details',
     icon: BanknotesIcon,
-    category: 'payroll',
     filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category'],
     exportFn: (filters, format) => reportsService.exportPayrollSummary(filters.period, format, filters),
   },
@@ -74,7 +52,7 @@ const reportConfigs: ReportConfig[] = [
     name: 'Payroll Master Report',
     description: 'Detailed breakdown of earnings, deductions, and employer contributions per employee',
     icon: ClipboardDocumentListIcon,
-    category: 'payroll',
+
     filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category'],
     exportFn: (filters, format) => reportsService.exportPayrollMaster({ payroll_run: filters.period, ...filters }, format),
   },
@@ -83,7 +61,7 @@ const reportConfigs: ReportConfig[] = [
     name: 'PAYE Tax Report',
     description: 'Monthly income tax (PAYE) report for GRA submission',
     icon: BanknotesIcon,
-    category: 'payroll',
+
     filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
     exportFn: (filters, format) => reportsService.exportPAYEReport(filters.period, format, filters),
   },
@@ -92,7 +70,7 @@ const reportConfigs: ReportConfig[] = [
     name: 'PAYE GRA Schedule',
     description: 'Official GRA PAYE Monthly Tax Deductions Schedule format with all 28 columns',
     icon: BanknotesIcon,
-    category: 'payroll',
+
     filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
     exportFn: (filters, format) => reportsService.exportPAYEGRAReport(filters.period, format, filters),
   },
@@ -101,7 +79,7 @@ const reportConfigs: ReportConfig[] = [
     name: 'SSNIT Contribution Report',
     description: 'Monthly SSNIT contributions for statutory submission',
     icon: BanknotesIcon,
-    category: 'payroll',
+
     filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
     exportFn: (filters, format) => reportsService.exportSSNITReport(filters.period, format, filters),
   },
@@ -110,7 +88,7 @@ const reportConfigs: ReportConfig[] = [
     name: 'Bank Advice Report',
     description: 'Bank transfer details for salary payments',
     icon: BanknotesIcon,
-    category: 'payroll',
+
     filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'bank'],
     exportFn: (filters, format) => reportsService.exportBankAdvice(filters.period, format, filters),
   },
@@ -119,7 +97,7 @@ const reportConfigs: ReportConfig[] = [
     name: 'Employee Payslips',
     description: 'Download payslips as ZIP file (PDF, Excel, or Text format)',
     icon: DocumentDuplicateIcon,
-    category: 'payroll',
+
     filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category'],
     exportFn: (filters, format) => {
       if (!filters.period) {
@@ -133,7 +111,7 @@ const reportConfigs: ReportConfig[] = [
     name: 'Bank Payment File',
     description: 'Download bank payment file (CSV, Excel, or PDF format)',
     icon: BuildingLibraryIcon,
-    category: 'payroll',
+
     filters: ['period', 'employee_code', 'division', 'directorate', 'department', 'position', 'grade', 'salary_band', 'salary_level', 'staff_category', 'bank'],
     exportFn: async (filters, format) => {
       if (!filters.period) {
@@ -142,35 +120,9 @@ const reportConfigs: ReportConfig[] = [
       return reportsService.downloadFilteredBankFile(filters.period, filters, format)
     },
   },
-  {
-    id: 'leave-balance',
-    name: 'Leave Balance Report',
-    description: 'Current leave balances for all employees',
-    icon: CalendarIcon,
-    category: 'leave',
-    filters: ['employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
-    exportFn: (filters, format) => reportsService.exportLeaveBalance(filters, format),
-  },
-  {
-    id: 'loan-outstanding',
-    name: 'Outstanding Loans Report',
-    description: 'All active loans with balances',
-    icon: CreditCardIcon,
-    category: 'loans',
-    filters: ['employee_code', 'division', 'directorate', 'department', 'grade', 'staff_category'],
-    exportFn: (filters, format) => reportsService.exportLoanOutstanding(filters, format),
-  },
 ]
 
-const categoryLabels: Record<string, string> = {
-  hr: 'Human Resources',
-  payroll: 'Payroll',
-  leave: 'Leave Management',
-  loans: 'Loans & Benefits',
-}
-
 export default function ReportsPage() {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedReport, setSelectedReport] = useState<ReportConfig | null>(null)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [isGenerating, setIsGenerating] = useState<ExportFormat | null>(null)
@@ -227,11 +179,6 @@ export default function ReportsPage() {
     queryKey: ['payroll-runs'],
     queryFn: () => payrollService.getRuns(),
   })
-
-  const filteredReports =
-    selectedCategory === 'all'
-      ? reportConfigs
-      : reportConfigs.filter((r) => r.category === selectedCategory)
 
   const handleGenerateReport = async (format: ExportFormat) => {
     if (!selectedReport) return
@@ -525,9 +472,9 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Payroll Reports</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Generate and download various reports
+            Generate and download payroll reports
           </p>
         </div>
       </div>
@@ -608,27 +555,6 @@ export default function ReportsPage() {
         </Link>
       </div>
 
-      {/* Category Filter */}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={selectedCategory === 'all' ? 'primary' : 'outline'}
-          size="sm"
-          onClick={() => setSelectedCategory('all')}
-        >
-          All Reports
-        </Button>
-        {Object.entries(categoryLabels).map(([key, label]) => (
-          <Button
-            key={key}
-            variant={selectedCategory === key ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedCategory(key)}
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Report List */}
         <div className="lg:col-span-2">
@@ -641,7 +567,7 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
-                {filteredReports.map((report) => (
+                {reportConfigs.map((report) => (
                   <div
                     key={report.id}
                     className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
@@ -671,9 +597,6 @@ export default function ReportsPage() {
                       <div className="flex-1">
                         <h3 className="text-sm font-medium text-gray-900">{report.name}</h3>
                         <p className="text-sm text-gray-500 mt-1">{report.description}</p>
-                        <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                          {categoryLabels[report.category]}
-                        </span>
                       </div>
                     </div>
                   </div>

@@ -10,7 +10,10 @@ import {
   StarIcon,
   AcademicCapIcon,
   PresentationChartBarIcon,
+  CreditCardIcon,
 } from '@heroicons/react/24/outline'
+import { reportsService } from '@/services/reports'
+import ExportReportCard from '@/components/reports/ExportReportCard'
 
 const reportCards = [
   {
@@ -127,6 +130,32 @@ export default function HRReportsPage() {
             </div>
           </Link>
         ))}
+      </div>
+
+      {/* Quick Export */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Quick Export</h2>
+        <p className="text-sm text-gray-500 mb-4">Download HR data in CSV, Excel, or PDF format</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <ExportReportCard
+            name="Employee Master Report"
+            description="Complete list of all employees with their details"
+            icon={UsersIcon}
+            exportFn={(format) => reportsService.exportEmployeeMaster({}, format)}
+          />
+          <ExportReportCard
+            name="Leave Balance Report"
+            description="Current leave balances for all employees"
+            icon={CalendarDaysIcon}
+            exportFn={(format) => reportsService.exportLeaveBalance({}, format)}
+          />
+          <ExportReportCard
+            name="Outstanding Loans Report"
+            description="All active loans with balances"
+            icon={CreditCardIcon}
+            exportFn={(format) => reportsService.exportLoanOutstanding({}, format)}
+          />
+        </div>
       </div>
     </div>
   )
