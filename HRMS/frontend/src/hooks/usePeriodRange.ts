@@ -17,7 +17,7 @@ export function usePeriodRange() {
   const [toPeriod, setToPeriod] = useState('')
 
   const { data: periods = [], isLoading } = useQuery({
-    queryKey: ['payroll-periods-list'],
+    queryKey: ['payroll-periods'],
     queryFn: async () => {
       const response = await api.get('/payroll/periods/', { params: { page_size: 100 } })
       const results = response.data?.results || response.data || []
