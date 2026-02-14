@@ -15,6 +15,7 @@ import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
 import { formatCurrency } from '@/lib/utils'
+import { useGroupBy } from '@/hooks/useGroupBy'
 import type { PayrollRun, Department } from '@/types'
 
 interface TransactionItem {
@@ -62,11 +63,20 @@ interface PayrollMasterData {
   employees: EmployeePayrollData[]
 }
 
+const GROUP_BY_OPTIONS = [
+  { value: '', label: 'No Grouping' },
+  { value: 'department', label: 'Department' },
+  { value: 'grade', label: 'Grade' },
+]
+
+const NUMERIC_KEYS = ['gross_salary', 'total_deductions', 'net_salary', 'total_employer_contributions', 'employer_cost']
+
 export default function PayrollMasterReportPage() {
   const [selectedRun, setSelectedRun] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set())
+  const [groupByField, setGroupByField] = useState('')
 
   // Fetch payroll runs
   const { data: runs } = useQuery({
@@ -101,6 +111,9 @@ export default function PayrollMasterReportPage() {
     emp.employee_number.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
 
+  const isGrouped = !!groupByField
+  const { groups, grandTotals } = useGroupBy(filteredEmployees, groupByField || null, NUMERIC_KEYS)
+
   const toggleExpand = (employeeId: string) => {
     const newExpanded = new Set(expandedEmployees)
     if (newExpanded.has(employeeId)) {
@@ -123,6 +136,139 @@ export default function PayrollMasterReportPage() {
   const availableRuns = runs?.filter((r: PayrollRun) =>
     ['COMPUTED', 'APPROVED', 'PAID'].includes(r.status.toUpperCase())
   ) || []
+
+  const groupByLabel = GROUP_BY_OPTIONS.find((o) => o.value === groupByField)?.label || ''
+
+  const renderEmployeeCard = (emp: EmployeePayrollData) => {
+    const isExpanded = expandedEmployees.has(emp.employee_id)
+    return (
+      <Card key={emp.employee_id}>
+        <div
+          className="p-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between"
+          onClick={() => toggleExpand(emp.employee_id)}
+        >
+          <div className="flex items-center gap-4">
+            {isExpanded ? (
+              <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+            )}
+            <div>
+              <p className="font-medium text-gray-900">
+                {emp.employee_number} - {emp.full_name}
+              </p>
+              <p className="text-sm text-gray-500">
+                {emp.department} {emp.position && `| ${emp.position}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-8 text-right">
+            <div>
+              <p className="text-xs text-gray-500">Gross</p>
+              <p className="font-medium text-green-600">{formatCurrency(emp.gross_salary)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Deductions</p>
+              <p className="font-medium text-red-600">{formatCurrency(emp.total_deductions)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Net Salary</p>
+              <p className="font-bold text-purple-600">{formatCurrency(emp.net_salary)}</p>
+            </div>
+          </div>
+        </div>
+
+        {isExpanded && (
+          <CardContent className="border-t bg-gray-50 p-0">
+            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x">
+              {/* Earnings */}
+              <div className="p-4">
+                <h4 className="font-medium text-green-700 mb-3 flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  Earnings
+                </h4>
+                <div className="space-y-2">
+                  {emp.earnings.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{item.name}</span>
+                      <span className="font-medium">{formatCurrency(item.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-green-200">
+                    <span className="text-green-700">Gross Salary</span>
+                    <span className="text-green-700">{formatCurrency(emp.gross_salary)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deductions */}
+              <div className="p-4">
+                <h4 className="font-medium text-red-700 mb-3 flex items-center">
+                  <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                  Deductions
+                </h4>
+                <div className="space-y-2">
+                  {emp.deductions.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{item.name}</span>
+                      <span className="font-medium text-red-600">-{formatCurrency(item.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-red-200">
+                    <span className="text-red-700">Total Deductions</span>
+                    <span className="text-red-700">-{formatCurrency(emp.total_deductions)}</span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t-2 border-purple-300">
+                  <div className="flex justify-between font-bold">
+                    <span className="text-purple-700">NET SALARY</span>
+                    <span className="text-purple-700 text-lg">{formatCurrency(emp.net_salary)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Employer Contributions */}
+              <div className="p-4">
+                <h4 className="font-medium text-orange-700 mb-3 flex items-center">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                  Employer Contributions
+                </h4>
+                <div className="space-y-2">
+                  {emp.employer_contributions.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{item.name}</span>
+                      <span className="font-medium">{formatCurrency(item.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-orange-200">
+                    <span className="text-orange-700">Total Contributions</span>
+                    <span className="text-orange-700">{formatCurrency(emp.total_employer_contributions)}</span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t-2 border-gray-300">
+                  <div className="flex justify-between font-bold">
+                    <span className="text-gray-700">EMPLOYER COST</span>
+                    <span className="text-gray-700 text-lg">{formatCurrency(emp.employer_cost)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    (Gross + Employer Contributions)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Details */}
+            {(emp.bank_name || emp.bank_account) && (
+              <div className="px-4 py-3 bg-gray-100 text-sm text-gray-600 border-t">
+                <span className="font-medium">Bank:</span> {emp.bank_name || 'N/A'} |{' '}
+                <span className="font-medium">Account:</span> {emp.bank_account || 'N/A'}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -170,6 +316,14 @@ export default function PayrollMasterReportPage() {
                     label: d.name,
                   })),
                 ]}
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                label="Group By"
+                value={groupByField}
+                onChange={(e) => setGroupByField(e.target.value)}
+                options={GROUP_BY_OPTIONS}
               />
             </div>
             <div className="flex-1 min-w-[200px]">
@@ -248,138 +402,55 @@ export default function PayrollMasterReportPage() {
           </CardContent>
         </Card>
       ) : filteredEmployees.length > 0 ? (
-        <div className="space-y-4">
-          {filteredEmployees.map((emp) => {
-            const isExpanded = expandedEmployees.has(emp.employee_id)
-            return (
-              <Card key={emp.employee_id}>
-                <div
-                  className="p-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between"
-                  onClick={() => toggleExpand(emp.employee_id)}
-                >
-                  <div className="flex items-center gap-4">
-                    {isExpanded ? (
-                      <ChevronDownIcon className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <ChevronRightIcon className="h-5 w-5 text-gray-400" />
-                    )}
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {emp.employee_number} - {emp.full_name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {emp.department} {emp.position && `| ${emp.position}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-8 text-right">
-                    <div>
-                      <p className="text-xs text-gray-500">Gross</p>
-                      <p className="font-medium text-green-600">{formatCurrency(emp.gross_salary)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Deductions</p>
-                      <p className="font-medium text-red-600">{formatCurrency(emp.total_deductions)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Net Salary</p>
-                      <p className="font-bold text-purple-600">{formatCurrency(emp.net_salary)}</p>
+        isGrouped ? (
+          <div className="space-y-6">
+            {groups.map((group) => (
+              <div key={group.label} className="space-y-2">
+                {/* Group Header */}
+                <div className="bg-blue-50 rounded-lg px-4 py-3 flex items-center justify-between">
+                  <h3 className="font-semibold text-blue-800">
+                    {groupByLabel}: {group.label} ({group.items.length} employee{group.items.length !== 1 ? 's' : ''})
+                  </h3>
+                </div>
+
+                {/* Employee Cards */}
+                <div className="space-y-4">
+                  {group.items.map(renderEmployeeCard)}
+                </div>
+
+                {/* Group Sub-Total */}
+                <div className="bg-blue-50/50 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-blue-800">Sub-Total: {group.label}</span>
+                    <div className="flex gap-6 text-sm">
+                      <span>Gross: <strong className="text-green-700">{formatCurrency(group.totals.gross_salary)}</strong></span>
+                      <span>Deductions: <strong className="text-red-700">{formatCurrency(group.totals.total_deductions)}</strong></span>
+                      <span>Net: <strong className="text-purple-700">{formatCurrency(group.totals.net_salary)}</strong></span>
+                      <span>Employer Cost: <strong className="text-gray-700">{formatCurrency(group.totals.employer_cost)}</strong></span>
                     </div>
                   </div>
                 </div>
+              </div>
+            ))}
 
-                {isExpanded && (
-                  <CardContent className="border-t bg-gray-50 p-0">
-                    <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x">
-                      {/* Earnings */}
-                      <div className="p-4">
-                        <h4 className="font-medium text-green-700 mb-3 flex items-center">
-                          <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                          Earnings
-                        </h4>
-                        <div className="space-y-2">
-                          {emp.earnings.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-sm">
-                              <span className="text-gray-600">{item.name}</span>
-                              <span className="font-medium">{formatCurrency(item.amount)}</span>
-                            </div>
-                          ))}
-                          <div className="flex justify-between text-sm font-bold pt-2 border-t border-green-200">
-                            <span className="text-green-700">Gross Salary</span>
-                            <span className="text-green-700">{formatCurrency(emp.gross_salary)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Deductions */}
-                      <div className="p-4">
-                        <h4 className="font-medium text-red-700 mb-3 flex items-center">
-                          <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                          Deductions
-                        </h4>
-                        <div className="space-y-2">
-                          {emp.deductions.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-sm">
-                              <span className="text-gray-600">{item.name}</span>
-                              <span className="font-medium text-red-600">-{formatCurrency(item.amount)}</span>
-                            </div>
-                          ))}
-                          <div className="flex justify-between text-sm font-bold pt-2 border-t border-red-200">
-                            <span className="text-red-700">Total Deductions</span>
-                            <span className="text-red-700">-{formatCurrency(emp.total_deductions)}</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t-2 border-purple-300">
-                          <div className="flex justify-between font-bold">
-                            <span className="text-purple-700">NET SALARY</span>
-                            <span className="text-purple-700 text-lg">{formatCurrency(emp.net_salary)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Employer Contributions */}
-                      <div className="p-4">
-                        <h4 className="font-medium text-orange-700 mb-3 flex items-center">
-                          <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                          Employer Contributions
-                        </h4>
-                        <div className="space-y-2">
-                          {emp.employer_contributions.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-sm">
-                              <span className="text-gray-600">{item.name}</span>
-                              <span className="font-medium">{formatCurrency(item.amount)}</span>
-                            </div>
-                          ))}
-                          <div className="flex justify-between text-sm font-bold pt-2 border-t border-orange-200">
-                            <span className="text-orange-700">Total Contributions</span>
-                            <span className="text-orange-700">{formatCurrency(emp.total_employer_contributions)}</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t-2 border-gray-300">
-                          <div className="flex justify-between font-bold">
-                            <span className="text-gray-700">EMPLOYER COST</span>
-                            <span className="text-gray-700 text-lg">{formatCurrency(emp.employer_cost)}</span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            (Gross + Employer Contributions)
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bank Details */}
-                    {(emp.bank_name || emp.bank_account) && (
-                      <div className="px-4 py-3 bg-gray-100 text-sm text-gray-600 border-t">
-                        <span className="font-medium">Bank:</span> {emp.bank_name || 'N/A'} |{' '}
-                        <span className="font-medium">Account:</span> {emp.bank_account || 'N/A'}
-                      </div>
-                    )}
-                  </CardContent>
-                )}
-              </Card>
-            )
-          })}
-        </div>
+            {/* Grand Total */}
+            <div className="bg-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between font-bold">
+                <span className="text-gray-900 uppercase">Grand Total</span>
+                <div className="flex gap-6 text-sm">
+                  <span>Gross: <strong className="text-green-700">{formatCurrency(grandTotals.gross_salary)}</strong></span>
+                  <span>Deductions: <strong className="text-red-700">{formatCurrency(grandTotals.total_deductions)}</strong></span>
+                  <span>Net: <strong className="text-purple-700">{formatCurrency(grandTotals.net_salary)}</strong></span>
+                  <span>Employer Cost: <strong className="text-gray-700">{formatCurrency(grandTotals.employer_cost)}</strong></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredEmployees.map(renderEmployeeCard)}
+          </div>
+        )
       ) : data ? (
         <Card>
           <CardContent className="p-8 text-center">

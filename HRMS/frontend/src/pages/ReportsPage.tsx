@@ -14,6 +14,11 @@ import {
   DocumentDuplicateIcon,
   BuildingLibraryIcon,
   ArrowsRightLeftIcon,
+  CalculatorIcon,
+  CurrencyDollarIcon,
+  ShieldCheckIcon,
+  ReceiptPercentIcon,
+  GiftIcon,
 } from '@heroicons/react/24/outline'
 import { reportsService, ExportFormat } from '@/services/reports'
 import { payrollService } from '@/services/payroll'
@@ -539,6 +544,66 @@ export default function ReportsPage() {
           <div>
             <h3 className="font-medium text-gray-900 text-sm">Staff Payroll Data</h3>
             <p className="text-xs text-gray-500">Employee payroll details</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/consolidated-summary"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors group"
+        >
+          <div className="p-2 bg-indigo-100 rounded-lg group-hover:bg-indigo-200 transition-colors">
+            <CalculatorIcon className="h-5 w-5 text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Consolidated Summary</h3>
+            <p className="text-xs text-gray-500">Multi-period payroll summary</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/labour-cost"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-rose-300 hover:bg-rose-50 transition-colors group"
+        >
+          <div className="p-2 bg-rose-100 rounded-lg group-hover:bg-rose-200 transition-colors">
+            <CurrencyDollarIcon className="h-5 w-5 text-rose-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Labour Cost</h3>
+            <p className="text-xs text-gray-500">Cost breakdown by department</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/ssf-statement"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-colors group"
+        >
+          <div className="p-2 bg-cyan-100 rounded-lg group-hover:bg-cyan-200 transition-colors">
+            <ShieldCheckIcon className="h-5 w-5 text-cyan-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">SSF Statement</h3>
+            <p className="text-xs text-gray-500">SSF contribution breakdown</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/tax-statement"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors group"
+        >
+          <div className="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
+            <ReceiptPercentIcon className="h-5 w-5 text-orange-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Tax Statement</h3>
+            <p className="text-xs text-gray-500">Income tax breakdown</p>
+          </div>
+        </Link>
+        <Link
+          to="/reports/allowance-statement"
+          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-lime-300 hover:bg-lime-50 transition-colors group"
+        >
+          <div className="p-2 bg-lime-100 rounded-lg group-hover:bg-lime-200 transition-colors">
+            <GiftIcon className="h-5 w-5 text-lime-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 text-sm">Allowance Statement</h3>
+            <p className="text-xs text-gray-500">Allowance breakdown by period</p>
           </div>
         </Link>
       </div>

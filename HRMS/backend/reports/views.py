@@ -574,7 +574,8 @@ class LeaveBalanceReportView(APIView):
             'pending',
             'carried_forward',
         ).annotate(
-            leave_type_name=F('leave_type__name')
+            leave_type_name=F('leave_type__name'),
+            department_name=F('employee__department__name'),
         )
 
         # Summary by leave type

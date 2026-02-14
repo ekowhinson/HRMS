@@ -84,6 +84,11 @@ const PayrollJournalPage = React.lazy(() => import('./pages/admin/PayrollJournal
 const SalaryReconciliationPage = React.lazy(() => import('./pages/admin/SalaryReconciliationPage'))
 const PayrollCostingReportPage = React.lazy(() => import('./pages/reports/PayrollCostingReportPage'))
 const StaffPayrollDataReportPage = React.lazy(() => import('./pages/reports/StaffPayrollDataReportPage'))
+const ConsolidatedPayrollSummaryPage = React.lazy(() => import('./pages/reports/ConsolidatedPayrollSummaryPage'))
+const LabourCostReportPage = React.lazy(() => import('./pages/reports/LabourCostReportPage'))
+const SSFContributionStatementPage = React.lazy(() => import('./pages/reports/SSFContributionStatementPage'))
+const IncomeTaxStatementPage = React.lazy(() => import('./pages/reports/IncomeTaxStatementPage'))
+const AllowanceStatementPage = React.lazy(() => import('./pages/reports/AllowanceStatementPage'))
 
 // HR Report pages
 const HRReportsPage = React.lazy(() => import('./pages/reports/HRReportsPage'))
@@ -399,6 +404,11 @@ function App() {
                     <Route path="/reports/salary-reconciliation" element={<PayrollRoute><SalaryReconciliationPage /></PayrollRoute>} />
                     <Route path="/reports/payroll-costing" element={<PayrollRoute><PayrollCostingReportPage /></PayrollRoute>} />
                     <Route path="/reports/staff-payroll-data" element={<PayrollRoute><StaffPayrollDataReportPage /></PayrollRoute>} />
+                    <Route path="/reports/consolidated-summary" element={<PayrollRoute><ConsolidatedPayrollSummaryPage /></PayrollRoute>} />
+                    <Route path="/reports/labour-cost" element={<PayrollRoute><LabourCostReportPage /></PayrollRoute>} />
+                    <Route path="/reports/ssf-statement" element={<PayrollRoute><SSFContributionStatementPage /></PayrollRoute>} />
+                    <Route path="/reports/tax-statement" element={<PayrollRoute><IncomeTaxStatementPage /></PayrollRoute>} />
+                    <Route path="/reports/allowance-statement" element={<PayrollRoute><AllowanceStatementPage /></PayrollRoute>} />
                     <Route path="/reports/builder" element={<AdminRoute><ReportBuilderPage /></AdminRoute>} />
                     <Route path="/reports/saved" element={<AdminRoute><SavedReportsPage /></AdminRoute>} />
                     <Route path="/reports/view/:id" element={<AdminRoute><ReportViewerPage /></AdminRoute>} />

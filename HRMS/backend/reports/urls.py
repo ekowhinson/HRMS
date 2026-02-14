@@ -5,6 +5,7 @@ Reports and Analytics URL configuration.
 from django.urls import path, include
 
 from . import views
+from . import consolidated_views
 
 app_name = 'reports'
 
@@ -49,6 +50,13 @@ urlpatterns = [
     path('payroll/student-loans/', views.StudentLoanReportView.as_view(), name='student-loans'),
     path('payroll/costing-summary/', views.PayrollCostingSummaryView.as_view(), name='payroll-costing-summary'),
     path('payroll/staff-data/', views.StaffPayrollDataView.as_view(), name='payroll-staff-data'),
+
+    # Consolidated payroll reports (period range)
+    path('payroll/consolidated-summary/', consolidated_views.ConsolidatedPayrollSummaryView.as_view(), name='consolidated-summary'),
+    path('payroll/labour-cost/', consolidated_views.LabourCostReportView.as_view(), name='labour-cost'),
+    path('payroll/ssf-statement/', consolidated_views.SSFContributionStatementView.as_view(), name='ssf-statement'),
+    path('payroll/tax-statement/', consolidated_views.IncomeTaxStatementView.as_view(), name='tax-statement'),
+    path('payroll/allowance-statement/', consolidated_views.AllowanceStatementView.as_view(), name='allowance-statement'),
 
     # Statutory reports
     path('statutory/paye/', views.PAYEStatutoryReportView.as_view(), name='paye-statutory'),

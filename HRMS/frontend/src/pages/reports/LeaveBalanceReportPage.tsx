@@ -16,12 +16,15 @@ import { StatsCard } from '@/components/ui/StatsCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { chartColors } from '@/lib/design-tokens'
 import ExportMenu from '@/components/ui/ExportMenu'
+import { useGroupBy } from '@/hooks/useGroupBy'
+import GroupableTable from '@/components/reports/GroupableTable'
 
 interface LeaveBalanceEntry {
   employee__employee_number: string
   employee__first_name: string
   employee__last_name: string
   leave_type_name: string
+  department_name: string
   opening_balance: number
   earned: number
   taken: number
@@ -36,10 +39,19 @@ interface LeaveSummary {
   total_pending: number
 }
 
+const GROUP_BY_OPTIONS = [
+  { value: '', label: 'No Grouping' },
+  { value: 'leave_type_name', label: 'Leave Type' },
+  { value: 'department_name', label: 'Department' },
+]
+
+const NUMERIC_KEYS = ['opening_balance', 'earned', 'taken', 'pending', 'carried_forward']
+
 export default function LeaveBalanceReportPage() {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(String(currentYear))
   const [search, setSearch] = useState('')
+  const [groupByField, setGroupByField] = useState('')
   const [exporting, setExporting] = useState(false)
 
   const handleExport = async (format: ExportFormat) => {
@@ -75,12 +87,17 @@ export default function LeaveBalanceReportPage() {
     )
   })
 
+  const isGrouped = !!groupByField
+  const { groups, grandTotals } = useGroupBy(filtered, groupByField || null, NUMERIC_KEYS)
+
   const { paged, currentPage, totalPages, totalItems, pageSize, setCurrentPage, setPageSize, resetPage } = useClientPagination(filtered, 50)
 
   const summaryChartData = summary.map((s) => ({
     name: s.leave_type_name,
     value: s.total_taken,
   }))
+
+  const groupByLabel = GROUP_BY_OPTIONS.find((o) => o.value === groupByField)?.label || ''
 
   return (
     <div className="space-y-6">
@@ -177,20 +194,36 @@ export default function LeaveBalanceReportPage() {
           {/* Employee balances */}
           <Card>
             <CardContent className="p-0">
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-4">
+              <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4">
                 <h3 className="text-base font-semibold text-gray-900">Employee Balances</h3>
-                <div className="w-64">
-                  <Input
-                    placeholder="Search employees..."
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); resetPage() }}
-                    leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
-                  />
+                <div className="flex items-center gap-3">
+                  <div className="w-48">
+                    <Select
+                      value={groupByField}
+                      onChange={(e) => { setGroupByField(e.target.value); resetPage() }}
+                      options={GROUP_BY_OPTIONS}
+                    />
+                  </div>
+                  <div className="w-64">
+                    <Input
+                      placeholder="Search employees..."
+                      value={search}
+                      onChange={(e) => { setSearch(e.target.value); resetPage() }}
+                      leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+
+              {isGrouped ? (
+                <GroupableTable<LeaveBalanceEntry>
+                  groups={groups}
+                  isGrouped={true}
+                  groupByLabel={groupByLabel}
+                  totalColumns={7}
+                  labelColumns={3}
+                  grandTotals={grandTotals}
+                  renderHeaderRow={() => (
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
@@ -200,37 +233,75 @@ export default function LeaveBalanceReportPage() {
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Taken</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pending</th>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {paged.map((b, idx) => (
-                      <tr key={`${b.employee__employee_number}-${b.leave_type_name}-${idx}`} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{b.employee__employee_number}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{`${b.employee__first_name || ''} ${b.employee__last_name || ''}`.trim()}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{b.leave_type_name}</td>
-                        <td className="px-4 py-3 text-sm text-right">{b.opening_balance}</td>
-                        <td className="px-4 py-3 text-sm text-right">{b.earned}</td>
-                        <td className="px-4 py-3 text-sm text-right text-orange-600">{b.taken}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-green-600">{b.pending}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {totalItems > 0 && (
-                <TablePagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalItems={totalItems}
-                  pageSize={pageSize}
-                  onPageChange={setCurrentPage}
-                  onPageSizeChange={setPageSize}
-                  pageSizeOptions={[25, 50, 100, 200]}
+                  )}
+                  renderRow={(b, idx) => (
+                    <tr key={`${b.employee__employee_number}-${b.leave_type_name}-${idx}`} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{b.employee__employee_number}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{`${b.employee__first_name || ''} ${b.employee__last_name || ''}`.trim()}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{b.leave_type_name}</td>
+                      <td className="px-4 py-3 text-sm text-right">{b.opening_balance}</td>
+                      <td className="px-4 py-3 text-sm text-right">{b.earned}</td>
+                      <td className="px-4 py-3 text-sm text-right text-orange-600">{b.taken}</td>
+                      <td className="px-4 py-3 text-sm text-right font-medium text-green-600">{b.pending}</td>
+                    </tr>
+                  )}
+                  renderTotalCells={(totals) => (
+                    <>
+                      <td className="px-4 py-3 text-sm text-right">{totals.opening_balance?.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">{totals.earned?.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">{totals.taken?.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">{totals.pending?.toLocaleString()}</td>
+                    </>
+                  )}
+                  emptyMessage="No leave balance records found."
                 />
-              )}
-              {totalItems === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-gray-500">
-                  No leave balance records found.
-                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Opening</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Earned</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Taken</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pending</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {paged.map((b, idx) => (
+                          <tr key={`${b.employee__employee_number}-${b.leave_type_name}-${idx}`} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{b.employee__employee_number}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{`${b.employee__first_name || ''} ${b.employee__last_name || ''}`.trim()}</td>
+                            <td className="px-4 py-3 text-sm text-gray-500">{b.leave_type_name}</td>
+                            <td className="px-4 py-3 text-sm text-right">{b.opening_balance}</td>
+                            <td className="px-4 py-3 text-sm text-right">{b.earned}</td>
+                            <td className="px-4 py-3 text-sm text-right text-orange-600">{b.taken}</td>
+                            <td className="px-4 py-3 text-sm text-right font-medium text-green-600">{b.pending}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {totalItems > 0 && (
+                    <TablePagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      totalItems={totalItems}
+                      pageSize={pageSize}
+                      onPageChange={setCurrentPage}
+                      onPageSizeChange={setPageSize}
+                      pageSizeOptions={[25, 50, 100, 200]}
+                    />
+                  )}
+                  {totalItems === 0 && (
+                    <div className="px-4 py-8 text-center text-sm text-gray-500">
+                      No leave balance records found.
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

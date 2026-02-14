@@ -1,0 +1,53 @@
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { reportsService } from '@/services/reports'
+import { usePeriodRange } from '@/hooks/usePeriodRange'
+import ContributionStatementLayout from '@/components/reports/ContributionStatementLayout'
+import type { StatementColumn, EmployeeStatement } from '@/components/reports/ContributionStatementLayout'
+
+const columns: StatementColumn[] = [
+  { key: 'basic', label: 'Basic Salary', format: 'currency' },
+  { key: 'employee_ssf', label: 'Employee SSF', format: 'currency' },
+  { key: 'employer_ssf', label: 'Employer SSF', format: 'currency' },
+  { key: 'total', label: 'Total SSF', format: 'currency' },
+]
+
+export default function SSFContributionStatementPage() {
+  const { fromPeriod, setFromPeriod, toPeriod, setToPeriod, periodOptions, isLoading: periodsLoading } = usePeriodRange()
+  const [search, setSearch] = useState('')
+  const [department, setDepartment] = useState('')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['ssf-statement', fromPeriod, toPeriod],
+    queryFn: () =>
+      reportsService.getSSFStatement({
+        from_period: fromPeriod,
+        to_period: toPeriod,
+      }),
+    enabled: !!fromPeriod && !!toPeriod,
+  })
+
+  const employees: EmployeeStatement[] = data?.employees || []
+  const departments = [...new Set(employees.map((e) => e.department).filter(Boolean))].sort()
+
+  return (
+    <ContributionStatementLayout
+      title="SSF Contribution Statement"
+      backLink="/reports"
+      columns={columns}
+      employees={employees}
+      isLoading={isLoading}
+      fromPeriod={fromPeriod}
+      toPeriod={toPeriod}
+      onFromChange={setFromPeriod}
+      onToChange={setToPeriod}
+      periodOptions={periodOptions}
+      periodsLoading={periodsLoading}
+      search={search}
+      onSearchChange={setSearch}
+      departmentFilter={department}
+      onDepartmentChange={setDepartment}
+      departments={departments}
+    />
+  )
+}

@@ -763,6 +763,63 @@ export const reportsService = {
     downloadFile(response.data, filename)
   },
 
+  // ==================== Consolidated Payroll Reports ====================
+
+  async getConsolidatedSummary(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/payroll/consolidated-summary/?${params.toString()}`)
+    return response.data
+  },
+
+  async getLabourCost(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/payroll/labour-cost/?${params.toString()}`)
+    return response.data
+  },
+
+  async getSSFStatement(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/payroll/ssf-statement/?${params.toString()}`)
+    return response.data
+  },
+
+  async getTaxStatement(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/payroll/tax-statement/?${params.toString()}`)
+    return response.data
+  },
+
+  async getAllowanceStatement(filters?: ReportFilters) {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') params.append(key, value)
+      })
+    }
+    const response = await api.get(`/reports/payroll/allowance-statement/?${params.toString()}`)
+    return response.data
+  },
+
   async downloadFilteredBankFile(
     payrollRunId: string,
     filters?: ReportFilters,

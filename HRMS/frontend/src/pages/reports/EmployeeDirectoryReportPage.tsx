@@ -15,6 +15,8 @@ import { UsersIcon } from '@heroicons/react/24/outline'
 import ExportMenu from '@/components/ui/ExportMenu'
 import { TablePagination } from '@/components/ui/Table'
 import { useClientPagination } from '@/hooks/useClientPagination'
+import { useGroupBy } from '@/hooks/useGroupBy'
+import GroupableTable from '@/components/reports/GroupableTable'
 
 interface EmployeeRecord {
   employee_number: string
@@ -29,10 +31,18 @@ interface EmployeeRecord {
   position_name: string
 }
 
+const GROUP_BY_OPTIONS = [
+  { value: '', label: 'No Grouping' },
+  { value: 'department_name', label: 'Department' },
+  { value: 'grade_name', label: 'Grade' },
+  { value: 'employment_type', label: 'Employment Type' },
+]
+
 export default function EmployeeDirectoryReportPage() {
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [groupByField, setGroupByField] = useState('')
   const [exporting, setExporting] = useState(false)
 
   const handleExport = async (format: ExportFormat) => {
@@ -68,7 +78,13 @@ export default function EmployeeDirectoryReportPage() {
     return matchesSearch && matchesDept && matchesType
   })
 
+  const isGrouped = !!groupByField
+  const { groups, grandTotals } = useGroupBy(filtered, groupByField || null, [])
+
+  // When grouped, show all items (no pagination). When not grouped, paginate.
   const { paged, currentPage, totalPages, totalItems, pageSize, setCurrentPage, setPageSize, resetPage } = useClientPagination(filtered, 50)
+
+  const groupByLabel = GROUP_BY_OPTIONS.find((o) => o.value === groupByField)?.label || ''
 
   return (
     <div className="space-y-6">
@@ -101,7 +117,7 @@ export default function EmployeeDirectoryReportPage() {
         />
         <StatsCard
           title="Showing"
-          value={totalItems.toLocaleString()}
+          value={(isGrouped ? filtered.length : totalItems).toLocaleString()}
           variant="default"
         />
       </div>
@@ -140,6 +156,14 @@ export default function EmployeeDirectoryReportPage() {
                 ]}
               />
             </div>
+            <div className="w-48">
+              <Select
+                label="Group By"
+                value={groupByField}
+                onChange={(e) => { setGroupByField(e.target.value); resetPage() }}
+                options={GROUP_BY_OPTIONS}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -155,9 +179,15 @@ export default function EmployeeDirectoryReportPage() {
         </Card>
       ) : (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          {isGrouped ? (
+            <GroupableTable<EmployeeRecord>
+              groups={groups}
+              isGrouped={true}
+              groupByLabel={groupByLabel}
+              totalColumns={9}
+              labelColumns={9}
+              grandTotals={grandTotals}
+              renderHeaderRow={() => (
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
@@ -169,36 +199,71 @@ export default function EmployeeDirectoryReportPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paged.map((emp) => (
-                  <tr key={emp.employee_number} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{emp.employee_number}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{emp.email || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{emp.phone_primary || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{emp.department_name || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{emp.position_name || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{emp.grade_name || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{emp.employment_type || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{emp.date_of_joining || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {totalItems > 0 && (
-            <TablePagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              pageSize={pageSize}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={setPageSize}
-              pageSizeOptions={[25, 50, 100, 200]}
+              )}
+              renderRow={(emp) => (
+                <tr key={emp.employee_number} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{emp.employee_number}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{emp.email || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{emp.phone_primary || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{emp.department_name || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{emp.position_name || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{emp.grade_name || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{emp.employment_type || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{emp.date_of_joining || '-'}</td>
+                </tr>
+              )}
+              renderTotalCells={() => null}
+              emptyMessage="No employees match your filters."
             />
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paged.map((emp) => (
+                      <tr key={emp.employee_number} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{emp.employee_number}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.email || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.phone_primary || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.department_name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.position_name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.grade_name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.employment_type || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{emp.date_of_joining || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalItems > 0 && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={[25, 50, 100, 200]}
+                />
+              )}
+            </>
           )}
-          {totalItems === 0 && (
+          {!isGrouped && totalItems === 0 && (
             <div className="px-4 py-8 text-center text-sm text-gray-500">
               No employees match your filters.
             </div>
