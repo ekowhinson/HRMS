@@ -14,6 +14,15 @@ import PeriodRangeSelector from '@/components/reports/PeriodRangeSelector'
 import { SortableHeader } from '@/components/reports/GroupableTable'
 import { formatCurrency } from '@/lib/utils'
 
+const groupByLabels: Record<string, string> = {
+  department: 'Department',
+  staff_category: 'Staff Category',
+  division: 'Division',
+  directorate: 'Directorate',
+  region: 'Region',
+  district: 'District',
+}
+
 interface LabourCostRow {
   group_name: string
   basic_salary: number
@@ -93,6 +102,10 @@ export default function LabourCostReportPage() {
                 options={[
                   { value: 'department', label: 'Department' },
                   { value: 'staff_category', label: 'Staff Category' },
+                  { value: 'division', label: 'Division' },
+                  { value: 'directorate', label: 'Directorate' },
+                  { value: 'region', label: 'Region' },
+                  { value: 'district', label: 'District' },
                 ]}
               />
             </div>
@@ -124,7 +137,7 @@ export default function LabourCostReportPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <SortableHeader label={groupBy === 'department' ? 'Department' : 'Staff Category'} field="group_name" sortIcon={getSortIcon('group_name')} onSort={toggleSort} className="text-left" />
+                  <SortableHeader label={groupByLabels[groupBy] || 'Group'} field="group_name" sortIcon={getSortIcon('group_name')} onSort={toggleSort} className="text-left" />
                   <SortableHeader label="(A) Basic" field="basic_salary" sortIcon={getSortIcon('basic_salary')} onSort={toggleSort} className="text-right" />
                   <SortableHeader label="(B) Co. SSF" field="company_ssf" sortIcon={getSortIcon('company_ssf')} onSort={toggleSort} className="text-right" />
                   <SortableHeader label="(C) Co. PF" field="company_pf" sortIcon={getSortIcon('company_pf')} onSort={toggleSort} className="text-right" />

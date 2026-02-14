@@ -45,6 +45,10 @@ def get_items_for_period_range(from_period_id, to_period_id, filters=None):
         'employee',
         'employee__department',
         'employee__staff_category',
+        'employee__division',
+        'employee__directorate',
+        'employee__residential_region',
+        'employee__residential_district',
         'payroll_run__payroll_period',
     )
 
@@ -133,11 +137,19 @@ def _get_period_range_params(request):
     )
 
 
+GROUP_BY_OPTIONS = {
+    'department': ('employee__department__name', 'Department'),
+    'staff_category': ('employee__staff_category__name', 'Staff Category'),
+    'division': ('employee__division__name', 'Division'),
+    'directorate': ('employee__directorate__name', 'Directorate'),
+    'region': ('employee__residential_region__name', 'Region'),
+    'district': ('employee__residential_district__name', 'District'),
+}
+
+
 def _resolve_group_field(group_by):
     """Return (orm_field, display_label) for a group_by value."""
-    if group_by == 'staff_category':
-        return 'employee__staff_category__name', 'Staff Category'
-    return 'employee__department__name', 'Department'
+    return GROUP_BY_OPTIONS.get(group_by, GROUP_BY_OPTIONS['department'])
 
 
 # =============================================================================

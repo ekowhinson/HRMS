@@ -15,6 +15,15 @@ import PeriodRangeSelector from '@/components/reports/PeriodRangeSelector'
 import { SortableHeader } from '@/components/reports/GroupableTable'
 import { formatCurrency } from '@/lib/utils'
 
+const groupByLabels: Record<string, string> = {
+  department: 'Department',
+  staff_category: 'Staff Category',
+  division: 'Division',
+  directorate: 'Directorate',
+  region: 'Region',
+  district: 'District',
+}
+
 interface SummaryRow {
   group_name: string
   employee_count: number
@@ -96,6 +105,10 @@ export default function ConsolidatedPayrollSummaryPage() {
                 options={[
                   { value: 'department', label: 'Department' },
                   { value: 'staff_category', label: 'Staff Category' },
+                  { value: 'division', label: 'Division' },
+                  { value: 'directorate', label: 'Directorate' },
+                  { value: 'region', label: 'Region' },
+                  { value: 'district', label: 'District' },
                 ]}
               />
             </div>
@@ -136,7 +149,7 @@ export default function ConsolidatedPayrollSummaryPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <SortableHeader label={groupBy === 'department' ? 'Department' : 'Staff Category'} field="group_name" sortIcon={getSortIcon('group_name')} onSort={toggleSort} className="text-left" />
+                  <SortableHeader label={groupByLabels[groupBy] || 'Group'} field="group_name" sortIcon={getSortIcon('group_name')} onSort={toggleSort} className="text-left" />
                   <SortableHeader label="Employees" field="employee_count" sortIcon={getSortIcon('employee_count')} onSort={toggleSort} className="text-right" />
                   <SortableHeader label="Total Earnings" field="total_earnings" sortIcon={getSortIcon('total_earnings')} onSort={toggleSort} className="text-right" />
                   <SortableHeader label="Total Deductions" field="total_deductions" sortIcon={getSortIcon('total_deductions')} onSort={toggleSort} className="text-right" />
