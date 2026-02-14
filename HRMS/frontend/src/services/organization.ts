@@ -194,4 +194,12 @@ export const organizationService = {
     })
     return response.data
   },
+
+  // Upload branding for a specific tenant (admin)
+  uploadTenantBranding: async (id: string, data: FormData): Promise<{ logo_url: string | null; primary_color: string }> => {
+    const response = await api.post(`/organization/tenants/${id}/branding/`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
 }

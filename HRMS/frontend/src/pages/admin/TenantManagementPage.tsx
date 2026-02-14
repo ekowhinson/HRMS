@@ -222,7 +222,8 @@ export default function TenantManagementPage() {
   })
 
   const brandingMutation = useMutation({
-    mutationFn: (data: FormData) => organizationService.uploadBranding(data),
+    mutationFn: ({ id, data }: { id: string; data: FormData }) =>
+      organizationService.uploadTenantBranding(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] })
     },
@@ -300,7 +301,7 @@ export default function TenantManagementPage() {
       if (removeLogo) {
         fd.append('remove_logo', 'true')
       }
-      brandingMutation.mutate(fd)
+      brandingMutation.mutate({ id: selectedTenant.id, data: fd })
     }
   }
 

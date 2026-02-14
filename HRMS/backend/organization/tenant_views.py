@@ -85,6 +85,32 @@ class TenantSetupViewSet(viewsets.ModelViewSet):
         org.save(update_fields=['modules_enabled'])
         return Response({'modules_enabled': org.modules_enabled})
 
+    @action(detail=True, methods=['get', 'post'])
+    def branding(self, request, pk=None):
+        """Get or update branding (logo, colors) for a specific tenant."""
+        org = self.get_object()
+
+        if request.method == 'GET':
+            return Response(OrganizationBrandingSerializer(org).data)
+
+        logo = request.FILES.get('logo')
+        if logo:
+            org.logo_data = logo.read()
+            org.logo_name = logo.name
+            org.logo_mime_type = logo.content_type
+
+        if request.data.get('remove_logo') == 'true':
+            org.logo_data = None
+            org.logo_name = None
+            org.logo_mime_type = None
+
+        primary_color = request.data.get('primary_color')
+        if primary_color:
+            org.primary_color = primary_color
+
+        org.save()
+        return Response(OrganizationBrandingSerializer(org).data)
+
     @action(detail=True, methods=['post'])
     def setup(self, request, pk=None):
         """Trigger organization setup with statutory and sample data."""
