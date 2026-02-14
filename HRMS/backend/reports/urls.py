@@ -92,6 +92,11 @@ urlpatterns = [
     path('export/performance-appraisals/', views.ExportPerformanceAppraisalsView.as_view(), name='export-performance-appraisals'),
     path('export/training/', views.ExportTrainingView.as_view(), name='export-training'),
     path('export/payroll-costing-summary/', views.ExportPayrollCostingSummaryView.as_view(), name='export-payroll-costing-summary'),
+    path('export/consolidated-summary/', consolidated_views.ExportConsolidatedSummaryView.as_view(), name='export-consolidated-summary'),
+    path('export/labour-cost/', consolidated_views.ExportLabourCostView.as_view(), name='export-labour-cost'),
+    path('export/ssf-statement/', consolidated_views.ExportSSFStatementView.as_view(), name='export-ssf-statement'),
+    path('export/tax-statement/', consolidated_views.ExportTaxStatementView.as_view(), name='export-tax-statement'),
+    path('export/allowance-statement/', consolidated_views.ExportAllowanceStatementView.as_view(), name='export-allowance-statement'),
     path('export/staff-payroll-data/', views.ExportStaffPayrollDataView.as_view(), name='export-staff-payroll-data'),
 
     # Analytics KPI endpoints

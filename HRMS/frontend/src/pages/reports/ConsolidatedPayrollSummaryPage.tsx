@@ -7,7 +7,9 @@ import { Card, CardContent } from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
 import { StatsCard } from '@/components/ui/StatsCard'
+import ExportMenu from '@/components/ui/ExportMenu'
 import { usePeriodRange } from '@/hooks/usePeriodRange'
+import { useExport } from '@/hooks/useExport'
 import { useSortable } from '@/hooks/useSortable'
 import PeriodRangeSelector from '@/components/reports/PeriodRangeSelector'
 import { SortableHeader } from '@/components/reports/GroupableTable'
@@ -26,6 +28,13 @@ export default function ConsolidatedPayrollSummaryPage() {
   const { fromPeriod, setFromPeriod, toPeriod, setToPeriod, periodOptions, isLoading: periodsLoading } = usePeriodRange()
   const [groupBy, setGroupBy] = useState('department')
   const [search, setSearch] = useState('')
+
+  const { exporting, handleExport } = useExport((format) =>
+    reportsService.exportConsolidatedSummary(
+      { from_period: fromPeriod, to_period: toPeriod, group_by: groupBy },
+      format
+    )
+  )
 
   const { data, isLoading } = useQuery({
     queryKey: ['consolidated-summary', fromPeriod, toPeriod, groupBy],
@@ -50,18 +59,21 @@ export default function ConsolidatedPayrollSummaryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to="/reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Consolidated Payroll Summary</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {data?.from_period_name && data?.to_period_name
-              ? `${data.from_period_name} to ${data.to_period_name}`
-              : 'Select a period range to view consolidated payroll data'}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Consolidated Payroll Summary</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              {data?.from_period_name && data?.to_period_name
+                ? `${data.from_period_name} to ${data.to_period_name}`
+                : 'Select a period range to view consolidated payroll data'}
+            </p>
+          </div>
         </div>
+        <ExportMenu onExport={handleExport} loading={exporting} disabled={!fromPeriod || !toPeriod} />
       </div>
 
       {/* Filters */}

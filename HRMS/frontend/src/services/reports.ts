@@ -820,6 +820,37 @@ export const reportsService = {
     return response.data
   },
 
+  // Consolidated report exports
+  async exportConsolidatedSummary(filters?: ReportFilters, format: ExportFormat = 'csv'): Promise<void> {
+    const params = buildParams(filters, format)
+    const response = await api.get(`/reports/export/consolidated-summary/?${params.toString()}`, { responseType: 'blob' })
+    downloadFile(response.data, `consolidated_summary_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportLabourCost(filters?: ReportFilters, format: ExportFormat = 'csv'): Promise<void> {
+    const params = buildParams(filters, format)
+    const response = await api.get(`/reports/export/labour-cost/?${params.toString()}`, { responseType: 'blob' })
+    downloadFile(response.data, `labour_cost_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportSSFStatement(filters?: ReportFilters, format: ExportFormat = 'csv'): Promise<void> {
+    const params = buildParams(filters, format)
+    const response = await api.get(`/reports/export/ssf-statement/?${params.toString()}`, { responseType: 'blob' })
+    downloadFile(response.data, `ssf_statement_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportTaxStatement(filters?: ReportFilters, format: ExportFormat = 'csv'): Promise<void> {
+    const params = buildParams(filters, format)
+    const response = await api.get(`/reports/export/tax-statement/?${params.toString()}`, { responseType: 'blob' })
+    downloadFile(response.data, `tax_statement_${Date.now()}.${getFileExtension(format)}`)
+  },
+
+  async exportAllowanceStatement(filters?: ReportFilters, format: ExportFormat = 'csv'): Promise<void> {
+    const params = buildParams(filters, format)
+    const response = await api.get(`/reports/export/allowance-statement/?${params.toString()}`, { responseType: 'blob' })
+    downloadFile(response.data, `allowance_statement_${Date.now()}.${getFileExtension(format)}`)
+  },
+
   async downloadFilteredBankFile(
     payrollRunId: string,
     filters?: ReportFilters,
