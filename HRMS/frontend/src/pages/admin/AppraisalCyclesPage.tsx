@@ -19,6 +19,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
 import Table, { TablePagination } from '@/components/ui/Table'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import Modal from '@/components/ui/Modal'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 
@@ -65,8 +66,6 @@ export default function AppraisalCyclesPage() {
   const [activeTab, setActiveTab] = useState('basic')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingCycle, setDeletingCycle] = useState<AppraisalCycle | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
   const [pageTab, setPageTab] = useState('cycles')
 
   // Department Schedules state
@@ -92,6 +91,8 @@ export default function AppraisalCyclesPage() {
     queryKey: ['appraisal-cycles'],
     queryFn: performanceService.getAppraisalCycles,
   })
+
+  const { paged: pagedCycles, currentPage, totalPages, totalItems, pageSize, setCurrentPage } = useClientPagination(cycles || [], 10)
 
   const createMutation = useMutation({
     mutationFn: performanceService.createAppraisalCycle,
@@ -506,15 +507,15 @@ export default function AppraisalCyclesPage() {
               </CardTitle>
             </CardHeader>
             <Table
-              data={(cycles || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
+              data={pagedCycles}
               columns={columns}
               isLoading={isLoading}
             />
-            {(cycles || []).length > pageSize && (
+            {totalItems > pageSize && (
               <TablePagination
                 currentPage={currentPage}
-                totalPages={Math.ceil((cycles || []).length / pageSize)}
-                totalItems={(cycles || []).length}
+                totalPages={totalPages}
+                totalItems={totalItems}
                 pageSize={pageSize}
                 onPageChange={setCurrentPage}
               />

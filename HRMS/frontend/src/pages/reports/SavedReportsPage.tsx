@@ -26,6 +26,7 @@ import {
 } from '@/components/ui'
 import { DropdownMenu } from '@/components/ui/Dropdown'
 import { TablePagination } from '@/components/ui/Table'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import reportBuilderService, { type ReportDefinition } from '@/services/reportBuilder'
 
 type ViewFilter = 'all' | 'mine' | 'public'
@@ -37,8 +38,6 @@ export default function SavedReportsPage() {
   const [search, setSearch] = useState('')
   const [viewFilter, setViewFilter] = useState<ViewFilter>('all')
   const [deleteTarget, setDeleteTarget] = useState<ReportDefinition | null>(null)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(12)
 
   // ==================== Queries ====================
 
@@ -94,11 +93,11 @@ export default function SavedReportsPage() {
 
   // ==================== Pagination ====================
 
-  useEffect(() => { setPage(1) }, [search, viewFilter])
+  const { paged: paginatedReports, currentPage: page, totalPages: totalReportPages, totalItems: totalReportItems, pageSize, setCurrentPage: setPage, setPageSize, resetPage } = useClientPagination(filteredReports, 12)
 
-  const totalReportItems = filteredReports.length
-  const totalReportPages = Math.ceil(totalReportItems / pageSize)
-  const paginatedReports = filteredReports.slice((page - 1) * pageSize, page * pageSize)
+  // Reset page when filters change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { resetPage() }, [search, viewFilter])
 
   // ==================== Helpers ====================
 
@@ -340,7 +339,7 @@ export default function SavedReportsPage() {
             totalItems={totalReportItems}
             pageSize={pageSize}
             onPageChange={setPage}
-            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            onPageSizeChange={setPageSize}
           />
         )}
         </>

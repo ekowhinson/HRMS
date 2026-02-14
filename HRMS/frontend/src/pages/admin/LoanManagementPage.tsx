@@ -19,6 +19,7 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Table, { TablePagination } from '@/components/ui/Table'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import Modal from '@/components/ui/Modal'
 import Avatar from '@/components/ui/Avatar'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -65,14 +66,12 @@ export default function LoanManagementPage() {
     purpose: '',
   })
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
-
   const { data: loans, isLoading } = useQuery({
     queryKey: ['all-loans', statusFilter],
     queryFn: () => benefitsService.getAllLoans({ status: statusFilter || undefined }),
   })
+
+  const { paged: pagedLoans, currentPage, totalPages, totalItems, pageSize, setCurrentPage, resetPage } = useClientPagination(loans || [], 10)
 
   const { data: loanTypes } = useQuery({
     queryKey: ['loan-types'],
@@ -397,7 +396,7 @@ export default function LoanManagementPage() {
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value)
-                setCurrentPage(1)
+                resetPage()
               }}
               options={[
                 { value: '', label: 'All Loans' },
@@ -423,16 +422,16 @@ export default function LoanManagementPage() {
           </CardTitle>
         </CardHeader>
         <Table
-          data={(loans || []).slice((currentPage - 1) * pageSize, currentPage * pageSize)}
+          data={pagedLoans}
           columns={columns}
           isLoading={isLoading}
           emptyMessage="No loan applications found"
         />
-        {loans && loans.length > pageSize && (
+        {totalItems > pageSize && (
           <TablePagination
             currentPage={currentPage}
-            totalPages={Math.ceil(loans.length / pageSize)}
-            totalItems={loans.length}
+            totalPages={totalPages}
+            totalItems={totalItems}
             pageSize={pageSize}
             onPageChange={setCurrentPage}
           />

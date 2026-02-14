@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Table, { TablePagination } from '@/components/ui/Table'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import { formatCurrency } from '@/lib/utils'
 import type { PayrollRun, Payslip } from '@/types'
 
@@ -29,10 +30,7 @@ export default function PayrollPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('')
   const [expandedPayslip, setExpandedPayslip] = useState<string | null>(null)
 
-  // Pagination state
-  const [runsPage, setRunsPage] = useState(1)
-  const [payslipsPage, setPayslipsPage] = useState(1)
-  const pageSize = 10
+  // Pagination state — hooks called after data queries below
 
   const { data: payrollRuns, isLoading: runsLoading } = useQuery({
     queryKey: ['payroll-runs'],
@@ -43,6 +41,9 @@ export default function PayrollPage() {
     queryKey: ['my-payslips'],
     queryFn: payrollService.getMyPayslips,
   })
+
+  const { paged: pagedRuns, currentPage: runsPage, totalPages: runsTotalPages, totalItems: runsTotalItems, pageSize, setCurrentPage: setRunsPage } = useClientPagination(payrollRuns || [], 10)
+  const { paged: pagedPayslips, currentPage: payslipsPage, totalPages: payslipsTotalPages, totalItems: payslipsTotalItems, setCurrentPage: setPayslipsPage } = useClientPagination(myPayslips || [], 10)
 
   const { data: payrollPeriods } = useQuery({
     queryKey: ['payroll-periods'],
@@ -210,16 +211,16 @@ export default function PayrollPage() {
           </CardTitle>
         </CardHeader>
         <Table
-          data={(payrollRuns || []).slice((runsPage - 1) * pageSize, runsPage * pageSize)}
+          data={pagedRuns}
           columns={runColumns}
           isLoading={runsLoading}
           emptyMessage="No payroll runs found"
         />
-        {payrollRuns && payrollRuns.length > pageSize && (
+        {runsTotalItems > pageSize && (
           <TablePagination
             currentPage={runsPage}
-            totalPages={Math.ceil(payrollRuns.length / pageSize)}
-            totalItems={payrollRuns.length}
+            totalPages={runsTotalPages}
+            totalItems={runsTotalItems}
             pageSize={pageSize}
             onPageChange={setRunsPage}
           />
@@ -241,7 +242,7 @@ export default function PayrollPage() {
             </div>
           ) : myPayslips && myPayslips.length > 0 ? (
             <div className="divide-y">
-              {myPayslips.slice((payslipsPage - 1) * pageSize, payslipsPage * pageSize).map((payslip: Payslip) => (
+              {pagedPayslips.map((payslip: Payslip) => (
                 <div key={payslip.id} className="p-4">
                   <div
                     className="flex items-center justify-between cursor-pointer"
@@ -412,11 +413,11 @@ export default function PayrollPage() {
           ) : (
             <div className="p-6 text-center text-gray-500">No payslips found</div>
           )}
-          {myPayslips && myPayslips.length > pageSize && (
+          {payslipsTotalItems > pageSize && (
             <TablePagination
               currentPage={payslipsPage}
-              totalPages={Math.ceil(myPayslips.length / pageSize)}
-              totalItems={myPayslips.length}
+              totalPages={payslipsTotalPages}
+              totalItems={payslipsTotalItems}
               pageSize={pageSize}
               onPageChange={setPayslipsPage}
             />

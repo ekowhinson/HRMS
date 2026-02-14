@@ -13,6 +13,8 @@ import Select from '@/components/ui/Select'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { UsersIcon } from '@heroicons/react/24/outline'
 import ExportMenu from '@/components/ui/ExportMenu'
+import { TablePagination } from '@/components/ui/Table'
+import { useClientPagination } from '@/hooks/useClientPagination'
 
 interface EmployeeRecord {
   employee_number: string
@@ -66,6 +68,8 @@ export default function EmployeeDirectoryReportPage() {
     return matchesSearch && matchesDept && matchesType
   })
 
+  const { paged, currentPage, totalPages, totalItems, pageSize, setCurrentPage, setPageSize, resetPage } = useClientPagination(filtered, 50)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -97,7 +101,7 @@ export default function EmployeeDirectoryReportPage() {
         />
         <StatsCard
           title="Showing"
-          value={filtered.length.toLocaleString()}
+          value={totalItems.toLocaleString()}
           variant="default"
         />
       </div>
@@ -110,7 +114,7 @@ export default function EmployeeDirectoryReportPage() {
               <Input
                 placeholder="Search by name, ID, or email..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); resetPage() }}
                 leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
               />
             </div>
@@ -118,7 +122,7 @@ export default function EmployeeDirectoryReportPage() {
               <Select
                 label="Department"
                 value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
+                onChange={(e) => { setDeptFilter(e.target.value); resetPage() }}
                 options={[
                   { value: '', label: 'All Departments' },
                   ...departments.map((d) => ({ value: d, label: d })),
@@ -129,7 +133,7 @@ export default function EmployeeDirectoryReportPage() {
               <Select
                 label="Employment Type"
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
+                onChange={(e) => { setTypeFilter(e.target.value); resetPage() }}
                 options={[
                   { value: '', label: 'All Types' },
                   ...employmentTypes.map((t) => ({ value: t, label: t })),
@@ -167,7 +171,7 @@ export default function EmployeeDirectoryReportPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filtered.slice(0, 100).map((emp) => (
+                {paged.map((emp) => (
                   <tr key={emp.employee_number} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{emp.employee_number}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
@@ -183,12 +187,18 @@ export default function EmployeeDirectoryReportPage() {
               </tbody>
             </table>
           </div>
-          {filtered.length > 100 && (
-            <div className="px-4 py-3 bg-gray-50 text-sm text-gray-500 border-t">
-              Showing first 100 of {filtered.length.toLocaleString()} results. Use filters to narrow down.
-            </div>
+          {totalItems > 0 && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[25, 50, 100, 200]}
+            />
           )}
-          {filtered.length === 0 && (
+          {totalItems === 0 && (
             <div className="px-4 py-8 text-center text-sm text-gray-500">
               No employees match your filters.
             </div>

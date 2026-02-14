@@ -10,6 +10,8 @@ import type { ExportFormat } from '@/services/reports'
 import { Card, CardContent } from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
+import { TablePagination } from '@/components/ui/Table'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { chartColors } from '@/lib/design-tokens'
@@ -72,6 +74,8 @@ export default function LeaveBalanceReportPage() {
       b.leave_type_name?.toLowerCase().includes(term)
     )
   })
+
+  const { paged, currentPage, totalPages, totalItems, pageSize, setCurrentPage, setPageSize, resetPage } = useClientPagination(filtered, 50)
 
   const summaryChartData = summary.map((s) => ({
     name: s.leave_type_name,
@@ -179,7 +183,7 @@ export default function LeaveBalanceReportPage() {
                   <Input
                     placeholder="Search employees..."
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => { setSearch(e.target.value); resetPage() }}
                     leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
                   />
                 </div>
@@ -198,7 +202,7 @@ export default function LeaveBalanceReportPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {filtered.slice(0, 100).map((b, idx) => (
+                    {paged.map((b, idx) => (
                       <tr key={`${b.employee__employee_number}-${b.leave_type_name}-${idx}`} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{b.employee__employee_number}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{`${b.employee__first_name || ''} ${b.employee__last_name || ''}`.trim()}</td>
@@ -212,12 +216,18 @@ export default function LeaveBalanceReportPage() {
                   </tbody>
                 </table>
               </div>
-              {filtered.length > 100 && (
-                <div className="px-4 py-3 bg-gray-50 text-sm text-gray-500 border-t">
-                  Showing first 100 of {filtered.length.toLocaleString()} records. Use search to narrow down.
-                </div>
+              {totalItems > 0 && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={[25, 50, 100, 200]}
+                />
               )}
-              {filtered.length === 0 && (
+              {totalItems === 0 && (
                 <div className="px-4 py-8 text-center text-sm text-gray-500">
                   No leave balance records found.
                 </div>
