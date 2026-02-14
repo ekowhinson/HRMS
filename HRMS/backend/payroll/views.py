@@ -2356,7 +2356,7 @@ class PayrollRunPayslipsDownloadView(APIView):
 
         # Apply employee filters
         if request.query_params.get('employee_code'):
-            items = items.filter(employee__employee_number__icontains=request.query_params['employee_code'])
+            items = items.filter(employee__employee_number=request.query_params['employee_code'])
         if request.query_params.get('division'):
             items = items.filter(employee__division_id=request.query_params['division'])
         if request.query_params.get('directorate'):
@@ -2509,7 +2509,7 @@ class PayrollRunBankFileDownloadView(APIView):
 
         # Apply employee filters
         if request.query_params.get('employee_code'):
-            items = items.filter(employee__employee_number__icontains=request.query_params['employee_code'])
+            items = items.filter(employee__employee_number=request.query_params['employee_code'])
         if request.query_params.get('division'):
             items = items.filter(employee__division_id=request.query_params['division'])
         if request.query_params.get('directorate'):

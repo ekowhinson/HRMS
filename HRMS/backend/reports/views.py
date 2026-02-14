@@ -2097,7 +2097,7 @@ class PayrollCostingSummaryView(APIView):
         if staff_category_id:
             items = items.filter(employee__staff_category_id=staff_category_id)
         if employee_code:
-            items = items.filter(employee__employee_number__icontains=employee_code)
+            items = items.filter(employee__employee_number=employee_code)
 
         employees_data = []
 

@@ -595,7 +595,7 @@ def apply_employee_filters(queryset, filters: dict):
         return queryset
 
     if filters.get('employee_code'):
-        queryset = queryset.filter(employee_number__icontains=filters['employee_code'])
+        queryset = queryset.filter(employee_number=filters['employee_code'])
     if filters.get('division'):
         queryset = queryset.filter(division_id=filters['division'])
     if filters.get('directorate'):
@@ -698,7 +698,7 @@ def apply_payroll_item_filters(queryset, filters: dict):
         return queryset
 
     if filters.get('employee_code'):
-        queryset = queryset.filter(employee__employee_number__icontains=filters['employee_code'])
+        queryset = queryset.filter(employee__employee_number=filters['employee_code'])
     if filters.get('division'):
         queryset = queryset.filter(employee__division_id=filters['division'])
     if filters.get('directorate'):
@@ -846,9 +846,8 @@ def get_paye_gra_data(payroll_run_id: str = None, filters: dict = None):
     period_str = f"{period.month:02d}/{period.year}" if period else ""
 
     # Get organization info
-    from django.conf import settings
-    payroll_settings = getattr(settings, 'PAYROLL', {})
-    org_name = payroll_settings.get('ORGANIZATION_NAME', 'ORGANIZATION')
+    from organization.utils import get_org_settings
+    org_name = get_org_settings()['name']
 
     # Build data rows
     data = []
@@ -1471,7 +1470,7 @@ def get_leave_balance_data(filters: dict = None):
     # Apply employee filters via employee relation
     if filters:
         if filters.get('employee_code'):
-            balances = balances.filter(employee__employee_number__icontains=filters['employee_code'])
+            balances = balances.filter(employee__employee_number=filters['employee_code'])
         if filters.get('division'):
             balances = balances.filter(employee__division_id=filters['division'])
         if filters.get('directorate'):
@@ -1521,7 +1520,7 @@ def get_loan_outstanding_data(filters: dict = None):
     # Apply employee filters via employee relation
     if filters:
         if filters.get('employee_code'):
-            queryset = queryset.filter(employee__employee_number__icontains=filters['employee_code'])
+            queryset = queryset.filter(employee__employee_number=filters['employee_code'])
         if filters.get('division'):
             queryset = queryset.filter(employee__division_id=filters['division'])
         if filters.get('directorate'):
@@ -2933,7 +2932,7 @@ def export_payroll_costing_summary(payroll_run_id=None, filters=None, format='ex
     if filters.get('staff_category'):
         items = items.filter(employee__staff_category_id=filters['staff_category'])
     if filters.get('employee_code'):
-        items = items.filter(employee__employee_number__icontains=filters['employee_code'])
+        items = items.filter(employee__employee_number=filters['employee_code'])
 
     # Determine staff category label for header
     staff_category_label = "All Staff"
