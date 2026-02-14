@@ -9,7 +9,6 @@ from decimal import Decimal
 from typing import List, Dict, Any, Optional
 
 from django.utils import timezone
-from django.conf import settings
 from django.db.models import Sum
 
 from openpyxl import Workbook
@@ -23,14 +22,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
-
-def get_org_settings():
-    """Get organization settings from Django settings."""
-    payroll_settings = getattr(settings, 'PAYROLL', {})
-    return {
-        'name': payroll_settings.get('ORGANIZATION_NAME', settings.HRMS_SETTINGS.get('ORGANIZATION_NAME', 'Your Organization')),
-        'code': payroll_settings.get('ORGANIZATION_CODE', settings.HRMS_SETTINGS.get('ORGANIZATION_CODE', 'ORG')),
-    }
+from organization.utils import get_org_settings
 
 
 class PayslipGenerator:
@@ -204,10 +196,15 @@ class PayslipGenerator:
         notch_info = self._get_salary_notch_info()
 
         # Header
-        header_data = [[
-            Paragraph(f'<font color="#008751"><b>{self.org["code"]}</b></font>', logo_style),
-            Paragraph(f'<u>{self.org["name"].upper()}</u>', title_style)
-        ]]
+        if self.org.get('logo_data'):
+            from reportlab.platypus import Image
+            logo_img = Image(io.BytesIO(self.org['logo_data']), width=2.5*cm, height=2.5*cm)
+            header_data = [[logo_img, Paragraph(f'<u>{self.org["name"].upper()}</u>', title_style)]]
+        else:
+            header_data = [[
+                Paragraph(f'<font color="#008751"><b>{self.org["code"]}</b></font>', logo_style),
+                Paragraph(f'<u>{self.org["name"].upper()}</u>', title_style)
+            ]]
         header_table = Table(header_data, colWidths=[3*cm, 13.5*cm])
         header_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -871,7 +868,17 @@ class BankFileGenerator:
             'Title', parent=styles['Heading1'], fontSize=14,
             alignment=TA_CENTER, spaceAfter=10
         )
-        elements.append(Paragraph(f"{self.org['name']} - BANK ADVICE", title_style))
+        if self.org.get('logo_data'):
+            from reportlab.platypus import Image
+            logo_img = Image(io.BytesIO(self.org['logo_data']), width=2*cm, height=2*cm)
+            logo_table = Table(
+                [[logo_img, Paragraph(f"{self.org['name']} - BANK ADVICE", title_style)]],
+                colWidths=[3*cm, 22*cm],
+            )
+            logo_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE')]))
+            elements.append(logo_table)
+        else:
+            elements.append(Paragraph(f"{self.org['name']} - BANK ADVICE", title_style))
 
         subtitle_style = ParagraphStyle(
             'Subtitle', parent=styles['Normal'], fontSize=10,

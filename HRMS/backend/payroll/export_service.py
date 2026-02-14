@@ -9,7 +9,6 @@ from datetime import date
 
 from django.db.models import Sum
 from django.utils import timezone
-from django.conf import settings
 
 from .models import (
     PayrollRun, PayrollItem, PayrollItemDetail, BankFile, Payslip,
@@ -221,9 +220,11 @@ class PayrollExportService:
         emp = item.employee
         period_name = self.period.name if self.period else 'N/A'
 
-        # Get organization name from settings
-        org_name = getattr(settings, 'PAYROLL', {}).get('ORGANIZATION_NAME', settings.HRMS_SETTINGS.get('ORGANIZATION_NAME', 'Your Organization'))
-        org_code = getattr(settings, 'PAYROLL', {}).get('ORGANIZATION_CODE', settings.HRMS_SETTINGS.get('ORGANIZATION_CODE', 'ORG'))
+        # Get organization info from tenant
+        from organization.utils import get_org_settings
+        org = get_org_settings()
+        org_name = org['name']
+        org_code = org['code']
 
         # Get salary notch info
         old_notch = ''
@@ -244,12 +245,16 @@ class PayrollExportService:
             fontName='Helvetica-Bold'
         )
 
-        logo_text = f'<font color="#008751"><b>{org_code}</b></font>'
-
-        header_data = [[
-            Paragraph(logo_text, logo_style),
-            Paragraph(f'<u>{org_name.upper()}</u>', title_style)
-        ]]
+        if org.get('logo_data'):
+            from reportlab.platypus import Image
+            logo_img = Image(io.BytesIO(org['logo_data']), width=2.5*cm, height=2.5*cm)
+            header_data = [[logo_img, Paragraph(f'<u>{org_name.upper()}</u>', title_style)]]
+        else:
+            logo_text = f'<font color="#008751"><b>{org_code}</b></font>'
+            header_data = [[
+                Paragraph(logo_text, logo_style),
+                Paragraph(f'<u>{org_name.upper()}</u>', title_style)
+            ]]
         header_table = Table(header_data, colWidths=[3*cm, 13.5*cm])
         header_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
