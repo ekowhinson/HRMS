@@ -506,18 +506,6 @@ export default function ReportsPage() {
           </div>
         </Link>
         <Link
-          to="/reports/reconciliation"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors group"
-        >
-          <div className="p-2 bg-primary-100 rounded-lg group-hover:bg-primary-200 transition-colors">
-            <ArrowsRightLeftIcon className="h-5 w-5 text-primary-600" />
-          </div>
-          <div>
-            <h3 className="font-medium text-gray-900 text-sm">Period Reconciliation</h3>
-            <p className="text-xs text-gray-500">Compare between periods</p>
-          </div>
-        </Link>
-        <Link
           to="/reports/payroll-master"
           className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors group"
         >
