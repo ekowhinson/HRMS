@@ -2,6 +2,7 @@
 Views for accounts app.
 """
 
+from django_ratelimit.decorators import ratelimit
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -9,6 +10,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -27,6 +29,7 @@ from .serializers import (
 )
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
 class LoginView(APIView):
     """User login endpoint with 2FA support."""
     permission_classes = [permissions.AllowAny]
@@ -257,6 +260,7 @@ class ChangePasswordView(APIView):
         return request.META.get('REMOTE_ADDR')
 
 
+@method_decorator(ratelimit(key='ip', rate='3/h', method='POST', block=True), name='post')
 class PasswordResetRequestView(APIView):
     """Request password reset."""
     permission_classes = [permissions.AllowAny]
@@ -1129,6 +1133,7 @@ class AuthProviderListView(APIView):
         } for p in providers])
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
 class LDAPLoginView(APIView):
     """
     LDAP/Active Directory authentication endpoint.

@@ -9,7 +9,7 @@ import os
 import sys
 
 from config.settings.base import *  # noqa: F401,F403
-from config.settings.base import INSTALLED_APPS, MIDDLEWARE, SIMPLE_JWT
+from config.settings.base import INSTALLED_APPS, MIDDLEWARE, REST_FRAMEWORK, SIMPLE_JWT
 
 DJANGO_ENV = 'production'
 
@@ -89,6 +89,38 @@ CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
+
+# ── Content Security Policy (django-csp) ────────────────────────────────────
+MIDDLEWARE.insert(1, 'csp.middleware.CSPMiddleware')
+
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'",)
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Needed for inline styles (Tailwind)
+CSP_IMG_SRC = ("'self'", "data:", "blob:")
+CSP_FONT_SRC = ("'self'",)
+CSP_CONNECT_SRC = ("'self'",)
+CSP_FRAME_SRC = ("'none'",)
+CSP_OBJECT_SRC = ("'none'",)
+CSP_BASE_URI = ("'self'",)
+CSP_FORM_ACTION = ("'self'",)
+CSP_FRAME_ANCESTORS = ("'none'",)
+
+# Add Sentry CSP report endpoint if Sentry is configured
+if SENTRY_DSN:
+    CSP_REPORT_URI = os.environ.get('CSP_REPORT_URI', '')
+
+# ── Rate Limiting ────────────────────────────────────────────────────────────
+# Per deployment plan: auth=5/min, API=100/min, bulk=10/min
+# Configured via django-ratelimit decorators on views + DRF throttling
+REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
+    'anon': '100/hour',
+    'user': '10000/hour',
+    'login': '5/minute',
+    'password_reset': '3/hour',
+    'application_submit': '10/hour',
+    'portal_login': '5/minute',
+    'bulk': '10/minute',
+}
 
 # ── Cache — Redis required (5-tier) ─────────────────────────────────────────
 REDIS_CACHE_URL = os.environ.get('REDIS_CACHE_URL', 'redis://localhost:6379/1')
