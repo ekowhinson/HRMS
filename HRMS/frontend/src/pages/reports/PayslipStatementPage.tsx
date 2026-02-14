@@ -17,23 +17,27 @@ import Select from '@/components/ui/Select'
 import PeriodRangeSelector from '@/components/reports/PeriodRangeSelector'
 import { formatCurrency } from '@/lib/utils'
 
-interface PayslipPeriod {
+interface PayslipEntry {
   period_name: string
   year: number
-  earnings: Record<string, number>
-  deductions: Record<string, number>
-  total_earnings: number
+  basic_salary: number
+  gross_pay: number
   total_deductions: number
-  net_salary: number
+  net_pay: number
+  paye_tax: number
+  ssnit_employee: number
+  ssnit_employer: number
+  allowances: { name: string; amount: number }[]
+  other_deductions: { name: string; amount: number }[]
+  arrear_allowances: { name: string; amount: number }[]
+  arrear_deductions: { name: string; amount: number }[]
 }
 
 interface PayslipEmployee {
   employee_number: string
   full_name: string
   department: string
-  periods: PayslipPeriod[]
-  yearly_subtotals: Record<string, Record<string, number>>
-  grand_total: Record<string, number>
+  payslips: PayslipEntry[]
 }
 
 export default function PayslipStatementPage() {
@@ -60,8 +64,6 @@ export default function PayslipStatementPage() {
   })
 
   const employees: PayslipEmployee[] = data?.employees || []
-  const earningNames: string[] = data?.earning_names || []
-  const deductionNames: string[] = data?.deduction_names || []
   const departments = [...new Set(employees.map((e) => e.department).filter(Boolean))].sort()
 
   const filtered = employees.filter((emp) => {
@@ -95,7 +97,7 @@ export default function PayslipStatementPage() {
             <p className="mt-1 text-sm text-gray-500">
               {data?.from_period_name && data?.to_period_name
                 ? `${data.from_period_name} to ${data.to_period_name}`
-                : 'Per-employee payslip breakdown by period'}
+                : 'Per-employee monthly payslips across period range'}
             </p>
           </div>
         </div>
@@ -181,6 +183,7 @@ export default function PayslipStatementPage() {
         <div className="space-y-4">
           {filtered.map((emp) => {
             const isExpanded = expandedEmployees.has(emp.employee_number)
+            const totalNet = emp.payslips.reduce((sum, ps) => sum + ps.net_pay, 0)
             return (
               <Card key={emp.employee_number}>
                 <div
@@ -201,72 +204,19 @@ export default function PayslipStatementPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">Net Salary (Total)</p>
+                    <p className="text-xs text-gray-500">{emp.payslips.length} payslip{emp.payslips.length !== 1 ? 's' : ''}</p>
                     <p className="font-bold text-gray-900">
-                      {formatCurrency(emp.grand_total.net_salary || 0)}
+                      {formatCurrency(totalNet)}
                     </p>
                   </div>
                 </div>
 
                 {isExpanded && (
-                  <CardContent className="border-t p-0">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-                            {earningNames.map((name) => (
-                              <th key={`e-${name}`} className="px-4 py-2 text-right text-xs font-medium text-green-600 uppercase whitespace-nowrap">
-                                {name}
-                              </th>
-                            ))}
-                            <th className="px-4 py-2 text-right text-xs font-medium text-green-700 uppercase bg-green-50">Total Earn.</th>
-                            {deductionNames.map((name) => (
-                              <th key={`d-${name}`} className="px-4 py-2 text-right text-xs font-medium text-red-600 uppercase whitespace-nowrap">
-                                {name}
-                              </th>
-                            ))}
-                            <th className="px-4 py-2 text-right text-xs font-medium text-red-700 uppercase bg-red-50">Total Ded.</th>
-                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-700 uppercase bg-gray-100">Net Salary</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {(() => {
-                            const years = [...new Set(emp.periods.map((p) => p.year))].sort()
-                            return years.map((year) => {
-                              const yearPeriods = emp.periods.filter((p) => p.year === year)
-                              const yearSub = emp.yearly_subtotals[String(year)]
-                              return (
-                                <PayslipYearSection
-                                  key={year}
-                                  year={year}
-                                  periods={yearPeriods}
-                                  yearSubtotal={yearSub}
-                                  earningNames={earningNames}
-                                  deductionNames={deductionNames}
-                                />
-                              )
-                            })
-                          })()}
-                          {/* Grand Total */}
-                          <tr className="bg-gray-200 font-bold">
-                            <td className="px-4 py-2 text-sm text-gray-900">GRAND TOTAL</td>
-                            {earningNames.map((name) => (
-                              <td key={`e-${name}`} className="px-4 py-2 text-sm text-right">
-                                {formatCurrency(emp.grand_total[`e_${name}`] || 0)}
-                              </td>
-                            ))}
-                            <td className="px-4 py-2 text-sm text-right text-green-700">{formatCurrency(emp.grand_total.total_earnings || 0)}</td>
-                            {deductionNames.map((name) => (
-                              <td key={`d-${name}`} className="px-4 py-2 text-sm text-right">
-                                {formatCurrency(emp.grand_total[`d_${name}`] || 0)}
-                              </td>
-                            ))}
-                            <td className="px-4 py-2 text-sm text-right text-red-700">{formatCurrency(emp.grand_total.total_deductions || 0)}</td>
-                            <td className="px-4 py-2 text-sm text-right font-bold">{formatCurrency(emp.grand_total.net_salary || 0)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                  <CardContent className="border-t pt-0 px-4 pb-4">
+                    <div className="divide-y divide-gray-200">
+                      {emp.payslips.map((ps) => (
+                        <PayslipCard key={ps.period_name} payslip={ps} />
+                      ))}
                     </div>
                   </CardContent>
                 )}
@@ -279,57 +229,137 @@ export default function PayslipStatementPage() {
   )
 }
 
-function PayslipYearSection({
-  year,
-  periods,
-  yearSubtotal,
-  earningNames,
-  deductionNames,
-}: {
-  year: number
-  periods: PayslipPeriod[]
-  yearSubtotal?: Record<string, number>
-  earningNames: string[]
-  deductionNames: string[]
-}) {
+function PayslipCard({ payslip: ps }: { payslip: PayslipEntry }) {
+  const maxRows = Math.max(ps.allowances.length, ps.other_deductions.length, 1)
+  const arrearMaxRows = Math.max(ps.arrear_allowances.length, ps.arrear_deductions.length)
+  const hasArrears = arrearMaxRows > 0
+
   return (
-    <>
-      {periods.map((period) => (
-        <tr key={period.period_name} className="hover:bg-gray-50">
-          <td className="px-4 py-2 text-sm text-gray-700">{period.period_name}</td>
-          {earningNames.map((name) => (
-            <td key={`e-${name}`} className="px-4 py-2 text-sm text-right">
-              {formatCurrency(period.earnings[name] || 0)}
-            </td>
-          ))}
-          <td className="px-4 py-2 text-sm text-right font-medium text-green-700">{formatCurrency(period.total_earnings)}</td>
-          {deductionNames.map((name) => (
-            <td key={`d-${name}`} className="px-4 py-2 text-sm text-right">
-              {formatCurrency(period.deductions[name] || 0)}
-            </td>
-          ))}
-          <td className="px-4 py-2 text-sm text-right font-medium text-red-700">{formatCurrency(period.total_deductions)}</td>
-          <td className="px-4 py-2 text-sm text-right font-medium">{formatCurrency(period.net_salary)}</td>
-        </tr>
-      ))}
-      {yearSubtotal && (
-        <tr className="bg-yellow-50 font-semibold">
-          <td className="px-4 py-2 text-sm text-yellow-800">{year} Subtotal</td>
-          {earningNames.map((name) => (
-            <td key={`e-${name}`} className="px-4 py-2 text-sm text-right text-yellow-800">
-              {formatCurrency(yearSubtotal[`e_${name}`] || 0)}
-            </td>
-          ))}
-          <td className="px-4 py-2 text-sm text-right text-yellow-800">{formatCurrency(yearSubtotal.total_earnings || 0)}</td>
-          {deductionNames.map((name) => (
-            <td key={`d-${name}`} className="px-4 py-2 text-sm text-right text-yellow-800">
-              {formatCurrency(yearSubtotal[`d_${name}`] || 0)}
-            </td>
-          ))}
-          <td className="px-4 py-2 text-sm text-right text-yellow-800">{formatCurrency(yearSubtotal.total_deductions || 0)}</td>
-          <td className="px-4 py-2 text-sm text-right text-yellow-800">{formatCurrency(yearSubtotal.net_salary || 0)}</td>
-        </tr>
+    <div className="py-5 space-y-4">
+      {/* Period Header */}
+      <div className="text-center">
+        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+          Payslip for {ps.period_name}
+        </h4>
+      </div>
+
+      {/* Basic Salary Banner */}
+      <div className="flex items-center justify-between bg-blue-600 text-white rounded px-4 py-2">
+        <span className="text-sm font-bold">BASIC SALARY</span>
+        <span className="text-sm font-bold">{formatCurrency(ps.basic_salary)}</span>
+      </div>
+
+      {/* Allowances & Deductions Side-by-Side Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border border-gray-200">
+          <thead>
+            <tr className="bg-blue-600 text-white">
+              <th className="px-3 py-2 text-left font-semibold w-[30%]">Allowances</th>
+              <th className="px-3 py-2 text-right font-semibold w-[20%]">Amount</th>
+              <th className="px-3 py-2 text-left font-semibold w-[30%]">Deductions</th>
+              <th className="px-3 py-2 text-right font-semibold w-[20%]">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: maxRows }, (_, i) => (
+              <tr key={i} className="border-t border-gray-100">
+                <td className="px-3 py-1.5 text-gray-700">
+                  {i < ps.allowances.length ? ps.allowances[i].name : ''}
+                </td>
+                <td className="px-3 py-1.5 text-right text-gray-900">
+                  {i < ps.allowances.length ? formatCurrency(ps.allowances[i].amount) : ''}
+                </td>
+                <td className="px-3 py-1.5 text-gray-700">
+                  {i < ps.other_deductions.length ? ps.other_deductions[i].name : ''}
+                </td>
+                <td className="px-3 py-1.5 text-right text-danger-600">
+                  {i < ps.other_deductions.length ? formatCurrency(ps.other_deductions[i].amount) : ''}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Backpay Arrears Side-by-Side Table */}
+      {hasArrears && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border border-orange-200">
+            <thead>
+              <tr className="bg-orange-500 text-white">
+                <th className="px-3 py-2 text-left font-semibold w-[30%]">Backpay Arrear Earnings</th>
+                <th className="px-3 py-2 text-right font-semibold w-[20%]">Amount</th>
+                <th className="px-3 py-2 text-left font-semibold w-[30%]">Backpay Arrear Deductions</th>
+                <th className="px-3 py-2 text-right font-semibold w-[20%]">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: arrearMaxRows }, (_, i) => (
+                <tr key={i} className="border-t border-orange-100">
+                  <td className="px-3 py-1.5 text-gray-700">
+                    {i < ps.arrear_allowances.length ? ps.arrear_allowances[i].name : ''}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-orange-700 font-medium">
+                    {i < ps.arrear_allowances.length ? formatCurrency(ps.arrear_allowances[i].amount) : ''}
+                  </td>
+                  <td className="px-3 py-1.5 text-gray-700">
+                    {i < ps.arrear_deductions.length ? ps.arrear_deductions[i].name : ''}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-danger-600">
+                    {i < ps.arrear_deductions.length ? formatCurrency(ps.arrear_deductions[i].amount) : ''}
+                  </td>
+                </tr>
+              ))}
+              {/* Arrears totals row */}
+              <tr className="border-t border-orange-300 bg-orange-50 font-semibold">
+                <td className="px-3 py-1.5 text-orange-800">Total Arrear Earnings</td>
+                <td className="px-3 py-1.5 text-right text-orange-800">
+                  {formatCurrency(ps.arrear_allowances.reduce((s, a) => s + a.amount, 0))}
+                </td>
+                <td className="px-3 py-1.5 text-orange-800">Total Arrear Deductions</td>
+                <td className="px-3 py-1.5 text-right text-orange-800">
+                  {formatCurrency(ps.arrear_deductions.reduce((s, d) => s + d.amount, 0))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       )}
-    </>
+
+      {/* Pay Summary */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border border-gray-200">
+          <thead>
+            <tr className="bg-blue-600 text-white">
+              <th colSpan={4} className="px-3 py-2 text-center font-bold text-sm">
+                PAY SUMMARY
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-gray-200">
+              <td className="px-3 py-2 font-semibold text-gray-700 w-[30%]">Total Earnings</td>
+              <td className="px-3 py-2 text-right text-gray-900 w-[20%]">{formatCurrency(ps.gross_pay)}</td>
+              <td className="px-3 py-2 font-semibold text-gray-700 w-[30%]">Total Deductions</td>
+              <td className="px-3 py-2 text-right text-danger-600 w-[20%]">{formatCurrency(ps.total_deductions)}</td>
+            </tr>
+            <tr className="border-t border-gray-200">
+              <td className="px-3 py-2 font-semibold text-gray-700">PAYE Tax</td>
+              <td className="px-3 py-2 text-right text-gray-900">{formatCurrency(ps.paye_tax)}</td>
+              <td className="px-3 py-2 font-bold text-gray-900">Net Salary</td>
+              <td className="px-3 py-2 text-right font-bold text-success-600 border-b-2 border-gray-900">
+                {formatCurrency(ps.net_pay)}
+              </td>
+            </tr>
+            <tr className="border-t border-gray-200">
+              <td className="px-3 py-2 font-semibold text-gray-700">Employee SSF</td>
+              <td className="px-3 py-2 text-right text-gray-900">{formatCurrency(ps.ssnit_employee)}</td>
+              <td className="px-3 py-2 font-semibold text-gray-700">Employer SSF</td>
+              <td className="px-3 py-2 text-right text-gray-900">{formatCurrency(ps.ssnit_employer)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

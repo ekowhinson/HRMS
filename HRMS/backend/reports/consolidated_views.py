@@ -707,8 +707,11 @@ class ExportAllowanceStatementView(APIView):
 
 def _compute_payslip_data(from_period_id, to_period_id, filters=None):
     """
-    Compute payslip statement data with dynamic earnings and deductions columns.
-    Returns (employees, earning_names, deduction_names, from_period, to_period).
+    Compute payslip statement data in the same format as individual payslips.
+    Each period returns: basic_salary, gross_pay, net_pay, paye_tax,
+    ssnit_employee, ssnit_employer, total_deductions, allowances[], other_deductions[],
+    arrear_allowances[], arrear_deductions[].
+    Returns (employees, from_period, to_period).
     """
     items, _periods, from_period, to_period = get_items_for_period_range(
         from_period_id, to_period_id, filters
@@ -721,80 +724,67 @@ def _compute_payslip_data(from_period_id, to_period_id, filters=None):
     for item in items_list:
         employee_items[item.employee_id].append(item)
 
-    # Collect unique earning and deduction names across all items
-    all_earning_names = set()
-    all_deduction_names = set()
-    for emp_items in employee_items.values():
-        for item in emp_items:
-            for detail in item.details.all():
-                comp = detail.pay_component
-                if comp.component_type == 'EARNING':
-                    all_earning_names.add(comp.name)
-                elif comp.component_type == 'DEDUCTION':
-                    all_deduction_names.add(comp.name)
-
-    earning_names = sorted(all_earning_names)
-    deduction_names = sorted(all_deduction_names)
-
     employees = []
     for emp_id, emp_items in employee_items.items():
         emp = emp_items[0].employee
-        period_data = []
-        yearly_sums = defaultdict(lambda: defaultdict(Decimal))
+        payslips = []
 
         for item in sorted(emp_items, key=lambda x: x.payroll_run.payroll_period.start_date):
             period = item.payroll_run.payroll_period
-            row = {
-                'period_name': period.name,
-                'year': period.year,
-                'earnings': {},
-                'deductions': {},
-                'total_earnings': float(item.gross_earnings or 0),
-                'total_deductions': float(item.total_deductions or 0),
-                'net_salary': float(item.net_salary or 0),
-            }
+
+            # Build allowances and deductions from details (same logic as MyPayslipSerializer)
+            allowances = []
+            other_deductions = []
+            arrear_allowances = []
+            arrear_deductions = []
 
             for detail in item.details.all():
                 comp = detail.pay_component
-                amt = detail.amount or Decimal('0')
+                entry = {'name': comp.name, 'amount': float(detail.amount or 0)}
+                is_arrear = getattr(detail, 'is_arrear', False)
+
                 if comp.component_type == 'EARNING':
-                    row['earnings'][comp.name] = float(amt)
+                    if comp.name.upper() == 'BASIC SALARY':
+                        continue
+                    if is_arrear:
+                        arrear_allowances.append(entry)
+                    else:
+                        allowances.append(entry)
                 elif comp.component_type == 'DEDUCTION':
-                    row['deductions'][comp.name] = float(amt)
+                    if is_arrear:
+                        arrear_deductions.append(entry)
+                    else:
+                        other_deductions.append(entry)
 
-            yearly_sums[period.year]['total_earnings'] += item.gross_earnings or Decimal('0')
-            yearly_sums[period.year]['total_deductions'] += item.total_deductions or Decimal('0')
-            yearly_sums[period.year]['net_salary'] += item.net_salary or Decimal('0')
-            for name in earning_names:
-                yearly_sums[period.year][f'e_{name}'] += Decimal(str(row['earnings'].get(name, 0)))
-            for name in deduction_names:
-                yearly_sums[period.year][f'd_{name}'] += Decimal(str(row['deductions'].get(name, 0)))
-
-            period_data.append(row)
-
-        # Compute grand total and yearly subtotals
-        grand_total = {}
-        yearly_subtotals = {}
-        for year, sums in sorted(yearly_sums.items()):
-            yearly_subtotals[str(year)] = {k: float(v) for k, v in sums.items()}
-            for k, v in sums.items():
-                grand_total[k] = grand_total.get(k, 0) + float(v)
+            payslips.append({
+                'period_name': period.name,
+                'year': period.year,
+                'basic_salary': float(item.basic_salary or 0),
+                'gross_pay': float(item.gross_earnings or 0),
+                'total_deductions': float(item.total_deductions or 0),
+                'net_pay': float(item.net_salary or 0),
+                'paye_tax': float(item.paye or 0),
+                'ssnit_employee': float(item.ssnit_employee or 0),
+                'ssnit_employer': float(item.ssnit_employer or 0),
+                'allowances': allowances,
+                'other_deductions': other_deductions,
+                'arrear_allowances': arrear_allowances,
+                'arrear_deductions': arrear_deductions,
+            })
 
         employees.append({
             'employee_number': emp.employee_number,
             'full_name': f"{emp.first_name or ''} {emp.last_name or ''}".strip(),
             'department': emp.department.name if emp.department else '',
-            'periods': period_data,
-            'yearly_subtotals': yearly_subtotals,
-            'grand_total': grand_total,
+            'payslips': payslips,
         })
 
     employees.sort(key=lambda e: e['employee_number'])
-    return employees, earning_names, deduction_names, from_period, to_period
+    return employees, from_period, to_period
 
 
 class PayslipStatementView(APIView):
-    """Per-employee payslip statement with earnings and deductions breakdown."""
+    """Per-employee payslip statement showing monthly payslips."""
 
     def get(self, request):
         from_period_id = request.query_params.get('from_period')
@@ -803,21 +793,17 @@ class PayslipStatementView(APIView):
         if not from_period_id or not to_period_id:
             return Response({
                 'employees': [],
-                'earning_names': [],
-                'deduction_names': [],
                 'from_period_name': '',
                 'to_period_name': '',
             })
 
         filters = _get_statement_filters(request)
-        employees, earning_names, deduction_names, from_period, to_period = _compute_payslip_data(
+        employees, from_period, to_period = _compute_payslip_data(
             from_period_id, to_period_id, filters
         )
 
         return Response({
             'employees': employees,
-            'earning_names': earning_names,
-            'deduction_names': deduction_names,
             'from_period_name': from_period.name,
             'to_period_name': to_period.name,
         })
@@ -832,34 +818,40 @@ class ExportPayslipStatementView(APIView):
             return Response({'error': 'from_period and to_period are required'}, status=400)
 
         filters = _get_statement_filters(request)
-        employees, earning_names, deduction_names, from_period, to_period = _compute_payslip_data(
+        employees, from_period, to_period = _compute_payslip_data(
             from_period_id, to_period_id, filters
         )
 
-        headers = (
-            ['Employee #', 'Name', 'Department', 'Period']
-            + earning_names
-            + ['Total Earnings']
-            + deduction_names
-            + ['Total Deductions', 'Net Salary']
-        )
+        headers = [
+            'Employee #', 'Name', 'Department', 'Period',
+            'Basic Salary', 'Gross Pay', 'Total Deductions', 'Net Pay',
+            'PAYE Tax', 'SSNIT (Employee)', 'SSNIT (Employer)',
+            'Allowances', 'Other Deductions',
+        ]
         data = []
         for emp in employees:
-            for period in emp['periods']:
-                row = {
+            for ps in emp['payslips']:
+                allowances_str = '; '.join(
+                    f"{a['name']}: {a['amount']:.2f}" for a in ps['allowances']
+                ) if ps['allowances'] else ''
+                deductions_str = '; '.join(
+                    f"{d['name']}: {d['amount']:.2f}" for d in ps['other_deductions']
+                ) if ps['other_deductions'] else ''
+                data.append({
                     'Employee #': emp['employee_number'],
                     'Name': emp['full_name'],
                     'Department': emp['department'],
-                    'Period': period['period_name'],
-                }
-                for name in earning_names:
-                    row[name] = period['earnings'].get(name, 0)
-                row['Total Earnings'] = period['total_earnings']
-                for name in deduction_names:
-                    row[name] = period['deductions'].get(name, 0)
-                row['Total Deductions'] = period['total_deductions']
-                row['Net Salary'] = period['net_salary']
-                data.append(row)
+                    'Period': ps['period_name'],
+                    'Basic Salary': ps['basic_salary'],
+                    'Gross Pay': ps['gross_pay'],
+                    'Total Deductions': ps['total_deductions'],
+                    'Net Pay': ps['net_pay'],
+                    'PAYE Tax': ps['paye_tax'],
+                    'SSNIT (Employee)': ps['ssnit_employee'],
+                    'SSNIT (Employer)': ps['ssnit_employer'],
+                    'Allowances': allowances_str,
+                    'Other Deductions': deductions_str,
+                })
 
         title = f'Payslip Statement ({from_period.name} - {to_period.name})'
         return ReportExporter.export_data(data, headers, 'payslip_statement', file_format, title=title)
