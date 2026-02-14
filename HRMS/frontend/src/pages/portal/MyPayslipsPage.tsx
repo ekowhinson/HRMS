@@ -265,6 +265,46 @@ export default function MyPayslipsPage() {
                           </div>
                         )}
 
+                        {/* Backpay Arrears */}
+                        {((payslip.arrear_allowances && payslip.arrear_allowances.length > 0) ||
+                          (payslip.arrear_deductions && payslip.arrear_deductions.length > 0)) && (
+                          <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                            <p className="text-xs font-semibold text-orange-700 mb-2">
+                              Backpay Arrears
+                            </p>
+                            {payslip.arrear_allowances && payslip.arrear_allowances.length > 0 && (
+                              <div className="mb-2">
+                                <p className="text-xs text-orange-600 mb-1">Arrear Earnings</p>
+                                <div className="space-y-1">
+                                  {payslip.arrear_allowances.map((a, i) => (
+                                    <div key={i} className="flex justify-between text-sm">
+                                      <span className="text-gray-600">{a.name}</span>
+                                      <span className="text-orange-700 font-medium">
+                                        {formatCurrency(a.amount)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {payslip.arrear_deductions && payslip.arrear_deductions.length > 0 && (
+                              <div>
+                                <p className="text-xs text-orange-600 mb-1">Arrear Deductions</p>
+                                <div className="space-y-1">
+                                  {payslip.arrear_deductions.map((d, i) => (
+                                    <div key={i} className="flex justify-between text-sm">
+                                      <span className="text-gray-600">{d.name}</span>
+                                      <span className="text-danger-600">
+                                        {formatCurrency(d.amount)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div className="mt-4 flex justify-end">
                           <Button
                             variant="primary"

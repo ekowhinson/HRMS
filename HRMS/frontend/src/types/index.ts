@@ -726,6 +726,8 @@ export interface Payslip {
   total_deductions: number
   allowances?: { name: string; amount: number }[]
   other_deductions?: { name: string; amount: number }[]
+  arrear_allowances?: { name: string; amount: number }[]
+  arrear_deductions?: { name: string; amount: number }[]
 }
 
 // Dashboard Types

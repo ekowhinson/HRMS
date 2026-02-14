@@ -52,16 +52,21 @@ class PayslipGenerator:
         self.deductions = []
         self.employer_contributions = []
         self.loan_deductions = []
+        self.arrear_allowances = []
+        self.arrear_deductions = []
 
         for detail in self.item.details.all():
             comp = detail.pay_component
             amount = float(detail.amount)
+            is_arrear = getattr(detail, 'is_arrear', False)
 
             if comp.component_type == 'EARNING' and comp.code != 'BASIC':
-                self.allowances.append({'name': comp.name, 'amount': amount})
+                target = self.arrear_allowances if is_arrear else self.allowances
+                target.append({'name': comp.name, 'amount': amount})
             elif comp.component_type == 'DEDUCTION':
-                self.deductions.append({'name': comp.name, 'amount': amount})
-                if 'loan' in comp.name.lower():
+                target = self.arrear_deductions if is_arrear else self.deductions
+                target.append({'name': comp.name, 'amount': amount})
+                if not is_arrear and 'loan' in comp.name.lower():
                     self.loan_deductions.append({'name': comp.name, 'amount': amount})
             elif comp.component_type == 'EMPLOYER':
                 self.employer_contributions.append({'name': comp.name, 'amount': amount})
@@ -296,6 +301,69 @@ class PayslipGenerator:
         elements.append(allow_ded_table)
         elements.append(Spacer(1, 10))
 
+        # Backpay Arrears Section
+        if self.arrear_allowances or self.arrear_deductions:
+            header_orange = colors.HexColor('#E67E22')
+            cell_style_orange_white = ParagraphStyle(
+                'CellOrangeWhite', parent=styles['Normal'], fontSize=9,
+                leading=11, textColor=colors.white, fontName='Helvetica-Bold'
+            )
+            cell_style_orange_white_right = ParagraphStyle(
+                'CellOrangeWhiteRight', parent=styles['Normal'], fontSize=9,
+                leading=11, textColor=colors.white, fontName='Helvetica-Bold', alignment=TA_RIGHT
+            )
+
+            arrear_max_rows = max(len(self.arrear_allowances), len(self.arrear_deductions), 1)
+            arrear_data = [[
+                Paragraph('BACKPAY ARREAR EARNINGS', cell_style_orange_white),
+                Paragraph('AMOUNT', cell_style_orange_white_right),
+                Paragraph('BACKPAY ARREAR DEDUCTIONS', cell_style_orange_white),
+                Paragraph('AMOUNT', cell_style_orange_white_right)
+            ]]
+            for i in range(arrear_max_rows):
+                row = []
+                if i < len(self.arrear_allowances):
+                    row.extend([
+                        Paragraph(self.arrear_allowances[i]['name'], cell_style),
+                        Paragraph(f"{self.arrear_allowances[i]['amount']:,.2f}", cell_style_right)
+                    ])
+                else:
+                    row.extend([Paragraph('', cell_style), Paragraph('', cell_style)])
+                if i < len(self.arrear_deductions):
+                    row.extend([
+                        Paragraph(self.arrear_deductions[i]['name'], cell_style),
+                        Paragraph(f"{self.arrear_deductions[i]['amount']:,.2f}", cell_style_right)
+                    ])
+                else:
+                    row.extend([Paragraph('', cell_style), Paragraph('', cell_style)])
+                arrear_data.append(row)
+
+            # Total arrears row
+            arrear_earn_total = sum(a['amount'] for a in self.arrear_allowances)
+            arrear_ded_total = sum(d['amount'] for d in self.arrear_deductions)
+            arrear_data.append([
+                Paragraph('TOTAL ARREAR EARNINGS', cell_style_bold),
+                Paragraph(f'{arrear_earn_total:,.2f}', cell_style_right),
+                Paragraph('TOTAL ARREAR DEDUCTIONS', cell_style_bold),
+                Paragraph(f'{arrear_ded_total:,.2f}', cell_style_right),
+            ])
+
+            arrear_table = Table(arrear_data, colWidths=[5.5*cm, 2.75*cm, 5.5*cm, 2.75*cm])
+            arrear_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (1, 0), header_orange),
+                ('BACKGROUND', (2, 0), (3, 0), header_orange),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FFF3E0')),
+                ('LINEABOVE', (0, -1), (-1, -1), 1, header_orange),
+            ]))
+            elements.append(arrear_table)
+            elements.append(Spacer(1, 10))
+
         # Pay Summary
         total_earnings = float(self.item.gross_earnings)
         total_deductions = float(self.item.total_deductions)
@@ -473,6 +541,40 @@ class PayslipGenerator:
 
         row += 1
 
+        # Backpay Arrears
+        if self.arrear_allowances or self.arrear_deductions:
+            arrear_fill = PatternFill(start_color="E67E22", end_color="E67E22", fill_type="solid")
+            arrear_font = Font(bold=True, size=11, color="FFFFFF")
+
+            ws.cell(row=row, column=1, value="BACKPAY ARREAR EARNINGS").font = arrear_font
+            ws.cell(row=row, column=1).fill = arrear_fill
+            ws.cell(row=row, column=2, value="AMOUNT").font = arrear_font
+            ws.cell(row=row, column=2).fill = arrear_fill
+            ws.cell(row=row, column=4, value="BACKPAY ARREAR DEDUCTIONS").font = arrear_font
+            ws.cell(row=row, column=4).fill = arrear_fill
+            ws.cell(row=row, column=5, value="AMOUNT").font = arrear_font
+            ws.cell(row=row, column=5).fill = arrear_fill
+            row += 1
+
+            arrear_max = max(len(self.arrear_allowances), len(self.arrear_deductions), 1)
+            for i in range(arrear_max):
+                if i < len(self.arrear_allowances):
+                    ws.cell(row=row, column=1, value=self.arrear_allowances[i]['name'])
+                    ws.cell(row=row, column=2, value=self.arrear_allowances[i]['amount']).number_format = '#,##0.00'
+                if i < len(self.arrear_deductions):
+                    ws.cell(row=row, column=4, value=self.arrear_deductions[i]['name'])
+                    ws.cell(row=row, column=5, value=self.arrear_deductions[i]['amount']).number_format = '#,##0.00'
+                row += 1
+
+            # Arrear totals
+            arrear_earn_total = sum(a['amount'] for a in self.arrear_allowances)
+            arrear_ded_total = sum(d['amount'] for d in self.arrear_deductions)
+            ws.cell(row=row, column=1, value="TOTAL ARREAR EARNINGS").font = label_font
+            ws.cell(row=row, column=2, value=arrear_earn_total).number_format = '#,##0.00'
+            ws.cell(row=row, column=4, value="TOTAL ARREAR DEDUCTIONS").font = label_font
+            ws.cell(row=row, column=5, value=arrear_ded_total).number_format = '#,##0.00'
+            row += 2
+
         # Pay Summary
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
         ws.cell(row=row, column=1, value="PAY SUMMARY").font = section_font
@@ -580,6 +682,28 @@ class PayslipGenerator:
         for d in self.deductions:
             lines.append(f"  {d['name']:<33} {d['amount']:>15,.2f}")
         lines.append('')
+
+        # Backpay Arrears
+        if self.arrear_allowances or self.arrear_deductions:
+            lines.append('=' * 70)
+            lines.append('BACKPAY ARREARS')
+            lines.append('=' * 70)
+            if self.arrear_allowances:
+                lines.append('ARREAR EARNINGS')
+                lines.append('-' * 35)
+                for a in self.arrear_allowances:
+                    lines.append(f"  {a['name']:<33} {a['amount']:>15,.2f}")
+                arrear_earn_total = sum(a['amount'] for a in self.arrear_allowances)
+                lines.append(f"  {'TOTAL ARREAR EARNINGS':<33} {arrear_earn_total:>15,.2f}")
+                lines.append('')
+            if self.arrear_deductions:
+                lines.append('ARREAR DEDUCTIONS')
+                lines.append('-' * 35)
+                for d in self.arrear_deductions:
+                    lines.append(f"  {d['name']:<33} {d['amount']:>15,.2f}")
+                arrear_ded_total = sum(d['amount'] for d in self.arrear_deductions)
+                lines.append(f"  {'TOTAL ARREAR DEDUCTIONS':<33} {arrear_ded_total:>15,.2f}")
+                lines.append('')
 
         # Summary
         lines.append('=' * 70)

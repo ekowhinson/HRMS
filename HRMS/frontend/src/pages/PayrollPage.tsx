@@ -334,6 +334,42 @@ export default function PayrollPage() {
                           </div>
                         </div>
 
+                        {/* Backpay Arrears */}
+                        {((payslip.arrear_allowances && payslip.arrear_allowances.length > 0) ||
+                          (payslip.arrear_deductions && payslip.arrear_deductions.length > 0)) && (
+                        <div className="md:col-span-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                          <h4 className="text-sm font-semibold text-orange-700 mb-3">Backpay Arrears</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {payslip.arrear_allowances && payslip.arrear_allowances.length > 0 && (
+                              <div>
+                                <p className="text-xs text-orange-600 mb-1">Arrear Earnings</p>
+                                <div className="space-y-1">
+                                  {payslip.arrear_allowances.map((a: any, i: number) => (
+                                    <div key={i} className="flex justify-between text-sm">
+                                      <span className="text-gray-600">{a.name}</span>
+                                      <span className="text-orange-700 font-medium">{formatCurrency(a.amount)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {payslip.arrear_deductions && payslip.arrear_deductions.length > 0 && (
+                              <div>
+                                <p className="text-xs text-orange-600 mb-1">Arrear Deductions</p>
+                                <div className="space-y-1">
+                                  {payslip.arrear_deductions.map((d: any, i: number) => (
+                                    <div key={i} className="flex justify-between text-sm">
+                                      <span className="text-gray-600">{d.name}</span>
+                                      <span className="text-red-600 font-medium">{formatCurrency(d.amount)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        )}
+
                         {/* Summary */}
                         <div>
                           <h4 className="text-sm font-medium text-gray-700 mb-3">Summary</h4>

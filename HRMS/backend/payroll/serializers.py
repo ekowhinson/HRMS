@@ -227,6 +227,8 @@ class MyPayslipSerializer(serializers.ModelSerializer):
     paye_tax = serializers.DecimalField(source='paye', max_digits=12, decimal_places=2, read_only=True)
     allowances = serializers.SerializerMethodField()
     other_deductions = serializers.SerializerMethodField()
+    arrear_allowances = serializers.SerializerMethodField()
+    arrear_deductions = serializers.SerializerMethodField()
     payslip_id = serializers.SerializerMethodField()
     has_payslip = serializers.SerializerMethodField()
 
@@ -237,6 +239,7 @@ class MyPayslipSerializer(serializers.ModelSerializer):
             'basic_salary', 'gross_pay', 'net_pay', 'paye_tax',
             'total_deductions', 'ssnit_employee', 'ssnit_employer',
             'allowances', 'other_deductions',
+            'arrear_allowances', 'arrear_deductions',
         ]
 
     def get_payment_date(self, obj):
@@ -245,14 +248,26 @@ class MyPayslipSerializer(serializers.ModelSerializer):
     def get_allowances(self, obj):
         return [
             {'name': d.pay_component.name, 'amount': float(d.amount)}
-            for d in obj.details.filter(pay_component__component_type='EARNING')
+            for d in obj.details.filter(pay_component__component_type='EARNING', is_arrear=False)
             if d.pay_component.name.upper() != 'BASIC SALARY'
         ]
 
     def get_other_deductions(self, obj):
         return [
             {'name': d.pay_component.name, 'amount': float(d.amount)}
-            for d in obj.details.filter(pay_component__component_type='DEDUCTION')
+            for d in obj.details.filter(pay_component__component_type='DEDUCTION', is_arrear=False)
+        ]
+
+    def get_arrear_allowances(self, obj):
+        return [
+            {'name': d.pay_component.name, 'amount': float(d.amount)}
+            for d in obj.details.filter(pay_component__component_type='EARNING', is_arrear=True)
+        ]
+
+    def get_arrear_deductions(self, obj):
+        return [
+            {'name': d.pay_component.name, 'amount': float(d.amount)}
+            for d in obj.details.filter(pay_component__component_type='DEDUCTION', is_arrear=True)
         ]
 
     def get_payslip_id(self, obj):
