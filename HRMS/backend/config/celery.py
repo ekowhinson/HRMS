@@ -58,9 +58,6 @@ app.conf.update(
     # Default queue
     task_default_queue='default',
 
-    # Use database scheduler (avoids dbm.gnu file issues)
-    beat_scheduler='django_celery_beat.schedulers:DatabaseScheduler',
-
     # Beat schedule for periodic tasks
     beat_schedule={
         # ── Cleanup tasks ────────────────────────────────────────────
