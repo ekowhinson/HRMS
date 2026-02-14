@@ -19,7 +19,7 @@ export function usePeriodRange() {
   const { data: periods = [], isLoading } = useQuery({
     queryKey: ['payroll-periods-list'],
     queryFn: async () => {
-      const response = await api.get('/payroll/periods/')
+      const response = await api.get('/payroll/periods/', { params: { page_size: 100 } })
       const results = response.data?.results || response.data || []
       return results as PayrollPeriodOption[]
     },
