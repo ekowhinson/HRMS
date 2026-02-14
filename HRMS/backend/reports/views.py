@@ -841,6 +841,7 @@ class PayrollMasterReportView(APIView):
                     'name': detail.pay_component.name,
                     'amount': float(detail.amount),
                     'notes': detail.notes,
+                    'is_arrear': detail.is_arrear,
                 }
 
                 comp_type = detail.pay_component.component_type
@@ -1357,7 +1358,11 @@ class ComprehensiveReconciliationView(APIView):
         ).prefetch_related('details__pay_component'):
             current_items[item.employee_id] = item
             for detail in item.details.all():
-                current_details[item.employee_id][detail.pay_component.code] = safe_decimal(detail.amount)
+                code = detail.pay_component.code
+                if detail.is_arrear:
+                    code = f'{code}_ARREAR'
+                amt = safe_decimal(detail.amount)
+                current_details[item.employee_id][code] = current_details[item.employee_id].get(code, Decimal('0')) + amt
 
         previous_items = {}
         previous_details = defaultdict(dict)
@@ -1366,7 +1371,11 @@ class ComprehensiveReconciliationView(APIView):
         ).prefetch_related('details__pay_component'):
             previous_items[item.employee_id] = item
             for detail in item.details.all():
-                previous_details[item.employee_id][detail.pay_component.code] = safe_decimal(detail.amount)
+                code = detail.pay_component.code
+                if detail.is_arrear:
+                    code = f'{code}_ARREAR'
+                amt = safe_decimal(detail.amount)
+                previous_details[item.employee_id][code] = previous_details[item.employee_id].get(code, Decimal('0')) + amt
 
         all_emp_ids = set(current_items.keys()) | set(previous_items.keys())
 
@@ -2094,12 +2103,14 @@ class PayrollCostingSummaryView(APIView):
 
         for idx, item in enumerate(items, 1):
             details = list(item.details.all())
+            regular_details = [d for d in details if not d.is_arrear]
+            arrear_details = [d for d in details if d.is_arrear]
 
             basic_salary = float(item.basic_salary or 0)
 
             # Total allowances: sum of details where pay_component.category == 'ALLOWANCE'
             total_allowances = sum(
-                float(d.amount or 0) for d in details
+                float(d.amount or 0) for d in regular_details
                 if d.pay_component.category == 'ALLOWANCE'
             )
 
@@ -2109,7 +2120,7 @@ class PayrollCostingSummaryView(APIView):
 
             # Employee PF: sum of details where code in specific PF codes or category=='FUND' and type=='DEDUCTION'
             emp_pf = sum(
-                float(d.amount or 0) for d in details
+                float(d.amount or 0) for d in regular_details
                 if d.pay_component.code in ('TIER2_EMP', 'PF_EMP', 'PROVIDENT_FUND_EMP')
                 or (d.pay_component.category == 'FUND' and d.pay_component.component_type == 'DEDUCTION')
             )
@@ -2123,7 +2134,7 @@ class PayrollCostingSummaryView(APIView):
             # Helper to sum details by pay_component codes
             def sum_by_codes(codes):
                 return sum(
-                    float(d.amount or 0) for d in details
+                    float(d.amount or 0) for d in regular_details
                     if d.pay_component.code in codes
                 )
 
@@ -2135,6 +2146,17 @@ class PayrollCostingSummaryView(APIView):
             student_loan = sum_by_codes(('STUDENT_LOAN', 'STU_LOAN'))
             rent = sum_by_codes(('RENT', 'RENT_DEDUCTION'))
             salary_advance_surcharge = sum_by_codes(('SALARY_ADVANCE', 'SAL_ADV', 'SURCHARGE'))
+
+            # Arrear totals
+            arrear_earnings = sum(
+                float(d.amount or 0) for d in arrear_details
+                if d.pay_component.component_type == 'EARNING'
+            )
+            arrear_deductions = sum(
+                float(d.amount or 0) for d in arrear_details
+                if d.pay_component.component_type == 'DEDUCTION'
+            )
+            arrear_net = arrear_earnings - arrear_deductions
 
             net_salary = float(item.net_salary or 0)
 
@@ -2160,6 +2182,9 @@ class PayrollCostingSummaryView(APIView):
                 'student_loan': student_loan,
                 'rent': rent,
                 'salary_advance_surcharge': salary_advance_surcharge,
+                'arrear_earnings': arrear_earnings,
+                'arrear_deductions': arrear_deductions,
+                'arrear_net': arrear_net,
                 'net_salary': net_salary,
             })
 
@@ -2173,6 +2198,9 @@ class PayrollCostingSummaryView(APIView):
             'total_ssnit_employer': sum(e['employer_ssf'] for e in employees_data),
             'total_pf_employer': sum(e['employer_pf'] for e in employees_data),
             'total_paye': sum(e['paye_tax'] for e in employees_data),
+            'total_arrear_earnings': sum(e['arrear_earnings'] for e in employees_data),
+            'total_arrear_deductions': sum(e['arrear_deductions'] for e in employees_data),
+            'total_arrear_net': sum(e['arrear_net'] for e in employees_data),
             'total_net': sum(e['net_salary'] for e in employees_data),
         }
 
@@ -2258,7 +2286,7 @@ class StaffPayrollDataView(APIView):
         employees_data = []
 
         for idx, item in enumerate(items, 1):
-            details = list(item.details.all())
+            details = [d for d in item.details.all() if not d.is_arrear]
 
             # Build grade_step
             grade_step = None
@@ -2639,22 +2667,27 @@ class DuesReportView(APIView):
             'pay_component'
         )
 
-        # Group by component
+        # Group by component + arrear status
         components_summary = {}
         for detail in details:
             comp_code = detail.pay_component.code
             comp_name = detail.pay_component.name
+            is_arrear = detail.is_arrear
 
-            if comp_code not in components_summary:
-                components_summary[comp_code] = {
-                    'component_code': comp_code,
-                    'component_name': comp_name,
+            key = f'{comp_code}_ARREAR' if is_arrear else comp_code
+            display_name = f'{comp_name} (Arrears)' if is_arrear else comp_name
+
+            if key not in components_summary:
+                components_summary[key] = {
+                    'component_code': key,
+                    'component_name': display_name,
+                    'is_arrear': is_arrear,
                     'total_amount': Decimal('0'),
                     'employee_count': 0,
                     'employees': []
                 }
 
-            summary = components_summary[comp_code]
+            summary = components_summary[key]
             summary['total_amount'] += detail.amount or Decimal('0')
             summary['employee_count'] += 1
 
@@ -2664,6 +2697,7 @@ class DuesReportView(APIView):
                 'employee_name': emp.full_name,
                 'department': emp.department.name if emp.department else '',
                 'amount': float(detail.amount or 0),
+                'is_arrear': is_arrear,
             })
 
         # Convert Decimals
@@ -2751,6 +2785,7 @@ class RentDeductionsReportView(APIView):
                 'location': emp.work_location.name if emp.work_location else '',
                 'component': detail.pay_component.name,
                 'amount': float(amount),
+                'is_arrear': detail.is_arrear,
             })
 
         # Sort by department
@@ -2822,6 +2857,7 @@ class PayrollJournalView(APIView):
             comp = detail.pay_component
             emp = detail.payroll_item.employee
             amount = detail.amount or Decimal('0')
+            is_arrear = detail.is_arrear
 
             if amount == 0:
                 continue
@@ -2831,8 +2867,10 @@ class PayrollJournalView(APIView):
             is_employer_contrib = comp.component_type == 'EMPLOYER'
 
             if group_by == 'component':
-                key = comp.code
+                key = f'{comp.code}_ARREAR' if is_arrear else comp.code
                 name = f"{comp.code} - {comp.name}"
+                if is_arrear:
+                    name = f"{comp.code} - {comp.name} (Arrears)"
             elif group_by == 'department':
                 dept = emp.department
                 key = str(dept.id) if dept else 'UNKNOWN'
@@ -2847,6 +2885,7 @@ class PayrollJournalView(APIView):
                     'code': key,
                     'name': name,
                     'component_type': comp.component_type if group_by == 'component' else 'MIXED',
+                    'is_arrear': is_arrear if group_by == 'component' else False,
                     'debit': Decimal('0'),
                     'credit': Decimal('0'),
                 }
@@ -2880,6 +2919,7 @@ class PayrollJournalView(APIView):
                 'code': entry['code'],
                 'name': entry['name'],
                 'component_type': entry['component_type'],
+                'is_arrear': entry.get('is_arrear', False),
                 'debit': float(entry['debit']) if entry['debit'] > 0 else None,
                 'credit': float(entry['credit']) if entry['credit'] > 0 else None,
             })
@@ -3107,6 +3147,7 @@ class StudentLoanReportView(APIView):
                         'principal_amount': None,
                         'outstanding_balance': None,
                         'monthly_deduction': float(amount),
+                        'is_arrear': detail.is_arrear,
                     })
 
         return Response({
@@ -3181,16 +3222,20 @@ class ExportDuesReportView(APIView):
         rows = []
         for detail in details:
             emp = detail.payroll_item.employee
+            comp_name = detail.pay_component.name
+            if detail.is_arrear:
+                comp_name = f'{comp_name} (Arrears)'
             rows.append({
                 'Component Code': detail.pay_component.code,
-                'Component Name': detail.pay_component.name,
+                'Component Name': comp_name,
                 'Employee Number': emp.employee_number,
                 'Employee Name': emp.full_name,
                 'Department': emp.department.name if emp.department else '',
                 'Amount': float(detail.amount),
+                'Type': 'Arrears' if detail.is_arrear else 'Regular',
             })
 
-        headers = ['Component Code', 'Component Name', 'Employee Number', 'Employee Name', 'Department', 'Amount']
+        headers = ['Component Code', 'Component Name', 'Employee Number', 'Employee Name', 'Department', 'Amount', 'Type']
         period_name = run.payroll_period.name if run.payroll_period else run.run_number
         filename = f"dues_report_{period_name.replace(' ', '_')}"
 
@@ -3651,14 +3696,20 @@ def _compute_salary_reconciliation(current_run, previous_run):
     ).prefetch_related('details__pay_component'):
         current_items[item.employee_id] = item
         for detail in item.details.all():
+            # Separate arrear entries so reconciliation shows them distinctly
             code = detail.pay_component.code
+            if detail.is_arrear:
+                code = f'{code}_ARREAR'
             if code in current_details[item.employee_id]:
                 current_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
             else:
+                name = detail.pay_component.name
+                if detail.is_arrear:
+                    name = f'{name} (Arrears)'
                 current_details[item.employee_id][code] = {
                     'amount': safe_decimal(detail.amount),
-                    'name': detail.pay_component.name,
-                    'is_recurring': detail.pay_component.is_recurring,
+                    'name': name,
+                    'is_recurring': False if detail.is_arrear else detail.pay_component.is_recurring,
                     'component_type': detail.pay_component.component_type,
                 }
 
@@ -3671,13 +3722,18 @@ def _compute_salary_reconciliation(current_run, previous_run):
         previous_items[item.employee_id] = item
         for detail in item.details.all():
             code = detail.pay_component.code
+            if detail.is_arrear:
+                code = f'{code}_ARREAR'
             if code in previous_details[item.employee_id]:
                 previous_details[item.employee_id][code]['amount'] += safe_decimal(detail.amount)
             else:
+                name = detail.pay_component.name
+                if detail.is_arrear:
+                    name = f'{name} (Arrears)'
                 previous_details[item.employee_id][code] = {
                     'amount': safe_decimal(detail.amount),
-                    'name': detail.pay_component.name,
-                    'is_recurring': detail.pay_component.is_recurring,
+                    'name': name,
+                    'is_recurring': False if detail.is_arrear else detail.pay_component.is_recurring,
                     'component_type': detail.pay_component.component_type,
                 }
 
