@@ -412,7 +412,7 @@ export default function PayrollSetupPage() {
       queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
       setShowCreateYearConfirm(false)
     },
-    onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to create year periods'),
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || error.response?.data?.detail || 'Failed to create year periods'),
   })
 
   const createYearCalendarsMutation = useMutation({
@@ -421,7 +421,7 @@ export default function PayrollSetupPage() {
       toast.success(data.message || `Created ${data.created} calendar months`)
       queryClient.invalidateQueries({ queryKey: ['payroll-settings'] })
     },
-    onError: (error: any) => toast.error(error.response?.data?.error || error.response?.data?.detail || 'Failed to create calendar months'),
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || error.response?.data?.detail || 'Failed to create calendar months'),
   })
 
   // Global Increment mutations

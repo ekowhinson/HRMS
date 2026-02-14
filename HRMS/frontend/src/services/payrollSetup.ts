@@ -402,7 +402,7 @@ export const payrollSetupService = {
   },
 
   async createYearCalendars(year: number): Promise<{ message: string; created: number }> {
-    const response = await api.post<{ message: string; created: number }>('/payroll/calendar/create-year/', { year })
+    const response = await api.post<{ message: string; created: number }>('/payroll/calendar/create_year/', { year })
     return response.data
   },
 
@@ -413,7 +413,7 @@ export const payrollSetupService = {
   },
 
   async createYearPeriods(year: number): Promise<{ message: string; created: number }> {
-    const response = await api.post<{ message: string; created: number }>('/payroll/periods/create-year/', { year })
+    const response = await api.post<{ message: string; created: number }>('/payroll/periods/create_year/', { year })
     return response.data
   },
 
