@@ -41,7 +41,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'department', 'grade', 'employment_type']
-    search_fields = ['employee_number', 'first_name', 'last_name', 'work_email']
+    search_fields = ['employee_number', 'first_name', 'middle_name', 'last_name', 'work_email']
     ordering_fields = ['employee_number', 'first_name', 'last_name', 'date_of_joining']
     ordering = ['employee_number']
 

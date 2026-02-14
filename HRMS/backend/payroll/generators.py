@@ -60,7 +60,7 @@ class PayslipGenerator:
             amount = float(detail.amount)
             is_arrear = getattr(detail, 'is_arrear', False)
 
-            if comp.component_type == 'EARNING' and comp.code != 'BASIC':
+            if comp.component_type == 'EARNING' and (comp.code != 'BASIC' or is_arrear):
                 target = self.arrear_allowances if is_arrear else self.allowances
                 target.append({'name': comp.name, 'amount': amount})
             elif comp.component_type == 'DEDUCTION':
