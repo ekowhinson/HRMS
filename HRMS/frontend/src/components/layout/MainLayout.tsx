@@ -216,6 +216,7 @@ const payrollSections: NavSection[] = [
     requiredModule: 'payroll_setup',
     items: [
       { name: 'Payroll Implementation', href: '/admin/payroll-implementation', icon: CpuChipIcon },
+      { name: 'Data Import', href: '/admin/data-import', icon: DocumentArrowUpIcon },
     ],
   },
   {

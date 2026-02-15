@@ -53,6 +53,7 @@ app.conf.update(
         'payroll.tasks.*': {'queue': 'payroll'},
         'finance.tasks.*': {'queue': 'finance'},
         'procurement.tasks.*': {'queue': 'procurement'},
+        'assistant.tasks.*': {'queue': 'imports'},
     },
 
     # Default queue
@@ -119,7 +120,7 @@ app.conf.update(
 )
 
 # Auto-discover tasks from all installed apps
-app.autodiscover_tasks(['core', 'payroll', 'reports', 'training', 'finance', 'procurement', 'inventory', 'projects'])
+app.autodiscover_tasks(['core', 'payroll', 'reports', 'training', 'finance', 'procurement', 'inventory', 'projects', 'assistant'])
 
 
 # ── Task lifecycle signal handlers ──────────────────────────────────────────

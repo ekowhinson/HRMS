@@ -1,9 +1,19 @@
+"""
+File processing with a registry/strategy pattern.
+
+Adding a new file type requires only:
+  1. Subclass BaseFileProcessor
+  2. Register it in FILE_PROCESSOR_REGISTRY
+"""
+
+import abc
 import io
 import logging
 
 logger = logging.getLogger(__name__)
 
-# MIME type mappings
+# ── MIME-type sets for detection ────────────────────────────────────────────
+
 DATA_MIMES = {
     'text/csv', 'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -16,31 +26,34 @@ DOCUMENT_MIMES = {
 }
 
 
-class FileProcessor:
-    """Parses uploaded files and generates structured summaries for LLM context."""
+# ── File type detection ─────────────────────────────────────────────────────
 
+def detect_file_type(file_name: str, mime_type: str) -> str:
+    """Return one of: DATA, IMAGE, DOCUMENT."""
+    lower = file_name.lower()
+    if mime_type in DATA_MIMES or lower.endswith(('.csv', '.xlsx', '.xls')):
+        return 'DATA'
+    if mime_type in IMAGE_MIMES or lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+        return 'IMAGE'
+    if mime_type in DOCUMENT_MIMES or lower.endswith('.pdf'):
+        return 'DOCUMENT'
+    return 'DOCUMENT'
+
+
+# ── Abstract processor ──────────────────────────────────────────────────────
+
+class BaseFileProcessor(abc.ABC):
+    """Process a file and return {file_type, parsed_summary, parsed_metadata}."""
+
+    @abc.abstractmethod
     def process(self, file_data: bytes, file_name: str, mime_type: str) -> dict:
-        """
-        Parse a file and return structured analysis.
-        Returns: {file_type, parsed_summary, parsed_metadata}
-        """
-        lower_name = file_name.lower()
+        ...
 
-        if mime_type in DATA_MIMES or lower_name.endswith(('.csv', '.xlsx', '.xls')):
-            return self._process_csv_excel(file_data, file_name)
-        elif mime_type in DOCUMENT_MIMES or lower_name.endswith('.pdf'):
-            return self._process_pdf(file_data, file_name)
-        elif mime_type in IMAGE_MIMES or lower_name.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-            return self._process_image(file_data, file_name, mime_type)
-        else:
-            return {
-                'file_type': 'DOCUMENT',
-                'parsed_summary': f"File: {file_name} ({len(file_data)} bytes). Unsupported format for preview.",
-                'parsed_metadata': {'file_size': len(file_data)},
-            }
 
-    def _process_csv_excel(self, file_data: bytes, file_name: str) -> dict:
-        """Process CSV or Excel files with pandas."""
+# ── Concrete processors ────────────────────────────────────────────────────
+
+class CSVExcelProcessor(BaseFileProcessor):
+    def process(self, file_data, file_name, mime_type):
         import pandas as pd
 
         try:
@@ -52,21 +65,18 @@ class FileProcessor:
 
             rows, cols = df.shape
 
-            # Column info
             col_info = []
             for col in df.columns:
                 dtype = str(df[col].dtype)
                 nulls = int(df[col].isnull().sum())
                 col_info.append(f"  - {col} ({dtype}, {nulls} nulls)")
 
-            # Numeric stats
             numeric_stats = ""
             numeric_cols = df.select_dtypes(include='number')
             if not numeric_cols.empty:
                 stats_df = numeric_cols.describe().round(2)
                 numeric_stats = f"\nNumeric Statistics:\n{stats_df.to_string()}"
 
-            # Sample rows
             sample = df.head(5).to_string(index=False)
 
             summary = (
@@ -99,8 +109,9 @@ class FileProcessor:
                 'parsed_metadata': {'error': str(e)},
             }
 
-    def _process_pdf(self, file_data: bytes, file_name: str) -> dict:
-        """Process PDF files with pdfplumber."""
+
+class PDFProcessor(BaseFileProcessor):
+    def process(self, file_data, file_name, mime_type):
         import pdfplumber
 
         try:
@@ -110,7 +121,7 @@ class FileProcessor:
                 text_parts = []
                 tables_found = 0
 
-                for i, page in enumerate(pdf.pages[:20]):  # Limit to 20 pages
+                for i, page in enumerate(pdf.pages[:20]):
                     page_text = page.extract_text() or ''
                     if page_text:
                         text_parts.append(f"[Page {i + 1}]\n{page_text}")
@@ -126,7 +137,6 @@ class FileProcessor:
                             text_parts.append(f"[Table on Page {i + 1}]\n{formatted}")
 
                 full_text = "\n\n".join(text_parts)
-                # Truncate to ~4000 chars for LLM context
                 if len(full_text) > 4000:
                     full_text = full_text[:4000] + "\n\n... [truncated]"
 
@@ -156,8 +166,9 @@ class FileProcessor:
                 'parsed_metadata': {'error': str(e)},
             }
 
-    def _process_image(self, file_data: bytes, file_name: str, mime_type: str) -> dict:
-        """Process image files — get dimensions. Vision analysis happens at chat time."""
+
+class ImageProcessor(BaseFileProcessor):
+    def process(self, file_data, file_name, mime_type):
         try:
             from PIL import Image
             buffer = io.BytesIO(file_data)
@@ -192,3 +203,37 @@ class FileProcessor:
                 'parsed_summary': f"Image: {file_name} ({len(file_data)} bytes)",
                 'parsed_metadata': {'error': str(e)},
             }
+
+
+class GenericProcessor(BaseFileProcessor):
+    def process(self, file_data, file_name, mime_type):
+        return {
+            'file_type': 'DOCUMENT',
+            'parsed_summary': f"File: {file_name} ({len(file_data)} bytes). Unsupported format for preview.",
+            'parsed_metadata': {'file_size': len(file_data)},
+        }
+
+
+# ── Registry ────────────────────────────────────────────────────────────────
+
+FILE_PROCESSOR_REGISTRY: dict[str, BaseFileProcessor] = {
+    'DATA': CSVExcelProcessor(),
+    'IMAGE': ImageProcessor(),
+    'DOCUMENT': PDFProcessor(),
+}
+
+_FALLBACK_PROCESSOR = GenericProcessor()
+
+
+# ── Public facade (backward-compatible) ─────────────────────────────────────
+
+class FileProcessor:
+    """
+    Facade that detects file type and delegates to the registered processor.
+    Existing call-sites use `FileProcessor().process(...)` unchanged.
+    """
+
+    def process(self, file_data: bytes, file_name: str, mime_type: str) -> dict:
+        file_type = detect_file_type(file_name, mime_type)
+        processor = FILE_PROCESSOR_REGISTRY.get(file_type, _FALLBACK_PROCESSOR)
+        return processor.process(file_data, file_name, mime_type)

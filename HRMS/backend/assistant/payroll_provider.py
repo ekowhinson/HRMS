@@ -1,6 +1,8 @@
 """
-Payroll data provider for AI assistant context injection.
-Fetches payroll run data, runs audit checks, and formats as plain text for LLM context.
+Payroll data provider and context formatter for AI assistant.
+
+PayrollDataProvider: fetches data (queries)
+PayrollContextFormatter: formats data into plain text for LLM context
 """
 
 import logging
@@ -16,65 +18,12 @@ MAX_EMPLOYEE_DETAILS = 20
 MAX_FINDINGS_PER_SEVERITY = 30
 
 
-class PayrollDataProvider:
-    """Formats payroll data + audit results as LLM context text."""
+# ── Formatter ────────────────────────────────────────────────────────────────
 
-    def __init__(self, audit_service=None):
-        if audit_service is None:
-            from payroll.audit_service import PayrollAuditService
-            audit_service = PayrollAuditService()
-        self.audit_service = audit_service
+class PayrollContextFormatter:
+    """Turns raw payroll objects into plain-text sections for LLM context."""
 
-    def get_payroll_context(self, payroll_run_id) -> dict:
-        """
-        Build full payroll context for LLM injection.
-
-        Returns:
-            dict with keys: context_text, audit_summary, run_number, period_name
-        """
-        try:
-            run = (
-                PayrollRun.objects
-                .select_related('payroll_period')
-                .get(pk=payroll_run_id)
-            )
-        except PayrollRun.DoesNotExist:
-            return {
-                'context_text': 'Error: Payroll run not found.',
-                'audit_summary': None,
-                'run_number': '',
-                'period_name': '',
-            }
-
-        # Run audit checks
-        audit_report = self.audit_service.run_audit(run)
-
-        # Fetch items for formatting
-        items = list(
-            run.items
-            .select_related('employee')
-            .order_by('-net_salary')
-        )
-
-        # Build context sections
-        sections = [
-            self._format_run_summary(run),
-            self._format_statutory_summary(run),
-            self._format_audit_findings(audit_report),
-            self._format_employee_details(items),
-            self._format_component_breakdown(run),
-        ]
-
-        context_text = '\n\n'.join(s for s in sections if s)
-
-        return {
-            'context_text': context_text,
-            'audit_summary': audit_report.summary,
-            'run_number': run.run_number,
-            'period_name': run.payroll_period.name,
-        }
-
-    def _format_run_summary(self, run: PayrollRun) -> str:
+    def format_run_summary(self, run: PayrollRun) -> str:
         lines = [
             "=== PAYROLL RUN SUMMARY ===",
             f"Run Number: {run.run_number}",
@@ -88,7 +37,7 @@ class PayrollDataProvider:
         ]
         return '\n'.join(lines)
 
-    def _format_statutory_summary(self, run: PayrollRun) -> str:
+    def format_statutory_summary(self, run: PayrollRun) -> str:
         lines = [
             "=== STATUTORY DEDUCTIONS SUMMARY ===",
             f"Total PAYE: GHS {run.total_paye:,.2f}",
@@ -100,7 +49,7 @@ class PayrollDataProvider:
         ]
         return '\n'.join(lines)
 
-    def _format_audit_findings(self, audit_report) -> str:
+    def format_audit_findings(self, audit_report) -> str:
         lines = [
             "=== AUTOMATED AUDIT RESULTS ===",
             f"Total Checks: {audit_report.total_checks}",
@@ -115,7 +64,6 @@ class PayrollDataProvider:
             lines.append("\nAll checks passed — no issues found.")
             return '\n'.join(lines)
 
-        # Group by severity
         for severity in ['ERROR', 'WARNING', 'INFO']:
             severity_findings = [
                 f for f in audit_report.findings if f.severity == severity
@@ -140,7 +88,7 @@ class PayrollDataProvider:
 
         return '\n'.join(lines)
 
-    def _format_employee_details(self, items: list) -> str:
+    def format_employee_details(self, items: list) -> str:
         lines = [
             f"=== TOP {MAX_EMPLOYEE_DETAILS} EMPLOYEES BY NET SALARY ===",
         ]
@@ -169,8 +117,7 @@ class PayrollDataProvider:
 
         return '\n'.join(lines)
 
-    def _format_component_breakdown(self, run: PayrollRun) -> str:
-        """Aggregate component totals across the run."""
+    def format_component_breakdown(self, run: PayrollRun) -> str:
         details = (
             PayrollItemDetail.objects
             .filter(payroll_item__payroll_run=run)
@@ -202,3 +149,56 @@ class PayrollDataProvider:
             )
 
         return '\n'.join(lines)
+
+
+# ── Data provider ────────────────────────────────────────────────────────────
+
+class PayrollDataProvider:
+    """Fetches payroll data + audit results and formats as LLM context text."""
+
+    def __init__(self, audit_service=None, formatter=None):
+        if audit_service is None:
+            from payroll.audit_service import PayrollAuditService
+            audit_service = PayrollAuditService()
+        self.audit_service = audit_service
+        self.formatter = formatter or PayrollContextFormatter()
+
+    def get_payroll_context(self, payroll_run_id) -> dict:
+        try:
+            run = (
+                PayrollRun.objects
+                .select_related('payroll_period')
+                .get(pk=payroll_run_id)
+            )
+        except PayrollRun.DoesNotExist:
+            return {
+                'context_text': 'Error: Payroll run not found.',
+                'audit_summary': None,
+                'run_number': '',
+                'period_name': '',
+            }
+
+        audit_report = self.audit_service.run_audit(run)
+
+        items = list(
+            run.items
+            .select_related('employee')
+            .order_by('-net_salary')
+        )
+
+        sections = [
+            self.formatter.format_run_summary(run),
+            self.formatter.format_statutory_summary(run),
+            self.formatter.format_audit_findings(audit_report),
+            self.formatter.format_employee_details(items),
+            self.formatter.format_component_breakdown(run),
+        ]
+
+        context_text = '\n\n'.join(s for s in sections if s)
+
+        return {
+            'context_text': context_text,
+            'audit_summary': audit_report.summary,
+            'run_number': run.run_number,
+            'period_name': run.payroll_period.name,
+        }

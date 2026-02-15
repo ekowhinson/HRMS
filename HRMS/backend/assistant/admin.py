@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Conversation, Message, MessageAttachment, PromptTemplate
+from .models import (
+    Conversation, Message, MessageAttachment, PromptTemplate,
+    ImportSession, ImportPreviewRow, ImportResult,
+)
 
 
 @admin.register(Conversation)
@@ -36,3 +39,25 @@ class PromptTemplateAdmin(admin.ModelAdmin):
     list_filter = ['category', 'is_active', 'requires_file']
     search_fields = ['name', 'description']
     readonly_fields = ['id']
+
+
+@admin.register(ImportSession)
+class ImportSessionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'entity_type', 'status', 'total_rows', 'rows_created', 'rows_updated', 'rows_errored', 'created_at']
+    list_filter = ['entity_type', 'status', 'created_at']
+    search_fields = ['user__email']
+    readonly_fields = ['id', 'created_at', 'updated_at']
+
+
+@admin.register(ImportPreviewRow)
+class ImportPreviewRowAdmin(admin.ModelAdmin):
+    list_display = ['session', 'row_number', 'action']
+    list_filter = ['action']
+    readonly_fields = ['id']
+
+
+@admin.register(ImportResult)
+class ImportResultAdmin(admin.ModelAdmin):
+    list_display = ['session', 'row_number', 'action_taken', 'record_type', 'created_at']
+    list_filter = ['action_taken']
+    readonly_fields = ['id', 'created_at']

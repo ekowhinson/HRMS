@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import Conversation, Message, MessageAttachment, PromptTemplate
+from .models import (
+    Conversation, Message, MessageAttachment, PromptTemplate,
+    ImportSession, ImportPreviewRow, ImportResult,
+)
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
@@ -59,3 +62,79 @@ class PromptTemplateSerializer(serializers.ModelSerializer):
             'category', 'icon', 'requires_file', 'sort_order',
         ]
         read_only_fields = fields
+
+
+# ── Import pipeline serializers ─────────────────────────────────────────────
+
+
+class ImportPreviewRowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImportPreviewRow
+        fields = [
+            'id', 'row_number', 'action', 'parsed_data', 'raw_data',
+            'existing_record_id', 'changes', 'errors', 'warnings',
+        ]
+        read_only_fields = fields
+
+
+class ImportResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImportResult
+        fields = [
+            'id', 'row_number', 'action_taken', 'record_id',
+            'record_type', 'error_message', 'created_at',
+        ]
+        read_only_fields = fields
+
+
+class ImportSessionSerializer(serializers.ModelSerializer):
+    preview_rows = ImportPreviewRowSerializer(many=True, read_only=True)
+    results = ImportResultSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ImportSession
+        fields = [
+            'id', 'entity_type', 'status',
+            'column_mapping', 'confirmed_mapping', 'import_params',
+            'total_rows', 'rows_created', 'rows_updated',
+            'rows_skipped', 'rows_errored', 'error_details',
+            'celery_task_id', 'progress_key',
+            'created_at', 'updated_at',
+            'preview_rows', 'results',
+        ]
+        read_only_fields = fields
+
+
+class ImportSessionListSerializer(serializers.ModelSerializer):
+    """Lightweight list serializer without nested rows."""
+    class Meta:
+        model = ImportSession
+        fields = [
+            'id', 'entity_type', 'status',
+            'total_rows', 'rows_created', 'rows_updated',
+            'rows_skipped', 'rows_errored',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = fields
+
+
+class ImportAnalyzeRequestSerializer(serializers.Serializer):
+    attachment_id = serializers.UUIDField()
+    entity_type = serializers.ChoiceField(
+        choices=ImportSession.EntityType.choices,
+        required=False,
+        allow_null=True,
+    )
+
+
+class ImportPreviewRequestSerializer(serializers.Serializer):
+    session_id = serializers.UUIDField()
+    confirmed_mapping = serializers.DictField(
+        child=serializers.CharField(allow_null=True),
+        required=False,
+    )
+    import_params = serializers.DictField(required=False)
+
+
+class ImportConfirmRequestSerializer(serializers.Serializer):
+    session_id = serializers.UUIDField()
