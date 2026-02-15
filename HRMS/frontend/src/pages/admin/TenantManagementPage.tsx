@@ -16,6 +16,25 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+
+/** Extract a human-readable message from the HRMS API error envelope. */
+const getApiError = (err: any, fallback: string): string => {
+  const data = err?.response?.data
+  if (!data) return fallback
+  if (data.detail) return data.detail
+  if (data.error) {
+    const details = data.error.details
+    if (details) {
+      const firstKey = Object.keys(details)[0]
+      const val = details[firstKey]
+      if (Array.isArray(val)) return val[0]
+      if (typeof val === 'string') return val
+    }
+    if (typeof data.error.message === 'string') return data.error.message
+    if (typeof data.error === 'string') return data.error
+  }
+  return fallback
+}
 import { TablePagination } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -130,7 +149,7 @@ export default function TenantManagementPage() {
       resetForm()
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail || 'Failed to create tenant')
+      toast.error(getApiError(err, 'Failed to create tenant'))
     },
   })
 
@@ -143,7 +162,7 @@ export default function TenantManagementPage() {
       setShowEditModal(false)
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail || 'Failed to update tenant')
+      toast.error(getApiError(err, 'Failed to update tenant'))
     },
   })
 
@@ -199,7 +218,7 @@ export default function TenantManagementPage() {
       resetLicenseForm()
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail || 'Failed to create license')
+      toast.error(getApiError(err, 'Failed to create license'))
     },
   })
 
