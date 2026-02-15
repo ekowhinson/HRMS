@@ -483,10 +483,10 @@ jobs:
     steps:
       - name: API health check
         run: |
-          API_URL="${{ vars.PRODUCTION_API_URL }}"
+          BASE_URL="https://${{ vars.PRODUCTION_DOMAIN || 'hrms.nhia.gov.gh' }}"
           echo "## Production Smoke Tests" >> "$GITHUB_STEP_SUMMARY"
 
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/healthz/")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/healthz/")
           if [ "$STATUS" = "200" ]; then
             echo "- [x] Health check: **PASS**" >> "$GITHUB_STEP_SUMMARY"
           else

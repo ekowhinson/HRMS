@@ -262,11 +262,11 @@ jobs:
     steps:
       - name: API health check
         run: |
-          API_URL="${{ vars.STAGING_API_URL }}"
+          BASE_URL="https://${{ vars.STAGING_DOMAIN || 'faaberp.com' }}"
           echo "## Smoke Tests" >> "$GITHUB_STEP_SUMMARY"
 
           # Health endpoint
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/healthz/")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/healthz/")
           if [ "$STATUS" = "200" ]; then
             echo "- [x] Health check: **PASS** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
           else
@@ -275,7 +275,7 @@ jobs:
           fi
 
           # API status
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/api/v1/core/lookups/")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/api/v1/core/lookups/")
           if [ "$STATUS" = "200" ] || [ "$STATUS" = "401" ]; then
             echo "- [x] API endpoint: **PASS** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
           else
