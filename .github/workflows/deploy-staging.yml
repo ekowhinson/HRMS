@@ -149,51 +149,15 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Check if services exist
-        id: check-services
-        run: |
-          if gcloud run services describe ${{ env.CLOUD_RUN_API }} \
-            --region=${{ env.GCP_REGION }} \
-            --project=${{ env.PROJECT_ID }} &>/dev/null; then
-            echo "api_exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "api_exists=false" >> "$GITHUB_OUTPUT"
-            echo "API service does not exist yet — will create with full traffic"
-          fi
-
-      - name: Deploy API service (canary)
+      - name: Deploy API service
         id: deploy-api
-        if: steps.check-services.outputs.api_exists == 'true'
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image-tag }}"
 
-          gcloud run deploy ${{ env.CLOUD_RUN_API }} \
+          gcloud run services update ${{ env.CLOUD_RUN_API }} \
             --image="$IMAGE" \
             --region=${{ env.GCP_REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --no-traffic \
-            --tag=canary \
-            --format="value(status.url)"
-
-          CANARY_URL=$(gcloud run services describe ${{ env.CLOUD_RUN_API }} \
-            --region=${{ env.GCP_REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --format="value(status.traffic[tag=canary].url)")
-
-          echo "canary_url=$CANARY_URL" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy API service (first deploy)
-        id: deploy-api-new
-        if: steps.check-services.outputs.api_exists == 'false'
-        run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image-tag }}"
-
-          gcloud run deploy ${{ env.CLOUD_RUN_API }} \
-            --image="$IMAGE" \
-            --region=${{ env.GCP_REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --allow-unauthenticated \
-            --format="value(status.url)"
+            --project=${{ env.PROJECT_ID }}
 
           SERVICE_URL=$(gcloud run services describe ${{ env.CLOUD_RUN_API }} \
             --region=${{ env.GCP_REGION }} \
@@ -201,19 +165,15 @@ jobs:
             --format="value(status.url)")
 
           echo "service_url=$SERVICE_URL" >> "$GITHUB_OUTPUT"
-          echo "First deploy complete: $SERVICE_URL"
+          echo "Deployed to: $SERVICE_URL"
 
-      - name: Health check on new revision
+      - name: Health check
         run: |
-          if [ "${{ steps.check-services.outputs.api_exists }}" = "true" ]; then
-            CHECK_URL="${{ steps.deploy-api.outputs.canary_url }}"
-          else
-            CHECK_URL="${{ steps.deploy-api-new.outputs.service_url }}"
-          fi
-          echo "Checking health at: ${CHECK_URL}/healthz/"
+          SERVICE_URL="${{ steps.deploy-api.outputs.service_url }}"
+          echo "Checking health at: ${SERVICE_URL}/healthz/"
 
           for i in $(seq 1 10); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${CHECK_URL}/healthz/" || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${SERVICE_URL}/healthz/" || echo "000")
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (attempt $i)"
               exit 0
@@ -225,33 +185,14 @@ jobs:
           echo "Health check failed after 10 attempts"
           exit 1
 
-      - name: Shift 100% traffic to new revision
-        if: steps.check-services.outputs.api_exists == 'true'
-        run: |
-          LATEST_REVISION=$(gcloud run revisions list \
-            --service=${{ env.CLOUD_RUN_API }} \
-            --region=${{ env.GCP_REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --sort-by="~metadata.creationTimestamp" \
-            --limit=1 \
-            --format="value(metadata.name)")
-
-          gcloud run services update-traffic ${{ env.CLOUD_RUN_API }} \
-            --region=${{ env.GCP_REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --to-revisions="$LATEST_REVISION=100"
-
-          echo "Traffic shifted to $LATEST_REVISION"
-
       - name: Deploy Celery worker
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.WORKER_IMAGE }}:${{ needs.build-and-push.outputs.image-tag }}"
 
-          gcloud run deploy ${{ env.CLOUD_RUN_WORKER }} \
+          gcloud run services update ${{ env.CLOUD_RUN_WORKER }} \
             --image="$IMAGE" \
             --region=${{ env.GCP_REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --no-allow-unauthenticated
+            --project=${{ env.PROJECT_ID }}
 
   # ── 5. Deploy Frontend ──────────────────────────────────────────────────
   deploy-frontend:
