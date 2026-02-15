@@ -84,7 +84,7 @@ jobs:
       - name: Create Artifact Registry repository
         if: inputs.dry_run == 'false'
         run: |
-          REPO_NAME="nhia-hrms-staging-docker"
+          REPO_NAME="${{ vars.DOCKER_REPO || 'erp-hr-pay-staging-staging-docker' }}"
           echo "Creating Artifact Registry repo: $REPO_NAME"
 
           gcloud artifacts repositories create "$REPO_NAME" \
@@ -148,6 +148,6 @@ jobs:
           echo ""
           echo "### Next Steps" >> "$GITHUB_STEP_SUMMARY"
           echo "1. Set GitHub variable \`STAGING_BUCKET\` = \`${{ env.PROJECT_ID }}-frontend\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "2. Set GitHub variable \`STAGING_API_URL\` = \`https://nhia-hrms-staging-api-<hash>.run.app\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. Set GitHub variable \`STAGING_API_URL\` = \`https://erp-hr-pay-staging-staging-api-<hash>.run.app\`" >> "$GITHUB_STEP_SUMMARY"
           echo "3. Set GitHub variable \`GCP_REGION\` = \`us-central1\`" >> "$GITHUB_STEP_SUMMARY"
           echo "4. Re-run the Deploy Staging workflow" >> "$GITHUB_STEP_SUMMARY"

@@ -147,7 +147,7 @@ jobs:
           # Find the production DB instance
           INSTANCE=$(gcloud sql instances list \
             --project="$PROJECT" \
-            --filter="name~nhia-hrms-production-pg" \
+            --filter="name~${{ vars.DB_INSTANCE || 'nhia-hrms-production-production-pg' }}" \
             --format="value(name)" \
             --limit=1 2>/dev/null || echo "")
 

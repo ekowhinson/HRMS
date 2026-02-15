@@ -47,14 +47,14 @@ jobs:
         run: |
           if [ "${{ inputs.environment }}" = "production" ]; then
             echo "project=${{ secrets.GCP_PROJECT_ID_PRODUCTION }}" >> "$GITHUB_OUTPUT"
-            echo "api_service=nhia-hrms-production-api" >> "$GITHUB_OUTPUT"
-            echo "worker_service=nhia-hrms-production-worker" >> "$GITHUB_OUTPUT"
-            echo "urlmap=nhia-hrms-production-frontend-urlmap" >> "$GITHUB_OUTPUT"
+            echo "api_service=${{ vars.CLOUD_RUN_API || 'nhia-hrms-production-production-api' }}" >> "$GITHUB_OUTPUT"
+            echo "worker_service=${{ vars.CLOUD_RUN_WORKER || 'nhia-hrms-production-production-worker' }}" >> "$GITHUB_OUTPUT"
+            echo "urlmap=${{ vars.FRONTEND_URL_MAP || 'nhia-hrms-production-production-frontend-urlmap' }}" >> "$GITHUB_OUTPUT"
           else
             echo "project=${{ secrets.GCP_PROJECT_ID_STAGING }}" >> "$GITHUB_OUTPUT"
-            echo "api_service=nhia-hrms-staging-api" >> "$GITHUB_OUTPUT"
-            echo "worker_service=nhia-hrms-staging-worker" >> "$GITHUB_OUTPUT"
-            echo "urlmap=nhia-hrms-staging-frontend-urlmap" >> "$GITHUB_OUTPUT"
+            echo "api_service=${{ vars.CLOUD_RUN_API || 'erp-hr-pay-staging-staging-api' }}" >> "$GITHUB_OUTPUT"
+            echo "worker_service=${{ vars.CLOUD_RUN_WORKER || 'erp-hr-pay-staging-staging-worker' }}" >> "$GITHUB_OUTPUT"
+            echo "urlmap=${{ vars.FRONTEND_URL_MAP || 'erp-hr-pay-staging-staging-frontend-urlmap' }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Resolve target revision

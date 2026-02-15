@@ -16,11 +16,11 @@ env:
   GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_STAGING }}
   REGISTRY: ${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev
-  REPOSITORY: ${{ secrets.GCP_PROJECT_ID_STAGING }}/${{ vars.DOCKER_REPO || 'nhia-hrms-staging-docker' }}
+  REPOSITORY: ${{ secrets.GCP_PROJECT_ID_STAGING }}/${{ vars.DOCKER_REPO || 'erp-hr-pay-staging-staging-docker' }}
   BACKEND_IMAGE: backend
   WORKER_IMAGE: celery-worker
-  CLOUD_RUN_API: nhia-hrms-staging-api
-  CLOUD_RUN_WORKER: nhia-hrms-staging-worker
+  CLOUD_RUN_API: ${{ vars.CLOUD_RUN_API || 'erp-hr-pay-staging-staging-api' }}
+  CLOUD_RUN_WORKER: ${{ vars.CLOUD_RUN_WORKER || 'erp-hr-pay-staging-staging-worker' }}
 
 permissions:
   contents: read
@@ -265,7 +265,7 @@ jobs:
 
       - name: Invalidate CDN cache for index.html
         run: |
-          gcloud compute url-maps invalidate-cdn-cache nhia-hrms-staging-frontend-urlmap \
+          gcloud compute url-maps invalidate-cdn-cache ${{ vars.FRONTEND_URL_MAP || 'erp-hr-pay-staging-staging-frontend-urlmap' }} \
             --path="/index.html" \
             --project=${{ env.PROJECT_ID }} \
             --async || true
@@ -301,7 +301,7 @@ jobs:
 
       - name: Frontend check
         run: |
-          FRONTEND_URL="https://${{ vars.STAGING_BUCKET && 'staging.hrms.nhia.gov.gh' || 'staging.hrms.nhia.gov.gh' }}"
+          FRONTEND_URL="https://${{ vars.STAGING_DOMAIN || 'faaberp.com' }}"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || echo "000")
           if [ "$STATUS" = "200" ]; then
             echo "- [x] Frontend: **PASS** (${STATUS})" >> "$GITHUB_STEP_SUMMARY"

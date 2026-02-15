@@ -16,12 +16,12 @@ env:
   GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_PRODUCTION }}
   REGISTRY: ${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev
-  REPOSITORY: ${{ secrets.GCP_PROJECT_ID_PRODUCTION }}/nhia-hrms-production-docker
+  REPOSITORY: ${{ secrets.GCP_PROJECT_ID_PRODUCTION }}/${{ vars.DOCKER_REPO || 'nhia-hrms-production-production-docker' }}
   BACKEND_IMAGE: backend
   WORKER_IMAGE: celery-worker
-  CLOUD_RUN_API: nhia-hrms-production-api
-  CLOUD_RUN_WORKER: nhia-hrms-production-worker
-  DB_INSTANCE: nhia-hrms-production-pg
+  CLOUD_RUN_API: ${{ vars.CLOUD_RUN_API || 'nhia-hrms-production-production-api' }}
+  CLOUD_RUN_WORKER: ${{ vars.CLOUD_RUN_WORKER || 'nhia-hrms-production-production-worker' }}
+  DB_INSTANCE: ${{ vars.DB_INSTANCE || 'nhia-hrms-production-production-pg' }}
 
 permissions:
   contents: write # For tagging and releases
@@ -426,7 +426,7 @@ jobs:
 
       - name: Invalidate CDN cache
         run: |
-          gcloud compute url-maps invalidate-cdn-cache nhia-hrms-production-frontend-urlmap \
+          gcloud compute url-maps invalidate-cdn-cache ${{ vars.FRONTEND_URL_MAP || 'nhia-hrms-production-production-frontend-urlmap' }} \
             --path="/index.html" \
             --project=${{ env.PROJECT_ID }} \
             --async || true
@@ -452,7 +452,7 @@ jobs:
 
       - name: Frontend check
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://hrms.nhia.gov.gh" || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ vars.PRODUCTION_DOMAIN || 'hrms.nhia.gov.gh' }}" || echo "000")
           if [ "$STATUS" = "200" ]; then
             echo "- [x] Frontend: **PASS**" >> "$GITHUB_STEP_SUMMARY"
           else
