@@ -117,15 +117,18 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
           # Use gcloud run jobs to execute migration
-          gcloud run jobs execute ${{ env.CLOUD_RUN_API }}-migrate \
+          MIGRATE_JOB="${{ vars.MIGRATE_JOB || format('{0}-migrate', env.CLOUD_RUN_API) }}"
+          gcloud run jobs execute "$MIGRATE_JOB" \
             --region=${{ env.GCP_REGION }} \
             --project=${{ env.PROJECT_ID }} \
             --wait \
-            --format="text" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || {
+            --format="text" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          MIGRATE_EXIT=$?
+          if [ $MIGRATE_EXIT -ne 0 ]; then
               echo '```' >> "$GITHUB_STEP_SUMMARY"
               echo "**MIGRATION FAILED** - Deployment halted." >> "$GITHUB_STEP_SUMMARY"
               exit 1
-            }
+          fi
 
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "Migration completed successfully." >> "$GITHUB_STEP_SUMMARY"
