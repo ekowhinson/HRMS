@@ -128,8 +128,9 @@ class SwitchOrganizationSerializer(serializers.Serializer):
 
     def validate_organization_id(self, value):
         user = self.context['request'].user
-        if not UserOrganization.objects.filter(user=user, organization_id=value).exists():
-            raise serializers.ValidationError('You are not a member of this organization.')
+        if not (user.is_staff or user.is_superuser):
+            if not UserOrganization.objects.filter(user=user, organization_id=value).exists():
+                raise serializers.ValidationError('You are not a member of this organization.')
         try:
             org = Organization.objects.get(id=value, is_active=True)
         except Organization.DoesNotExist:
@@ -197,6 +198,16 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_organizations(self, obj):
         """Return all organizations the user belongs to."""
+        if obj.is_staff or obj.is_superuser:
+            from organization.models import Organization
+            orgs = Organization.objects.filter(is_active=True)
+            return [{
+                'id': str(o.id),
+                'name': o.name,
+                'code': o.code,
+                'role': 'admin',
+                'is_default': o.id == obj.organization_id,
+            } for o in orgs]
         memberships = obj.user_organizations.select_related('organization').all()
         return [{
             'id': str(m.organization.id),

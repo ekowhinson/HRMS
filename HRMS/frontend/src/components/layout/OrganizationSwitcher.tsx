@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronUpDownIcon, BuildingOffice2Icon, CheckIcon } from '@heroicons/react/20/solid'
 import { useAuthStore } from '@/features/auth/store'
 import api from '@/lib/api'
+import toast from 'react-hot-toast'
 
 export default function OrganizationSwitcher() {
   const { user, activeOrganization, setActiveOrganization, setTokens, setUser } = useAuthStore()
@@ -34,10 +35,14 @@ export default function OrganizationSwitcher() {
       setUser(updatedUser)
       setActiveOrganization(updatedUser.active_organization || null)
       setOpen(false)
-      // Reload page data by refreshing
+      toast.success('Organization switched successfully')
       window.location.reload()
-    } catch (err) {
-      console.error('Failed to switch organization:', err)
+    } catch (err: any) {
+      const message =
+        err.response?.data?.organization_id?.[0] ||
+        err.response?.data?.detail ||
+        'Failed to switch organization'
+      toast.error(message)
     } finally {
       setSwitching(false)
     }
@@ -51,7 +56,14 @@ export default function OrganizationSwitcher() {
         className={`flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors ${canSwitch ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'}`}
         disabled={switching}
       >
-        <BuildingOffice2Icon className="h-4 w-4 text-gray-400" />
+        {switching ? (
+          <svg className="h-4 w-4 animate-spin text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        ) : (
+          <BuildingOffice2Icon className="h-4 w-4 text-gray-400" />
+        )}
         <span className="hidden md:inline max-w-[160px] truncate">
           {activeOrganization?.name || 'Select Organization'}
         </span>
@@ -73,7 +85,12 @@ export default function OrganizationSwitcher() {
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   <BuildingOffice2Icon className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  <span className="flex-1 text-left truncate">{org.name}</span>
+                  <div className="flex-1 text-left min-w-0">
+                    <span className="block truncate">{org.name}</span>
+                    {org.code && (
+                      <span className="block text-xs text-gray-400 truncate">{org.code}</span>
+                    )}
+                  </div>
                   {org.id === activeOrganization?.id && (
                     <CheckIcon className="h-4 w-4 text-primary-600 flex-shrink-0" />
                   )}

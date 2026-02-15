@@ -458,7 +458,15 @@ class UserListView(generics.ListCreateAPIView):
                     f'User limit reached ({current_count}/{user_limit}). '
                     f'Upgrade your license to add more users.'
                 )
-        serializer.save()
+        user = serializer.save()
+        if tenant:
+            user.organization = tenant
+            user.save(update_fields=['organization_id'])
+            UserOrganization.objects.get_or_create(
+                user=user,
+                organization=tenant,
+                defaults={'role': 'member', 'is_default': True},
+            )
 
     def get_queryset(self):
         queryset = super().get_queryset()
