@@ -32,7 +32,7 @@ export default function Avatar({ src, firstName = '', lastName = '', size = 'md'
   return (
     <div
       className={cn(
-        'rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-medium',
+        'rounded-full bg-gray-100 text-gray-600 flex items-center justify-center font-medium',
         sizes[size],
         className
       )}

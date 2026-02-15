@@ -4,31 +4,31 @@
 export const colors = {
   // Primary (Green - HRMS Brand)
   primary: {
-    50: '#f0fdf4',
-    100: '#dcfce7',
-    200: '#bbf7d0',
-    300: '#86efac',
-    400: '#4ade80',
-    500: '#22c55e',
-    600: '#16a34a',
-    700: '#15803d',
-    800: '#166534',
-    900: '#14532d',
-    950: '#052e16',
+    50: '#ecfdf5',
+    100: '#d1fae5',
+    200: '#a7f3d0',
+    300: '#6ee7b7',
+    400: '#34d399',
+    500: '#10b981',
+    600: '#059669',
+    700: '#047857',
+    800: '#065f46',
+    900: '#064e3b',
+    950: '#022c22',
   },
-  // Accent (Gold)
+  // Accent (Violet/Purple)
   accent: {
-    50: '#fefce8',
-    100: '#fef9c3',
-    200: '#fef08a',
-    300: '#fde047',
-    400: '#facc15',
-    500: '#eab308',
-    600: '#ca8a04',
-    700: '#a16207',
-    800: '#854d0e',
-    900: '#713f12',
-    950: '#422006',
+    50: '#faf5ff',
+    100: '#f3e8ff',
+    200: '#e9d5ff',
+    300: '#d8b4fe',
+    400: '#c084fc',
+    500: '#a855f7',
+    600: '#9333ea',
+    700: '#7c3aed',
+    800: '#6b21a8',
+    900: '#581c87',
+    950: '#3b0764',
   },
   // HRMS Brand
   hrms: {
@@ -40,11 +40,11 @@ export const colors = {
   },
   // Semantic
   success: {
-    50: '#f0fdf4',
-    100: '#dcfce7',
-    500: '#22c55e',
-    600: '#16a34a',
-    700: '#15803d',
+    50: '#ecfdf5',
+    100: '#d1fae5',
+    500: '#10b981',
+    600: '#059669',
+    700: '#047857',
   },
   warning: {
     50: '#fffbeb',
@@ -67,19 +67,27 @@ export const colors = {
     600: '#2563eb',
     700: '#1d4ed8',
   },
-  // Neutrals (Gray)
+  // Neutrals (GitHub Primer grays)
   gray: {
-    50: '#f9fafb',
-    100: '#f3f4f6',
-    200: '#e5e7eb',
-    300: '#d1d5db',
-    400: '#9ca3af',
-    500: '#6b7280',
-    600: '#4b5563',
-    700: '#374151',
-    800: '#1f2937',
-    900: '#111827',
-    950: '#030712',
+    50: '#f6f8fa',
+    100: '#eaeef2',
+    200: '#d0d7de',
+    300: '#afb8c1',
+    400: '#8c959f',
+    500: '#6e7781',
+    600: '#57606a',
+    700: '#424a53',
+    800: '#32383f',
+    900: '#24292f',
+    950: '#1b1f24',
+  },
+  // Dark header (GitHub-style top nav)
+  header: {
+    bg: '#24292f',
+    hover: '#32383f',
+    text: '#ffffff',
+    textMuted: '#8c959f',
+    border: '#57606a',
   },
 } as const;
 
@@ -109,7 +117,7 @@ export const spacing = {
 
 export const typography = {
   fontFamily: {
-    sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+    sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Noto Sans', 'Helvetica', 'Arial', 'sans-serif'],
     mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
   },
   fontSize: {
@@ -132,27 +140,27 @@ export const typography = {
 } as const;
 
 export const shadows = {
-  xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-  sm: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-  md: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-  lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-  xl: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-  '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
-  card: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-  cardHover: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-  dropdown: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-  modal: '0 25px 50px -12px rgb(0 0 0 / 0.25)',
+  xs: '0 1px 0 rgba(27,31,36,0.04)',
+  sm: '0 1px 0 rgba(27,31,36,0.04)',
+  md: '0 3px 6px rgba(140,149,159,0.15)',
+  lg: '0 8px 24px rgba(140,149,159,0.2)',
+  xl: '0 12px 28px rgba(140,149,159,0.3)',
+  '2xl': '0 12px 28px rgba(140,149,159,0.3)',
+  card: '0 1px 0 rgba(27,31,36,0.04)',
+  cardHover: '0 1px 3px rgba(27,31,36,0.12), 0 1px 0 rgba(27,31,36,0.04)',
+  dropdown: '0 8px 24px rgba(140,149,159,0.2)',
+  modal: '0 12px 28px rgba(140,149,159,0.3)',
 } as const;
 
 export const borderRadius = {
   none: '0',
-  sm: '2px',
+  sm: '3px',
   default: '6px',
   md: '6px',
-  lg: '8px',
-  xl: '8px',
-  '2xl': '8px',
-  '3xl': '8px',
+  lg: '6px',
+  xl: '6px',
+  '2xl': '6px',
+  '3xl': '6px',
   full: '9999px',
 } as const;
 

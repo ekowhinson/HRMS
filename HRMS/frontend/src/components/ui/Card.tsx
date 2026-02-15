@@ -32,9 +32,9 @@ export function Card({
   return (
     <div
       className={cn(
-        'bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs',
+        'bg-white rounded-md border border-gray-200 overflow-hidden',
         accentColor && accentClasses[accentColor],
-        hoverable && 'hover:shadow-sm cursor-pointer',
+        hoverable && 'hover:border-gray-300 cursor-pointer',
         onClick && 'cursor-pointer',
         className
       )}
@@ -102,8 +102,8 @@ export function CompactCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-lg shadow-xs border border-gray-200 p-4',
-        onClick && 'cursor-pointer hover:shadow-sm',
+        'bg-white rounded-md border border-gray-200 p-4',
+        onClick && 'cursor-pointer hover:border-gray-300',
         className
       )}
       onClick={onClick}
@@ -128,8 +128,8 @@ export function GlassCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs',
-        onClick && 'cursor-pointer hover:shadow-sm',
+        'bg-white rounded-md border border-gray-200 overflow-hidden',
+        onClick && 'cursor-pointer hover:border-gray-300',
         className
       )}
       onClick={onClick}
@@ -178,7 +178,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        'bg-white p-6 rounded-lg border border-gray-200 shadow-xs',
+        'bg-white p-6 rounded-md border border-gray-200',
         borderClasses[variant],
         className
       )}
@@ -248,8 +248,8 @@ export function FeatureCard({
     <div
       onClick={onClick}
       className={cn(
-        'group relative p-6 rounded-lg bg-white border border-gray-200',
-        'hover:shadow-sm',
+        'group relative p-6 rounded-md bg-white border border-gray-200',
+        'hover:border-gray-300',
         onClick && 'cursor-pointer',
         className
       )}

@@ -39,7 +39,7 @@ export default function Modal({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-25" />
+          <div className="fixed inset-0 bg-black/50" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -55,7 +55,7 @@ export default function Modal({
             >
               <Dialog.Panel
                 className={cn(
-                  'w-full transform overflow-y-auto max-h-[90vh] rounded-lg bg-white p-6 text-left align-middle shadow-xl transition-all',
+                  'w-full transform overflow-y-auto max-h-[90vh] rounded-md bg-white border border-gray-200 p-6 text-left align-middle shadow-xl transition-all',
                   sizes[size]
                 )}
               >

@@ -37,21 +37,21 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
     const variantStyles = {
       default: cn(
-        'border border-gray-200 bg-white rounded-md',
+        'border border-gray-200 bg-gray-50 rounded-md',
         'hover:border-gray-300',
-        'focus:border-primary-500 focus:ring-1 focus:ring-primary-500',
+        'focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] focus:bg-white',
         error && 'border-danger-500 focus:border-danger-500 focus:ring-danger-500'
       ),
       filled: cn(
         'border-0 bg-gray-100 rounded-md',
         'hover:bg-gray-200/70',
-        'focus:bg-white focus:ring-1 focus:ring-primary-500',
+        'focus:bg-white focus:ring-1 focus:ring-[#0969da]',
         error && 'bg-danger-50 focus:ring-danger-500'
       ),
       underline: cn(
         'border-0 border-b-2 border-gray-200 rounded-none bg-transparent px-0',
         'hover:border-gray-400',
-        'focus:border-primary-500',
+        'focus:border-[#0969da]',
         error && 'border-danger-500'
       ),
     };
@@ -148,10 +148,10 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           type="search"
           value={value}
           className={cn(
-            'block w-full pl-11 pr-10 py-2.5 border border-gray-200 rounded-md',
+            'block w-full pl-11 pr-10 py-2.5 border border-gray-200 bg-gray-50 rounded-md',
             'placeholder-gray-400 text-sm',
             'transition-colors duration-150',
-            'focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500',
+            'focus:outline-none focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] focus:bg-white',
             'hover:border-gray-300',
             className
           )}

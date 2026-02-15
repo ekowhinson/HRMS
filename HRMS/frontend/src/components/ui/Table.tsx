@@ -81,9 +81,9 @@ export default function Table<T extends { id?: string | number }>({
   // Loading state with skeleton rows
   if (isLoading) {
     return (
-      <div className={cn('overflow-hidden rounded-lg border border-gray-200', className)}>
+      <div className={cn('overflow-hidden rounded-md border border-gray-200', className)}>
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50/80">
+          <thead className="bg-gray-50">
             <tr>
               {selectable && (
                 <th className="w-12 px-4 py-3">
@@ -94,7 +94,7 @@ export default function Table<T extends { id?: string | number }>({
                 <th
                   key={column.key}
                   className={cn(
-                    'px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider',
+                    'px-4 py-3 text-left text-xs font-semibold text-gray-600',
                     column.className
                   )}
                   style={{ width: column.width }}
@@ -104,7 +104,7 @@ export default function Table<T extends { id?: string | number }>({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
+          <tbody className="bg-white divide-y divide-gray-200">
             {Array.from({ length: 5 }).map((_, i) => (
               <SkeletonTableRow key={i} columns={columns.length + (selectable ? 1 : 0)} />
             ))}
@@ -117,7 +117,7 @@ export default function Table<T extends { id?: string | number }>({
   // Empty state
   if (data.length === 0) {
     return (
-      <div className={cn('overflow-hidden rounded-lg border border-gray-200 bg-white', className)}>
+      <div className={cn('overflow-hidden rounded-md border border-gray-200 bg-white', className)}>
         <EmptyState
           type={emptyType}
           title={emptyMessage}
@@ -132,12 +132,12 @@ export default function Table<T extends { id?: string | number }>({
   const isSomeSelected = selectedIds.size > 0 && selectedIds.size < data.length;
 
   return (
-    <div className={cn('overflow-hidden rounded-lg border border-gray-200', className)}>
+    <div className={cn('overflow-hidden rounded-md border border-gray-200', className)}>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead
             className={cn(
-              'bg-gray-50/80',
+              'bg-gray-50',
               stickyHeader && 'sticky top-0 z-10'
             )}
           >
@@ -159,7 +159,7 @@ export default function Table<T extends { id?: string | number }>({
                 <th
                   key={column.key}
                   className={cn(
-                    'px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider',
+                    'px-4 py-3 text-left text-xs font-semibold text-gray-600',
                     column.sortable && 'cursor-pointer select-none hover:bg-gray-100 transition-colors',
                     column.className
                   )}
@@ -193,7 +193,7 @@ export default function Table<T extends { id?: string | number }>({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
+          <tbody className="bg-white divide-y divide-gray-200">
             {data.map((item, index) => {
               const rowId = getRowId(item);
               const isSelected = selectedIds.has(rowId);
@@ -252,7 +252,7 @@ interface BasicTableProps {
 
 export function TableRoot({ children, className }: BasicTableProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200">
+    <div className="overflow-hidden rounded-md border border-gray-200">
       <div className="overflow-x-auto">
         <table className={cn('min-w-full divide-y divide-gray-200', className)}>
           {children}
@@ -264,13 +264,13 @@ export function TableRoot({ children, className }: BasicTableProps) {
 
 export function TableHeader({ children, className }: BasicTableProps) {
   return (
-    <thead className={cn('bg-gray-50/80', className)}>{children}</thead>
+    <thead className={cn('bg-gray-50', className)}>{children}</thead>
   );
 }
 
 export function TableBody({ children, className }: BasicTableProps) {
   return (
-    <tbody className={cn('bg-white divide-y divide-gray-100', className)}>
+    <tbody className={cn('bg-white divide-y divide-gray-200', className)}>
       {children}
     </tbody>
   );
@@ -322,7 +322,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        'px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider',
+        'px-4 py-3 text-left text-xs font-semibold text-gray-600',
         sortable && 'cursor-pointer select-none hover:bg-gray-100 transition-colors',
         className
       )}

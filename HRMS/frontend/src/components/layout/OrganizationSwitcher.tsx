@@ -53,7 +53,7 @@ export default function OrganizationSwitcher() {
       <button
         type="button"
         onClick={() => canSwitch && setOpen(!open)}
-        className={`flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors ${canSwitch ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'}`}
+        className={`flex items-center gap-2 rounded-md border border-header-border bg-header-hover px-3 py-1.5 text-sm font-medium text-header-text transition-colors ${canSwitch ? 'hover:bg-header-bg cursor-pointer' : 'cursor-default'}`}
         disabled={switching}
       >
         {switching ? (
@@ -62,12 +62,12 @@ export default function OrganizationSwitcher() {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         ) : (
-          <BuildingOffice2Icon className="h-4 w-4 text-gray-400" />
+          <BuildingOffice2Icon className="h-4 w-4 text-header-text-muted" />
         )}
         <span className="hidden md:inline max-w-[160px] truncate">
           {activeOrganization?.name || 'Select Organization'}
         </span>
-        {canSwitch && <ChevronUpDownIcon className="h-4 w-4 text-gray-400" />}
+        {canSwitch && <ChevronUpDownIcon className="h-4 w-4 text-header-text-muted" />}
       </button>
 
       {open && (

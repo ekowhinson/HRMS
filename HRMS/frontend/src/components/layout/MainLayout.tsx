@@ -375,19 +375,19 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-// Clean ERP Logo Component
+// Clean ERP Logo Component — styled for dark header
 function HRMSLogo({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-lg bg-primary-600 flex items-center justify-center">
-        <span className="text-white font-bold text-[11px]">ERP</span>
+      <div className="w-8 h-8 rounded-md bg-white/15 flex items-center justify-center">
+        <span className="text-white font-bold text-[10px]">ERP</span>
       </div>
       {!collapsed && (
         <div className="flex flex-col">
-          <span className="text-lg font-bold text-gray-900">
+          <span className="text-base font-bold text-white">
             ERP
           </span>
-          <span className="text-[10px] text-gray-500 -mt-1 tracking-wider uppercase">
+          <span className="text-[9px] text-header-text-muted -mt-1 tracking-wider uppercase">
             Suite
           </span>
         </div>
@@ -409,23 +409,18 @@ function NavLink({
     <Link
       to={item.href}
       className={cn(
-        'group relative flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors duration-150',
+        'group relative flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-150',
         isActive
-          ? 'bg-primary-50 text-primary-700'
+          ? 'bg-gray-100 text-gray-900 font-semibold'
           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
       )}
       onClick={onClick}
     >
-      {/* Active indicator - left side solid bar */}
-      {isActive && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary-600 rounded-r-full" />
-      )}
-
       <item.icon
         className={cn(
           'mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150',
           isActive
-            ? 'text-primary-600'
+            ? 'text-gray-900'
             : 'text-gray-400 group-hover:text-gray-600'
         )}
       />
@@ -452,7 +447,7 @@ function SubNavLink({
       className={cn(
         'group flex items-center pl-11 pr-3 py-2 text-sm font-medium rounded-md transition-colors duration-150',
         isActive
-          ? 'text-primary-700 bg-primary-50'
+          ? 'text-gray-900 bg-gray-100 font-semibold'
           : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
       )}
       onClick={onClick}
@@ -460,7 +455,7 @@ function SubNavLink({
       <item.icon
         className={cn(
           'mr-3 h-4 w-4 flex-shrink-0 transition-colors',
-          isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-600'
+          isActive ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'
         )}
       />
       {item.name}
@@ -535,9 +530,9 @@ function CollapsibleSection({
       <button
         onClick={onToggle}
         className={cn(
-          'group flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-md transition-colors duration-150',
+          'group flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-md transition-colors duration-150',
           hasActiveItem
-            ? 'text-primary-700 bg-primary-50'
+            ? 'text-gray-900 bg-gray-100 font-semibold'
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
         )}
       >
@@ -545,7 +540,7 @@ function CollapsibleSection({
           <section.icon
             className={cn(
               'mr-3 h-5 w-5 transition-colors',
-              hasActiveItem ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-600'
+              hasActiveItem ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'
             )}
           />
           {section.name}
@@ -652,7 +647,7 @@ function NotificationBell() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        className="relative p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+        className="relative p-2.5 text-header-text-muted hover:text-white rounded-md transition-colors"
         onClick={() => setOpen(!open)}
       >
         <BellIcon className="h-5 w-5" />
@@ -1137,11 +1132,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
-          <div className="flex-shrink-0 flex h-16 items-center justify-between px-4 border-b border-gray-200">
+          <div className="flex-shrink-0 flex h-14 items-center justify-between px-4 border-b border-gray-200 bg-header-bg">
             <HRMSLogo />
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-md text-header-text-muted hover:text-white transition-colors"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -1171,12 +1166,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col bg-white border-r border-gray-200">
+      {/* Desktop sidebar — starts below dark header */}
+      <div className="hidden lg:fixed lg:top-14 lg:bottom-0 lg:flex lg:w-64 lg:flex-col bg-white border-r border-gray-200">
         <div className="flex flex-col h-full">
-          <div className="flex-shrink-0 flex h-16 items-center px-5 border-b border-gray-200">
-            <HRMSLogo />
-          </div>
           <nav className="flex-1 min-h-0">
             {renderSidebarContent()}
           </nav>
@@ -1203,24 +1195,30 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* Main content */}
       <div className="lg:pl-64">
-        {/* Top bar */}
-        <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 lg:px-8">
+        {/* Dark top header bar (GitHub-style) */}
+        <header className="sticky top-0 z-40 flex h-14 items-center gap-4 bg-header-bg px-4 lg:px-6">
+          {/* Mobile menu button */}
           <button
             type="button"
-            className="lg:hidden -m-2 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+            className="lg:hidden -m-2 p-2 text-header-text-muted hover:text-white rounded-md transition-colors"
             onClick={() => setSidebarOpen(true)}
           >
             <Bars3Icon className="h-6 w-6" />
           </button>
 
+          {/* Logo in header (visible on desktop) */}
+          <div className="hidden lg:flex items-center">
+            <HRMSLogo />
+          </div>
+
           {/* Search */}
           <div className="hidden sm:flex flex-1 max-w-md">
             <div className="relative w-full">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-header-text-muted" />
               <input
                 type="search"
                 placeholder="Search employees, records..."
-                className="w-full pl-10 pr-4 py-2 text-sm bg-gray-100 border border-gray-200 rounded-md focus:bg-white focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none transition-colors"
+                className="w-full pl-10 pr-4 py-1.5 text-sm bg-header-hover text-white placeholder-header-text-muted border border-header-border rounded-md focus:bg-gray-50 focus:text-gray-900 focus:placeholder-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -1243,7 +1241,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </header>
 
         {/* Page content */}
-        <main className="p-4 lg:p-8 min-h-[calc(100vh-4rem)]">
+        <main className="p-4 lg:p-6 min-h-[calc(100vh-3.5rem)]">
           {children}
         </main>
       </div>

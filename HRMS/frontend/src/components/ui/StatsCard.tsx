@@ -162,20 +162,12 @@ export function StatsCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-lg border border-gray-200 p-5 relative overflow-hidden shadow-xs',
-        onClick && 'cursor-pointer hover:shadow-sm',
+        'bg-white rounded-md border border-gray-200 p-5 relative overflow-hidden',
+        onClick && 'cursor-pointer hover:border-gray-300',
         className
       )}
       onClick={onClick}
     >
-      {/* Decorative accent */}
-      <div
-        className={cn(
-          'absolute top-0 right-0 w-24 h-24 rounded-full -translate-y-1/2 translate-x-1/2 opacity-10',
-          styles.accent
-        )}
-      />
-
       <div className="relative">
         {/* Header with icon and title */}
         <div className="flex items-start justify-between mb-3">

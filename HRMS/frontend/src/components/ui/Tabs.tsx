@@ -101,21 +101,21 @@ export function TabsTrigger({
     default: cn(
       'px-4 py-2.5 text-sm border-b-2 -mb-px',
       isActive
-        ? 'text-primary-600 border-primary-600'
+        ? 'text-gray-900 border-primary-500 font-semibold'
         : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300',
       disabled && 'opacity-50 cursor-not-allowed'
     ),
     pills: cn(
       'px-4 py-2 text-sm rounded-md',
       isActive
-        ? 'bg-white text-primary-600 shadow-sm'
+        ? 'bg-white text-gray-900 shadow-sm font-semibold'
         : 'text-gray-600 hover:text-gray-900 hover:bg-white/50',
       disabled && 'opacity-50 cursor-not-allowed'
     ),
     underline: cn(
       'px-4 py-2.5 text-sm border-b-2 -mb-px',
       isActive
-        ? 'text-primary-600 border-primary-600'
+        ? 'text-gray-900 border-primary-500 font-semibold'
         : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300',
       disabled && 'opacity-50 cursor-not-allowed'
     ),
