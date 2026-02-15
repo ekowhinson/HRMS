@@ -1,12 +1,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Deploy to Production – Build, Snapshot, Migrate, Canary Deploy, Release
-# Triggers on push to main branch. Requires environment approval.
+# Triggers on push to master branch. Requires environment approval.
 # ─────────────────────────────────────────────────────────────────────────────
 name: Deploy Production
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 concurrency:
   group: deploy-production
