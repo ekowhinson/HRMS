@@ -157,8 +157,12 @@ class TenantSetupViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Auto-trigger setup when a new organization is created."""
         org = serializer.save()
-        from .tasks import setup_organization_task
-        setup_organization_task.delay(str(org.id))
+        try:
+            from .tasks import setup_organization_task
+            setup_organization_task.delay(str(org.id))
+        except Exception:
+            # Celery/Redis may not be available; setup can be triggered manually
+            pass
 
 
 class TenantConfigViewSet(viewsets.ViewSet):
