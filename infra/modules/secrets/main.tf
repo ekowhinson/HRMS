@@ -14,11 +14,12 @@ locals {
     "azure-client-secret" = "Azure AD client secret"
   }
 
-  # Both service accounts need read access
-  accessor_emails = [
-    "serviceAccount:${var.api_sa_email}",
-    "serviceAccount:${var.worker_sa_email}",
-  ]
+  # Both service accounts need read access (static keys for for_each)
+  accessor_sa_keys = ["api", "worker"]
+  accessor_sa_map = {
+    "api"    = "serviceAccount:${var.api_sa_email}"
+    "worker" = "serviceAccount:${var.worker_sa_email}"
+  }
 }
 
 # ── Create Secrets ───────────────────────────────────────────────────────────
@@ -41,10 +42,10 @@ resource "google_secret_manager_secret" "secrets" {
 
 resource "google_secret_manager_secret_iam_member" "accessor" {
   for_each = {
-    for pair in setproduct(keys(local.secrets), local.accessor_emails) :
+    for pair in setproduct(keys(local.secrets), local.accessor_sa_keys) :
     "${pair[0]}-${pair[1]}" => {
       secret_id = pair[0]
-      member    = pair[1]
+      member    = local.accessor_sa_map[pair[1]]
     }
   }
 

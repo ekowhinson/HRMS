@@ -196,7 +196,7 @@ resource "google_iam_workload_identity_pool" "github" {
 resource "google_iam_workload_identity_pool_provider" "github" {
   count                              = var.github_repo != "" ? 1 : 0
   workload_identity_pool_id          = google_iam_workload_identity_pool.github[0].workload_identity_pool_id
-  workload_identity_pool_provider_id = "${var.name_prefix}-github-provider"
+  workload_identity_pool_provider_id = "${var.name_prefix}-gh-oidc"
   display_name                       = "GitHub Actions Provider"
   project                            = var.project_id
 

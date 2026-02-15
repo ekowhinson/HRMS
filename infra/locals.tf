@@ -1,6 +1,6 @@
 locals {
   # ── Naming convention: {project}-{environment}-{resource} ──────────────
-  name_prefix = "${var.project_id}-${var.environment}"
+  name_prefix = var.project_id
 
   # Common labels applied to all resources
   common_labels = merge(var.labels, {

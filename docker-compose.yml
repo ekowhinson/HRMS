@@ -65,10 +65,13 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       REDIS_CACHE_URL: redis://redis:6379/1
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
 
   # ─── Celery Worker ─────────────────────────────────────────
@@ -137,6 +140,21 @@ services:
   #     - redis
   #   command: celery -A config flower --port=5555
 
+  # ─── Ollama (Local LLM) ─────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   # ─── React Frontend ──────────────────────────────────────────
   frontend:
     build:
@@ -154,3 +172,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  ollama_data:
+    external: true
+    name: ollama
