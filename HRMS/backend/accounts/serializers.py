@@ -406,7 +406,7 @@ class EmployeeSignupSerializer(serializers.Serializer):
             query |= Q(ghana_card_number__iexact=ghana_card_number)
 
         try:
-            employee = Employee.objects.get(query)
+            employee = Employee.objects.all_tenants().get(query)
         except Employee.DoesNotExist:
             raise serializers.ValidationError({
                 'employee_number': 'No employee found with the provided information'
