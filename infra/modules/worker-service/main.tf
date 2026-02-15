@@ -90,6 +90,11 @@ resource "google_cloud_run_v2_service" "worker" {
       }
 
       env {
+        name  = "OLLAMA_BASE_URL"
+        value = var.ollama_base_url
+      }
+
+      env {
         name  = "CELERY_WORKER_QUEUES"
         value = "default,imports,reports,payroll"
       }

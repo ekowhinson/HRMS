@@ -105,6 +105,18 @@ output "cdn_url" {
   value       = module.frontend_cdn.cdn_url
 }
 
+# ── Ollama GPU ─────────────────────────────────────────────────────────────
+
+output "ollama_private_ip" {
+  description = "Ollama GCE instance private IP"
+  value       = module.ollama_gpu.private_ip
+}
+
+output "ollama_base_url" {
+  description = "Ollama API base URL for internal services"
+  value       = module.ollama_gpu.ollama_base_url
+}
+
 # ── Security ─────────────────────────────────────────────────────────────────
 
 output "api_service_account_email" {

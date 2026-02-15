@@ -110,6 +110,11 @@ resource "google_cloud_run_v2_service" "api" {
         value = var.db_connection_name
       }
 
+      env {
+        name  = "OLLAMA_BASE_URL"
+        value = var.ollama_base_url
+      }
+
       # ── Secrets from Secret Manager ──────────────────────────────────────
       env {
         name = "SECRET_KEY"

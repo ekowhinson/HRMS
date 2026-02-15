@@ -301,6 +301,44 @@ variable "enable_log_based_metrics" {
   default     = true
 }
 
+# ── Ollama GPU (AI LLM) ──────────────────────────────────────────────────
+
+variable "ollama_zone" {
+  description = "GCE zone for Ollama GPU instance (must have GPU availability)"
+  type        = string
+  default     = "us-central1-a"
+}
+
+variable "ollama_machine_type" {
+  description = "GCE machine type for Ollama instance"
+  type        = string
+  default     = "n1-standard-4"
+}
+
+variable "ollama_gpu_type" {
+  description = "GPU accelerator type"
+  type        = string
+  default     = "nvidia-tesla-t4"
+}
+
+variable "ollama_gpu_count" {
+  description = "Number of GPUs to attach"
+  type        = number
+  default     = 1
+}
+
+variable "ollama_disk_size_gb" {
+  description = "Boot disk size in GB for Ollama instance"
+  type        = number
+  default     = 50
+}
+
+variable "ollama_models" {
+  description = "Ollama models to pre-pull on startup"
+  type        = list(string)
+  default     = ["llama3.1", "llava"]
+}
+
 # ── Labels ───────────────────────────────────────────────────────────────────
 
 variable "labels" {

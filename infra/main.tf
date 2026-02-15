@@ -146,6 +146,8 @@ module "backend_service" {
   media_bucket       = module.storage.media_bucket_name
   labels             = local.common_labels
 
+  ollama_base_url    = module.ollama_gpu.ollama_base_url
+
   depends_on = [module.database, module.cache, module.secrets, module.registry]
 }
 
@@ -172,6 +174,7 @@ module "worker_service" {
   timeout            = var.worker_timeout
   environment        = var.environment
   media_bucket       = module.storage.media_bucket_name
+  ollama_base_url    = module.ollama_gpu.ollama_base_url
   labels             = local.common_labels
 
   depends_on = [module.database, module.cache, module.secrets, module.registry]
@@ -208,4 +211,26 @@ module "monitoring" {
   redis_instance_id       = module.cache.instance_id
   enable_log_based_metrics = var.enable_log_based_metrics
   labels                  = local.common_labels
+}
+
+# ── 12. Ollama GPU (AI Assistant LLM) ──────────────────────────────────────
+
+module "ollama_gpu" {
+  source = "./modules/ollama-gpu"
+
+  project_id            = var.project_id
+  region                = var.region
+  zone                  = var.ollama_zone
+  name_prefix           = local.name_prefix
+  network_id            = module.networking.network_id
+  subnet_id             = module.networking.subnet_id
+  service_account_email = local.worker_sa_email
+  machine_type          = var.ollama_machine_type
+  gpu_type              = var.ollama_gpu_type
+  gpu_count             = var.ollama_gpu_count
+  disk_size_gb          = var.ollama_disk_size_gb
+  ollama_models         = var.ollama_models
+  labels                = local.common_labels
+
+  depends_on = [module.networking]
 }

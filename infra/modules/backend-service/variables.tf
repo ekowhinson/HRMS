@@ -95,6 +95,12 @@ variable "media_bucket" {
   type        = string
 }
 
+variable "ollama_base_url" {
+  description = "Ollama LLM API base URL"
+  type        = string
+  default     = "http://localhost:11434"
+}
+
 variable "labels" {
   type    = map(string)
   default = {}

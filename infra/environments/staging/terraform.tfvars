@@ -48,6 +48,13 @@ ssl_certificate_domains = ["faaberp.com"]
 # ── CI/CD ────────────────────────────────────────────────────────────────────
 github_repo = "ekowhinson/HRMS"
 
+# ── Ollama GPU (AI LLM for staging) ───────────────────────────────────────
+ollama_machine_type = "n1-standard-4"
+ollama_gpu_type     = "nvidia-tesla-t4"
+ollama_gpu_count    = 1
+ollama_disk_size_gb = 50
+ollama_models       = ["llama3.1", "llava"]
+
 # ── Labels ───────────────────────────────────────────────────────────────────
 labels = {
   organization = "nhia"
