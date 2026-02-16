@@ -179,7 +179,7 @@ function CaseCard({ c, expanded, onToggle }: {
 
           {/* Show Cause Section */}
           {c.status === 'SHOW_CAUSE_ISSUED' && (
-            <div className="bg-warning-50 border border-warning-200 rounded-lg p-4 space-y-3">
+            <div className="bg-warning-50 border border-warning-200 rounded-md p-4 space-y-3">
               <h4 className="font-semibold text-warning-800">Show Cause Letter Issued</h4>
               <p className="text-sm text-warning-700">
                 A show cause letter was issued on {formatDate(c.show_cause_issued_date)}.
@@ -201,7 +201,7 @@ function CaseCard({ c, expanded, onToggle }: {
           )}
 
           {c.show_cause_response && (
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-gray-50 rounded-md p-4">
               <h4 className="font-semibold text-gray-900 text-sm">Your Show Cause Response</h4>
               <p className="text-sm text-gray-700 mt-2">{c.show_cause_response}</p>
               <p className="text-xs text-gray-400 mt-1">Submitted on {formatDate(c.show_cause_response_date)}</p>
@@ -244,7 +244,7 @@ function CaseCard({ c, expanded, onToggle }: {
               <h4 className="font-semibold text-gray-900 mb-3">Hearing Schedule</h4>
               <div className="space-y-2">
                 {c.hearings.map((h) => (
-                  <div key={h.id} className="bg-info-50 rounded-lg p-3 text-sm">
+                  <div key={h.id} className="bg-info-50 rounded-md p-3 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Hearing #{h.hearing_number}</span>
                       <Badge variant={h.status === 'COMPLETED' ? 'success' : 'info'} size="xs">{h.status_display}</Badge>
@@ -258,7 +258,7 @@ function CaseCard({ c, expanded, onToggle }: {
 
           {/* Decision */}
           {c.final_decision && (
-            <div className="bg-danger-50 border border-danger-200 rounded-lg p-4">
+            <div className="bg-danger-50 border border-danger-200 rounded-md p-4">
               <h4 className="font-semibold text-danger-800">Decision</h4>
               <p className="text-sm text-danger-700 mt-2">{c.final_decision}</p>
               <p className="text-xs text-danger-500 mt-1">Issued on {formatDate(c.decision_date)} by {c.decision_by_name}</p>
@@ -270,7 +270,7 @@ function CaseCard({ c, expanded, onToggle }: {
             <div>
               <h4 className="font-semibold text-gray-900 mb-3">Appeals</h4>
               {c.appeals.map((a) => (
-                <div key={a.id} className="border border-gray-200 rounded-lg p-3 text-sm mb-2">
+                <div key={a.id} className="border border-gray-300 rounded-md p-3 text-sm mb-2">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Appeal #{a.appeal_number}</span>
                     <Badge variant={a.status === 'UPHELD' ? 'success' : a.status === 'DISMISSED' ? 'danger' : 'warning'} size="xs">{a.status_display}</Badge>
@@ -290,7 +290,7 @@ function CaseCard({ c, expanded, onToggle }: {
                   File Appeal
                 </Button>
               ) : (
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div className="bg-gray-50 rounded-md p-4 space-y-3">
                   <h4 className="font-semibold text-gray-900">File an Appeal</h4>
                   <Textarea
                     label="Grounds for Appeal"

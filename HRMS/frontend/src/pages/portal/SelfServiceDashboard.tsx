@@ -204,7 +204,7 @@ export default function SelfServiceDashboard() {
           </p>
         </div>
         {unreadCount > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-primary-50 rounded-lg border border-primary-200">
+          <div className="flex items-center gap-2 px-4 py-2 bg-primary-50 rounded-md border border-primary-200">
             <MegaphoneIcon className="h-5 w-5 text-primary-600" />
             <span className="text-sm font-medium text-primary-700">
               {unreadCount} unread announcement{unreadCount !== 1 ? 's' : ''}
@@ -218,7 +218,7 @@ export default function SelfServiceDashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-100 rounded-lg">
+              <div className="p-2 bg-primary-100 rounded-md">
                 <MegaphoneIcon className="h-5 w-5 text-primary-600" />
               </div>
               <div>
@@ -304,7 +304,7 @@ export default function SelfServiceDashboard() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-info-100 rounded-lg">
+            <div className="p-2 bg-info-100 rounded-md">
               <DocumentTextIcon className="h-5 w-5 text-info-600" />
             </div>
             <div>
@@ -539,7 +539,7 @@ export default function SelfServiceDashboard() {
             </div>
 
             {selectedPolicy.summary && (
-              <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="p-3 bg-gray-50 rounded-md">
                 <p className="text-sm text-gray-600">{selectedPolicy.summary}</p>
               </div>
             )}
@@ -564,7 +564,7 @@ export default function SelfServiceDashboard() {
                   </div>
                 )}
                 {policyViewerUrl && (
-                  <div className="border rounded-lg overflow-hidden mb-3">
+                  <div className="border rounded-md overflow-hidden mb-3">
                     {selectedPolicy.attachment_type === 'application/pdf' ? (
                       <iframe
                         src={policyViewerUrl}
@@ -725,9 +725,9 @@ function QuickLink({
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 shadow-xs hover:shadow-sm hover:border-gray-300 transition-all group"
+      className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-300 shadow-xs hover:border-gray-400 transition-colors duration-150 group"
     >
-      <div className="p-2 bg-gray-100 rounded-lg text-gray-600 group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors">
+      <div className="p-2 bg-gray-100 rounded-md text-gray-600 group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors">
         {icon}
       </div>
       <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{label}</span>

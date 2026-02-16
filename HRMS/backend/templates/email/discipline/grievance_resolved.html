@@ -1,0 +1,44 @@
+{% extends "email/base.html" %}
+
+{% block title %}Grievance Resolved — {{ org_name|default:"NHIA" }} HRMS{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Grievance Resolved
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Dear {{ employee_name }},
+</p>
+
+<p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">
+  We are pleased to inform you that your grievance has been reviewed and resolved. Please find the resolution details below.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+  <tr>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;width:140px;">Grievance No.</td>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ grievance_number }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b7280;vertical-align:top;">Resolution</td>
+    <td style="padding:12px 16px;font-size:14px;line-height:1.5;color:#111827;">{{ resolution_summary }}</td>
+  </tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;border-left:4px solid #059669;background-color:#ecfdf5;border-radius:0 8px 8px 0;">
+  <tr>
+    <td style="padding:16px;">
+      <p style="margin:0;font-size:14px;line-height:1.5;color:#065f46;">
+        If you are not satisfied with the resolution, you may file an appeal through the HRMS portal within the stipulated timeframe as per the organization's grievance policy.
+      </p>
+    </td>
+  </tr>
+</table>
+{% endblock %}
+
+{% block cta_row %}
+<tr><td style="padding:0 32px 24px 32px;text-align:center;">
+  {% include "email/partials/button.html" with url=frontend_url text="View Grievance" %}
+</td></tr>
+{% endblock %}

@@ -80,7 +80,7 @@ export default function DocumentList({
         </h3>
         <div className="flex items-center gap-2">
           {showViewToggle && documents.length > 0 && (
-            <div className="flex rounded-lg border border-gray-200 p-0.5">
+            <div className="flex rounded-md border border-gray-200 p-0.5">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
@@ -136,7 +136,7 @@ export default function DocumentList({
 
       {/* Documents list/grid */}
       {documents.length === 0 ? (
-        <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+        <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-md">
           <FolderIcon className="h-10 w-10 text-gray-300 mx-auto" />
           <p className="mt-2 text-sm text-gray-500">{emptyMessage}</p>
           {showUpload && onUpload && !showUploader && (
@@ -164,7 +164,7 @@ export default function DocumentList({
           ))}
         </div>
       ) : (
-        <div className="space-y-1 border border-gray-200 rounded-lg divide-y divide-gray-100">
+        <div className="space-y-1 border border-gray-200 rounded-md divide-y divide-gray-100">
           {documents.map((doc, index) => (
             <DocumentViewer
               key={doc.id || index}

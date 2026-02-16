@@ -345,7 +345,7 @@ export default function UserManagementPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
+            <div className="p-2 bg-primary-100 rounded-md">
               <UsersIcon className="h-5 w-5 text-primary-600" />
             </div>
             <div>
@@ -356,7 +356,7 @@ export default function UserManagementPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-success-100 rounded-lg">
+            <div className="p-2 bg-success-100 rounded-md">
               <CheckCircleIcon className="h-5 w-5 text-success-600" />
             </div>
             <div>
@@ -369,7 +369,7 @@ export default function UserManagementPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-warning-100 rounded-lg">
+            <div className="p-2 bg-warning-100 rounded-md">
               <ShieldCheckIcon className="h-5 w-5 text-warning-600" />
             </div>
             <div>
@@ -382,7 +382,7 @@ export default function UserManagementPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
+            <div className="p-2 bg-gray-100 rounded-md">
               <XCircleIcon className="h-5 w-5 text-gray-600" />
             </div>
             <div>
@@ -796,7 +796,7 @@ export default function UserManagementPage() {
                   {selectedUser.roles?.map((userRole: UserRole) => (
                     <div
                       key={userRole.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
                     >
                       <div>
                         <p className="font-medium text-gray-900">{userRole.role_name}</p>
@@ -898,7 +898,7 @@ export default function UserManagementPage() {
                   {userOrgs.map((uo: UserOrganization) => (
                     <div
                       key={uo.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
                     >
                       <div className="flex items-center gap-3">
                         <BuildingOffice2Icon className="h-5 w-5 text-gray-400" />

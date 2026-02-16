@@ -115,7 +115,7 @@ export default function DocumentViewer({
 
   if (compact) {
     return (
-      <div className={clsx('flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50', className)}>
+      <div className={clsx('flex items-center gap-3 p-2 rounded-md hover:bg-gray-50', className)}>
         {getFileIcon(document)}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-900 truncate">{document.name}</p>
@@ -158,7 +158,7 @@ export default function DocumentViewer({
   }
 
   return (
-    <div className={clsx('border border-gray-200 rounded-lg overflow-hidden', className)}>
+    <div className={clsx('border border-gray-200 rounded-md overflow-hidden', className)}>
       {/* Preview area */}
       {showPreview && document.url && document.is_image && (
         <div className="bg-gray-100 p-4 flex items-center justify-center">

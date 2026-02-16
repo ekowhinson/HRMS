@@ -112,7 +112,7 @@ export default function ApprovalWorkflowPage() {
               .sort((a, b) => a.level - b.level)
               .map((level, idx) => (
                 <div key={level.id} className="flex items-center gap-2">
-                  <div className="flex-shrink-0 bg-white border rounded-lg px-3 py-2 shadow-sm min-w-[140px]">
+                  <div className="flex-shrink-0 bg-white border rounded-md px-3 py-2 min-w-[140px]">
                     <div className="text-xs text-gray-400">Level {level.level}</div>
                     <div className="text-sm font-medium text-gray-800">{level.name}</div>
                     <div className="text-xs text-gray-500">{level.approver_type_display}</div>
@@ -451,7 +451,7 @@ export default function ApprovalWorkflowPage() {
               type="checkbox"
               checked={formData.is_active ?? true}
               onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             Active
           </label>
@@ -475,7 +475,7 @@ export default function ApprovalWorkflowPage() {
 
             <div className="space-y-4">
               {(formData.approval_levels || []).map((level, idx) => (
-                <div key={idx} className="border rounded-lg p-4 bg-gray-50 relative">
+                <div key={idx} className="border rounded-md p-4 bg-gray-50 relative">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-semibold text-gray-500 uppercase">
                       Level {level.level}
@@ -545,7 +545,7 @@ export default function ApprovalWorkflowPage() {
                         type="checkbox"
                         checked={level.can_skip ?? false}
                         onChange={(e) => updateLevel(idx, 'can_skip', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                       />
                       Can skip
                     </label>
@@ -554,7 +554,7 @@ export default function ApprovalWorkflowPage() {
                         type="checkbox"
                         checked={level.skip_if_same_as_previous ?? true}
                         onChange={(e) => updateLevel(idx, 'skip_if_same_as_previous', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                       />
                       Skip if same as previous
                     </label>
@@ -563,7 +563,7 @@ export default function ApprovalWorkflowPage() {
                         type="checkbox"
                         checked={level.allow_self_approval ?? false}
                         onChange={(e) => updateLevel(idx, 'allow_self_approval', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                       />
                       Allow self-approval
                     </label>

@@ -185,7 +185,7 @@ export default function LeaveApprovalsPage() {
           </p>
         </div>
         {pendingCount > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 rounded-lg">
+          <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 rounded-md">
             <CalendarIcon className="h-5 w-5 text-yellow-600" />
             <span className="text-sm font-medium text-yellow-700">
               {pendingCount} pending approval{pendingCount !== 1 ? 's' : ''}
@@ -334,7 +334,7 @@ export default function LeaveApprovalsPage() {
               Rejection Reason
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400"
               rows={3}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}

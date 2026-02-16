@@ -8,10 +8,18 @@ import {
 import { reportsService, ExportFormat } from '@/services/reports'
 import { payrollService } from '@/services/payroll'
 import { payrollSetupService } from '@/services/payrollSetup'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import Button from '@/components/ui/Button'
-import Select from '@/components/ui/Select'
-import Input from '@/components/ui/Input'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Select,
+  Input,
+  PageHeader,
+  EmptyState,
+  SkeletonTable,
+} from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 import { useGroupBy } from '@/hooks/useGroupBy'
 import type { PayrollRun } from '@/types'
@@ -188,15 +196,14 @@ export default function PayrollCostingReportPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payroll Costing Summary</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Comprehensive salary payment summary with all costing components
-          </p>
-        </div>
-        <div className="relative">
+      <PageHeader
+        title="Payroll Costing Summary"
+        subtitle="Comprehensive salary payment summary with all costing components"
+        breadcrumbs={[
+          { label: 'Reports', href: '/reports' },
+          { label: 'Payroll Costing Summary' },
+        ]}
+        actions={
           <div className="flex items-center gap-2">
             <Select
               value={exportFormat}
@@ -213,8 +220,8 @@ export default function PayrollCostingReportPage() {
               Export
             </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filters */}
       <Card>
@@ -291,29 +298,29 @@ export default function PayrollCostingReportPage() {
       {/* Summary Cards */}
       {data && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+          <div className="p-4 bg-blue-50 rounded-md border border-blue-100">
             <p className="text-xs text-blue-600 font-medium">Total Employees</p>
             <p className="text-2xl font-bold text-blue-700">{data.summary.total_employees}</p>
           </div>
-          <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+          <div className="p-4 bg-green-50 rounded-md border border-green-100">
             <p className="text-xs text-green-600 font-medium">Total Basic</p>
             <p className="text-lg font-bold text-green-700">
               {formatCurrency(data.summary.total_basic)}
             </p>
           </div>
-          <div className="p-4 bg-teal-50 rounded-lg border border-teal-100">
+          <div className="p-4 bg-teal-50 rounded-md border border-teal-100">
             <p className="text-xs text-teal-600 font-medium">Total Emoluments</p>
             <p className="text-lg font-bold text-teal-700">
               {formatCurrency(data.summary.total_emoluments)}
             </p>
           </div>
-          <div className="p-4 bg-red-50 rounded-lg border border-red-100">
+          <div className="p-4 bg-red-50 rounded-md border border-red-100">
             <p className="text-xs text-red-600 font-medium">Total PAYE</p>
             <p className="text-lg font-bold text-red-700">
               {formatCurrency(data.summary.total_paye)}
             </p>
           </div>
-          <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+          <div className="p-4 bg-purple-50 rounded-md border border-purple-100">
             <p className="text-xs text-purple-600 font-medium">Total Net</p>
             <p className="text-lg font-bold text-purple-700">
               {formatCurrency(data.summary.total_net)}
@@ -324,13 +331,7 @@ export default function PayrollCostingReportPage() {
 
       {/* Data Table */}
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <SkeletonTable rows={8} columns={10} />
       ) : filteredEmployees.length > 0 ? (
         <Card>
           <CardHeader>
@@ -430,8 +431,13 @@ export default function PayrollCostingReportPage() {
         </Card>
       ) : data ? (
         <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-gray-500">No employees found matching your criteria.</p>
+          <CardContent>
+            <EmptyState
+              type="search"
+              title="No employees found"
+              description="No employees found matching your criteria."
+              compact
+            />
           </CardContent>
         </Card>
       ) : null}

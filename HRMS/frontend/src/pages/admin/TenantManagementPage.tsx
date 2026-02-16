@@ -431,10 +431,10 @@ export default function TenantManagementPage() {
                                 <img
                                   src={tenant.logo_url}
                                   alt={tenant.name}
-                                  className="w-8 h-8 rounded-lg object-contain border border-gray-200 bg-white"
+                                  className="w-8 h-8 rounded-md object-contain border border-gray-200 bg-white"
                                 />
                               ) : (
-                                <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-md bg-primary-100 flex items-center justify-center">
                                   <BuildingOffice2Icon className="h-4 w-4 text-primary-600" />
                                 </div>
                               )}
@@ -718,7 +718,7 @@ export default function TenantManagementPage() {
                   <img
                     src={logoFile ? URL.createObjectURL(logoFile) : logoPreview}
                     alt="Logo"
-                    className="w-16 h-16 rounded-lg object-contain border border-gray-200 bg-white"
+                    className="w-16 h-16 rounded-md object-contain border border-gray-200 bg-white"
                   />
                   <button
                     type="button"
@@ -735,7 +735,7 @@ export default function TenantManagementPage() {
                   </button>
                 </div>
               ) : (
-                <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center border border-dashed border-gray-300">
+                <div className="w-16 h-16 rounded-md bg-gray-100 flex items-center justify-center border border-dashed border-gray-300">
                   <PhotoIcon className="h-6 w-6 text-gray-400" />
                 </div>
               )}
@@ -805,12 +805,12 @@ export default function TenantManagementPage() {
         {statsData ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4">
+              <div className="bg-blue-50 rounded-md p-4">
                 <div className="text-sm text-blue-600">Employees</div>
                 <div className="text-2xl font-bold text-blue-700">{statsData.employee_count}</div>
                 <div className="text-xs text-blue-500">of {statsData.max_employees} max ({statsData.employee_utilization}%)</div>
               </div>
-              <div className="bg-green-50 rounded-lg p-4">
+              <div className="bg-green-50 rounded-md p-4">
                 <div className="text-sm text-green-600">Users</div>
                 <div className="text-2xl font-bold text-green-700">{statsData.user_count}</div>
                 <div className="text-xs text-green-500">of {statsData.max_users} max ({statsData.user_utilization}%)</div>
@@ -892,13 +892,13 @@ export default function TenantManagementPage() {
         <div className="space-y-4">
           {/* Expiry warning banner */}
           {selectedTenant?.active_license && getLicenseExpiryWarning(selectedTenant.active_license) === 'expired' && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-center gap-2">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-500 flex-shrink-0" />
               <span className="text-sm text-red-700">Active license has expired. Create a new license to continue service.</span>
             </div>
           )}
           {selectedTenant?.active_license && getLicenseExpiryWarning(selectedTenant.active_license) === 'expiring' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-center gap-2">
               <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />
               <span className="text-sm text-amber-700">
                 License expires in {selectedTenant.active_license.days_remaining} days ({selectedTenant.active_license.valid_until}).
@@ -929,7 +929,7 @@ export default function TenantManagementPage() {
               {licenses.map((lic: License) => (
                 <div
                   key={lic.id}
-                  className={`border rounded-lg p-3 ${lic.is_valid ? 'border-green-200 bg-green-50/50' : 'border-gray-200 bg-gray-50'}`}
+                  className={`border rounded-md p-3 ${lic.is_valid ? 'border-green-200 bg-green-50/50' : 'border-gray-200 bg-gray-50'}`}
                 >
                   <div className="flex items-start justify-between">
                     <div>

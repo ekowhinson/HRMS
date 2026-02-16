@@ -99,7 +99,7 @@ function TrialBalanceReport({ fiscalPeriod }: { fiscalPeriod: string }) {
         </Button>
       </div>
 
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+      <div className="overflow-x-auto border border-gray-300 rounded-md">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50/80">
             <tr>
@@ -213,7 +213,7 @@ function IncomeStatementReport({ fiscalPeriod }: { fiscalPeriod: string }) {
         </Button>
       </div>
 
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+      <div className="overflow-x-auto border border-gray-300 rounded-md">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50/80">
             <tr>
@@ -338,7 +338,7 @@ function BalanceSheetReport({ fiscalPeriod }: { fiscalPeriod: string }) {
         </Button>
       </div>
 
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+      <div className="overflow-x-auto border border-gray-300 rounded-md">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50/80">
             <tr>

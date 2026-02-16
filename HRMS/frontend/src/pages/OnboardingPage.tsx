@@ -239,7 +239,7 @@ export default function OnboardingPage() {
                     Residential Address
                   </label>
                   <textarea
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
                     rows={2}
                     value={contactData.residential_address}
                     onChange={(e) =>
@@ -359,7 +359,7 @@ export default function OnboardingPage() {
 
                   <div>
                     <label className="cursor-pointer">
-                      <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                      <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                         <CameraIcon className="h-5 w-5 mr-2" />
                         Choose Photo
                       </span>

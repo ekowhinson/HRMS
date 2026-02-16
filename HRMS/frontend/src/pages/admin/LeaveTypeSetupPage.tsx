@@ -556,7 +556,7 @@ export default function LeaveTypeSetupPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Preset Templates (only for new) */}
           {!editingType && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-blue-800">Quick Start Templates:</span>
                 <div className="flex flex-wrap gap-2">
@@ -619,7 +619,7 @@ export default function LeaveTypeSetupPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400"
                   rows={2}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -627,7 +627,7 @@ export default function LeaveTypeSetupPage() {
                 />
               </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg space-y-4">
+              <div className="p-4 bg-gray-50 rounded-md space-y-4">
                 <h4 className="font-medium text-gray-700">Entitlement</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <Input
@@ -672,7 +672,7 @@ export default function LeaveTypeSetupPage() {
                     type="checkbox"
                     checked={formData.is_paid}
                     onChange={(e) => setFormData({ ...formData, is_paid: e.target.checked })}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                   />
                   <span className="text-sm">Paid Leave</span>
                 </label>
@@ -681,7 +681,7 @@ export default function LeaveTypeSetupPage() {
                     type="checkbox"
                     checked={formData.is_active}
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                   />
                   <span className="text-sm">Active</span>
                 </label>
@@ -692,7 +692,7 @@ export default function LeaveTypeSetupPage() {
           {/* Accrual & Carry Forward Section */}
           {activeSection === 'accrual' && (
             <div className="space-y-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-md space-y-4">
                 <h4 className="font-medium text-green-800">Accrual Settings</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <Select
@@ -721,14 +721,14 @@ export default function LeaveTypeSetupPage() {
                 </p>
               </div>
 
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-4">
                 <h4 className="font-medium text-blue-800">Carry Forward</h4>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={formData.allow_carry_forward}
                     onChange={(e) => setFormData({ ...formData, allow_carry_forward: e.target.checked })}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                   />
                   <span className="text-sm">Allow unused leave to carry forward to next year</span>
                 </label>
@@ -753,14 +753,14 @@ export default function LeaveTypeSetupPage() {
                 )}
               </div>
 
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-4">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-md space-y-4">
                 <h4 className="font-medium text-amber-800">Encashment</h4>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={formData.allow_encashment}
                     onChange={(e) => setFormData({ ...formData, allow_encashment: e.target.checked })}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                   />
                   <span className="text-sm">Allow employees to encash unused leave days</span>
                 </label>
@@ -781,7 +781,7 @@ export default function LeaveTypeSetupPage() {
           {/* Rules & Restrictions Section */}
           {activeSection === 'rules' && (
             <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg space-y-4">
+              <div className="p-4 bg-gray-50 rounded-md space-y-4">
                 <h4 className="font-medium text-gray-700">Approval & Documentation</h4>
                 <div className="space-y-3">
                   <label className="flex items-center gap-2">
@@ -789,7 +789,7 @@ export default function LeaveTypeSetupPage() {
                       type="checkbox"
                       checked={formData.requires_approval}
                       onChange={(e) => setFormData({ ...formData, requires_approval: e.target.checked })}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                     />
                     <span className="text-sm">Requires manager approval</span>
                   </label>
@@ -798,7 +798,7 @@ export default function LeaveTypeSetupPage() {
                       type="checkbox"
                       checked={formData.requires_document}
                       onChange={(e) => setFormData({ ...formData, requires_document: e.target.checked })}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                     />
                     <span className="text-sm">Requires supporting document</span>
                   </label>
@@ -815,7 +815,7 @@ export default function LeaveTypeSetupPage() {
                 </div>
               </div>
 
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg space-y-4">
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-md space-y-4">
                 <h4 className="font-medium text-purple-800">Eligibility</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <Input
@@ -841,7 +841,7 @@ export default function LeaveTypeSetupPage() {
                 />
               </div>
 
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-4">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-md space-y-4">
                 <h4 className="font-medium text-red-800">Restrictions</h4>
                 <div className="space-y-3">
                   <label className="flex items-center gap-2">
@@ -849,7 +849,7 @@ export default function LeaveTypeSetupPage() {
                       type="checkbox"
                       checked={formData.consecutive_days_only}
                       onChange={(e) => setFormData({ ...formData, consecutive_days_only: e.target.checked })}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                     />
                     <span className="text-sm">Must be taken as consecutive days (no split)</span>
                   </label>
@@ -858,7 +858,7 @@ export default function LeaveTypeSetupPage() {
                       type="checkbox"
                       checked={formData.include_weekends}
                       onChange={(e) => setFormData({ ...formData, include_weekends: e.target.checked })}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                     />
                     <span className="text-sm">Count weekends in leave duration</span>
                   </label>
@@ -867,7 +867,7 @@ export default function LeaveTypeSetupPage() {
                       type="checkbox"
                       checked={formData.include_holidays}
                       onChange={(e) => setFormData({ ...formData, include_holidays: e.target.checked })}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                     />
                     <span className="text-sm">Count public holidays in leave duration</span>
                   </label>
@@ -884,7 +884,7 @@ export default function LeaveTypeSetupPage() {
                     type="checkbox"
                     checked={formData.is_emergency}
                     onChange={(e) => setFormData({ ...formData, is_emergency: e.target.checked })}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                   />
                   <span className="text-sm">Emergency leave type (bypasses advance notice)</span>
                 </label>
@@ -927,7 +927,7 @@ export default function LeaveTypeSetupPage() {
               </div>
 
               {/* Color Preview */}
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-gray-50 rounded-md">
                 <h4 className="font-medium text-gray-700 mb-3">Preview</h4>
                 <div className="flex items-center gap-3">
                   <div
@@ -999,7 +999,7 @@ export default function LeaveTypeSetupPage() {
           <p className="text-sm text-gray-600">
             Are you sure you want to delete <strong>{showDeleteModal?.name}</strong>?
           </p>
-          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
             <p className="text-sm text-yellow-800">
               This action cannot be undone. Any leave policies and balances associated with this type will be affected.
             </p>

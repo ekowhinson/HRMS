@@ -44,7 +44,7 @@ export function LineChartCard({
 }: LineChartCardProps) {
   if (data.length === 0) {
     return (
-      <div className={cn('bg-white rounded-xl border border-gray-200/60 p-6', className)}>
+      <div className={cn('bg-white rounded-md border border-gray-200 p-6', className)}>
         <div className="mb-4">
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
@@ -57,7 +57,7 @@ export function LineChartCard({
   }
 
   return (
-    <div className={cn('bg-white rounded-xl border border-gray-200/60 p-6', className)}>
+    <div className={cn('bg-white rounded-md border border-gray-200 p-6', className)}>
       <div className="mb-4">
         <h3 className="text-base font-semibold text-gray-900">{title}</h3>
         {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}

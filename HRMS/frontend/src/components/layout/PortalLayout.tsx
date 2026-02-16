@@ -31,13 +31,13 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top bar */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      {/* Top bar — dark header matching main layout */}
+      <header className="bg-header-bg border-b border-header-border h-14">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+          <div className="flex items-center justify-between h-full">
             <div className="flex items-center gap-3">
-              <BriefcaseIcon className="h-8 w-8 text-blue-600" />
-              <span className="text-lg font-semibold text-gray-900">
+              <BriefcaseIcon className="h-6 w-6 text-white" />
+              <span className="text-sm font-semibold text-white">
                 Applicant Portal
               </span>
             </div>
@@ -47,10 +47,10 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     location.pathname === link.path
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      ? 'bg-header-hover text-white'
+                      : 'text-header-text-muted hover:text-white hover:bg-header-hover'
                   }`}
                 >
                   {link.label}
@@ -59,7 +59,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
               {hasToken && (
                 <button
                   onClick={handleLogout}
-                  className="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1"
+                  className="ml-2 px-3 py-1.5 rounded-md text-sm font-medium text-header-text-muted hover:text-white hover:bg-header-hover transition-colors flex items-center gap-1"
                 >
                   <ArrowRightOnRectangleIcon className="h-4 w-4" />
                   Logout

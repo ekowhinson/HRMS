@@ -71,15 +71,15 @@ export default function MyLoansPage() {
       {/* Summary Stats */}
       {loans.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs border-l-4 border-l-primary-500">
+          <div className="bg-white p-4 rounded-md border border-gray-300 shadow-xs border-l-4 border-l-primary-500">
             <p className="text-sm text-gray-500">Active Loans</p>
             <p className="text-xl font-bold text-gray-900">{activeLoans.length}</p>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs border-l-4 border-l-warning-500">
+          <div className="bg-white p-4 rounded-md border border-gray-300 shadow-xs border-l-4 border-l-warning-500">
             <p className="text-sm text-gray-500">Total Outstanding</p>
             <p className="text-xl font-bold text-gray-900">{formatCurrency(totalOutstanding)}</p>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs border-l-4 border-l-info-500">
+          <div className="bg-white p-4 rounded-md border border-gray-300 shadow-xs border-l-4 border-l-info-500">
             <p className="text-sm text-gray-500">Monthly Deduction</p>
             <p className="text-xl font-bold text-gray-900">{formatCurrency(totalMonthlyDeduction)}</p>
           </div>
@@ -90,7 +90,7 @@ export default function MyLoansPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
+            <div className="p-2 bg-primary-100 rounded-md">
               <CreditCardIcon className="h-5 w-5 text-primary-600" />
             </div>
             <div>
@@ -200,7 +200,7 @@ function LoanRow({
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-primary-500 rounded-full transition-all"
+                className="h-full bg-primary-500 rounded-full transition-colors duration-150"
                 style={{ width: `${progress}%` }}
               />
             </div>

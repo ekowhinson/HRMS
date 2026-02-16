@@ -1,13 +1,19 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { employeeService } from '@/services/employees'
 import { reportsService } from '@/services/reports'
 import type { ExportFormat } from '@/services/reports'
 import api from '@/lib/api'
-import { Card, CardContent } from '@/components/ui/Card'
-import Input from '@/components/ui/Input'
+import {
+  Card,
+  CardContent,
+  Input,
+  Button,
+  PageHeader,
+  EmptyState,
+  SkeletonTable,
+} from '@/components/ui'
 import ExportMenu from '@/components/ui/ExportMenu'
 import type { Employee } from '@/types'
 
@@ -57,20 +63,15 @@ export default function EmploymentHistoryReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Employment History Report</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              View position, department, and grade changes for an employee
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} disabled={!selectedEmployee} />
-      </div>
+      <PageHeader
+        title="Employment History Report"
+        subtitle="View position, department, and grade changes for an employee"
+        breadcrumbs={[
+          { label: 'HR Reports', href: '/hr-reports' },
+          { label: 'Employment History Report' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} disabled={!selectedEmployee} />}
+      />
 
       {/* Employee Search */}
       <Card>
@@ -122,15 +123,16 @@ export default function EmploymentHistoryReportPage() {
               <span className="inline-flex items-center rounded-full bg-primary-50 px-3 py-1 text-sm font-medium text-primary-700">
                 {selectedEmployee.first_name} {selectedEmployee.last_name} ({selectedEmployee.employee_number})
               </span>
-              <button
-                className="text-xs text-gray-400 hover:text-gray-600"
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => {
                   setSelectedEmployee(null)
                   setSearch('')
                 }}
               >
                 Clear
-              </button>
+              </Button>
             </div>
           )}
         </CardContent>
@@ -139,18 +141,17 @@ export default function EmploymentHistoryReportPage() {
       {/* History Table */}
       {selectedEmployee && (
         loadingHistory ? (
-          <Card>
-            <CardContent className="p-8">
-              <div className="flex justify-center">
-                <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <SkeletonTable rows={5} columns={4} />
+          </div>
         ) : history.length === 0 ? (
           <Card>
-            <CardContent className="p-8 text-center text-sm text-gray-500">
-              No employment history records found for this employee.
-            </CardContent>
+            <EmptyState
+              type="data"
+              title="No employment history"
+              description="No employment history records found for this employee."
+              compact
+            />
           </Card>
         ) : (
           <Card>
@@ -196,9 +197,12 @@ export default function EmploymentHistoryReportPage() {
 
       {!selectedEmployee && (
         <Card>
-          <CardContent className="p-8 text-center text-sm text-gray-500">
-            Search and select an employee above to view their employment history.
-          </CardContent>
+          <EmptyState
+            type="search"
+            title="Select an employee"
+            description="Search and select an employee above to view their employment history."
+            compact
+          />
         </Card>
       )}
     </div>

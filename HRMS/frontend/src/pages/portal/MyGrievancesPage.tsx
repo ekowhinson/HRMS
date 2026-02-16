@@ -206,7 +206,7 @@ function GrievanceCard({ g, expanded, onToggle }: {
 
           {/* Escalation Info */}
           {g.escalation_level > 0 && (
-            <div className="bg-danger-50 border border-danger-200 rounded-lg p-3 text-sm">
+            <div className="bg-danger-50 border border-danger-200 rounded-md p-3 text-sm">
               <div className="flex items-center gap-2 text-danger-700 font-medium">
                 <ArrowUpIcon className="h-4 w-4" />
                 Escalated to Level {g.escalation_level}
@@ -222,7 +222,7 @@ function GrievanceCard({ g, expanded, onToggle }: {
               <h4 className="font-semibold text-gray-900 mb-3">Updates</h4>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {visibleNotes.map((n: GrievanceNote) => (
-                  <div key={n.id} className="bg-gray-50 rounded-lg p-3 text-sm">
+                  <div key={n.id} className="bg-gray-50 rounded-md p-3 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-gray-900">{n.added_by_name}</span>
                       <span className="text-xs text-gray-400">{formatDate(n.created_at)}</span>
@@ -252,7 +252,7 @@ function GrievanceCard({ g, expanded, onToggle }: {
 
           {/* Resolution Section */}
           {g.status === 'RESOLVED' && g.resolution && (
-            <div className="bg-success-50 border border-success-200 rounded-lg p-4 space-y-3">
+            <div className="bg-success-50 border border-success-200 rounded-md p-4 space-y-3">
               <h4 className="font-semibold text-success-800">Resolution Proposed</h4>
               <p className="text-sm text-success-700">{g.resolution}</p>
               {g.resolution_accepted === null && (

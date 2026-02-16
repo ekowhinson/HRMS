@@ -24,10 +24,16 @@ import { reportsService, ExportFormat } from '@/services/reports'
 import { payrollService } from '@/services/payroll'
 import { employeeService } from '@/services/employees'
 import { payrollSetupService } from '@/services/payrollSetup'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import Button from '@/components/ui/Button'
-import Select from '@/components/ui/Select'
-import Input from '@/components/ui/Input'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Select,
+  Input,
+  PageHeader,
+} from '@/components/ui'
 
 interface ReportConfig {
   id: string
@@ -475,22 +481,18 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payroll Reports</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Generate and download payroll reports
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Payroll Reports"
+        subtitle="Generate and download payroll reports"
+      />
 
       {/* Quick Access - Dedicated Report Pages */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <Link
           to="/reports/journal"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
         >
-          <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+          <div className="p-2 bg-blue-100 rounded-md group-hover:bg-blue-200 transition-colors">
             <DocumentTextIcon className="h-5 w-5 text-blue-600" />
           </div>
           <div>
@@ -500,9 +502,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/salary-reconciliation"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors group"
         >
-          <div className="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
+          <div className="p-2 bg-amber-100 rounded-md group-hover:bg-amber-200 transition-colors">
             <ArrowsRightLeftIcon className="h-5 w-5 text-amber-600" />
           </div>
           <div>
@@ -512,9 +514,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/payroll-master"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors group"
         >
-          <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+          <div className="p-2 bg-purple-100 rounded-md group-hover:bg-purple-200 transition-colors">
             <ClipboardDocumentListIcon className="h-5 w-5 text-purple-600" />
           </div>
           <div>
@@ -524,9 +526,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/payroll-costing"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-colors group"
         >
-          <div className="p-2 bg-teal-100 rounded-lg group-hover:bg-teal-200 transition-colors">
+          <div className="p-2 bg-teal-100 rounded-md group-hover:bg-teal-200 transition-colors">
             <TableCellsIcon className="h-5 w-5 text-teal-600" />
           </div>
           <div>
@@ -536,9 +538,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/staff-payroll-data"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors group"
         >
-          <div className="p-2 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-colors">
+          <div className="p-2 bg-emerald-100 rounded-md group-hover:bg-emerald-200 transition-colors">
             <UsersIcon className="h-5 w-5 text-emerald-600" />
           </div>
           <div>
@@ -548,9 +550,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/consolidated-summary"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors group"
         >
-          <div className="p-2 bg-indigo-100 rounded-lg group-hover:bg-indigo-200 transition-colors">
+          <div className="p-2 bg-indigo-100 rounded-md group-hover:bg-indigo-200 transition-colors">
             <CalculatorIcon className="h-5 w-5 text-indigo-600" />
           </div>
           <div>
@@ -560,9 +562,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/labour-cost"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-rose-300 hover:bg-rose-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-rose-300 hover:bg-rose-50 transition-colors group"
         >
-          <div className="p-2 bg-rose-100 rounded-lg group-hover:bg-rose-200 transition-colors">
+          <div className="p-2 bg-rose-100 rounded-md group-hover:bg-rose-200 transition-colors">
             <CurrencyDollarIcon className="h-5 w-5 text-rose-600" />
           </div>
           <div>
@@ -572,9 +574,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/ssf-statement"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-colors group"
         >
-          <div className="p-2 bg-cyan-100 rounded-lg group-hover:bg-cyan-200 transition-colors">
+          <div className="p-2 bg-cyan-100 rounded-md group-hover:bg-cyan-200 transition-colors">
             <ShieldCheckIcon className="h-5 w-5 text-cyan-600" />
           </div>
           <div>
@@ -584,9 +586,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/tax-statement"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors group"
         >
-          <div className="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
+          <div className="p-2 bg-orange-100 rounded-md group-hover:bg-orange-200 transition-colors">
             <ReceiptPercentIcon className="h-5 w-5 text-orange-600" />
           </div>
           <div>
@@ -596,9 +598,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/allowance-statement"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-lime-300 hover:bg-lime-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-lime-300 hover:bg-lime-50 transition-colors group"
         >
-          <div className="p-2 bg-lime-100 rounded-lg group-hover:bg-lime-200 transition-colors">
+          <div className="p-2 bg-lime-100 rounded-md group-hover:bg-lime-200 transition-colors">
             <GiftIcon className="h-5 w-5 text-lime-600" />
           </div>
           <div>
@@ -608,9 +610,9 @@ export default function ReportsPage() {
         </Link>
         <Link
           to="/reports/payslip-statement"
-          className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-white rounded-md border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-colors group"
         >
-          <div className="p-2 bg-teal-100 rounded-lg group-hover:bg-teal-200 transition-colors">
+          <div className="p-2 bg-teal-100 rounded-md group-hover:bg-teal-200 transition-colors">
             <DocumentTextIcon className="h-5 w-5 text-teal-600" />
           </div>
           <div>
@@ -645,7 +647,7 @@ export default function ReportsPage() {
                   >
                     <div className="flex items-start gap-3">
                       <div
-                        className={`p-2 rounded-lg ${
+                        className={`p-2 rounded-md ${
                           selectedReport?.id === report.id
                             ? 'bg-primary-100'
                             : 'bg-gray-100'
@@ -683,7 +685,7 @@ export default function ReportsPage() {
             <CardContent>
               {selectedReport ? (
                 <div className="space-y-4">
-                  <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="p-3 bg-gray-50 rounded-md">
                     <h4 className="font-medium text-gray-900">{selectedReport.name}</h4>
                     <p className="text-sm text-gray-500 mt-1">{selectedReport.description}</p>
                   </div>
@@ -701,13 +703,13 @@ export default function ReportsPage() {
                           )}
                         </h5>
                         {Object.values(filters).filter(v => v && v.trim() !== '').length > 0 && (
-                          <button
-                            type="button"
-                            className="text-xs text-gray-500 hover:text-gray-700 underline"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setFilters({})}
                           >
                             Clear all
-                          </button>
+                          </Button>
                         )}
                       </div>
                       <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2">
@@ -737,7 +739,7 @@ export default function ReportsPage() {
                         <div className="grid grid-cols-3 gap-2">
                           <button
                             type="button"
-                            className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                            className={`flex flex-col items-center justify-center p-3 rounded-md border-2 transition-colors duration-150 ${
                               isGenerating === 'csv'
                                 ? 'border-primary-500 bg-primary-50'
                                 : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
@@ -752,7 +754,7 @@ export default function ReportsPage() {
 
                           <button
                             type="button"
-                            className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                            className={`flex flex-col items-center justify-center p-3 rounded-md border-2 transition-colors duration-150 ${
                               isGenerating === 'excel'
                                 ? 'border-primary-500 bg-primary-50'
                                 : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
@@ -767,7 +769,7 @@ export default function ReportsPage() {
 
                           <button
                             type="button"
-                            className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                            className={`flex flex-col items-center justify-center p-3 rounded-md border-2 transition-colors duration-150 ${
                               isGenerating === 'pdf'
                                 ? 'border-primary-500 bg-primary-50'
                                 : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'

@@ -591,7 +591,7 @@ export default function PurchaseOrdersPage() {
               {lineItems.map((item, index) => (
                 <div
                   key={index}
-                  className="border border-gray-200 rounded-lg p-4 bg-gray-50/50"
+                  className="border border-gray-300 rounded-md p-4 bg-gray-50/50"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div className="md:col-span-4">
@@ -700,7 +700,7 @@ export default function PurchaseOrdersPage() {
               const steps = getStatusSteps(selectedPO.status)
               if (!steps) return null
               return (
-                <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg overflow-x-auto">
+                <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-md overflow-x-auto">
                   {steps.map((step, index) => (
                     <div key={step.label} className="flex items-center">
                       <div className="flex flex-col items-center">
@@ -784,7 +784,7 @@ export default function PurchaseOrdersPage() {
             {selectedPO.notes && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Notes</p>
-                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedPO.notes}</p>
+                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">{selectedPO.notes}</p>
               </div>
             )}
 
@@ -792,7 +792,7 @@ export default function PurchaseOrdersPage() {
             {selectedPO.items && selectedPO.items.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3">Order Items</h4>
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <div className="overflow-x-auto border border-gray-300 rounded-md">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>

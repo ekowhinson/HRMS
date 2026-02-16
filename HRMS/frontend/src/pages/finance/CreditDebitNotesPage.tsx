@@ -304,7 +304,7 @@ export default function CreditDebitNotesPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {createMutation.error && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(createMutation.error as any)?.response?.data?.detail ||
                 'An error occurred while creating the note.'}
             </div>

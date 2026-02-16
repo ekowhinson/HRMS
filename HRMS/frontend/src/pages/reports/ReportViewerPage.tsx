@@ -280,7 +280,7 @@ export default function ReportViewerPage() {
 
       {/* View mode toggle */}
       {chartConfig && (
-        <div className="mb-4 flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        <div className="mb-4 flex gap-1 bg-gray-100 p-1 rounded-md w-fit">
           {(
             [
               { value: 'table', label: 'Table', icon: <TableCellsIcon className="w-4 h-4" /> },
@@ -296,7 +296,7 @@ export default function ReportViewerPage() {
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
                 viewMode === opt.value
-                  ? 'bg-white text-primary-600 shadow-sm'
+                  ? 'bg-white text-primary-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
               )}
             >

@@ -400,7 +400,7 @@ export default function AppraisalDetailPage() {
                   {appraisal.goals.map((goal: Goal) => (
                     <div
                       key={goal.id}
-                      className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                      className="border rounded-md p-4 hover:bg-gray-50 transition-colors duration-150"
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -446,7 +446,7 @@ export default function AppraisalDetailPage() {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
-                            className="bg-primary-600 h-2 rounded-full transition-all"
+                            className="bg-primary-600 h-2 rounded-full transition-colors duration-150"
                             style={{ width: `${goal.progress_percentage || 0}%` }}
                           />
                         </div>
@@ -504,7 +504,7 @@ export default function AppraisalDetailPage() {
               {appraisal.competency_assessments && appraisal.competency_assessments.length > 0 ? (
                 <div className="space-y-4">
                   {appraisal.competency_assessments.map((assessment: CompetencyAssessment) => (
-                    <div key={assessment.id} className="border rounded-lg p-4">
+                    <div key={assessment.id} className="border rounded-md p-4">
                       <div className="flex justify-between items-start">
                         <div>
                           <h4 className="font-medium text-gray-900">
@@ -565,7 +565,7 @@ export default function AppraisalDetailPage() {
               {appraisal.value_assessments && appraisal.value_assessments.length > 0 ? (
                 <div className="space-y-4">
                   {appraisal.value_assessments.map((assessment: CoreValueAssessment) => (
-                    <div key={assessment.id} className="border rounded-lg p-4">
+                    <div key={assessment.id} className="border rounded-md p-4">
                       <div className="flex justify-between items-start mb-3">
                         <div>
                           <h4 className="font-medium text-gray-900">
@@ -699,7 +699,7 @@ export default function AppraisalDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-md">
                     <span className="text-sm font-medium text-blue-900">Objectives</span>
                     <div className="text-right">
                       <span className="text-lg font-bold text-blue-600">
@@ -713,7 +713,7 @@ export default function AppraisalDetailPage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-md">
                     <span className="text-sm font-medium text-green-900">Competencies</span>
                     <div className="text-right">
                       <span className="text-lg font-bold text-green-600">
@@ -727,7 +727,7 @@ export default function AppraisalDetailPage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-purple-50 rounded-md">
                     <span className="text-sm font-medium text-purple-900">Core Values</span>
                     <div className="text-right">
                       <span className="text-lg font-bold text-purple-600">
@@ -741,7 +741,7 @@ export default function AppraisalDetailPage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center p-4 bg-primary-50 rounded-lg border-2 border-primary-200">
+                  <div className="flex justify-between items-center p-4 bg-primary-50 rounded-md border-2 border-primary-200">
                     <span className="text-sm font-bold text-primary-900">FINAL SCORE</span>
                     <span className="text-2xl font-bold text-primary-600">
                       {appraisal.overall_final_rating?.toFixed(1) || '-'}%
@@ -773,7 +773,7 @@ export default function AppraisalDetailPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
               rows={3}
               value={goalForm.description}
               onChange={(e) => setGoalForm({ ...goalForm, description: e.target.value })}
@@ -784,7 +784,7 @@ export default function AppraisalDetailPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Key Results</label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
               rows={2}
               value={goalForm.key_results}
               onChange={(e) => setGoalForm({ ...goalForm, key_results: e.target.value })}
@@ -820,7 +820,7 @@ export default function AppraisalDetailPage() {
                       Self Rating (1-5)
                     </label>
                     <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150"
                       value={goalForm.self_rating || ''}
                       onChange={(e) =>
                         setGoalForm({
@@ -842,7 +842,7 @@ export default function AppraisalDetailPage() {
                       Manager Rating (1-5)
                     </label>
                     <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150"
                       value={goalForm.manager_rating || ''}
                       onChange={(e) =>
                         setGoalForm({
@@ -886,7 +886,7 @@ export default function AppraisalDetailPage() {
         {calculatedScores && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-blue-50 rounded-lg">
+              <div className="p-3 bg-blue-50 rounded-md">
                 <p className="text-sm text-blue-700">Objectives Score</p>
                 <p className="text-xl font-bold text-blue-600">
                   {calculatedScores.objectives_score?.toFixed(1) || '-'}%
@@ -895,7 +895,7 @@ export default function AppraisalDetailPage() {
                   Weighted: {calculatedScores.weighted_objectives?.toFixed(1) || '-'}%
                 </p>
               </div>
-              <div className="p-3 bg-green-50 rounded-lg">
+              <div className="p-3 bg-green-50 rounded-md">
                 <p className="text-sm text-green-700">Competencies Score</p>
                 <p className="text-xl font-bold text-green-600">
                   {calculatedScores.competencies_score?.toFixed(1) || '-'}%
@@ -904,7 +904,7 @@ export default function AppraisalDetailPage() {
                   Weighted: {calculatedScores.weighted_competencies?.toFixed(1) || '-'}%
                 </p>
               </div>
-              <div className="p-3 bg-purple-50 rounded-lg">
+              <div className="p-3 bg-purple-50 rounded-md">
                 <p className="text-sm text-purple-700">Values Score</p>
                 <p className="text-xl font-bold text-purple-600">
                   {calculatedScores.values_score?.toFixed(1) || '-'}%
@@ -913,7 +913,7 @@ export default function AppraisalDetailPage() {
                   Weighted: {calculatedScores.weighted_values?.toFixed(1) || '-'}%
                 </p>
               </div>
-              <div className="p-3 bg-primary-50 rounded-lg">
+              <div className="p-3 bg-primary-50 rounded-md">
                 <p className="text-sm text-primary-700">Final Score</p>
                 <p className="text-xl font-bold text-primary-600">
                   {calculatedScores.final_score?.toFixed(1) || '-'}%

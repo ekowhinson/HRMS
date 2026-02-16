@@ -415,7 +415,7 @@ export default function RFQPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {createMutation.error && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(createMutation.error as any)?.response?.data?.detail ||
                 'An error occurred while creating the RFQ.'}
             </div>
@@ -516,7 +516,7 @@ export default function RFQPage() {
             {selectedRFQ.evaluation_criteria && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Evaluation Criteria</p>
-                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">
                   {selectedRFQ.evaluation_criteria}
                 </p>
               </div>
@@ -526,7 +526,7 @@ export default function RFQPage() {
             {selectedRFQ.notes && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Notes</p>
-                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedRFQ.notes}</p>
+                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">{selectedRFQ.notes}</p>
               </div>
             )}
 

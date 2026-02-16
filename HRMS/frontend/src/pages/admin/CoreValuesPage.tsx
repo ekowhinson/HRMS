@@ -276,7 +276,7 @@ export default function CoreValuesPage() {
               Description <span className="text-red-500">*</span>
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               rows={3}
               value={formData.description || ''}
               onChange={(e) => handleChange('description', e.target.value)}
@@ -289,7 +289,7 @@ export default function CoreValuesPage() {
               Behavioral Indicators
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               rows={4}
               value={formData.behavioral_indicators || ''}
               onChange={(e) => handleChange('behavioral_indicators', e.target.value)}
@@ -303,7 +303,7 @@ export default function CoreValuesPage() {
               id="is_active"
               checked={formData.is_active}
               onChange={(e) => handleChange('is_active', e.target.checked)}
-              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
             />
             <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
               Active (available for assessments)
@@ -332,7 +332,7 @@ export default function CoreValuesPage() {
         size="sm"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-red-50 rounded-md">
             <XCircleIcon className="h-6 w-6 text-red-500" />
             <p className="text-sm text-red-700">
               Are you sure you want to delete{' '}

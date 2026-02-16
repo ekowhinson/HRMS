@@ -418,7 +418,7 @@ export default function ReportBuilderPage() {
                 <select
                   value={dataSource}
                   onChange={(e) => handleDataSourceChange(e.target.value)}
-                  className="block w-full max-w-md rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className="block w-full max-w-md rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:border-[#0969da] focus:outline-none focus:ring-1 focus:ring-[#0969da] hover:border-gray-400"
                 >
                   <option value="">Select a data source...</option>
                   {dataSources.map((ds) => (
@@ -476,7 +476,7 @@ export default function ReportBuilderPage() {
                               type="checkbox"
                               checked={selectedFieldPaths.has(field.path)}
                               onChange={() => toggleColumn(field)}
-                              className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                              className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                             />
                             <span className="text-gray-700 truncate">{field.label}</span>
                             <span className="ml-auto text-[10px] text-gray-400 flex-shrink-0">
@@ -534,7 +534,7 @@ export default function ReportBuilderPage() {
                     {selectedColumns.map((col, index) => (
                       <div
                         key={col.field}
-                        className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg group"
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md group"
                       >
                         {/* Reorder buttons */}
                         <div className="flex flex-col -space-y-1 flex-shrink-0">
@@ -564,7 +564,7 @@ export default function ReportBuilderPage() {
                         <select
                           value={col.aggregate || ''}
                           onChange={(e) => updateColumnAggregate(col.field, e.target.value)}
-                          className="text-xs rounded border border-gray-200 bg-white px-2 py-1 focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                          className="text-xs rounded border border-gray-300 bg-gray-50 px-2 py-1 focus:bg-white focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] hover:border-gray-400"
                         >
                           {AGGREGATE_FUNCTIONS.map((fn) => (
                             <option key={fn.value} value={fn.value}>
@@ -819,7 +819,7 @@ export default function ReportBuilderPage() {
               onChange={(e) => setSaveDescription(e.target.value)}
               placeholder="Describe what this report shows..."
               rows={3}
-              className="block w-full rounded-md border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="block w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-3 text-sm placeholder-gray-400 focus:bg-white focus:border-[#0969da] focus:outline-none focus:ring-1 focus:ring-[#0969da] hover:border-gray-400"
             />
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -827,7 +827,7 @@ export default function ReportBuilderPage() {
               type="checkbox"
               checked={saveIsPublic}
               onChange={(e) => setSaveIsPublic(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             <span className="text-sm text-gray-700">Make this report visible to all users</span>
           </label>
@@ -861,7 +861,7 @@ export default function ReportBuilderPage() {
             <select
               value={scheduleType}
               onChange={(e) => setScheduleType(e.target.value as CreateScheduleRequest['schedule_type'])}
-              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:border-[#0969da] focus:outline-none focus:ring-1 focus:ring-[#0969da] hover:border-gray-400"
             >
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
@@ -874,7 +874,7 @@ export default function ReportBuilderPage() {
             <select
               value={scheduleFormat}
               onChange={(e) => setScheduleFormat(e.target.value as CreateScheduleRequest['export_format'])}
-              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:border-[#0969da] focus:outline-none focus:ring-1 focus:ring-[#0969da] hover:border-gray-400"
             >
               <option value="CSV">CSV</option>
               <option value="EXCEL">Excel</option>

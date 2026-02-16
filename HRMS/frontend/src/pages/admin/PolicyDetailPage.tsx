@@ -200,7 +200,7 @@ export default function PolicyDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-md">
                 <DocumentTextIcon className="h-5 w-5 text-blue-600" />
               </div>
               <div>
@@ -213,7 +213,7 @@ export default function PolicyDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
+              <div className="p-2 bg-green-100 rounded-md">
                 <CalendarIcon className="h-5 w-5 text-green-600" />
               </div>
               <div>
@@ -230,7 +230,7 @@ export default function PolicyDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
+              <div className="p-2 bg-orange-100 rounded-md">
                 <ClockIcon className="h-5 w-5 text-orange-600" />
               </div>
               <div>
@@ -247,7 +247,7 @@ export default function PolicyDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
+              <div className="p-2 bg-purple-100 rounded-md">
                 <UserGroupIcon className="h-5 w-5 text-purple-600" />
               </div>
               <div>
@@ -287,7 +287,7 @@ export default function PolicyDetailPage() {
 
           <TabsContent value="content" className="p-6">
             {policy.summary && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="mb-6 p-4 bg-gray-50 rounded-md">
                 <h3 className="text-sm font-medium text-gray-500 mb-1">Summary</h3>
                 <p className="text-gray-700">{policy.summary}</p>
               </div>
@@ -298,7 +298,7 @@ export default function PolicyDetailPage() {
             {policy.has_attachment && (
               <div className="mt-6 pt-6 border-t">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Attachment</h3>
-                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                   <PaperClipIcon className="h-5 w-5 text-gray-400" />
                   <span className="text-sm text-gray-700 flex-1">{policy.attachment_name}</span>
                   {isViewableType(policy.attachment_type) && (
@@ -329,13 +329,13 @@ export default function PolicyDetailPage() {
                   </Button>
                 </div>
                 {viewerBlobUrl && (
-                  <div className="mt-3 border rounded-lg overflow-hidden relative">
+                  <div className="mt-3 border rounded-md overflow-hidden relative">
                     <button
                       onClick={() => {
                         URL.revokeObjectURL(viewerBlobUrl)
                         setViewerBlobUrl(null)
                       }}
-                      className="absolute top-2 right-2 z-10 p-1 bg-white rounded-full shadow hover:bg-gray-100"
+                      className="absolute top-2 right-2 z-10 p-1 bg-white rounded-full hover:bg-gray-100"
                     >
                       <XMarkIcon className="h-4 w-4 text-gray-500" />
                     </button>
@@ -364,7 +364,7 @@ export default function PolicyDetailPage() {
                 {acknowledgements.results.map((ack: PolicyAcknowledgement) => (
                   <div
                     key={ack.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-md"
                   >
                     <div>
                       <p className="font-medium text-gray-900">{ack.employee_name}</p>
@@ -391,7 +391,7 @@ export default function PolicyDetailPage() {
                 {policy.versions.map((version) => (
                   <div
                     key={version.id}
-                    className="p-4 border rounded-lg"
+                    className="p-4 border rounded-md"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium">Version {version.version}</span>
@@ -501,7 +501,7 @@ export default function PolicyDetailPage() {
             <textarea
               value={ackComments}
               onChange={(e) => setAckComments(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
               rows={3}
               placeholder="Any comments or questions..."
             />

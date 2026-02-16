@@ -136,7 +136,7 @@ function ActivityLogsTab() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
                 <select
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none focus:bg-white hover:border-gray-400"
                   value={filters.action || ''}
                   onChange={(e) =>
                     setFilters({ ...filters, action: e.target.value || undefined, page: 1 })
@@ -151,7 +151,7 @@ function ActivityLogsTab() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Module</label>
                 <select
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none focus:bg-white hover:border-gray-400"
                   value={filters.model_name || ''}
                   onChange={(e) =>
                     setFilters({ ...filters, model_name: e.target.value || undefined, page: 1 })
@@ -170,7 +170,7 @@ function ActivityLogsTab() {
                 <input
                   type="text"
                   placeholder="Search records..."
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none focus:bg-white hover:border-gray-400"
                   value={filters.search || ''}
                   onChange={(e) =>
                     setFilters({ ...filters, search: e.target.value || undefined, page: 1 })
@@ -181,7 +181,7 @@ function ActivityLogsTab() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
                 <input
                   type="date"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none focus:bg-white hover:border-gray-400"
                   value={filters.timestamp__gte || ''}
                   onChange={(e) =>
                     setFilters({ ...filters, timestamp__gte: e.target.value || undefined, page: 1 })
@@ -192,7 +192,7 @@ function ActivityLogsTab() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
                 <input
                   type="date"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none focus:bg-white hover:border-gray-400"
                   value={filters.timestamp__lte || ''}
                   onChange={(e) =>
                     setFilters({ ...filters, timestamp__lte: e.target.value || undefined, page: 1 })
@@ -217,7 +217,7 @@ function ActivityLogsTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
+            <div className="p-2 bg-blue-100 rounded-md">
               <ClipboardDocumentListIcon className="h-5 w-5 text-blue-600" />
             </div>
             <div>
@@ -291,7 +291,7 @@ function ActivityLogsTab() {
                         {hasChangeData && (
                           <tr className="bg-gray-50/50">
                             <td colSpan={7} className="px-6 pb-3 pt-0">
-                              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                              <div className="rounded-md border border-gray-200 bg-white p-3">
                                 {hasUpdateChanges && <ChangesDiff changes={log.changes!} />}
                                 {hasNewValues && <ValuesSummary values={log.new_values!} label="New values" />}
                                 {hasOldValues && <ValuesSummary values={log.old_values!} label="Previous values" />}
@@ -364,7 +364,7 @@ function SecurityLogsTab() {
                   Event Type
                 </label>
                 <select
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none focus:bg-white hover:border-gray-400"
                   value={filters.event_type || ''}
                   onChange={(e) =>
                     setFilters({ ...filters, event_type: e.target.value || undefined, page: 1 })
@@ -387,7 +387,7 @@ function SecurityLogsTab() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
                 <input
                   type="date"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none focus:bg-white hover:border-gray-400"
                   value={filters.start_date || ''}
                   onChange={(e) =>
                     setFilters({ ...filters, start_date: e.target.value || undefined, page: 1 })
@@ -398,7 +398,7 @@ function SecurityLogsTab() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
                 <input
                   type="date"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none focus:bg-white hover:border-gray-400"
                   value={filters.end_date || ''}
                   onChange={(e) =>
                     setFilters({ ...filters, end_date: e.target.value || undefined, page: 1 })
@@ -423,7 +423,7 @@ function SecurityLogsTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
+            <div className="p-2 bg-primary-100 rounded-md">
               <ShieldCheckIcon className="h-5 w-5 text-primary-600" />
             </div>
             <div>

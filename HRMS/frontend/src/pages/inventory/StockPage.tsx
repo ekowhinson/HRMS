@@ -638,7 +638,7 @@ export default function StockPage() {
           </div>
 
           {/* Computed total cost */}
-          <div className="bg-gray-50 rounded-lg p-3">
+          <div className="bg-gray-50 rounded-md p-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Total Cost</span>
               <span className="text-lg font-semibold text-gray-900">

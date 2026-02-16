@@ -442,7 +442,7 @@ export default function AssetDisposalPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {createMutation.error && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(createMutation.error as any)?.response?.data?.detail ||
                 'An error occurred while creating the disposal.'}
             </div>
@@ -585,7 +585,7 @@ export default function AssetDisposalPage() {
             {selectedDisposal.reason && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Reason</p>
-                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedDisposal.reason}</p>
+                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">{selectedDisposal.reason}</p>
               </div>
             )}
 

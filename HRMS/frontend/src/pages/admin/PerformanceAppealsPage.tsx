@@ -396,7 +396,7 @@ export default function PerformanceAppealsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-md">
               <div>
                 <p className="text-sm text-gray-500">Appraisal Cycle</p>
                 <p className="font-medium">{selectedAppeal.appraisal_cycle}</p>
@@ -506,7 +506,7 @@ export default function PerformanceAppealsPage() {
         size="md"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-md">
             <CalendarDaysIcon className="h-6 w-6 text-blue-500" />
             <p className="text-sm text-blue-700">
               Schedule a hearing for appeal{' '}
@@ -554,7 +554,7 @@ export default function PerformanceAppealsPage() {
         size="md"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md">
             <ScaleIcon className="h-6 w-6 text-gray-500" />
             <div>
               <p className="text-sm text-gray-700">
@@ -579,7 +579,7 @@ export default function PerformanceAppealsPage() {
               Decision Details <span className="text-red-500">*</span>
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
               rows={4}
               value={decisionText}
               onChange={(e) => setDecisionText(e.target.value)}
@@ -588,7 +588,7 @@ export default function PerformanceAppealsPage() {
           </div>
 
           {decisionStatus === 'UPHELD' && (
-            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-md">
               <CheckCircleIcon className="h-5 w-5 text-green-500" />
               <p className="text-sm text-green-700">
                 Upholding this appeal will update the employee's appraisal ratings.
@@ -597,7 +597,7 @@ export default function PerformanceAppealsPage() {
           )}
 
           {decisionStatus === 'DISMISSED' && (
-            <div className="flex items-center gap-2 p-3 bg-yellow-50 rounded-lg">
+            <div className="flex items-center gap-2 p-3 bg-yellow-50 rounded-md">
               <XCircleIcon className="h-5 w-5 text-yellow-500" />
               <p className="text-sm text-yellow-700">
                 Dismissing this appeal will maintain the original appraisal ratings.

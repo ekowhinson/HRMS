@@ -313,7 +313,7 @@ export default function LoanManagementPage() {
         </div>
         <div className="flex items-center gap-3">
           {loanSummary && loanSummary.pending_approval > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 rounded-lg">
+            <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 rounded-md">
               <CreditCardIcon className="h-5 w-5 text-yellow-600" />
               <span className="text-sm font-medium text-yellow-700">
                 {loanSummary.pending_approval} pending
@@ -332,7 +332,7 @@ export default function LoanManagementPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gray-100 rounded-lg">
+              <div className="p-2 bg-gray-100 rounded-md">
                 <DocumentTextIcon className="h-5 w-5 text-gray-600" />
               </div>
               <div>
@@ -345,7 +345,7 @@ export default function LoanManagementPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
+              <div className="p-2 bg-yellow-100 rounded-md">
                 <CreditCardIcon className="h-5 w-5 text-yellow-600" />
               </div>
               <div>
@@ -358,7 +358,7 @@ export default function LoanManagementPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
+              <div className="p-2 bg-green-100 rounded-md">
                 <BanknotesIcon className="h-5 w-5 text-green-600" />
               </div>
               <div>
@@ -373,7 +373,7 @@ export default function LoanManagementPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-md">
                 <BanknotesIcon className="h-5 w-5 text-blue-600" />
               </div>
               <div>
@@ -468,7 +468,7 @@ export default function LoanManagementPage() {
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-md">
               <div>
                 <p className="text-sm text-gray-500">Loan Type</p>
                 <p className="font-medium">{selectedLoan.loan_type_name}</p>
@@ -525,7 +525,7 @@ export default function LoanManagementPage() {
             )}
 
             {selectedLoan.rejection_reason && (
-              <div className="p-4 bg-red-50 rounded-lg">
+              <div className="p-4 bg-red-50 rounded-md">
                 <p className="text-sm font-medium text-red-800">Rejection Reason</p>
                 <p className="text-red-700">{selectedLoan.rejection_reason}</p>
               </div>
@@ -609,7 +609,7 @@ export default function LoanManagementPage() {
             required
           />
           {selectedLoanType && (
-            <div className="p-3 bg-blue-50 rounded-lg text-sm">
+            <div className="p-3 bg-blue-50 rounded-md text-sm">
               <p className="font-medium text-blue-800">{selectedLoanType.name}</p>
               <ul className="mt-1 text-blue-700 space-y-1">
                 <li>• Max: {selectedLoanType.max_salary_multiplier}x {selectedLoanType.salary_component.toLowerCase()} salary</li>
@@ -642,7 +642,7 @@ export default function LoanManagementPage() {
               Purpose
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400"
               rows={3}
               value={newLoan.purpose}
               onChange={(e) => setNewLoan({ ...newLoan, purpose: e.target.value })}
@@ -680,7 +680,7 @@ export default function LoanManagementPage() {
       >
         {selectedLoan && (
           <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm text-gray-500">Employee</p>
               <p className="font-medium">{selectedLoan.employee_name}</p>
               <p className="text-sm text-gray-500 mt-2">Loan Details</p>
@@ -736,7 +736,7 @@ export default function LoanManagementPage() {
               Rejection Reason
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400"
               rows={3}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}

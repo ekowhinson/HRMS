@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { trainingService } from '@/services/training'
 import { reportsService } from '@/services/reports'
 import type { ExportFormat } from '@/services/reports'
-import { Card, CardContent } from '@/components/ui/Card'
-import { StatsCard } from '@/components/ui/StatsCard'
+import {
+  Card,
+  StatsCard,
+  PageHeader,
+  EmptyState,
+  SkeletonStatsCard,
+  SkeletonTable,
+} from '@/components/ui'
 import ExportMenu from '@/components/ui/ExportMenu'
 import type { TrainingProgram, TrainingSession, TrainingDashboardData } from '@/types'
 
@@ -52,29 +56,27 @@ export default function TrainingDevelopmentReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Training & Development Report</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Overview of training programs, sessions, and completion metrics
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} />
-      </div>
+      <PageHeader
+        title="Training & Development Report"
+        subtitle="Overview of training programs, sessions, and completion metrics"
+        breadcrumbs={[
+          { label: 'HR Reports', href: '/hr-reports' },
+          { label: 'Training & Development Report' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} />}
+      />
 
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={5} columns={8} />
+          <SkeletonTable rows={5} columns={9} />
+          <SkeletonTable rows={5} columns={5} />
+        </div>
       ) : (
         <>
           {/* Stats Cards */}
@@ -124,9 +126,12 @@ export default function TrainingDevelopmentReportPage() {
                 </table>
               </div>
               {programs.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-gray-500">
-                  No training programs found.
-                </div>
+                <EmptyState
+                  type="data"
+                  title="No training programs"
+                  description="No training programs found."
+                  compact
+                />
               )}
             </Card>
           </div>
@@ -172,9 +177,12 @@ export default function TrainingDevelopmentReportPage() {
                 </table>
               </div>
               {sessions.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-gray-500">
-                  No training sessions found.
-                </div>
+                <EmptyState
+                  type="data"
+                  title="No training sessions"
+                  description="No training sessions found."
+                  compact
+                />
               )}
             </Card>
           </div>
@@ -218,9 +226,12 @@ export default function TrainingDevelopmentReportPage() {
                 </table>
               </div>
               {(dash?.staff_trained_by_department || []).length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-gray-500">
-                  No department training data available.
-                </div>
+                <EmptyState
+                  type="data"
+                  title="No department training data"
+                  description="No department training data available."
+                  compact
+                />
               )}
             </Card>
           </div>

@@ -67,13 +67,13 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
               id={selectId}
               autoComplete="off"
               className={cn(
-                'block w-full px-3 py-2 border rounded-lg shadow-sm pr-8',
-                'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
-                'sm:text-sm bg-white',
+                'block w-full px-3 py-2 border rounded-md pr-8',
+                'bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white',
+                'hover:border-gray-400 sm:text-sm',
                 error
-                  ? 'border-red-300 text-red-900 focus:ring-red-500 focus:border-red-500'
+                  ? 'border-danger-500 text-danger-900 focus:ring-danger-500 focus:border-danger-500'
                   : 'border-gray-300',
-                disabled && 'bg-gray-50 text-gray-500 cursor-not-allowed',
+                disabled && 'bg-gray-100 text-gray-500 cursor-not-allowed',
                 className
               )}
               displayValue={(option: SelectOption | null) => option?.label ?? ''}
@@ -89,8 +89,8 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             anchor="bottom start"
             transition
             className={cn(
-              'w-[var(--input-width)] z-50 max-h-60 overflow-auto rounded-lg',
-              'bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none',
+              'w-[var(--input-width)] z-50 max-h-60 overflow-auto rounded-md',
+              'bg-white py-1 text-sm shadow-dropdown border border-gray-200 focus:outline-none',
               'transition duration-100 ease-out data-[leave]:data-[closed]:opacity-0',
               'empty:invisible',
             )}
@@ -104,7 +104,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                 <ComboboxOption
                   key={option.value}
                   value={option}
-                  className="group relative cursor-pointer select-none py-2 pl-10 pr-4 text-gray-900 data-[focus]:bg-primary-50 data-[focus]:text-primary-900"
+                  className="group relative cursor-pointer select-none py-2 pl-10 pr-4 text-gray-900 data-[focus]:bg-gray-50 data-[focus]:text-gray-900"
                 >
                   <span className="block truncate group-data-[selected]:font-semibold">
                     {option.label}
@@ -117,7 +117,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             )}
           </ComboboxOptions>
         </Combobox>
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-1 text-sm text-danger-600">{error}</p>}
       </div>
     )
   }

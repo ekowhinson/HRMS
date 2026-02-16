@@ -416,7 +416,7 @@ export default function PolicyFormPage() {
               </CardHeader>
               <CardContent>
                 {currentAttachmentName ? (
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-300">
                     <div className="flex items-center gap-3 min-w-0">
                       <PaperClipIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
                       <div className="min-w-0">
@@ -444,7 +444,7 @@ export default function PolicyFormPage() {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onClick={() => fileInputRef.current?.click()}
-                    className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                    className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-md cursor-pointer transition-colors duration-150 ${
                       isDragOver
                         ? 'border-primary-400 bg-primary-50'
                         : 'border-gray-300 hover:border-gray-400 bg-gray-50'
@@ -539,7 +539,7 @@ export default function PolicyFormPage() {
                         requires_acknowledgement: e.target.checked,
                       }))
                     }
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                   />
                   <label
                     htmlFor="requires_acknowledgement"
@@ -570,7 +570,7 @@ export default function PolicyFormPage() {
                         applies_to_all: e.target.checked,
                       }))
                     }
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                   />
                   <label htmlFor="applies_to_all" className="ml-2 text-sm text-gray-700">
                     Applies to all employees

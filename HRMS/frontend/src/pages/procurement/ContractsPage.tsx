@@ -778,7 +778,7 @@ export default function ContractsPage() {
                   {milestones.map((ms, index) => (
                     <div
                       key={index}
-                      className="border border-gray-200 rounded-lg p-4 bg-gray-50/50"
+                      className="border border-gray-300 rounded-md p-4 bg-gray-50/50"
                     >
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                         <div className="md:col-span-5">
@@ -927,7 +927,7 @@ export default function ContractsPage() {
                   {selectedContract.description && (
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Description</p>
-                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap">
+                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md whitespace-pre-wrap">
                         {selectedContract.description}
                       </p>
                     </div>
@@ -956,7 +956,7 @@ export default function ContractsPage() {
                       ))}
                     </div>
                   ) : contractMilestones && contractMilestones.length > 0 ? (
-                    <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                    <div className="overflow-x-auto border border-gray-300 rounded-md">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>

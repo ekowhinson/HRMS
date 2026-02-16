@@ -1,15 +1,22 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { performanceService } from '@/services/performance'
 import { reportsService } from '@/services/reports'
 import type { ExportFormat } from '@/services/reports'
 import type { Appraisal, AppraisalCycle } from '@/services/performance'
-import { Card, CardContent } from '@/components/ui/Card'
-import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
-import { StatsCard } from '@/components/ui/StatsCard'
+import {
+  Card,
+  CardContent,
+  Input,
+  Select,
+  Button,
+  StatsCard,
+  PageHeader,
+  EmptyState,
+  SkeletonStatsCard,
+  SkeletonTable,
+} from '@/components/ui'
 import ExportMenu from '@/components/ui/ExportMenu'
 import { useGroupBy } from '@/hooks/useGroupBy'
 import GroupableTable from '@/components/reports/GroupableTable'
@@ -141,174 +148,177 @@ export default function PerformanceAppraisalsReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Performance Appraisals Report</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              View and filter appraisals by cycle, status, and employee
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} />
-      </div>
+      <PageHeader
+        title="Performance Appraisals Report"
+        subtitle="View and filter appraisals by cycle, status, and employee"
+        breadcrumbs={[
+          { label: 'HR Reports', href: '/hr-reports' },
+          { label: 'Performance Appraisals Report' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} />}
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Total Appraisals" value={totalCount} variant="primary" />
-        <StatsCard title={isGrouped ? 'Completed' : 'Completed (this page)'} value={completedCount} variant="success" />
-        <StatsCard
-          title="Avg Final Rating"
-          value={ratedCount > 0 ? (avgRating / ratedCount).toFixed(1) : 'N/A'}
-          variant="info"
-        />
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                placeholder="Search by employee name or number..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(1)
-                }}
-                leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
-              />
-            </div>
-            <div className="w-56">
-              <Select
-                label="Appraisal Cycle"
-                value={cycleFilter}
-                onChange={(e) => {
-                  setCycleFilter(e.target.value)
-                  setPage(1)
-                }}
-                options={[
-                  { value: '', label: 'All Cycles' },
-                  ...cycles.map((c) => ({ value: c.id, label: `${c.name} (${c.year})` })),
-                ]}
-              />
-            </div>
-            <div className="w-48">
-              <Select
-                label="Status"
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value)
-                  setPage(1)
-                }}
-                options={statusOptions}
-              />
-            </div>
-            <div className="w-48">
-              <Select
-                label="Group By"
-                value={groupByField}
-                onChange={(e) => {
-                  setGroupByField(e.target.value)
-                  setPage(1)
-                }}
-                options={GROUP_BY_OPTIONS}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={5} columns={8} />
+        </div>
       ) : (
-        <Card>
-          {isGrouped ? (
-            <GroupableTable<any>
-              groups={groups}
-              isGrouped={true}
-              groupByLabel={groupByLabel}
-              totalColumns={8}
-              labelColumns={3}
-              grandTotals={grandTotals}
-              renderHeaderRow={() => (
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cycle</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Self Rating</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manager Rating</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Final Rating</th>
-                </tr>
-              )}
-              renderRow={renderAppraisalRow}
-              renderTotalCells={renderTotalCells}
-              emptyMessage="No appraisals match your filters."
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatsCard title="Total Appraisals" value={totalCount} variant="primary" />
+            <StatsCard title={isGrouped ? 'Completed' : 'Completed (this page)'} value={completedCount} variant="success" />
+            <StatsCard
+              title="Avg Final Rating"
+              value={ratedCount > 0 ? (avgRating / ratedCount).toFixed(1) : 'N/A'}
+              variant="info"
             />
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cycle</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Self Rating</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manager Rating</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Final Rating</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {appraisals.map((a, idx) => renderAppraisalRow(a, idx))}
-                  </tbody>
-                </table>
+          </div>
+
+          {/* Filters */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <Input
+                    placeholder="Search by employee name or number..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value)
+                      setPage(1)
+                    }}
+                    leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
+                  />
+                </div>
+                <div className="w-56">
+                  <Select
+                    label="Appraisal Cycle"
+                    value={cycleFilter}
+                    onChange={(e) => {
+                      setCycleFilter(e.target.value)
+                      setPage(1)
+                    }}
+                    options={[
+                      { value: '', label: 'All Cycles' },
+                      ...cycles.map((c) => ({ value: c.id, label: `${c.name} (${c.year})` })),
+                    ]}
+                  />
+                </div>
+                <div className="w-48">
+                  <Select
+                    label="Status"
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value)
+                      setPage(1)
+                    }}
+                    options={statusOptions}
+                  />
+                </div>
+                <div className="w-48">
+                  <Select
+                    label="Group By"
+                    value={groupByField}
+                    onChange={(e) => {
+                      setGroupByField(e.target.value)
+                      setPage(1)
+                    }}
+                    options={GROUP_BY_OPTIONS}
+                  />
+                </div>
               </div>
-              {appraisals.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-gray-500">
-                  No appraisals match your filters.
+            </CardContent>
+          </Card>
+
+          {/* Table */}
+          <Card>
+            {isGrouped ? (
+              <GroupableTable<any>
+                groups={groups}
+                isGrouped={true}
+                groupByLabel={groupByLabel}
+                totalColumns={8}
+                labelColumns={3}
+                grandTotals={grandTotals}
+                renderHeaderRow={() => (
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cycle</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Self Rating</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manager Rating</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Final Rating</th>
+                  </tr>
+                )}
+                renderRow={renderAppraisalRow}
+                renderTotalCells={renderTotalCells}
+                emptyMessage="No appraisals match your filters."
+              />
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cycle</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Self Rating</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manager Rating</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Final Rating</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {appraisals.map((a, idx) => renderAppraisalRow(a, idx))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-              {/* Pagination */}
-              {totalCount > 50 && (
-                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t">
-                  <span className="text-sm text-gray-500">
-                    Page {page} of {Math.ceil(totalCount / 50)} ({totalCount} total)
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
-                      disabled={page <= 1}
-                      onClick={() => setPage((p) => p - 1)}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
-                      disabled={page >= Math.ceil(totalCount / 50)}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </button>
+                {appraisals.length === 0 && (
+                  <EmptyState
+                    type="search"
+                    title="No appraisals found"
+                    description="No appraisals match your filters."
+                    compact
+                  />
+                )}
+                {/* Pagination */}
+                {totalCount > 50 && (
+                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t">
+                    <span className="text-sm text-gray-500">
+                      Page {page} of {Math.ceil(totalCount / 50)} ({totalCount} total)
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={page <= 1}
+                        onClick={() => setPage((p) => p - 1)}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={page >= Math.ceil(totalCount / 50)}
+                        onClick={() => setPage((p) => p + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </Card>
+                )}
+              </>
+            )}
+          </Card>
+        </>
       )}
     </div>
   )

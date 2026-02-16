@@ -261,7 +261,7 @@ export default function RoleManagementPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-md">
                 <ShieldCheckIcon className="h-5 w-5 text-blue-600" />
               </div>
               <div>
@@ -274,7 +274,7 @@ export default function RoleManagementPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
+              <div className="p-2 bg-purple-100 rounded-md">
                 <LockClosedIcon className="h-5 w-5 text-purple-600" />
               </div>
               <div>
@@ -287,7 +287,7 @@ export default function RoleManagementPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
+              <div className="p-2 bg-green-100 rounded-md">
                 <ShieldCheckIcon className="h-5 w-5 text-green-600" />
               </div>
               <div>
@@ -300,7 +300,7 @@ export default function RoleManagementPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
+              <div className="p-2 bg-yellow-100 rounded-md">
                 <UsersIcon className="h-5 w-5 text-yellow-600" />
               </div>
               <div>
@@ -528,7 +528,7 @@ export default function RoleManagementPage() {
             Assign a district to limit this role to a specific location.
           </p>
           {/* Module Access */}
-          <div className="border rounded-lg p-4 space-y-3">
+          <div className="border rounded-md p-4 space-y-3">
             <div>
               <h4 className="text-sm font-medium text-gray-900">Module Access</h4>
               <p className="text-xs text-gray-500">Select which sidebar modules this role grants access to.</p>
@@ -544,7 +544,7 @@ export default function RoleManagementPage() {
                       type="checkbox"
                       checked={formData.modules.includes(mod.code)}
                       onChange={() => toggleModuleAccess(mod.code)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -643,7 +643,7 @@ export default function RoleManagementPage() {
             </p>
           )}
           {/* Module Access */}
-          <div className="border rounded-lg p-4 space-y-3">
+          <div className="border rounded-md p-4 space-y-3">
             <div>
               <h4 className="text-sm font-medium text-gray-900">Module Access</h4>
               <p className="text-xs text-gray-500">Select which sidebar modules this role grants access to.</p>
@@ -659,7 +659,7 @@ export default function RoleManagementPage() {
                       type="checkbox"
                       checked={formData.modules.includes(mod.code)}
                       onChange={() => toggleModuleAccess(mod.code)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -709,7 +709,7 @@ export default function RoleManagementPage() {
               const allSelected = selectedCount === modulePermissions.length
 
               return (
-                <div key={module} className="border rounded-lg p-4">
+                <div key={module} className="border rounded-md p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <h4 className="font-medium text-gray-900 capitalize">
@@ -738,7 +738,7 @@ export default function RoleManagementPage() {
                             type="checkbox"
                             checked={formData.permissions.includes(permission.id)}
                             onChange={() => togglePermission(permission.id)}
-                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                            className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -791,7 +791,7 @@ export default function RoleManagementPage() {
         size="sm"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-4 bg-danger-50 rounded-lg">
+          <div className="flex items-center gap-3 p-4 bg-danger-50 rounded-md">
             <TrashIcon className="h-8 w-8 text-danger-600" />
             <div>
               <p className="font-medium text-danger-800">

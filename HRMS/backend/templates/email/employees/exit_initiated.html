@@ -1,0 +1,44 @@
+{% extends "email/base.html" %}
+
+{% block title %}Exit Process Initiated — {{ org_name|default:"NHIA" }} HRMS{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Exit Process Initiated
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Dear {{ employee_name }},
+</p>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  This is to confirm that your exit process has been initiated. Please review the details below and complete any outstanding tasks before your last working day.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+  <tr>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;width:160px;">Exit Type</td>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ exit_type }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b7280;">Last Working Day</td>
+    <td style="padding:12px 16px;font-size:14px;color:#111827;font-weight:600;">{{ last_working_day }}</td>
+  </tr>
+</table>
+
+<div style="margin:0 0 24px 0;padding:16px;background-color:#fef3c7;border-left:4px solid #d97706;border-radius:4px;">
+  <p style="margin:0;font-size:14px;line-height:1.6;color:#92400e;">
+    Please ensure you complete all handover tasks, return any company property, and clear any outstanding obligations before your last working day.
+  </p>
+</div>
+
+<p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Log in to the HRMS portal to view your exit checklist and track your clearance status.
+</p>
+{% endblock %}
+
+{% block cta_row %}
+<tr><td style="padding:0 32px 24px 32px;text-align:center;">
+  {% include "email/partials/button.html" with url=frontend_url text="View Exit Checklist" %}
+</td></tr>
+{% endblock %}

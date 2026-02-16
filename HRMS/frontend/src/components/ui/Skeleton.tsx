@@ -15,7 +15,7 @@ const roundedClasses = {
   sm: 'rounded-sm',
   md: 'rounded-md',
   lg: 'rounded-lg',
-  xl: 'rounded-xl',
+  xl: 'rounded-md',
   full: 'rounded-full',
 };
 
@@ -37,8 +37,8 @@ export function Skeleton({
     text: 'h-4 w-full rounded',
     title: 'h-6 w-3/4 rounded',
     avatar: 'rounded-full',
-    card: 'rounded-xl',
-    button: 'h-10 rounded-lg',
+    card: 'rounded-md',
+    button: 'h-10 rounded-md',
     custom: '',
   };
 
@@ -127,7 +127,7 @@ export function SkeletonTable({
   className?: string;
 }) {
   return (
-    <div className={cn('overflow-hidden rounded-lg border border-gray-200', className)}>
+    <div className={cn('overflow-hidden rounded-md border border-gray-200', className)}>
       <table className="min-w-full divide-y divide-gray-200">
         {showHeader && (
           <thead className="bg-gray-50">
@@ -155,7 +155,7 @@ export function SkeletonStatsCard({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'bg-white rounded-xl border border-gray-200 p-5 animate-pulse',
+        'bg-white rounded-md border border-gray-200 p-5 animate-pulse',
         className
       )}
     >
@@ -185,7 +185,7 @@ export function SkeletonCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse',
+        'bg-white rounded-md border border-gray-200 overflow-hidden animate-pulse',
         className
       )}
     >
@@ -224,11 +224,11 @@ export function SkeletonDashboard({ className }: { className?: string }) {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+        <div className="bg-white rounded-md border border-gray-200 p-6 animate-pulse">
           <Skeleton variant="title" width="30%" className="mb-4" />
           <Skeleton variant="custom" height={200} rounded="lg" />
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+        <div className="bg-white rounded-md border border-gray-200 p-6 animate-pulse">
           <Skeleton variant="title" width="30%" className="mb-4" />
           <Skeleton variant="custom" height={200} rounded="lg" />
         </div>

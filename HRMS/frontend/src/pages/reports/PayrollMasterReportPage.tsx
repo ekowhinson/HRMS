@@ -9,11 +9,19 @@ import {
 } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
 import { payrollService } from '@/services/payroll'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import Button from '@/components/ui/Button'
-import Select from '@/components/ui/Select'
-import Input from '@/components/ui/Input'
-import Badge from '@/components/ui/Badge'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Select,
+  Input,
+  Badge,
+  PageHeader,
+  EmptyState,
+  SkeletonCard,
+} from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 import { useGroupBy } from '@/hooks/useGroupBy'
 import type { PayrollRun, Department } from '@/types'
@@ -272,19 +280,20 @@ export default function PayrollMasterReportPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payroll Master Report</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Detailed breakdown of earnings, deductions, and employer contributions per employee
-          </p>
-        </div>
-        <Button variant="outline" disabled>
-          <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
-          Export to Excel
-        </Button>
-      </div>
+      <PageHeader
+        title="Payroll Master Report"
+        subtitle="Detailed breakdown of earnings, deductions, and employer contributions per employee"
+        breadcrumbs={[
+          { label: 'Reports', href: '/reports' },
+          { label: 'Payroll Master Report' },
+        ]}
+        actions={
+          <Button variant="outline" disabled>
+            <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
+            Export to Excel
+          </Button>
+        }
+      />
 
       {/* Filters */}
       <Card>
@@ -363,27 +372,27 @@ export default function PayrollMasterReportPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-              <div className="p-3 bg-blue-50 rounded-lg">
+              <div className="p-3 bg-blue-50 rounded-md">
                 <p className="text-xs text-blue-600">Employees</p>
                 <p className="text-xl font-bold text-blue-700">{data.summary.total_employees}</p>
               </div>
-              <div className="p-3 bg-green-50 rounded-lg">
+              <div className="p-3 bg-green-50 rounded-md">
                 <p className="text-xs text-green-600">Total Gross</p>
                 <p className="text-lg font-bold text-green-700">{formatCurrency(data.summary.total_gross)}</p>
               </div>
-              <div className="p-3 bg-red-50 rounded-lg">
+              <div className="p-3 bg-red-50 rounded-md">
                 <p className="text-xs text-red-600">Total Deductions</p>
                 <p className="text-lg font-bold text-red-700">{formatCurrency(data.summary.total_deductions)}</p>
               </div>
-              <div className="p-3 bg-purple-50 rounded-lg">
+              <div className="p-3 bg-purple-50 rounded-md">
                 <p className="text-xs text-purple-600">Total Net</p>
                 <p className="text-lg font-bold text-purple-700">{formatCurrency(data.summary.total_net)}</p>
               </div>
-              <div className="p-3 bg-orange-50 rounded-lg">
+              <div className="p-3 bg-orange-50 rounded-md">
                 <p className="text-xs text-orange-600">Employer Contrib.</p>
                 <p className="text-lg font-bold text-orange-700">{formatCurrency(data.summary.total_employer_contributions)}</p>
               </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="p-3 bg-gray-50 rounded-md">
                 <p className="text-xs text-gray-600">Employer Cost</p>
                 <p className="text-lg font-bold text-gray-700">{formatCurrency(data.summary.total_employer_cost)}</p>
               </div>
@@ -394,20 +403,18 @@ export default function PayrollMasterReportPage() {
 
       {/* Employee Details */}
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
       ) : filteredEmployees.length > 0 ? (
         isGrouped ? (
           <div className="space-y-6">
             {groups.map((group) => (
               <div key={group.label} className="space-y-2">
                 {/* Group Header */}
-                <div className="bg-blue-50 rounded-lg px-4 py-3 flex items-center justify-between">
+                <div className="bg-blue-50 rounded-md px-4 py-3 flex items-center justify-between">
                   <h3 className="font-semibold text-blue-800">
                     {groupByLabel}: {group.label} ({group.items.length} employee{group.items.length !== 1 ? 's' : ''})
                   </h3>
@@ -419,7 +426,7 @@ export default function PayrollMasterReportPage() {
                 </div>
 
                 {/* Group Sub-Total */}
-                <div className="bg-blue-50/50 rounded-lg p-4">
+                <div className="bg-blue-50/50 rounded-md p-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-blue-800">Sub-Total: {group.label}</span>
                     <div className="flex gap-6 text-sm">
@@ -434,7 +441,7 @@ export default function PayrollMasterReportPage() {
             ))}
 
             {/* Grand Total */}
-            <div className="bg-gray-200 rounded-lg p-4">
+            <div className="bg-gray-200 rounded-md p-4">
               <div className="flex items-center justify-between font-bold">
                 <span className="text-gray-900 uppercase">Grand Total</span>
                 <div className="flex gap-6 text-sm">
@@ -453,8 +460,13 @@ export default function PayrollMasterReportPage() {
         )
       ) : data ? (
         <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-gray-500">No employees found matching your criteria.</p>
+          <CardContent>
+            <EmptyState
+              type="search"
+              title="No employees found"
+              description="No employees found matching your criteria."
+              compact
+            />
           </CardContent>
         </Card>
       ) : null}

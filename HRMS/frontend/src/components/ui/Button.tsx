@@ -42,9 +42,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         'focus:ring-primary-500'
       ),
       secondary: cn(
-        'bg-white text-gray-700 border border-gray-200',
-        'hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm',
-        'focus:ring-gray-300'
+        'bg-gray-50 text-gray-700 border border-gray-300',
+        'hover:bg-gray-100 hover:border-gray-400',
+        'focus:ring-primary-500'
       ),
       danger: cn(
         'bg-danger-600 text-white',
@@ -62,12 +62,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         'focus:ring-gray-300'
       ),
       outline: cn(
-        'bg-transparent text-primary-600 border border-primary-500/50',
-        'hover:bg-primary-50 hover:border-primary-500',
+        'bg-transparent text-primary-600 border border-primary-600',
+        'hover:bg-primary-50',
         'focus:ring-primary-500'
       ),
       gradient: cn(
-        'bg-primary-600 text-white',
+        'bg-primary-600 text-white border border-primary-700',
         'hover:bg-primary-700',
         'focus:ring-primary-500'
       ),
@@ -149,7 +149,7 @@ export function ButtonGroup({
   return (
     <div
       className={cn(
-        'inline-flex rounded-md shadow-sm overflow-hidden',
+        'inline-flex rounded-md overflow-hidden',
         '[&>button]:rounded-none',
         '[&>button:first-child]:rounded-l-md',
         '[&>button:last-child]:rounded-r-md',

@@ -409,7 +409,7 @@ export default function SalaryUpgradePage() {
   return (
     <div className="space-y-6">
       {/* Hero Banner */}
-      <div className="bg-primary-700 rounded-lg p-6 text-white">
+      <div className="bg-primary-700 rounded-md p-6 text-white">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white">Salary Upgrades</h1>
@@ -419,14 +419,14 @@ export default function SalaryUpgradePage() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowBulkModal(true)}
-                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-md transition-colors duration-150"
               >
                 <UsersIcon className="h-4 w-4 mr-2" />
                 Bulk Upgrade
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+                className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-md transition-colors duration-150"
               >
                 <PlusIcon className="h-4 w-4 mr-2" />
                 New Upgrade
@@ -438,32 +438,33 @@ export default function SalaryUpgradePage() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-slate-500 p-5">
-          <div className="bg-slate-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md border-l-4 border-l-slate-500 p-5">
+          <div className="bg-slate-100 rounded-md p-2 w-fit mb-3">
             <ChevronUpDownIcon className="w-5 h-5 text-slate-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{totalItems}</p>
+
           <p className="text-xs text-gray-500 mt-0.5">Total Requests</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-amber-500 p-5">
-          <div className="bg-amber-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md border-l-4 border-l-amber-500 p-5">
+          <div className="bg-amber-100 rounded-md p-2 w-fit mb-3">
             <ClockIcon className="w-5 h-5 text-amber-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{stats.pending}</p>
           <p className="text-xs text-gray-500 mt-0.5">Pending</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-green-500 p-5">
-          <div className="bg-green-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md border-l-4 border-l-green-500 p-5">
+          <div className="bg-green-100 rounded-md p-2 w-fit mb-3">
             <CheckCircleIcon className="w-5 h-5 text-green-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{stats.approved}</p>
           <p className="text-xs text-gray-500 mt-0.5">Approved</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-red-500 p-5">
-          <div className="bg-red-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md border-l-4 border-l-red-500 p-5">
+          <div className="bg-red-100 rounded-md p-2 w-fit mb-3">
             <XCircleIcon className="w-5 h-5 text-red-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{stats.rejected}</p>
@@ -531,7 +532,7 @@ export default function SalaryUpgradePage() {
             </div>
           ) : requests.length === 0 ? (
             <div className="text-center py-16 space-y-4">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-lg">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-md">
                 <ArrowTrendingUpIcon className="h-10 w-10 text-gray-300" />
               </div>
               <div>
@@ -689,7 +690,7 @@ export default function SalaryUpgradePage() {
                 setCreateForm({ ...createForm, employee: e.target.value })
                 setPreview(null)
               }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
             >
               <option value="">Select employee...</option>
               {employees.map((emp: any) => (
@@ -717,7 +718,7 @@ export default function SalaryUpgradePage() {
               <button
                 type="button"
                 onClick={() => { setUpgradeMode('notch'); setPreview(null) }}
-                className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                   upgradeMode === 'notch'
                     ? 'bg-primary-50 border-primary-500 text-primary-700'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -728,7 +729,7 @@ export default function SalaryUpgradePage() {
               <button
                 type="button"
                 onClick={() => { setUpgradeMode('increment'); setPreview(null) }}
-                className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                   upgradeMode === 'increment'
                     ? 'bg-primary-50 border-primary-500 text-primary-700'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -746,7 +747,7 @@ export default function SalaryUpgradePage() {
               <select
                 value={createForm.new_grade}
                 onChange={(e) => setCreateForm({ ...createForm, new_grade: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               >
                 <option value="">Select grade...</option>
                 {(jobGrades || []).map((g: any) => (
@@ -763,7 +764,7 @@ export default function SalaryUpgradePage() {
               <select
                 value={createForm.new_position}
                 onChange={(e) => setCreateForm({ ...createForm, new_position: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               >
                 <option value="">Select position...</option>
                 {(jobPositions || []).map((p: any) => (
@@ -782,7 +783,7 @@ export default function SalaryUpgradePage() {
                   <button
                     type="button"
                     onClick={() => { setIncrementType('PERCENTAGE'); setPreview(null) }}
-                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                       incrementType === 'PERCENTAGE'
                         ? 'bg-primary-50 border-primary-500 text-primary-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -793,7 +794,7 @@ export default function SalaryUpgradePage() {
                   <button
                     type="button"
                     onClick={() => { setIncrementType('AMOUNT'); setPreview(null) }}
-                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                       incrementType === 'AMOUNT'
                         ? 'bg-primary-50 border-primary-500 text-primary-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -822,7 +823,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={createForm.new_band}
                   onChange={(e) => setCreateForm({ ...createForm, new_band: e.target.value, new_level: '', new_notch: '' })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">Select band...</option>
                   {(salaryBands || []).map((b: any) => (
@@ -835,7 +836,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={createForm.new_level}
                   onChange={(e) => setCreateForm({ ...createForm, new_level: e.target.value, new_notch: '' })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                   disabled={!createForm.new_band}
                 >
                   <option value="">Select level...</option>
@@ -852,7 +853,7 @@ export default function SalaryUpgradePage() {
                     setCreateForm({ ...createForm, new_notch: e.target.value })
                     setPreview(null)
                   }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                   disabled={!createForm.new_level}
                 >
                   <option value="">Select notch...</option>
@@ -878,7 +879,7 @@ export default function SalaryUpgradePage() {
 
           {/* Preview Panel */}
           {preview && (
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-3">
+            <div className="bg-gray-50 rounded-md p-4 border border-gray-200 space-y-3">
               <h4 className="text-sm font-semibold text-gray-700">Preview</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -938,7 +939,7 @@ export default function SalaryUpgradePage() {
               value={createForm.description}
               onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
               rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               placeholder="Optional description..."
             />
           </div>
@@ -980,7 +981,7 @@ export default function SalaryUpgradePage() {
                 type="checkbox"
                 checked={bulkForm.all_active}
                 onChange={(e) => setBulkForm({ ...bulkForm, all_active: e.target.checked })}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
               />
               All active employees
             </label>
@@ -993,7 +994,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.division}
                   onChange={(e) => setBulkForm({ ...bulkForm, division: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">All</option>
                   {(divisions || []).map((d: any) => (
@@ -1006,7 +1007,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.directorate}
                   onChange={(e) => setBulkForm({ ...bulkForm, directorate: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">All</option>
                   {(directorates || []).map((d: any) => (
@@ -1019,7 +1020,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.department}
                   onChange={(e) => setBulkForm({ ...bulkForm, department: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">All</option>
                   {(departments || []).map((d: any) => (
@@ -1032,7 +1033,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.grade}
                   onChange={(e) => setBulkForm({ ...bulkForm, grade: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">All</option>
                   {(jobGrades || []).map((g: any) => (
@@ -1045,7 +1046,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.region}
                   onChange={(e) => setBulkForm({ ...bulkForm, region: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">All</option>
                   {(regions || []).map((r: any) => (
@@ -1058,7 +1059,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.district}
                   onChange={(e) => setBulkForm({ ...bulkForm, district: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">All</option>
                   {(districts || []).map((d: any) => (
@@ -1071,7 +1072,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.work_location}
                   onChange={(e) => setBulkForm({ ...bulkForm, work_location: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">All</option>
                   {(locations || []).map((l: any) => (
@@ -1084,7 +1085,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.staff_category}
                   onChange={(e) => setBulkForm({ ...bulkForm, staff_category: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">All</option>
                   {(staffCategories || []).map((c: any) => (
@@ -1112,7 +1113,7 @@ export default function SalaryUpgradePage() {
               <button
                 type="button"
                 onClick={() => setUpgradeMode('notch')}
-                className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                   upgradeMode === 'notch'
                     ? 'bg-primary-50 border-primary-500 text-primary-700'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -1123,7 +1124,7 @@ export default function SalaryUpgradePage() {
               <button
                 type="button"
                 onClick={() => setUpgradeMode('increment')}
-                className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                   upgradeMode === 'increment'
                     ? 'bg-primary-50 border-primary-500 text-primary-700'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -1141,7 +1142,7 @@ export default function SalaryUpgradePage() {
               <select
                 value={bulkForm.new_grade}
                 onChange={(e) => setBulkForm({ ...bulkForm, new_grade: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               >
                 <option value="">Select grade...</option>
                 {(jobGrades || []).map((g: any) => (
@@ -1158,7 +1159,7 @@ export default function SalaryUpgradePage() {
               <select
                 value={bulkForm.new_position}
                 onChange={(e) => setBulkForm({ ...bulkForm, new_position: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               >
                 <option value="">Select position...</option>
                 {(jobPositions || []).map((p: any) => (
@@ -1177,7 +1178,7 @@ export default function SalaryUpgradePage() {
                   <button
                     type="button"
                     onClick={() => setIncrementType('PERCENTAGE')}
-                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                       incrementType === 'PERCENTAGE'
                         ? 'bg-primary-50 border-primary-500 text-primary-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -1188,7 +1189,7 @@ export default function SalaryUpgradePage() {
                   <button
                     type="button"
                     onClick={() => setIncrementType('AMOUNT')}
-                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                       incrementType === 'AMOUNT'
                         ? 'bg-primary-50 border-primary-500 text-primary-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -1217,7 +1218,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.new_band}
                   onChange={(e) => setBulkForm({ ...bulkForm, new_band: e.target.value, new_level: '', new_notch: '' })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 >
                   <option value="">Select band...</option>
                   {(salaryBands || []).map((b: any) => (
@@ -1230,7 +1231,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.new_level}
                   onChange={(e) => setBulkForm({ ...bulkForm, new_level: e.target.value, new_notch: '' })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                   disabled={!bulkForm.new_band}
                 >
                   <option value="">Select level...</option>
@@ -1244,7 +1245,7 @@ export default function SalaryUpgradePage() {
                 <select
                   value={bulkForm.new_notch}
                   onChange={(e) => setBulkForm({ ...bulkForm, new_notch: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                   disabled={!bulkForm.new_level}
                 >
                   <option value="">Select notch...</option>
@@ -1273,7 +1274,7 @@ export default function SalaryUpgradePage() {
               value={bulkForm.description}
               onChange={(e) => setBulkForm({ ...bulkForm, description: e.target.value })}
               rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               placeholder="Optional description..."
             />
           </div>
@@ -1313,7 +1314,7 @@ export default function SalaryUpgradePage() {
               : 'This will create bulk salary upgrade requests that each require approval before taking effect.'}
           </p>
           {pendingSubmit === 'individual' && preview && (
-            <div className="bg-gray-50 rounded-lg p-3 text-sm">
+            <div className="bg-gray-50 rounded-md p-3 text-sm">
               <p><strong>{preview.employee_name}</strong></p>
               <p className="text-gray-600">{formatCurrency(preview.current_amount)} &rarr; {formatCurrency(preview.new_amount)}</p>
               <p className={`font-semibold ${preview.salary_diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -1345,7 +1346,7 @@ export default function SalaryUpgradePage() {
       >
         <div className="space-y-4">
           {rejectTarget && (
-            <div className="bg-gray-50 rounded-lg p-3 text-sm">
+            <div className="bg-gray-50 rounded-md p-3 text-sm">
               <p className="font-medium">{rejectTarget.employee_name}</p>
               <p className="text-xs text-gray-500">{rejectTarget.reference_number}</p>
               <p className="text-gray-600 mt-1">
@@ -1359,7 +1360,7 @@ export default function SalaryUpgradePage() {
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               placeholder="Explain why this request is being rejected..."
             />
           </div>

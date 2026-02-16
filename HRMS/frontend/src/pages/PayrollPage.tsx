@@ -142,7 +142,7 @@ export default function PayrollPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
+                <div className="p-2 bg-blue-100 rounded-md">
                   <BanknotesIcon className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -157,7 +157,7 @@ export default function PayrollPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
+                <div className="p-2 bg-red-100 rounded-md">
                   <BanknotesIcon className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
@@ -172,7 +172,7 @@ export default function PayrollPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
+                <div className="p-2 bg-green-100 rounded-md">
                   <BanknotesIcon className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
@@ -187,7 +187,7 @@ export default function PayrollPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
+                <div className="p-2 bg-purple-100 rounded-md">
                   <CalendarIcon className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
@@ -249,7 +249,7 @@ export default function PayrollPage() {
                     onClick={() => togglePayslipDetails(payslip.id)}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="p-2 bg-gray-100 rounded-lg">
+                      <div className="p-2 bg-gray-100 rounded-md">
                         <CalendarIcon className="h-5 w-5 text-gray-600" />
                       </div>
                       <div>
@@ -338,7 +338,7 @@ export default function PayrollPage() {
                         {/* Backpay Arrears */}
                         {((payslip.arrear_allowances && payslip.arrear_allowances.length > 0) ||
                           (payslip.arrear_deductions && payslip.arrear_deductions.length > 0)) && (
-                        <div className="md:col-span-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <div className="md:col-span-3 p-3 bg-orange-50 border border-orange-200 rounded-md">
                           <h4 className="text-sm font-semibold text-orange-700 mb-3">Backpay Arrears</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {payslip.arrear_allowances && payslip.arrear_allowances.length > 0 && (

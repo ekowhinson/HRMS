@@ -451,7 +451,7 @@ export default function ProbationAssessmentsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-md">
               <div>
                 <p className="text-sm text-gray-500">Assessment Period</p>
                 <p className="font-medium">{selectedAssessment.period_display}</p>
@@ -561,7 +561,7 @@ export default function ProbationAssessmentsPage() {
       >
         <div className="space-y-4">
           {actionType === 'confirm' && (
-            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md">
               <CheckCircleIcon className="h-6 w-6 text-green-500" />
               <p className="text-sm text-green-700">
                 Are you sure you want to confirm{' '}
@@ -572,7 +572,7 @@ export default function ProbationAssessmentsPage() {
 
           {actionType === 'extend' && (
             <>
-              <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+              <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-md">
                 <ArrowPathIcon className="h-6 w-6 text-yellow-500" />
                 <p className="text-sm text-yellow-700">
                   Extend probation period for{' '}
@@ -595,7 +595,7 @@ export default function ProbationAssessmentsPage() {
                   Reason for Extension <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
                   rows={3}
                   value={actionReason}
                   onChange={(e) => setActionReason(e.target.value)}
@@ -607,7 +607,7 @@ export default function ProbationAssessmentsPage() {
 
           {actionType === 'terminate' && (
             <>
-              <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
+              <div className="flex items-center gap-3 p-3 bg-red-50 rounded-md">
                 <XCircleIcon className="h-6 w-6 text-red-500" />
                 <p className="text-sm text-red-700">
                   Are you sure you want to terminate{' '}
@@ -620,7 +620,7 @@ export default function ProbationAssessmentsPage() {
                   Reason for Termination <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
                   rows={3}
                   value={actionReason}
                   onChange={(e) => setActionReason(e.target.value)}

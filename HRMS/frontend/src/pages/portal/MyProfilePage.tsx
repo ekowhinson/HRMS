@@ -328,7 +328,7 @@ export default function MyProfilePage() {
                     Residential Address
                   </label>
                   <textarea
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150 sm:text-sm"
                     rows={2}
                     value={editData.residential_address}
                     onChange={(e) =>
@@ -348,7 +348,7 @@ export default function MyProfilePage() {
                     Postal Address
                   </label>
                   <textarea
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150 sm:text-sm"
                     rows={2}
                     value={editData.postal_address}
                     onChange={(e) =>
@@ -426,7 +426,7 @@ export default function MyProfilePage() {
                 {emergencyContacts.map((contact) => (
                   <div
                     key={contact.id}
-                    className="p-4 border rounded-lg flex items-start justify-between"
+                    className="p-4 border rounded-md flex items-start justify-between"
                   >
                     <div>
                       <p className="font-medium text-gray-900">
@@ -474,7 +474,7 @@ export default function MyProfilePage() {
             {bankAccounts && bankAccounts.length > 0 ? (
               <div className="space-y-4">
                 {bankAccounts.map((account) => (
-                  <div key={account.id} className="p-4 border rounded-lg">
+                  <div key={account.id} className="p-4 border rounded-md">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-gray-900">

@@ -429,7 +429,7 @@ export default function ApplicantDetailPage() {
                         <p className="text-sm font-medium text-gray-500 mb-2">Feedback</p>
                         <div className="space-y-2">
                           {interview.feedback.map((fb) => (
-                            <div key={fb.id} className="bg-gray-50 rounded-lg p-3 text-sm">
+                            <div key={fb.id} className="bg-gray-50 rounded-md p-3 text-sm">
                               <div className="flex items-center justify-between mb-1">
                                 <span className="font-medium">{fb.panelist_name}</span>
                                 <span className="text-gray-500">Score: {fb.overall_score}/10</span>

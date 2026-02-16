@@ -371,7 +371,7 @@ export default function BankReconciliationPage() {
       >
         {matchModalLine && (
           <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-gray-50 rounded-md p-4">
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Statement Line</h4>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
@@ -408,7 +408,7 @@ export default function BankReconciliationPage() {
             />
 
             {matchMutation.error && (
-              <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+              <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
                 {(matchMutation.error as any)?.response?.data?.detail || 'Failed to match.'}
               </div>
             )}

@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
-import { Card, CardContent } from '@/components/ui/Card'
-import Select from '@/components/ui/Select'
-import Input from '@/components/ui/Input'
-import { StatsCard } from '@/components/ui/StatsCard'
+import {
+  Card,
+  CardContent,
+  Select,
+  Input,
+  StatsCard,
+  PageHeader,
+  EmptyState,
+  SkeletonTable,
+  SkeletonStatsCard,
+} from '@/components/ui'
 import ExportMenu from '@/components/ui/ExportMenu'
 import { usePeriodRange } from '@/hooks/usePeriodRange'
 import { useExport } from '@/hooks/useExport'
@@ -67,23 +73,19 @@ export default function ConsolidatedPayrollSummaryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Consolidated Payroll Summary</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {data?.from_period_name && data?.to_period_name
-                ? `${data.from_period_name} to ${data.to_period_name}`
-                : 'Select a period range to view consolidated payroll data'}
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} disabled={!fromPeriod || !toPeriod} />
-      </div>
+      <PageHeader
+        title="Consolidated Payroll Summary"
+        subtitle={
+          data?.from_period_name && data?.to_period_name
+            ? `${data.from_period_name} to ${data.to_period_name}`
+            : 'Select a period range to view consolidated payroll data'
+        }
+        breadcrumbs={[
+          { label: 'Reports', href: '/reports' },
+          { label: 'Consolidated Payroll Summary' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} disabled={!fromPeriod || !toPeriod} />}
+      />
 
       {/* Filters */}
       <Card>
@@ -125,24 +127,25 @@ export default function ConsolidatedPayrollSummaryPage() {
       </Card>
 
       {/* Stats */}
-      {data && rows.length > 0 && (
+      {isLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <SkeletonStatsCard />
+          <SkeletonStatsCard />
+          <SkeletonStatsCard />
+          <SkeletonStatsCard />
+        </div>
+      ) : data && rows.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatsCard title="Total Employees" value={grandTotals.employee_count || 0} variant="primary" />
           <StatsCard title="Total Earnings" value={formatCurrency(grandTotals.total_earnings || 0)} variant="success" />
           <StatsCard title="Total Deductions" value={formatCurrency(grandTotals.total_deductions || 0)} variant="warning" />
           <StatsCard title="Total Net Pay" value={formatCurrency(grandTotals.total_net || 0)} variant="info" />
         </div>
-      )}
+      ) : null}
 
       {/* Table */}
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <SkeletonTable rows={6} columns={6} />
       ) : sorted.length > 0 ? (
         <Card>
           <div className="overflow-x-auto">
@@ -183,8 +186,13 @@ export default function ConsolidatedPayrollSummaryPage() {
         </Card>
       ) : fromPeriod && toPeriod ? (
         <Card>
-          <CardContent className="p-8 text-center text-sm text-gray-500">
-            No payroll data found for the selected period range.
+          <CardContent>
+            <EmptyState
+              type="data"
+              title="No payroll data"
+              description="No payroll data found for the selected period range."
+              compact
+            />
           </CardContent>
         </Card>
       ) : null}

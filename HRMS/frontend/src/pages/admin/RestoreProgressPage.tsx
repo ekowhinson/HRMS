@@ -126,7 +126,7 @@ function ModuleProgressItem({ module }: { module: ModuleProgress }) {
   const Icon = config.icon
 
   return (
-    <div className={`flex items-center gap-4 px-4 py-3 rounded-lg ${config.bgColor}`}>
+    <div className={`flex items-center gap-4 px-4 py-3 rounded-md ${config.bgColor}`}>
       <div className="flex-shrink-0">
         <Icon
           className={`h-5 w-5 ${config.color} ${module.state === 'in_progress' ? 'animate-spin' : ''}`}
@@ -448,19 +448,19 @@ export default function RestoreProgressPage() {
             <CardContent>
               <h2 className="text-sm font-semibold text-gray-900 mb-4">Summary</h2>
               <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-3 rounded-lg bg-success-50">
+                <div className="text-center p-3 rounded-md bg-success-50">
                   <div className="text-2xl font-bold text-success-700">
                     {summaryStats.totalRestored.toLocaleString()}
                   </div>
                   <div className="text-xs text-success-600 mt-1">Records Restored</div>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-gray-50">
+                <div className="text-center p-3 rounded-md bg-gray-50">
                   <div className="text-2xl font-bold text-gray-700">
                     {summaryStats.totalSkipped.toLocaleString()}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">Records Skipped</div>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-danger-50">
+                <div className="text-center p-3 rounded-md bg-danger-50">
                   <div className="text-2xl font-bold text-danger-700">
                     {summaryStats.totalFailed.toLocaleString()}
                   </div>
@@ -473,7 +473,7 @@ export default function RestoreProgressPage() {
 
         {/* Error Message (if failed) */}
         {(restore.status === 'FAILED' || restore.status === 'ROLLED_BACK') && (
-          <div className="rounded-lg bg-danger-50 border border-danger-200 p-4">
+          <div className="rounded-md bg-danger-50 border border-danger-200 p-4">
             <div className="flex gap-3">
               <ExclamationTriangleIcon className="h-5 w-5 text-danger-600 flex-shrink-0 mt-0.5" />
               <div>

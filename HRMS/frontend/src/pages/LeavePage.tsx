@@ -401,7 +401,7 @@ export default function LeavePage() {
               Reason
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
               rows={3}
               value={formData.reason}
               onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
@@ -477,7 +477,7 @@ export default function LeavePage() {
                 {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
                   <div className="flex items-center gap-2">
                     <select
-                      className="text-sm border border-gray-300 rounded-lg px-2 py-1"
+                      className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da]"
                       value={selectedDocType}
                       onChange={(e) => setSelectedDocType(e.target.value)}
                     >
@@ -514,7 +514,7 @@ export default function LeavePage() {
               {loadingDocuments ? (
                 <div className="text-center py-4 text-gray-500">Loading documents...</div>
               ) : leaveDocuments.length === 0 ? (
-                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <div className="bg-gray-50 rounded-md p-4 text-center">
                   <PaperClipIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">No documents attached</p>
                   {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
@@ -528,10 +528,10 @@ export default function LeavePage() {
                   {leaveDocuments.map((doc: any) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg border border-gray-200">
+                        <div className="p-2 bg-white rounded-md border border-gray-200">
                           <DocumentTextIcon className="h-5 w-5 text-gray-500" />
                         </div>
                         <div>
@@ -544,7 +544,7 @@ export default function LeavePage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleDocumentDownload(doc.id, doc.file_name)}
-                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors duration-150"
                           title="Download"
                         >
                           <ArrowDownTrayIcon className="h-4 w-4" />
@@ -552,7 +552,7 @@ export default function LeavePage() {
                         {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
                           <button
                             onClick={() => handleDocumentDelete(doc.id)}
-                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors duration-150"
                             title="Delete"
                           >
                             <TrashIcon className="h-4 w-4" />

@@ -844,5 +844,114 @@ class AnnouncementAttachment(BaseModel):
         return None
 
 
+class EmailLog(TimeStampedModel):
+    """
+    Tracks every email sent by the system for audit and debugging.
+    """
+    class Status(models.TextChoices):
+        QUEUED = 'QUEUED', 'Queued'
+        SENT = 'SENT', 'Sent'
+        DELIVERED = 'DELIVERED', 'Delivered'
+        FAILED = 'FAILED', 'Failed'
+        BOUNCED = 'BOUNCED', 'Bounced'
+
+    recipient_email = models.EmailField(db_index=True)
+    recipient_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='email_logs',
+    )
+    from_email = models.EmailField()
+    subject = models.CharField(max_length=500)
+    event_type = models.CharField(max_length=60, db_index=True)
+    template_name = models.CharField(max_length=200, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.QUEUED,
+        db_index=True,
+    )
+    status_detail = models.TextField(blank=True)
+    sendgrid_message_id = models.CharField(max_length=200, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    context_snapshot = models.JSONField(default=dict, blank=True)
+    retry_count = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'email_logs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient_email', '-created_at']),
+            models.Index(fields=['event_type', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['sendgrid_message_id'], name='idx_email_log_sg_msg_id'),
+        ]
+
+    def __str__(self):
+        return f"{self.event_type} → {self.recipient_email} ({self.status})"
+
+
+class EmailPreference(models.Model):
+    """
+    Per-user email notification preferences.
+    Critical emails (2FA, password reset) always bypass preferences.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='email_preference',
+    )
+    all_emails_enabled = models.BooleanField(default=True)
+    leave_notifications = models.BooleanField(default=True)
+    workflow_notifications = models.BooleanField(default=True)
+    payroll_notifications = models.BooleanField(default=True)
+    performance_notifications = models.BooleanField(default=True)
+    recruitment_notifications = models.BooleanField(default=True)
+    discipline_notifications = models.BooleanField(default=True)
+    finance_notifications = models.BooleanField(default=True)
+    procurement_notifications = models.BooleanField(default=True)
+    training_notifications = models.BooleanField(default=True)
+    benefits_notifications = models.BooleanField(default=True)
+    employee_notifications = models.BooleanField(default=True)
+    exits_notifications = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'email_preferences'
+        verbose_name = 'Email Preference'
+        verbose_name_plural = 'Email Preferences'
+
+    def __str__(self):
+        return f"Email prefs for {self.user}"
+
+    # Map category names to field names
+    CATEGORY_FIELD_MAP = {
+        'leave': 'leave_notifications',
+        'workflow': 'workflow_notifications',
+        'payroll': 'payroll_notifications',
+        'performance': 'performance_notifications',
+        'recruitment': 'recruitment_notifications',
+        'discipline': 'discipline_notifications',
+        'finance': 'finance_notifications',
+        'procurement': 'procurement_notifications',
+        'training': 'training_notifications',
+        'benefits': 'benefits_notifications',
+        'employee': 'employee_notifications',
+        'exits': 'exits_notifications',
+    }
+
+    def is_enabled_for(self, category: str) -> bool:
+        """Check if emails are enabled for a given category."""
+        if not self.all_emails_enabled:
+            return False
+        field_name = self.CATEGORY_FIELD_MAP.get(category)
+        if field_name:
+            return getattr(self, field_name, True)
+        return True
+
+
 # Import backup models so Django discovers them for migrations
 from core.backup_models import TenantBackup, TenantRestore, BackupSchedule  # noqa: E402, F401

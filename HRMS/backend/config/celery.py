@@ -54,6 +54,7 @@ app.conf.update(
         'finance.tasks.*': {'queue': 'finance'},
         'procurement.tasks.*': {'queue': 'procurement'},
         'assistant.tasks.*': {'queue': 'imports'},
+        'core.email.tasks.*': {'queue': 'emails'},
     },
 
     # Default queue
@@ -116,11 +117,17 @@ app.conf.update(
             'task': 'reports.tasks.check_scheduled_reports',
             'schedule': crontab(minute='*/15'),  # Every 15 minutes
         },
+
+        # ── Email maintenance ────────────────────────────────────
+        'cleanup-old-email-logs': {
+            'task': 'core.email.tasks.cleanup_old_email_logs',
+            'schedule': crontab(hour=4, minute=0),  # Daily at 4:00 AM
+        },
     },
 )
 
 # Auto-discover tasks from all installed apps
-app.autodiscover_tasks(['core', 'payroll', 'reports', 'training', 'finance', 'procurement', 'inventory', 'projects', 'assistant'])
+app.autodiscover_tasks(['core', 'core.email', 'payroll', 'reports', 'training', 'finance', 'procurement', 'inventory', 'projects', 'assistant'])
 
 
 # ── Task lifecycle signal handlers ──────────────────────────────────────────

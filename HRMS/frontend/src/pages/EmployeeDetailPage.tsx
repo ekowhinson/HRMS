@@ -192,7 +192,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
     return (
       <div className="animate-pulse space-y-6">
         <div className="h-8 w-48 bg-gray-200 rounded" />
-        <div className="bg-white rounded-xl h-64" />
+        <div className="bg-white rounded-md h-64" />
       </div>
     )
   }
@@ -798,7 +798,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
             {(employee.education?.length ?? 0) > 0 ? (
               <div className="space-y-4">
                 {employee.education?.map((edu: any, index: number) => (
-                  <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                  <div key={index} className="p-4 bg-gray-50 rounded-md">
                     <h4 className="font-medium text-gray-900">{edu.degree}</h4>
                     <p className="text-sm text-gray-600">{edu.institution}</p>
                     <p className="text-sm text-gray-500">
@@ -825,7 +825,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                 {employee.documents?.map((doc: any, index: number) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
                   >
                     <div className="flex items-center gap-3">
                       <DocumentTextIcon className="h-5 w-5 text-gray-400" />
@@ -938,7 +938,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                             className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
                           >
                             <div className="flex items-center gap-3">
-                              <ChevronRightIcon className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                              <ChevronRightIcon className={`h-4 w-4 text-gray-400 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
                               <div>
                                 <p className="text-sm font-semibold text-gray-900">{payslip.period_name || 'Payroll Period'}</p>
                                 <Badge variant={payslip.status === 'PAID' ? 'success' : payslip.status === 'APPROVED' ? 'info' : 'warning'} className="mt-1">
@@ -967,7 +967,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                             <div className="px-6 pb-6 pt-2 bg-gray-50/50 border-t border-gray-100">
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 {/* Earnings */}
-                                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                <div className="bg-white rounded-md border border-gray-200 p-4">
                                   <h4 className="text-sm font-semibold text-green-700 mb-3">Earnings</h4>
                                   <div className="divide-y divide-gray-100">
                                     {earnings.map((item: any, idx: number) => (
@@ -984,7 +984,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                                 </div>
 
                                 {/* Deductions */}
-                                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                <div className="bg-white rounded-md border border-gray-200 p-4">
                                   <h4 className="text-sm font-semibold text-red-700 mb-3">Deductions</h4>
                                   <div className="divide-y divide-gray-100">
                                     {deductions.map((item: any, idx: number) => (
@@ -1009,7 +1009,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
 
                               {/* Employer Contributions */}
                               {employerContributions.length > 0 && (
-                                <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                                <div className="bg-white rounded-md border border-gray-200 p-4 mt-4">
                                   <h4 className="text-sm font-semibold text-purple-700 mb-3">Employer Contributions</h4>
                                   <div className="divide-y divide-gray-100 max-w-lg">
                                     {employerContributions.map((item: any, idx: number) => (
@@ -1069,19 +1069,19 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                 {employee.salary ? (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-5 bg-green-50 rounded-xl border border-green-100">
+                      <div className="p-5 bg-green-50 rounded-md border border-green-100">
                         <p className="text-sm text-green-600 font-medium">Basic Salary</p>
                         <p className="text-2xl font-bold text-green-700 mt-1">
                           {formatCurrency(employee.salary.basic_salary)}
                         </p>
                       </div>
-                      <div className="p-5 bg-blue-50 rounded-xl border border-blue-100">
+                      <div className="p-5 bg-blue-50 rounded-md border border-blue-100">
                         <p className="text-sm text-blue-600 font-medium">Total Allowances</p>
                         <p className="text-2xl font-bold text-blue-700 mt-1">
                           {formatCurrency(employee.salary.total_allowances || 0)}
                         </p>
                       </div>
-                      <div className="p-5 bg-purple-50 rounded-xl border border-purple-100">
+                      <div className="p-5 bg-purple-50 rounded-md border border-purple-100">
                         <p className="text-sm text-purple-600 font-medium">Gross Salary</p>
                         <p className="text-2xl font-bold text-purple-700 mt-1">
                           {formatCurrency(employee.salary.gross_salary || 0)}
@@ -1116,7 +1116,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                     const usedPercentage = entitlement > 0 ? (taken / entitlement) * 100 : 0
 
                     return (
-                      <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                      <div key={index} className="p-4 bg-gray-50 rounded-md border border-gray-100">
                         <p className="text-sm font-medium text-gray-700 mb-3">{balance.leave_type_name}</p>
 
                         {/* Days Left - Prominent Display */}
@@ -1410,7 +1410,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
           {/* Add Transaction Modal */}
           {showTransactionModal && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="bg-white rounded-md max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b">
                   <h2 className="text-xl font-semibold">Add Transaction</h2>
                   <p className="text-sm text-gray-500 mt-1">
@@ -1425,7 +1425,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                     <select
                       value={selectedComponent}
                       onChange={(e) => setSelectedComponent(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400"
                     >
                       <option value="">Select transaction type...</option>
                       {payComponents?.results?.map((comp: PayComponent) => (
@@ -1443,7 +1443,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                     <select
                       value={overrideType}
                       onChange={(e) => setOverrideType(e.target.value as any)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400"
                     >
                       <option value="NONE">Use Default</option>
                       <option value="FIXED">Fixed Amount</option>
@@ -1461,7 +1461,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                         type="number"
                         value={overrideAmount}
                         onChange={(e) => setOverrideAmount(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400"
                         placeholder="Enter amount"
                       />
                     </div>
@@ -1477,7 +1477,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                         step="0.01"
                         value={overridePercentage}
                         onChange={(e) => setOverridePercentage(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400"
                         placeholder="Enter percentage (e.g., 10 for 10%)"
                       />
                     </div>
@@ -1492,7 +1492,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                         value={overrideFormula}
                         onChange={(e) => setOverrideFormula(e.target.value)}
                         rows={3}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400 font-mono text-sm"
                         placeholder="e.g., basic * 0.10 or min(gross * 0.05, 500)"
                       />
                       <p className="text-xs text-gray-500 mt-1">
@@ -1522,7 +1522,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                         type="date"
                         value={effectiveFrom}
                         onChange={(e) => setEffectiveFrom(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400"
                       />
                     </div>
                     <div>
@@ -1533,7 +1533,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                         type="date"
                         value={effectiveTo}
                         onChange={(e) => setEffectiveTo(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400"
                       />
                     </div>
                   </div>
@@ -1546,7 +1546,7 @@ export default function EmployeeDetailPage({ readOnly = false, basePath = '/empl
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       rows={2}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400"
                       placeholder="Optional description or justification"
                     />
                   </div>

@@ -437,7 +437,7 @@ export default function PayrollProcessingPage() {
       </div>
 
       {/* Tab Toggle */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-md w-fit">
         <button
           onClick={() => setActiveTab('overview')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -594,23 +594,23 @@ export default function PayrollProcessingPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="p-3 bg-blue-50 rounded-md">
                     <p className="text-xs text-blue-600 font-medium">Employees</p>
                     <p className="text-lg font-bold text-blue-700">{latestPayroll.total_employees}</p>
                   </div>
-                  <div className="p-3 bg-green-50 rounded-lg">
+                  <div className="p-3 bg-green-50 rounded-md">
                     <p className="text-xs text-green-600 font-medium">Gross Pay</p>
                     <p className="text-lg font-bold text-green-700">{formatCurrency(latestPayroll.total_gross)}</p>
                   </div>
-                  <div className="p-3 bg-red-50 rounded-lg">
+                  <div className="p-3 bg-red-50 rounded-md">
                     <p className="text-xs text-red-600 font-medium">Total Deductions</p>
                     <p className="text-lg font-bold text-red-700">{formatCurrency(latestPayroll.total_deductions)}</p>
                   </div>
-                  <div className="p-3 bg-purple-50 rounded-lg">
+                  <div className="p-3 bg-purple-50 rounded-md">
                     <p className="text-xs text-purple-600 font-medium">Net Pay</p>
                     <p className="text-lg font-bold text-purple-700">{formatCurrency(latestPayroll.total_net)}</p>
                   </div>
-                  <div className="p-3 bg-orange-50 rounded-lg">
+                  <div className="p-3 bg-orange-50 rounded-md">
                     <p className="text-xs text-orange-600 font-medium">Employer Cost</p>
                     <p className="text-lg font-bold text-orange-700">{formatCurrency(latestPayroll.total_employer_cost)}</p>
                   </div>
@@ -733,29 +733,29 @@ export default function PayrollProcessingPage() {
 
                   {/* Summary Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                    <div className="p-4 bg-blue-50 rounded-lg">
+                    <div className="p-4 bg-blue-50 rounded-md">
                       <p className="text-sm text-blue-600">Employees</p>
                       <p className="text-2xl font-bold text-blue-700">{run.total_employees}</p>
                     </div>
-                    <div className="p-4 bg-green-50 rounded-lg">
+                    <div className="p-4 bg-green-50 rounded-md">
                       <p className="text-sm text-green-600">Total Gross</p>
                       <p className="text-xl font-bold text-green-700">
                         {formatCurrency(run.total_gross)}
                       </p>
                     </div>
-                    <div className="p-4 bg-red-50 rounded-lg">
+                    <div className="p-4 bg-red-50 rounded-md">
                       <p className="text-sm text-red-600">Deductions</p>
                       <p className="text-xl font-bold text-red-700">
                         {formatCurrency(run.total_deductions)}
                       </p>
                     </div>
-                    <div className="p-4 bg-purple-50 rounded-lg">
+                    <div className="p-4 bg-purple-50 rounded-md">
                       <p className="text-sm text-purple-600">Net Pay</p>
                       <p className="text-xl font-bold text-purple-700">
                         {formatCurrency(run.total_net)}
                       </p>
                     </div>
-                    <div className="p-4 bg-orange-50 rounded-lg">
+                    <div className="p-4 bg-orange-50 rounded-md">
                       <p className="text-sm text-orange-600">PAYE Tax</p>
                       <p className="text-xl font-bold text-orange-700">
                         {formatCurrency(run.total_paye)}
@@ -1101,12 +1101,12 @@ export default function PayrollProcessingPage() {
           <div className="absolute inset-0 bg-gray-900/50" />
 
           {/* Main Modal Card */}
-          <div className="relative w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="relative w-full max-w-lg mx-4 bg-white rounded-md overflow-hidden">
             {/* Content Container */}
             <div className="p-8">
               {/* Header */}
               <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-primary-100 mb-4">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-md bg-primary-100 mb-4">
                   <CalculatorIcon className="w-7 h-7 text-primary-600" />
                 </div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-1">Computing Payroll</h2>
@@ -1131,9 +1131,9 @@ export default function PayrollProcessingPage() {
 
               {/* Stats Cards */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-50 rounded-lg p-4">
+                <div className="bg-gray-50 rounded-md p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-md bg-green-100 flex items-center justify-center">
                       <CheckIcon className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
@@ -1143,9 +1143,9 @@ export default function PayrollProcessingPage() {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4">
+                <div className="bg-gray-50 rounded-md p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-md bg-blue-100 flex items-center justify-center">
                       <BanknotesIcon className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
@@ -1158,7 +1158,7 @@ export default function PayrollProcessingPage() {
 
               {/* Current Employee Processing */}
               {progress?.current_employee && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <div className="bg-gray-50 rounded-md p-4 mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
                       <span className="text-sm font-semibold text-primary-700">
@@ -1205,7 +1205,7 @@ export default function PayrollProcessingPage() {
       {computeResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-gray-900/50" onClick={() => setComputeResult(null)} />
-          <div className="relative w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="relative w-full max-w-lg mx-4 bg-white rounded-md overflow-hidden">
             <div className="p-8">
               {/* Success Icon */}
               <div className="text-center mb-6">
@@ -1218,11 +1218,11 @@ export default function PayrollProcessingPage() {
 
               {/* Summary Stats */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                <div className="bg-blue-50 rounded-md p-4 text-center">
                   <p className="text-3xl font-bold text-blue-700">{computeResult.totalEmployees}</p>
                   <p className="text-blue-600 text-sm mt-1">Employees Processed</p>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                <div className="bg-purple-50 rounded-md p-4 text-center">
                   <p className="text-3xl font-bold text-purple-700">
                     {computeResult.durationSeconds < 60
                       ? `${computeResult.durationSeconds}s`
@@ -1233,7 +1233,7 @@ export default function PayrollProcessingPage() {
               </div>
 
               {/* Financial Summary */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3 mb-6">
+              <div className="bg-gray-50 rounded-md p-4 space-y-3 mb-6">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 text-sm">Total Gross</span>
                   <span className="font-semibold text-gray-900">{formatCurrency(parseFloat(computeResult.totalGross))}</span>
@@ -1250,7 +1250,7 @@ export default function PayrollProcessingPage() {
 
               {/* Errors Warning */}
               {computeResult.totalErrors > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-6">
                   <div className="flex items-center gap-2">
                     <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                     <p className="text-amber-700 text-sm">

@@ -1075,7 +1075,7 @@ export default function PayrollSetupPage() {
               ) : settingsData?.settings ? (
                 <div className="space-y-6">
                   {/* Current Active Period Display */}
-                  <div className="bg-primary-50 border border-primary-200 rounded-lg p-6">
+                  <div className="bg-primary-50 border border-primary-200 rounded-md p-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-primary-600 mb-1">Currently Active Period</p>
@@ -1185,7 +1185,7 @@ export default function PayrollSetupPage() {
                           type="checkbox"
                           checked={settingsData.settings.auto_advance_period}
                           onChange={(e) => updateSettingsMutation.mutate({ auto_advance_period: e.target.checked })}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          className="rounded border-gray-300 text-primary-600 focus:ring-[#0969da]"
                         />
                         <div>
                           <span className="text-sm font-medium text-gray-900">Auto-advance Period</span>
@@ -1229,7 +1229,7 @@ export default function PayrollSetupPage() {
                     <button
                       key={cal.id}
                       onClick={() => setActivePeriodMutation.mutate({ calendar_id: cal.id })}
-                      className={`p-3 rounded-lg border text-center transition-colors ${
+                      className={`p-3 rounded-md border text-center transition-colors duration-150 ${
                         settingsData.settings?.active_calendar === cal.id
                           ? 'bg-primary-100 border-primary-500 text-primary-700'
                           : 'bg-white border-gray-200 hover:border-primary-300 hover:bg-primary-50'
@@ -1562,7 +1562,7 @@ export default function PayrollSetupPage() {
       >
         {showReverseModal && (
           <div className="space-y-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
               <div className="flex items-start">
                 <ArrowUturnLeftIcon className="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
                 <div className="text-sm text-red-800">
@@ -1600,7 +1600,7 @@ export default function PayrollSetupPage() {
       >
         {showPromoteModal && (
           <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="bg-green-50 border border-green-200 rounded-md p-4">
               <div className="flex items-start">
                 <CheckCircleIcon className="h-5 w-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
                 <div className="text-sm text-green-800">
@@ -1973,7 +1973,7 @@ export default function PayrollSetupPage() {
                 <button
                   type="button"
                   onClick={() => setIncrementForm({ ...incrementForm, increment_type: 'PERCENTAGE' })}
-                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                     incrementForm.increment_type === 'PERCENTAGE'
                       ? 'bg-primary-50 border-primary-500 text-primary-700'
                       : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -1984,7 +1984,7 @@ export default function PayrollSetupPage() {
                 <button
                   type="button"
                   onClick={() => setIncrementForm({ ...incrementForm, increment_type: 'AMOUNT' })}
-                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg border ${
+                  className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border ${
                     incrementForm.increment_type === 'AMOUNT'
                       ? 'bg-primary-50 border-primary-500 text-primary-700'
                       : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -2041,7 +2041,7 @@ export default function PayrollSetupPage() {
                 value={incrementDescription}
                 onChange={(e) => setIncrementDescription(e.target.value)}
                 placeholder="e.g. Annual salary revision for 2026"
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                className="w-full rounded-md border-gray-300 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] text-sm bg-gray-50 focus:bg-white hover:border-gray-400"
                 rows={2}
               />
             </div>
@@ -2065,22 +2065,22 @@ export default function PayrollSetupPage() {
           <div className="space-y-4">
             {/* Summary cards */}
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 text-center">
+              <div className="bg-blue-50 rounded-md p-4 text-center">
                 <p className="text-2xl font-bold text-blue-700">{incrementPreview.summary.notches_affected}</p>
                 <p className="text-xs text-blue-600">Notches Affected</p>
               </div>
-              <div className="bg-green-50 rounded-lg p-4 text-center">
+              <div className="bg-green-50 rounded-md p-4 text-center">
                 <p className="text-2xl font-bold text-green-700">{incrementPreview.summary.employees_affected}</p>
                 <p className="text-xs text-green-600">Employees Affected</p>
               </div>
-              <div className="bg-amber-50 rounded-lg p-4 text-center">
+              <div className="bg-amber-50 rounded-md p-4 text-center">
                 <p className="text-2xl font-bold text-amber-700">{formatCurrency(incrementPreview.summary.total_difference)}</p>
                 <p className="text-xs text-amber-600">Total Increase</p>
               </div>
             </div>
 
             {/* Preview table */}
-            <div className="max-h-64 overflow-auto border rounded-lg">
+            <div className="max-h-64 overflow-auto border rounded-md">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
@@ -2120,7 +2120,7 @@ export default function PayrollSetupPage() {
 
         {incrementStep === 'confirm' && incrementPreview && (
           <div className="space-y-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
               <div className="flex items-start">
                 <ArrowTrendingUpIcon className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
                 <div className="text-sm text-amber-800">

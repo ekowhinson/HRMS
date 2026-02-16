@@ -262,7 +262,7 @@ export default function PayrollValidationPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium transition-colors duration-150 ${
                 activeTab === tab.key
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -341,7 +341,7 @@ export default function PayrollValidationPage() {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
-                    className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                    className="bg-green-500 h-3 rounded-full transition-colors duration-150"
                     style={{ width: `${dashboard.completion_percentage}%` }}
                   />
                 </div>
@@ -440,7 +440,7 @@ export default function PayrollValidationPage() {
                 {districtValidations.map((v: any) => (
                   <Card
                     key={v.id}
-                    className="cursor-pointer hover:ring-2 hover:ring-primary-500 transition-all"
+                    className="cursor-pointer hover:ring-2 hover:ring-primary-500 transition-colors duration-150"
                     onClick={() => setSelectedValidation(v)}
                   >
                     <CardContent className="p-4">
@@ -904,7 +904,7 @@ export default function PayrollValidationPage() {
               id="is_active"
               checked={reasonForm.is_active}
               onChange={(e) => setReasonForm({ ...reasonForm, is_active: e.target.checked })}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             <label htmlFor="is_active" className="text-sm text-gray-700">Active</label>
           </div>
@@ -927,7 +927,7 @@ export default function PayrollValidationPage() {
         title="Approve District Validation"
       >
         <div className="space-y-4">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="bg-green-50 border border-green-200 rounded-md p-4">
             <p className="text-sm text-green-800">
               You are approving the payroll validation for <strong>{selectedRegionalValidation?.district_name}</strong>.
               This confirms that the employee list has been verified and is ready for payroll processing.
@@ -935,15 +935,15 @@ export default function PayrollValidationPage() {
           </div>
           {selectedRegionalValidation && (
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-gray-50 rounded-lg p-3">
+              <div className="bg-gray-50 rounded-md p-3">
                 <p className="text-xs text-gray-500">Total</p>
                 <p className="text-lg font-bold">{selectedRegionalValidation.total_employees}</p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
+              <div className="bg-gray-50 rounded-md p-3">
                 <p className="text-xs text-gray-500">Confirmed</p>
                 <p className="text-lg font-bold text-green-600">{selectedRegionalValidation.validated_employees}</p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
+              <div className="bg-gray-50 rounded-md p-3">
                 <p className="text-xs text-gray-500">Flagged</p>
                 <p className="text-lg font-bold text-red-600">{selectedRegionalValidation.flagged_employees}</p>
               </div>
@@ -981,7 +981,7 @@ export default function PayrollValidationPage() {
         title="Reject District Validation"
       >
         <div className="space-y-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <p className="text-sm text-red-800">
               You are rejecting the payroll validation for <strong>{selectedRegionalValidation?.district_name}</strong>.
               This will send it back to the District Manager for correction.
@@ -992,7 +992,7 @@ export default function PayrollValidationPage() {
               Rejection Reason <span className="text-red-500">*</span>
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               rows={3}
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}

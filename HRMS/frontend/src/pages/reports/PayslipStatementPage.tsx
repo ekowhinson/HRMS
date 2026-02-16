@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
 import {
-  ArrowLeftIcon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -13,9 +11,17 @@ import { payrollSetupService } from '@/services/payrollSetup'
 import { usePeriodRange } from '@/hooks/usePeriodRange'
 import { useExport } from '@/hooks/useExport'
 import ExportMenu from '@/components/ui/ExportMenu'
-import { Card, CardContent } from '@/components/ui/Card'
-import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
+import {
+  Card,
+  CardContent,
+  Input,
+  Select,
+  Button,
+  PageHeader,
+  EmptyState,
+  SkeletonStatsCard,
+  SkeletonTable,
+} from '@/components/ui'
 import PeriodRangeSelector from '@/components/reports/PeriodRangeSelector'
 import { formatCurrency } from '@/lib/utils'
 
@@ -105,23 +111,19 @@ export default function PayslipStatementPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Payslip Statement</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {data?.from_period_name && data?.to_period_name
-                ? `${data.from_period_name} to ${data.to_period_name}`
-                : 'Per-employee monthly payslips across period range'}
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} disabled={!fromPeriod || !toPeriod} />
-      </div>
+      <PageHeader
+        title="Payslip Statement"
+        subtitle={
+          data?.from_period_name && data?.to_period_name
+            ? `${data.from_period_name} to ${data.to_period_name}`
+            : 'Per-employee monthly payslips across period range'
+        }
+        breadcrumbs={[
+          { label: 'Reports', href: '/reports' },
+          { label: 'Payslip Statement' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} disabled={!fromPeriod || !toPeriod} />}
+      />
 
       {/* Filters */}
       <Card>
@@ -200,38 +202,46 @@ export default function PayslipStatementPage() {
             Showing {employees.length} employee{employees.length !== 1 ? 's' : ''}
           </p>
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="secondary"
+              size="xs"
               onClick={() => setExpandedEmployees(new Set(employees.map((e) => e.employee_number)))}
-              className="px-3 py-1 text-xs border rounded hover:bg-gray-50"
             >
               Expand All
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="xs"
               onClick={() => setExpandedEmployees(new Set())}
-              className="px-3 py-1 text-xs border rounded hover:bg-gray-50"
             >
               Collapse All
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Content */}
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={5} columns={5} />
+        </div>
       ) : employees.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-sm text-gray-500">
-            {!fromPeriod || !toPeriod
-              ? 'Please select a period range to view the report.'
-              : 'No records found matching your criteria.'}
-          </CardContent>
+          <EmptyState
+            type={!fromPeriod || !toPeriod ? 'data' : 'search'}
+            title={!fromPeriod || !toPeriod ? 'Select a period range' : 'No records found'}
+            description={
+              !fromPeriod || !toPeriod
+                ? 'Please select a period range to view the report.'
+                : 'No records found matching your criteria.'
+            }
+            compact
+          />
         </Card>
       ) : (
         <div className="space-y-4">

@@ -286,11 +286,11 @@ function OverviewTab({ project, milestones, budgets }: { project: Project; miles
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-center p-3 bg-gray-50 rounded-md">
                   <p className="text-xs text-gray-500">Allocated</p>
                   <p className="text-lg font-semibold text-gray-900">{formatCurrency(totalBudget)}</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-center p-3 bg-gray-50 rounded-md">
                   <p className="text-xs text-gray-500">Spent</p>
                   <p className={`text-lg font-semibold ${totalSpent > totalBudget ? 'text-danger-600' : 'text-gray-900'}`}>
                     {formatCurrency(totalSpent)}
@@ -298,7 +298,7 @@ function OverviewTab({ project, milestones, budgets }: { project: Project; miles
                 </div>
               </div>
 
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <div className="text-center p-3 bg-gray-50 rounded-md">
                 <p className="text-xs text-gray-500">Remaining</p>
                 <p className={`text-lg font-semibold ${totalBudget - totalSpent < 0 ? 'text-danger-600' : 'text-success-600'}`}>
                   {formatCurrency(totalBudget - totalSpent)}
@@ -338,7 +338,7 @@ function OverviewTab({ project, milestones, budgets }: { project: Project; miles
                           <CheckCircleIcon className="w-3 h-3 text-white" />
                         )}
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="bg-gray-50 rounded-md p-3">
                         <div className="flex items-center justify-between mb-1">
                           <h4 className="text-sm font-medium text-gray-900">{milestone.name}</h4>
                           <Badge variant={STATUS_VARIANTS[milestone.status] || 'default'} size="xs">

@@ -584,7 +584,7 @@ export default function BudgetPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {saveError && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(saveError as any)?.response?.data?.detail ||
                 (saveError as any)?.response?.data?.non_field_errors?.[0] ||
                 'An error occurred while saving.'}
@@ -682,7 +682,7 @@ export default function BudgetPage() {
           <span className="font-semibold">{deleteConfirm?.account_name || 'this account'}</span>?
         </p>
         {deleteMutation.error && (
-          <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+          <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
             {(deleteMutation.error as any)?.response?.data?.detail || 'Cannot delete this budget.'}
           </div>
         )}

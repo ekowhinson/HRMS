@@ -80,7 +80,7 @@ export function BarChartCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-xl border border-gray-200/60 p-6',
+        'bg-white rounded-md border border-gray-200 p-6',
         className
       )}
     >

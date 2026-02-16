@@ -220,18 +220,23 @@ def send_notification_task(user_id: str, notification_type: str, data: dict):
     )
 
     # Send email if requested and user has email
-    send_email = data.get('send_email', False)
-    if send_email and user.email:
+    should_send_email = data.get('send_email', False)
+    if should_send_email and user.email:
         try:
-            from django.core.mail import send_mail
-            from django.conf import settings
+            from core.email import send_email as _send_email, EmailEvent
 
-            send_mail(
-                subject=data.get('title', 'HRMS Notification'),
-                message=data.get('message', ''),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=True,
+            _send_email(
+                event=EmailEvent.GENERIC_NOTIFICATION,
+                recipient_email=user.email,
+                context={
+                    'recipient_name': user.get_full_name() or user.email,
+                    'title': data.get('title', 'HRMS Notification'),
+                    'message': data.get('message', ''),
+                    'cta_url': data.get('link', ''),
+                    'cta_text': 'View Details',
+                    'subject': data.get('title', 'HRMS Notification'),
+                },
+                recipient_user=user,
             )
         except Exception as e:
             logger.warning(f"Failed to send email notification to {user.email}: {e}")

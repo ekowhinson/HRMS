@@ -26,12 +26,15 @@ from .views import (
     NotificationViewSet,
     TaskStatusView,
     TaskDownloadView,
+    EmailLogViewSet,
+    EmailPreferenceView,
 )
 from .backup_views import (
     TenantBackupViewSet,
     TenantRestoreViewSet,
     BackupScheduleViewSet,
 )
+from .webhooks import SendGridWebhookView
 
 app_name = 'core'
 
@@ -49,6 +52,9 @@ router.register(r'audit-logs', AuditLogViewSet, basename='audit-log')
 
 # Notifications
 router.register(r'notifications', NotificationViewSet, basename='notification')
+
+# Email logs (admin)
+router.register(r'email-logs', EmailLogViewSet, basename='email-log')
 
 # Backup & Restore
 router.register(r'backups', TenantBackupViewSet, basename='backup')
@@ -94,6 +100,12 @@ urlpatterns = [
     # Async task status & download
     path('tasks/<str:task_id>/status/', TaskStatusView.as_view(), name='task-status'),
     path('tasks/<str:task_id>/download/', TaskDownloadView.as_view(), name='task-download'),
+
+    # Email preferences (user's own)
+    path('email-preferences/', EmailPreferenceView.as_view(), name='email-preferences'),
+
+    # SendGrid webhook (no auth — verified via signature)
+    path('webhooks/sendgrid/', SendGridWebhookView.as_view(), name='sendgrid-webhook'),
 
     # Announcements
     path('', include(router.urls)),

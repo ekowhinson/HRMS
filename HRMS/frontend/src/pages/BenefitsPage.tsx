@@ -418,7 +418,7 @@ export default function BenefitsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
+                      <div className="p-2 bg-blue-100 rounded-md">
                         <BanknotesIcon className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
@@ -431,7 +431,7 @@ export default function BenefitsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-orange-100 rounded-lg">
+                      <div className="p-2 bg-orange-100 rounded-md">
                         <BanknotesIcon className="h-5 w-5 text-orange-600" />
                       </div>
                       <div>
@@ -444,7 +444,7 @@ export default function BenefitsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 rounded-lg">
+                      <div className="p-2 bg-green-100 rounded-md">
                         <BanknotesIcon className="h-5 w-5 text-green-600" />
                       </div>
                       <div>
@@ -539,7 +539,7 @@ export default function BenefitsPage() {
               <CardContent>
                 {/* Eligibility Summary */}
                 {funeralEligibility && funeralEligibility.length > 0 && (
-                  <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="mb-4 p-4 bg-gray-50 rounded-md">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Eligibility Status</h4>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                       {funeralEligibility.map((item: any) => (
@@ -591,7 +591,7 @@ export default function BenefitsPage() {
               </CardHeader>
               <CardContent>
                 {lensEligibility && (
-                  <div className="mb-4 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
+                  <div className="mb-4 p-4 bg-gray-50 rounded-md flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Maximum Amount: <span className="font-medium">{formatCurrency(lensEligibility.max_amount)}</span></p>
                       <p className="text-sm text-gray-600">Eligible every {lensEligibility.eligibility_period_months} months</p>
@@ -633,7 +633,7 @@ export default function BenefitsPage() {
               </CardHeader>
               <CardContent>
                 {subscriptionEligibility && subscriptionEligibility.length > 0 && (
-                  <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="mb-4 p-4 bg-gray-50 rounded-md">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Subscription Types</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {subscriptionEligibility.map((item: any) => (
@@ -727,7 +727,7 @@ export default function BenefitsPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
               rows={3}
               value={loanForm.purpose}
               onChange={(e) => setLoanForm({ ...loanForm, purpose: e.target.value })}
@@ -764,7 +764,7 @@ export default function BenefitsPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
               rows={3}
               value={claimForm.description}
               onChange={(e) => setClaimForm({ ...claimForm, description: e.target.value })}
@@ -871,7 +871,7 @@ export default function BenefitsPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
               rows={2}
               value={lensForm.description}
               onChange={(e) => setLensForm({ ...lensForm, description: e.target.value })}

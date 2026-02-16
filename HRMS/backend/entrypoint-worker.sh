@@ -32,7 +32,7 @@ HEALTH_PID=$!
 
 echo "Starting Celery worker..."
 celery -A config worker --loglevel=info \
-    -Q default,imports,reports,payroll \
+    -Q default,imports,reports,payroll,emails \
     --concurrency=4 &
 CELERY_PID=$!
 

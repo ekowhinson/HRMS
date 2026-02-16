@@ -1,0 +1,55 @@
+{% extends "email/base.html" %}
+
+{% block title %}Budget Rejected — {{ org_name|default:"NHIA" }} HRMS{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Budget Rejected
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Dear {{ requester_name }},
+</p>
+
+<p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Unfortunately, your budget submission has been reviewed and was not approved. Please see the details and reason below.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+  <tr>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;width:140px;">Budget Name</td>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ budget_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;">Department</td>
+    <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ department }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;">Rejected By</td>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ rejected_by }}</td>
+  </tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;border-left:4px solid #dc2626;background-color:#fef2f2;border-radius:0 8px 8px 0;">
+  <tr>
+    <td style="padding:16px;">
+      <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#991b1b;">
+        Reason for Rejection
+      </p>
+      <p style="margin:0;font-size:14px;line-height:1.5;color:#7f1d1d;">
+        {{ rejection_reason }}
+      </p>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">
+  You may revise your budget and resubmit it for approval through the HRMS portal. Contact the approver if you need further clarification.
+</p>
+{% endblock %}
+
+{% block cta_row %}
+<tr><td style="padding:0 32px 24px 32px;text-align:center;">
+  {% include "email/partials/button.html" with url=frontend_url text="Revise Budget" %}
+</td></tr>
+{% endblock %}

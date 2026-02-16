@@ -430,7 +430,7 @@ export default function PaymentsPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {createMutation.error && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(createMutation.error as any)?.response?.data?.detail ||
                 'An error occurred while recording the payment.'}
             </div>
@@ -449,7 +449,7 @@ export default function PaymentsPage() {
                     setPaymentType('vendor')
                     setFormData((prev) => ({ ...prev, customer: '' }))
                   }}
-                  className="w-4 h-4 text-primary-600 focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm text-gray-700">Vendor Payment (Outgoing)</span>
               </label>
@@ -462,7 +462,7 @@ export default function PaymentsPage() {
                     setPaymentType('customer')
                     setFormData((prev) => ({ ...prev, vendor: '' }))
                   }}
-                  className="w-4 h-4 text-primary-600 focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm text-gray-700">Customer Receipt (Incoming)</span>
               </label>

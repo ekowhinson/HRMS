@@ -1,0 +1,39 @@
+{% extends "email/base.html" %}
+
+{% block title %}Approval Escalated — {{ org_name|default:"NHIA" }} HRMS{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Approval Escalated
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Dear {{ approver_name }},
+</p>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  A <strong>{{ request_type }}</strong> request has been escalated and now requires your attention.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+  <tr>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;width:140px;">Request Type</td>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ request_type }}</td>
+  </tr>
+</table>
+
+<div style="margin:0 0 24px 0;padding:16px;background-color:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+  <p style="margin:0 0 4px 0;font-size:13px;font-weight:600;color:#92400e;">Escalation Reason</p>
+  <p style="margin:0;font-size:14px;line-height:1.6;color:#78350f;">{{ escalation_reason }}</p>
+</div>
+
+<p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Please review this escalated request and take action as soon as possible.
+</p>
+{% endblock %}
+
+{% block cta_row %}
+<tr><td style="padding:0 32px 24px 32px;text-align:center;">
+  {% include "email/partials/button.html" with url=frontend_url text="Review Escalated Request" %}
+</td></tr>
+{% endblock %}

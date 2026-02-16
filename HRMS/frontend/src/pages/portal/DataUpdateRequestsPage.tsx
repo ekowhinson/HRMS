@@ -244,7 +244,7 @@ export default function DataUpdateRequestsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
+            <div className="p-2 bg-gray-100 rounded-md">
               <DocumentTextIcon className="h-5 w-5 text-gray-600" />
             </div>
             <div>
@@ -255,7 +255,7 @@ export default function DataUpdateRequestsPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-warning-100 rounded-lg">
+            <div className="p-2 bg-warning-100 rounded-md">
               <ClockIcon className="h-5 w-5 text-warning-600" />
             </div>
             <div>
@@ -268,7 +268,7 @@ export default function DataUpdateRequestsPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-success-100 rounded-lg">
+            <div className="p-2 bg-success-100 rounded-md">
               <CheckIcon className="h-5 w-5 text-success-600" />
             </div>
             <div>
@@ -281,7 +281,7 @@ export default function DataUpdateRequestsPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
+            <div className="p-2 bg-gray-100 rounded-md">
               <PencilSquareIcon className="h-5 w-5 text-gray-600" />
             </div>
             <div>
@@ -318,7 +318,7 @@ export default function DataUpdateRequestsPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="p-2 bg-primary-50 rounded-lg">
+                      <div className="p-2 bg-primary-50 rounded-md">
                         <PencilSquareIcon className="h-5 w-5 text-primary-600" />
                       </div>
                       <div>
@@ -376,7 +376,7 @@ export default function DataUpdateRequestsPage() {
                 <button
                   key={option.value}
                   onClick={() => setFormData({ ...formData, request_type: option.value, new_values: {} })}
-                  className={`p-3 border rounded-lg text-left transition-colors ${
+                  className={`p-3 border rounded-md text-left transition-colors duration-150 ${
                     formData.request_type === option.value
                       ? 'border-primary-500 bg-primary-50'
                       : 'border-gray-200 hover:border-gray-300'
@@ -422,7 +422,7 @@ export default function DataUpdateRequestsPage() {
                 Reason for this request
               </label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
                 rows={3}
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
@@ -433,7 +433,7 @@ export default function DataUpdateRequestsPage() {
 
           {/* Document Note */}
           {formData.request_type && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex items-start gap-2">
                 <PaperClipIcon className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-blue-700">
@@ -478,7 +478,7 @@ export default function DataUpdateRequestsPage() {
           <div className="space-y-6">
             {/* Status Banner */}
             {selectedRequest.status === 'REJECTED' && selectedRequest.rejection_reason && (
-              <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg">
+              <div className="p-4 bg-danger-50 border border-danger-200 rounded-md">
                 <div className="flex items-start gap-3">
                   <ExclamationCircleIcon className="h-5 w-5 text-danger-600 mt-0.5" />
                   <div>
@@ -490,7 +490,7 @@ export default function DataUpdateRequestsPage() {
             )}
 
             {selectedRequest.status === 'APPROVED' && (
-              <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
+              <div className="p-4 bg-success-50 border border-success-200 rounded-md">
                 <div className="flex items-start gap-3">
                   <CheckIcon className="h-5 w-5 text-success-600 mt-0.5" />
                   <div>
@@ -532,7 +532,7 @@ export default function DataUpdateRequestsPage() {
             {/* New Values */}
             <div>
               <p className="text-sm text-gray-500 mb-2">Requested Changes</p>
-              <div className="bg-gray-50 rounded-lg p-4">
+              <div className="bg-gray-50 rounded-md p-4">
                 <div className="grid grid-cols-2 gap-3">
                   {Object.entries(selectedRequest.new_values).map(([key, value]) => (
                     <div key={key}>
@@ -551,7 +551,7 @@ export default function DataUpdateRequestsPage() {
                 {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
                   <div className="flex items-center gap-2">
                     <select
-                      className="text-sm border border-gray-300 rounded-lg px-2 py-1"
+                      className="text-sm border border-gray-300 rounded-md px-2 py-1"
                       value={selectedDocType}
                       onChange={(e) => setSelectedDocType(e.target.value)}
                     >
@@ -588,7 +588,7 @@ export default function DataUpdateRequestsPage() {
               {loadingDocuments ? (
                 <div className="text-center py-4 text-gray-500">Loading documents...</div>
               ) : documents.length === 0 ? (
-                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <div className="bg-gray-50 rounded-md p-4 text-center">
                   <PaperClipIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">No documents attached</p>
                   {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
@@ -602,10 +602,10 @@ export default function DataUpdateRequestsPage() {
                   {documents.map((doc: any) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg border border-gray-200">
+                        <div className="p-2 bg-white rounded-md border border-gray-200">
                           <DocumentTextIcon className="h-5 w-5 text-gray-500" />
                         </div>
                         <div>
@@ -618,7 +618,7 @@ export default function DataUpdateRequestsPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleDocumentDownload(doc.id, doc.file_name)}
-                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors duration-150"
                           title="Download"
                         >
                           <ArrowDownTrayIcon className="h-4 w-4" />
@@ -626,7 +626,7 @@ export default function DataUpdateRequestsPage() {
                         {['DRAFT', 'PENDING'].includes(selectedRequest.status) && (
                           <button
                             onClick={() => handleDocumentDelete(doc.id)}
-                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors duration-150"
                             title="Delete"
                           >
                             <TrashIcon className="h-4 w-4" />

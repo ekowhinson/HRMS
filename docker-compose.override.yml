@@ -56,7 +56,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A config worker -l info -Q default,imports,reports,payroll
+    command: celery -A config worker -l info -Q default,imports,reports,payroll,emails
 
   # ─── Celery Beat: periodic task scheduler ──────────────────
   celery-beat:
@@ -85,6 +85,13 @@ services:
       redis:
         condition: service_healthy
     command: celery -A config beat -l info
+
+  # ─── Mailhog: email testing UI ─────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
 
   # ─── Frontend: Vite dev server with HMR ─────────────────────
   frontend:

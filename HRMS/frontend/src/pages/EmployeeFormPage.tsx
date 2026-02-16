@@ -532,7 +532,7 @@ export default function EmployeeFormPage() {
     return (
       <div className="animate-pulse space-y-6">
         <div className="h-8 w-48 bg-gray-200 rounded" />
-        <div className="bg-white rounded-xl h-96" />
+        <div className="bg-white rounded-md h-96" />
       </div>
     )
   }
@@ -843,7 +843,7 @@ export default function EmployeeFormPage() {
                     Residential Address
                   </label>
                   <textarea
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
                     rows={2}
                     value={formData.residential_address}
                     onChange={(e) => handleChange('residential_address', e.target.value)}
@@ -887,7 +887,7 @@ export default function EmployeeFormPage() {
                     Postal Address
                   </label>
                   <textarea
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
                     rows={2}
                     value={formData.postal_address}
                     onChange={(e) => handleChange('postal_address', e.target.value)}
@@ -911,13 +911,13 @@ export default function EmployeeFormPage() {
                   Employee Number
                 </label>
                 {isEdit ? (
-                  <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 font-mono max-w-xs">
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-700 font-mono max-w-xs">
                     {formData.employee_number || '—'}
                   </div>
                 ) : empIdConfig?.auto_generate && !useManualId ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <div className="px-3 py-2 bg-primary-50 border border-primary-200 rounded-lg text-sm font-mono text-primary-700">
+                      <div className="px-3 py-2 bg-primary-50 border border-primary-200 rounded-md text-sm font-mono text-primary-700">
                         {nextIdPreview || 'Loading...'}
                       </div>
                       <span className="text-xs text-gray-500">Auto-generated</span>
@@ -1180,7 +1180,7 @@ export default function EmployeeFormPage() {
                   <div className="space-y-4">
                     {/* Show linked structure info if grade has links */}
                     {(gradeLinkedBandId || categoryLinkedBandId) && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
                         <p className="text-sm text-blue-700">
                           <strong>Linked Salary Structure:</strong>{' '}
                           {linkedBand && <span>Band: {linkedBand.name}</span>}
@@ -1231,7 +1231,7 @@ export default function EmployeeFormPage() {
                       const selectedNotch = (salaryNotches || []).find((n: any) => n.id === formData.salary_notch)
                       if (selectedNotch) {
                         return (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
+                          <div className="bg-green-50 border border-green-200 rounded-md p-3 mt-4">
                             <p className="text-sm text-green-700">
                               <strong>Selected Salary:</strong> GHS {Number(selectedNotch.amount || 0).toLocaleString()}
                             </p>
@@ -1279,7 +1279,7 @@ export default function EmployeeFormPage() {
                     Medical Conditions
                   </label>
                   <textarea
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
                     rows={3}
                     value={formData.medical_conditions}
                     onChange={(e) => handleChange('medical_conditions', e.target.value)}
@@ -1291,7 +1291,7 @@ export default function EmployeeFormPage() {
                     Disability Information
                   </label>
                   <textarea
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
                     rows={3}
                     value={formData.disability}
                     onChange={(e) => handleChange('disability', e.target.value)}
@@ -1359,7 +1359,7 @@ export default function EmployeeFormPage() {
                 <div className="md:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                   <textarea
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] bg-gray-50 focus:bg-white hover:border-gray-400 sm:text-sm"
                     rows={4}
                     value={formData.notes}
                     onChange={(e) => handleChange('notes', e.target.value)}

@@ -1,0 +1,46 @@
+{% extends "email/base.html" %}
+
+{% block title %}Training Need Identified — {{ org_name|default:"NHIA" }} HRMS{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Training Need Identified
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Dear {{ employee_name }},
+</p>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  As part of your recent performance appraisal, a training need has been identified to support your professional development.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+  <tr>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;width:140px;">Skill Area</td>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ skill_area }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b7280;">Priority</td>
+    <td style="padding:12px 16px;font-size:14px;color:#111827;">
+      <span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;{% if priority == 'High' %}background-color:#fef2f2;color:#dc2626;{% elif priority == 'Medium' %}background-color:#fffbeb;color:#d97706;{% else %}background-color:#f0fdf4;color:#059669;{% endif %}">
+        {{ priority }}
+      </span>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  The HR and Training team will work with you and your manager to arrange appropriate training opportunities. You can view available training programmes in the HRMS portal.
+</p>
+
+<p style="margin:0 0 8px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Investing in your growth is a priority for {{ org_name|default:"NHIA" }}. Please feel free to discuss this further with your line manager.
+</p>
+{% endblock %}
+
+{% block cta_row %}
+<tr><td style="padding:0 32px 24px 32px;text-align:center;">
+  {% include "email/partials/button.html" with url=frontend_url text="View Training Programmes" %}
+</td></tr>
+{% endblock %}

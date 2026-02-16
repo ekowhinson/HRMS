@@ -77,7 +77,7 @@ export default function MyLeaveCalendarPage() {
               type="checkbox"
               checked={includePlans}
               onChange={(e) => setIncludePlans(e.target.checked)}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             <span className="text-sm text-gray-700">Show Plans & Pending</span>
           </label>
@@ -86,7 +86,7 @@ export default function MyLeaveCalendarPage() {
 
       {/* Overlap Warning */}
       {hasOverlaps && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+        <div className="bg-orange-50 border border-orange-200 rounded-md p-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
@@ -127,7 +127,7 @@ export default function MyLeaveCalendarPage() {
           onClick={() => setSelectedEvent(null)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+            className="bg-white rounded-md max-w-md w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-4">

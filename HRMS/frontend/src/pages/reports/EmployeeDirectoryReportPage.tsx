@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import {
-  MagnifyingGlassIcon,
-  ArrowLeftIcon,
-} from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
 import type { ExportFormat } from '@/services/reports'
-import { Card, CardContent } from '@/components/ui/Card'
-import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
-import { StatsCard } from '@/components/ui/StatsCard'
+import {
+  Card,
+  CardContent,
+  StatsCard,
+  Input,
+  Select,
+  PageHeader,
+  EmptyState,
+  TablePagination,
+  SkeletonStatsCard,
+  SkeletonTable,
+} from '@/components/ui'
 import { UsersIcon } from '@heroicons/react/24/outline'
 import ExportMenu from '@/components/ui/ExportMenu'
-import { TablePagination } from '@/components/ui/Table'
 import { useClientPagination } from '@/hooks/useClientPagination'
 import { useGroupBy } from '@/hooks/useGroupBy'
 import GroupableTable from '@/components/reports/GroupableTable'
@@ -88,187 +91,188 @@ export default function EmployeeDirectoryReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Employee Directory Report</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Complete employee directory with search and filtering
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} />
-      </div>
+      <PageHeader
+        title="Employee Directory Report"
+        subtitle="Complete employee directory with search and filtering"
+        breadcrumbs={[
+          { label: 'HR Reports', href: '/hr-reports' },
+          { label: 'Employee Directory Report' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} />}
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard
-          title="Total Employees"
-          value={totalCount.toLocaleString()}
-          variant="primary"
-          icon={<UsersIcon className="h-5 w-5" />}
-        />
-        <StatsCard
-          title="Departments"
-          value={departments.length}
-          variant="info"
-        />
-        <StatsCard
-          title="Showing"
-          value={(isGrouped ? filtered.length : totalItems).toLocaleString()}
-          variant="default"
-        />
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                placeholder="Search by name, ID, or email..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); resetPage() }}
-                leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
-              />
-            </div>
-            <div className="w-56">
-              <Select
-                label="Department"
-                value={deptFilter}
-                onChange={(e) => { setDeptFilter(e.target.value); resetPage() }}
-                options={[
-                  { value: '', label: 'All Departments' },
-                  ...departments.map((d) => ({ value: d, label: d })),
-                ]}
-              />
-            </div>
-            <div className="w-48">
-              <Select
-                label="Employment Type"
-                value={typeFilter}
-                onChange={(e) => { setTypeFilter(e.target.value); resetPage() }}
-                options={[
-                  { value: '', label: 'All Types' },
-                  ...employmentTypes.map((t) => ({ value: t, label: t })),
-                ]}
-              />
-            </div>
-            <div className="w-48">
-              <Select
-                label="Group By"
-                value={groupByField}
-                onChange={(e) => { setGroupByField(e.target.value); resetPage() }}
-                options={GROUP_BY_OPTIONS}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={5} columns={9} />
+        </div>
       ) : (
-        <Card>
-          {isGrouped ? (
-            <GroupableTable<EmployeeRecord>
-              groups={groups}
-              isGrouped={true}
-              groupByLabel={groupByLabel}
-              totalColumns={9}
-              labelColumns={9}
-              grandTotals={grandTotals}
-              renderHeaderRow={() => (
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                </tr>
-              )}
-              renderRow={(emp) => (
-                <tr key={emp.employee_number} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{emp.employee_number}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{emp.email || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{emp.phone_primary || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{emp.department_name || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{emp.position_name || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{emp.grade_name || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{emp.employment_type || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{emp.date_of_joining || '-'}</td>
-                </tr>
-              )}
-              renderTotalCells={() => null}
-              emptyMessage="No employees match your filters."
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatsCard
+              title="Total Employees"
+              value={totalCount.toLocaleString()}
+              variant="primary"
+              icon={<UsersIcon className="h-5 w-5" />}
             />
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paged.map((emp) => (
-                      <tr key={emp.employee_number} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{emp.employee_number}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{emp.email || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{emp.phone_primary || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{emp.department_name || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{emp.position_name || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{emp.grade_name || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{emp.employment_type || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{emp.date_of_joining || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <StatsCard
+              title="Departments"
+              value={departments.length}
+              variant="info"
+            />
+            <StatsCard
+              title="Showing"
+              value={(isGrouped ? filtered.length : totalItems).toLocaleString()}
+              variant="default"
+            />
+          </div>
+
+          {/* Filters */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <Input
+                    placeholder="Search by name, ID, or email..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); resetPage() }}
+                    leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
+                  />
+                </div>
+                <div className="w-56">
+                  <Select
+                    label="Department"
+                    value={deptFilter}
+                    onChange={(e) => { setDeptFilter(e.target.value); resetPage() }}
+                    options={[
+                      { value: '', label: 'All Departments' },
+                      ...departments.map((d) => ({ value: d, label: d })),
+                    ]}
+                  />
+                </div>
+                <div className="w-48">
+                  <Select
+                    label="Employment Type"
+                    value={typeFilter}
+                    onChange={(e) => { setTypeFilter(e.target.value); resetPage() }}
+                    options={[
+                      { value: '', label: 'All Types' },
+                      ...employmentTypes.map((t) => ({ value: t, label: t })),
+                    ]}
+                  />
+                </div>
+                <div className="w-48">
+                  <Select
+                    label="Group By"
+                    value={groupByField}
+                    onChange={(e) => { setGroupByField(e.target.value); resetPage() }}
+                    options={GROUP_BY_OPTIONS}
+                  />
+                </div>
               </div>
-              {totalItems > 0 && (
-                <TablePagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalItems={totalItems}
-                  pageSize={pageSize}
-                  onPageChange={setCurrentPage}
-                  onPageSizeChange={setPageSize}
-                  pageSizeOptions={[25, 50, 100, 200]}
-                />
-              )}
-            </>
-          )}
-          {!isGrouped && totalItems === 0 && (
-            <div className="px-4 py-8 text-center text-sm text-gray-500">
-              No employees match your filters.
-            </div>
-          )}
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Table */}
+          <Card>
+            {isGrouped ? (
+              <GroupableTable<EmployeeRecord>
+                groups={groups}
+                isGrouped={true}
+                groupByLabel={groupByLabel}
+                totalColumns={9}
+                labelColumns={9}
+                grandTotals={grandTotals}
+                renderHeaderRow={() => (
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                  </tr>
+                )}
+                renderRow={(emp) => (
+                  <tr key={emp.employee_number} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{emp.employee_number}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{emp.email || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{emp.phone_primary || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{emp.department_name || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{emp.position_name || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{emp.grade_name || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{emp.employment_type || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{emp.date_of_joining || '-'}</td>
+                  </tr>
+                )}
+                renderTotalCells={() => null}
+                emptyMessage="No employees match your filters."
+              />
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee #</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {paged.map((emp) => (
+                        <tr key={emp.employee_number} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{emp.employee_number}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{emp.email || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{emp.phone_primary || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{emp.department_name || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{emp.position_name || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{emp.grade_name || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{emp.employment_type || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{emp.date_of_joining || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {totalItems > 0 && (
+                  <TablePagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    pageSize={pageSize}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={setPageSize}
+                    pageSizeOptions={[25, 50, 100, 200]}
+                  />
+                )}
+              </>
+            )}
+            {!isGrouped && totalItems === 0 && (
+              <EmptyState
+                type="search"
+                title="No employees match your filters"
+                description="Try adjusting your search or filter criteria."
+                compact
+              />
+            )}
+          </Card>
+        </>
       )}
     </div>
   )

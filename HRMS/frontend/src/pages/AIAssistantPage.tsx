@@ -77,7 +77,7 @@ function FileChip({
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 ${config.bg} ${
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 ${config.bg} ${
         compact ? 'text-xs' : 'text-sm'
       }`}
     >
@@ -366,7 +366,7 @@ export default function AIAssistantPage() {
           <button
             onClick={handleNewChat}
             disabled={isStreaming}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors duration-150 disabled:opacity-50"
           >
             <PlusIcon className="h-4 w-4" />
             New Chat
@@ -383,7 +383,7 @@ export default function AIAssistantPage() {
                 <div
                   key={conv.id}
                   onClick={() => loadConversation(conv.id)}
-                  className={`group flex items-center gap-2 px-3 py-2.5 mx-1 rounded-lg cursor-pointer transition-colors ${
+                  className={`group flex items-center gap-2 px-3 py-2.5 mx-1 rounded-md cursor-pointer transition-colors duration-150 ${
                     activeConversationId === conv.id
                       ? 'bg-blue-50 text-blue-700'
                       : 'hover:bg-gray-50 text-gray-700'
@@ -393,7 +393,7 @@ export default function AIAssistantPage() {
                   <span className="flex-1 text-sm truncate">{conv.title}</span>
                   <button
                     onClick={(e) => handleDeleteConversation(conv.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 hover:text-red-600 transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 hover:text-red-600 transition-colors duration-150"
                   >
                     <TrashIcon className="h-3.5 w-3.5" />
                   </button>
@@ -457,7 +457,7 @@ export default function AIAssistantPage() {
                         <button
                           key={template.id}
                           onClick={() => handleTemplateClick(template)}
-                          className="text-left p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
+                          className="text-left p-4 rounded-md border border-gray-300 hover:border-blue-300 hover:bg-blue-50 transition-colors duration-150 group"
                         >
                           <div className="flex items-center gap-2 mb-1.5">
                             <IconComp className="h-4 w-4 text-gray-400 group-hover:text-blue-500" />
@@ -485,7 +485,7 @@ export default function AIAssistantPage() {
                     <button
                       key={prompt}
                       onClick={() => sendMessage(prompt)}
-                      className="text-left p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-sm text-gray-600 hover:text-blue-700"
+                      className="text-left p-3 rounded-md border border-gray-300 hover:border-blue-300 hover:bg-blue-50 transition-colors duration-150 text-sm text-gray-600 hover:text-blue-700"
                     >
                       {prompt}
                     </button>
@@ -505,7 +505,7 @@ export default function AIAssistantPage() {
                     className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white'
-                        : 'bg-white border border-gray-200 text-gray-800'
+                        : 'bg-white border border-gray-300 text-gray-800'
                     }`}
                   >
                     {msg.role === 'user' ? (
@@ -548,7 +548,7 @@ export default function AIAssistantPage() {
               {/* Streaming Response */}
               {streamingContent && (
                 <div className="flex justify-start">
-                  <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-white border border-gray-200 text-gray-800">
+                  <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-white border border-gray-300 text-gray-800">
                     <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-code:text-blue-600 prose-code:bg-blue-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs">
                       <ReactMarkdown>{streamingContent}</ReactMarkdown>
                     </div>
@@ -559,7 +559,7 @@ export default function AIAssistantPage() {
               {/* Generating indicator */}
               {isStreaming && !streamingContent && (
                 <div className="flex justify-start">
-                  <div className="rounded-2xl px-4 py-3 bg-white border border-gray-200">
+                  <div className="rounded-2xl px-4 py-3 bg-white border border-gray-300">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                       <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -596,7 +596,7 @@ export default function AIAssistantPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading || isStreaming}
-              className="shrink-0 p-3 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="shrink-0 p-3 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Attach file"
             >
               {isUploading ? (
@@ -626,13 +626,13 @@ export default function AIAssistantPage() {
                 }
                 rows={1}
                 disabled={isStreaming}
-                className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full resize-none rounded-md border border-gray-300 bg-gray-50 focus:bg-white px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400 disabled:bg-gray-100 disabled:text-gray-400"
               />
             </div>
             {isStreaming ? (
               <button
                 onClick={handleStopGeneration}
-                className="shrink-0 p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors"
+                className="shrink-0 p-3 rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors duration-150"
                 title="Stop generation"
               >
                 <StopIcon className="h-5 w-5" />
@@ -641,7 +641,7 @@ export default function AIAssistantPage() {
               <button
                 onClick={() => sendMessage(inputValue)}
                 disabled={!inputValue.trim()}
-                className="shrink-0 p-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="shrink-0 p-3 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Send message"
               >
                 <PaperAirplaneIcon className="h-5 w-5" />

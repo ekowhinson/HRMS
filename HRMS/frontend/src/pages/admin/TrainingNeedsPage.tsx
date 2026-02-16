@@ -430,7 +430,7 @@ export default function TrainingNeedsPage() {
               </div>
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 bg-gray-50 rounded-md">
               <h4 className="font-medium text-gray-900 text-lg mb-2">
                 {selectedNeed.title}
               </h4>
@@ -545,7 +545,7 @@ export default function TrainingNeedsPage() {
               Description <span className="text-red-500">*</span>
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
               rows={3}
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
@@ -641,7 +641,7 @@ export default function TrainingNeedsPage() {
                   Outcome / Notes
                 </label>
                 <textarea
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
                   rows={3}
                   value={completionOutcome}
                   onChange={(e) => setCompletionOutcome(e.target.value)}

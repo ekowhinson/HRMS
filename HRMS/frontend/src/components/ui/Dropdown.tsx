@@ -32,7 +32,7 @@ export function Dropdown({
     <Menu as="div" className={cn('relative inline-block text-left', className)}>
       <Menu.Button as={Fragment}>
         {trigger || (
-          <button className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors">
+          <button className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded-md hover:bg-gray-100 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0969da] focus:ring-offset-2 transition-colors">
             Options
             <ChevronDownIcon className="w-4 h-4 text-gray-500" />
           </button>
@@ -50,7 +50,7 @@ export function Dropdown({
       >
         <Menu.Items
           className={cn(
-            'absolute z-50 mt-2 w-56 rounded-lg bg-white shadow-dropdown border border-gray-200 py-1 focus:outline-none',
+            'absolute z-50 mt-2 w-56 rounded-md bg-white shadow-dropdown border border-gray-200 py-1 focus:outline-none',
             align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left',
             menuClassName
           )}
@@ -118,7 +118,7 @@ export function DropdownMenu({
       align={align}
       className={className}
       trigger={
-        <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+        <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#0969da] focus:ring-offset-2">
           <EllipsisVerticalIcon className="w-5 h-5" />
         </button>
       }
@@ -155,8 +155,8 @@ export function DropdownButton({
       trigger={
         <button
           className={cn(
-            'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+            'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border transition-colors',
+            'focus:outline-none focus:ring-2 focus:ring-[#0969da] focus:ring-offset-2',
             variantStyles[buttonVariant]
           )}
         >

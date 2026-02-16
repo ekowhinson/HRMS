@@ -78,21 +78,21 @@ export default function MyPayslipsPage() {
       {/* Summary Stats */}
       {sortedPayslips.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs">
+          <div className="bg-white p-4 rounded-md border border-gray-300 shadow-xs">
             <p className="text-sm text-gray-500">Latest Net Pay</p>
             <p className="text-xl font-bold text-gray-900">
               {formatCurrency(sortedPayslips[0].net_pay)}
             </p>
             <p className="text-xs text-gray-400 mt-1">{sortedPayslips[0].period_name}</p>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs">
+          <div className="bg-white p-4 rounded-md border border-gray-300 shadow-xs">
             <p className="text-sm text-gray-500">Latest Gross Pay</p>
             <p className="text-xl font-bold text-gray-900">
               {formatCurrency(sortedPayslips[0].gross_pay)}
             </p>
             <p className="text-xs text-gray-400 mt-1">{sortedPayslips[0].period_name}</p>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs">
+          <div className="bg-white p-4 rounded-md border border-gray-300 shadow-xs">
             <p className="text-sm text-gray-500">Total Payslips</p>
             <p className="text-xl font-bold text-gray-900">{sortedPayslips.length}</p>
           </div>
@@ -104,7 +104,7 @@ export default function MyPayslipsPage() {
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-100 rounded-lg">
+              <div className="p-2 bg-primary-100 rounded-md">
                 <BanknotesIcon className="h-5 w-5 text-primary-600" />
               </div>
               <div>
@@ -119,7 +119,7 @@ export default function MyPayslipsPage() {
                 placeholder="Search period..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
-                className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 w-52"
+                className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] w-52"
               />
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function MyPayslipsPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                          <div className="p-2 bg-gray-100 rounded-lg">
+                          <div className="p-2 bg-gray-100 rounded-md">
                             <DocumentTextIcon className="h-5 w-5 text-gray-500" />
                           </div>
                           <div>
@@ -268,7 +268,7 @@ export default function MyPayslipsPage() {
                         {/* Backpay Arrears */}
                         {((payslip.arrear_allowances && payslip.arrear_allowances.length > 0) ||
                           (payslip.arrear_deductions && payslip.arrear_deductions.length > 0)) && (
-                          <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                          <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
                             <p className="text-xs font-semibold text-orange-700 mb-2">
                               Backpay Arrears
                             </p>

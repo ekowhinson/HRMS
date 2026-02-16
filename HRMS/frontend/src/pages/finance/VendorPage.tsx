@@ -404,7 +404,7 @@ export default function VendorPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-md bg-primary-100 flex items-center justify-center">
                       <BuildingStorefrontIcon className="w-5 h-5 text-primary-600" />
                     </div>
                     <div>
@@ -487,7 +487,7 @@ export default function VendorPage() {
                     ) : (vendorInvoices?.results || []).length === 0 ? (
                       <EmptyState type="data" title="No invoices" description="No invoices found for this vendor." compact />
                     ) : (
-                      <div className="overflow-x-auto border border-gray-200 rounded-lg mt-4">
+                      <div className="overflow-x-auto border border-gray-300 rounded-md mt-4">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
@@ -530,7 +530,7 @@ export default function VendorPage() {
                     ) : (vendorPayments?.results || []).length === 0 ? (
                       <EmptyState type="data" title="No payments" description="No payments found for this vendor." compact />
                     ) : (
-                      <div className="overflow-x-auto border border-gray-200 rounded-lg mt-4">
+                      <div className="overflow-x-auto border border-gray-300 rounded-md mt-4">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
@@ -574,7 +574,7 @@ export default function VendorPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {saveError && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(saveError as any)?.response?.data?.detail ||
                 (saveError as any)?.response?.data?.code?.[0] ||
                 'An error occurred while saving.'}
@@ -686,7 +686,7 @@ export default function VendorPage() {
               type="checkbox"
               checked={formData.is_active}
               onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             <span className="text-sm text-gray-700">Active</span>
           </label>
@@ -713,7 +713,7 @@ export default function VendorPage() {
           This will remove all associated records.
         </p>
         {deleteMutation.error && (
-          <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+          <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
             {(deleteMutation.error as any)?.response?.data?.detail || 'Cannot delete this vendor.'}
           </div>
         )}

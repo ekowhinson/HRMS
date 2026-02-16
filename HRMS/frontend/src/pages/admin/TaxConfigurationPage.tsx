@@ -518,7 +518,7 @@ export default function TaxConfigurationPage() {
                   <div className="space-y-3">
                     <h4 className="font-medium text-gray-900 border-b pb-2">Overtime Tax Rules</h4>
                     <div className="space-y-2 text-sm">
-                      <div className="p-2 bg-green-100 rounded-lg mb-2">
+                      <div className="p-2 bg-green-100 rounded-md mb-2">
                         <div className="flex justify-between items-center">
                           <span className="text-gray-700 font-medium">Qualifying Employment Income:</span>
                           <span className="font-bold text-green-700">{formatCurrency(activeConfig.overtime_annual_salary_threshold)}</span>
@@ -630,7 +630,7 @@ export default function TaxConfigurationPage() {
                   {configs.map((config) => (
                     <div
                       key={config.id}
-                      className={`p-4 border rounded-lg ${
+                      className={`p-4 border rounded-md ${
                         config.is_active ? 'border-green-300 bg-green-50' : 'border-gray-200'
                       }`}
                     >
@@ -698,7 +698,7 @@ export default function TaxConfigurationPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 rows={2}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -713,7 +713,7 @@ export default function TaxConfigurationPage() {
           </div>
 
           {/* Overtime Configuration */}
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-4">
+          <div className="p-4 bg-green-50 border border-green-200 rounded-md space-y-4">
             <h4 className="font-medium text-green-800">Overtime Tax Configuration</h4>
             <div className="space-y-4">
               <div>
@@ -759,7 +759,7 @@ export default function TaxConfigurationPage() {
           </div>
 
           {/* Bonus Configuration */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-4">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-4">
             <h4 className="font-medium text-blue-800">Bonus Tax Configuration</h4>
             <div className="grid grid-cols-2 gap-4">
               <Input
@@ -784,14 +784,14 @@ export default function TaxConfigurationPage() {
                 type="checkbox"
                 checked={formData.bonus_excess_to_paye}
                 onChange={(e) => setFormData({ ...formData, bonus_excess_to_paye: e.target.checked })}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
               />
               <span className="text-sm text-blue-700">Add excess bonus to taxable income for PAYE</span>
             </label>
           </div>
 
           {/* Non-Resident Rates */}
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-4">
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-md space-y-4">
             <h4 className="font-medium text-amber-800">Non-Resident Tax Rates</h4>
             <div className="grid grid-cols-2 gap-4">
               <Input
@@ -819,7 +819,7 @@ export default function TaxConfigurationPage() {
               type="checkbox"
               checked={formData.is_active}
               onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             <span className="text-sm font-medium">Set as Active Configuration</span>
           </label>
@@ -951,7 +951,7 @@ export default function TaxConfigurationPage() {
               type="checkbox"
               checked={calcInputs.is_resident}
               onChange={(e) => setCalcInputs({ ...calcInputs, is_resident: e.target.checked })}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             <span className="text-sm">Ghana Resident</span>
           </label>
@@ -966,7 +966,7 @@ export default function TaxConfigurationPage() {
           </Button>
 
           {calcResult && (
-            <div className="p-4 bg-gray-50 rounded-lg space-y-4">
+            <div className="p-4 bg-gray-50 rounded-md space-y-4">
               <h4 className="font-medium text-gray-900">Calculation Results</h4>
 
               {/* Overtime Results */}

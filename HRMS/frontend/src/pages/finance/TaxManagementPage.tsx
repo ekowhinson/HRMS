@@ -387,7 +387,7 @@ export default function TaxManagementPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {saveError && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(saveError as any)?.response?.data?.detail ||
                 (saveError as any)?.response?.data?.non_field_errors?.[0] ||
                 'An error occurred while saving.'}
@@ -459,7 +459,7 @@ export default function TaxManagementPage() {
                 type="checkbox"
                 checked={formData.is_compound}
                 onChange={(e) => setFormData((prev) => ({ ...prev, is_compound: e.target.checked }))}
-                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
               />
               <span className="text-sm text-gray-700">Compound Tax (calculated on top of other taxes)</span>
             </label>
@@ -489,7 +489,7 @@ export default function TaxManagementPage() {
           This action cannot be undone.
         </p>
         {deleteMutation.error && (
-          <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+          <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
             {(deleteMutation.error as any)?.response?.data?.detail ||
               'Cannot delete this tax type. It may be in use.'}
           </div>

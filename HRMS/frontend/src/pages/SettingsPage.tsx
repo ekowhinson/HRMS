@@ -50,12 +50,19 @@ export default function SettingsPage() {
   })
 
   const [notifications, setNotifications] = useState({
-    email_leave_requests: true,
-    email_leave_approvals: true,
-    email_payslip: true,
-    email_announcements: true,
-    push_leave_requests: true,
-    push_approvals: false,
+    all_emails_enabled: true,
+    leave_notifications: true,
+    workflow_notifications: true,
+    payroll_notifications: true,
+    performance_notifications: true,
+    recruitment_notifications: true,
+    discipline_notifications: true,
+    finance_notifications: true,
+    procurement_notifications: true,
+    training_notifications: true,
+    benefits_notifications: true,
+    employee_notifications: true,
+    exits_notifications: true,
   })
 
   // 2FA state
@@ -135,6 +142,50 @@ export default function SettingsPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to save Employee ID configuration')
+    },
+  })
+
+  // Email preferences query & mutation
+  const emailPrefsQuery = useQuery({
+    queryKey: ['email-preferences'],
+    queryFn: async () => {
+      const res = await api.get('/core/email-preferences/')
+      return res.data
+    },
+    enabled: activeTab === 'notifications',
+  })
+
+  useEffect(() => {
+    if (emailPrefsQuery.data) {
+      setNotifications({
+        all_emails_enabled: emailPrefsQuery.data.all_emails_enabled ?? true,
+        leave_notifications: emailPrefsQuery.data.leave_notifications ?? true,
+        workflow_notifications: emailPrefsQuery.data.workflow_notifications ?? true,
+        payroll_notifications: emailPrefsQuery.data.payroll_notifications ?? true,
+        performance_notifications: emailPrefsQuery.data.performance_notifications ?? true,
+        recruitment_notifications: emailPrefsQuery.data.recruitment_notifications ?? true,
+        discipline_notifications: emailPrefsQuery.data.discipline_notifications ?? true,
+        finance_notifications: emailPrefsQuery.data.finance_notifications ?? true,
+        procurement_notifications: emailPrefsQuery.data.procurement_notifications ?? true,
+        training_notifications: emailPrefsQuery.data.training_notifications ?? true,
+        benefits_notifications: emailPrefsQuery.data.benefits_notifications ?? true,
+        employee_notifications: emailPrefsQuery.data.employee_notifications ?? true,
+        exits_notifications: emailPrefsQuery.data.exits_notifications ?? true,
+      })
+    }
+  }, [emailPrefsQuery.data])
+
+  const saveEmailPrefsMutation = useMutation({
+    mutationFn: async (data: typeof notifications) => {
+      const res = await api.put('/core/email-preferences/', data)
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Notification preferences saved')
+      emailPrefsQuery.refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to save notification preferences')
     },
   })
 
@@ -328,7 +379,7 @@ export default function SettingsPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as SettingsTab)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                       activeTab === tab.id
                         ? 'bg-primary-50 text-primary-700'
                         : 'text-gray-700 hover:bg-gray-100'
@@ -488,93 +539,121 @@ export default function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {emailPrefsQuery.isLoading ? (
+                  <div className="text-sm text-gray-500 py-4">Loading preferences...</div>
+                ) : (
                 <div className="space-y-6">
+                  {/* Master toggle */}
+                  <div className="flex items-start pb-4 border-b">
+                    <input
+                      type="checkbox"
+                      id="all_emails_enabled"
+                      checked={notifications.all_emails_enabled}
+                      onChange={(e) =>
+                        setNotifications({ ...notifications, all_emails_enabled: e.target.checked })
+                      }
+                      className="mt-1 h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
+                    />
+                    <label htmlFor="all_emails_enabled" className="ml-3">
+                      <span className="text-sm font-semibold text-gray-900">
+                        Enable All Email Notifications
+                      </span>
+                      <p className="text-sm text-gray-500">
+                        Master switch for all non-critical emails. Critical emails (password reset, 2FA codes) are always sent.
+                      </p>
+                    </label>
+                  </div>
+
+                  {/* HR Operations */}
                   <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-4">
-                      Email Notifications
-                    </h4>
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">HR Operations</h4>
                     <div className="space-y-4">
-                      {[
-                        {
-                          key: 'email_leave_requests',
-                          label: 'Leave Requests',
-                          description: 'Receive email when you have pending leave approvals',
-                        },
-                        {
-                          key: 'email_leave_approvals',
-                          label: 'Leave Status Updates',
-                          description: 'Receive email when your leave request is approved/rejected',
-                        },
-                        {
-                          key: 'email_payslip',
-                          label: 'Payslip Notifications',
-                          description: 'Receive email when your payslip is ready',
-                        },
-                        {
-                          key: 'email_announcements',
-                          label: 'Announcements',
-                          description: 'Receive organization-wide announcements',
-                        },
-                      ].map((item) => (
+                      {([
+                        { key: 'leave_notifications', label: 'Leave', description: 'Leave requests, approvals, and rejections' },
+                        { key: 'workflow_notifications', label: 'Workflow & Approvals', description: 'Approval requests, delegations, and escalations' },
+                        { key: 'performance_notifications', label: 'Performance', description: 'Appraisals, training needs, and reviews' },
+                        { key: 'discipline_notifications', label: 'Discipline & Grievances', description: 'Grievance updates, investigations, and hearings' },
+                        { key: 'recruitment_notifications', label: 'Recruitment', description: 'Application updates, interviews, and offers' },
+                        { key: 'training_notifications', label: 'Training', description: 'Training schedules, completions, and certificates' },
+                      ] as const).map((item) => (
                         <div key={item.key} className="flex items-start">
                           <input
                             type="checkbox"
                             id={item.key}
-                            checked={notifications[item.key as keyof typeof notifications]}
+                            checked={notifications[item.key]}
+                            disabled={!notifications.all_emails_enabled}
                             onChange={(e) =>
-                              setNotifications({
-                                ...notifications,
-                                [item.key]: e.target.checked,
-                              })
+                              setNotifications({ ...notifications, [item.key]: e.target.checked })
                             }
-                            className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                            className="mt-1 h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded disabled:opacity-50"
                           />
                           <label htmlFor={item.key} className="ml-3">
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className={`text-sm font-medium ${notifications.all_emails_enabled ? 'text-gray-900' : 'text-gray-400'}`}>
                               {item.label}
                             </span>
-                            <p className="text-sm text-gray-500">{item.description}</p>
+                            <p className={`text-sm ${notifications.all_emails_enabled ? 'text-gray-500' : 'text-gray-400'}`}>{item.description}</p>
                           </label>
                         </div>
                       ))}
                     </div>
                   </div>
 
+                  {/* Finance & Procurement */}
                   <div className="pt-6 border-t">
-                    <h4 className="text-sm font-medium text-gray-900 mb-4">
-                      Push Notifications
-                    </h4>
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">Finance & Procurement</h4>
                     <div className="space-y-4">
-                      {[
-                        {
-                          key: 'push_leave_requests',
-                          label: 'Leave Requests',
-                          description: 'Push notifications for pending approvals',
-                        },
-                        {
-                          key: 'push_approvals',
-                          label: 'Approval Updates',
-                          description: 'Push notifications for approval status changes',
-                        },
-                      ].map((item) => (
+                      {([
+                        { key: 'payroll_notifications', label: 'Payroll', description: 'Payslips, salary adjustments, and ad-hoc payments' },
+                        { key: 'finance_notifications', label: 'Finance', description: 'Budget approvals, invoices, and payments' },
+                        { key: 'procurement_notifications', label: 'Procurement', description: 'Purchase orders, requisitions, and goods receipts' },
+                        { key: 'benefits_notifications', label: 'Benefits & Loans', description: 'Loan applications and benefit claims' },
+                      ] as const).map((item) => (
                         <div key={item.key} className="flex items-start">
                           <input
                             type="checkbox"
                             id={item.key}
-                            checked={notifications[item.key as keyof typeof notifications]}
+                            checked={notifications[item.key]}
+                            disabled={!notifications.all_emails_enabled}
                             onChange={(e) =>
-                              setNotifications({
-                                ...notifications,
-                                [item.key]: e.target.checked,
-                              })
+                              setNotifications({ ...notifications, [item.key]: e.target.checked })
                             }
-                            className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                            className="mt-1 h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded disabled:opacity-50"
                           />
                           <label htmlFor={item.key} className="ml-3">
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className={`text-sm font-medium ${notifications.all_emails_enabled ? 'text-gray-900' : 'text-gray-400'}`}>
                               {item.label}
                             </span>
-                            <p className="text-sm text-gray-500">{item.description}</p>
+                            <p className={`text-sm ${notifications.all_emails_enabled ? 'text-gray-500' : 'text-gray-400'}`}>{item.description}</p>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Employee Lifecycle */}
+                  <div className="pt-6 border-t">
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">Employee Lifecycle</h4>
+                    <div className="space-y-4">
+                      {([
+                        { key: 'employee_notifications', label: 'Employee Updates', description: 'Promotions, transfers, and contract renewals' },
+                        { key: 'exits_notifications', label: 'Exits', description: 'Exit requests, interviews, and clearance' },
+                      ] as const).map((item) => (
+                        <div key={item.key} className="flex items-start">
+                          <input
+                            type="checkbox"
+                            id={item.key}
+                            checked={notifications[item.key]}
+                            disabled={!notifications.all_emails_enabled}
+                            onChange={(e) =>
+                              setNotifications({ ...notifications, [item.key]: e.target.checked })
+                            }
+                            className="mt-1 h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded disabled:opacity-50"
+                          />
+                          <label htmlFor={item.key} className="ml-3">
+                            <span className={`text-sm font-medium ${notifications.all_emails_enabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                              {item.label}
+                            </span>
+                            <p className={`text-sm ${notifications.all_emails_enabled ? 'text-gray-500' : 'text-gray-400'}`}>{item.description}</p>
                           </label>
                         </div>
                       ))}
@@ -582,9 +661,15 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="flex justify-end pt-4">
-                    <Button>Save Preferences</Button>
+                    <Button
+                      onClick={() => saveEmailPrefsMutation.mutate(notifications)}
+                      isLoading={saveEmailPrefsMutation.isPending}
+                    >
+                      Save Preferences
+                    </Button>
                   </div>
                 </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -603,7 +688,7 @@ export default function SettingsPage() {
                   <div>
                     {/* Policy banner */}
                     {user2FAPolicyQuery.data?.is_required && (
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4 flex items-start gap-2">
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md mb-4 flex items-start gap-2">
                         <InformationCircleIcon className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                         <div className="text-sm text-blue-800">
                           <p className="font-medium">Your organization requires two-factor authentication.</p>
@@ -633,7 +718,7 @@ export default function SettingsPage() {
                     {/* 2FA Enabled State */}
                     {is2FAEnabled && twoFactorStep !== 'backup' ? (
                       <div className="space-y-4">
-                        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="p-4 bg-green-50 border border-green-200 rounded-md">
                           <div className="flex items-center gap-3">
                             <ShieldCheckIcon className="h-6 w-6 text-green-600" />
                             <div>
@@ -674,7 +759,7 @@ export default function SettingsPage() {
 
                         {/* Disable 2FA form */}
                         {showDisableForm && (
-                          <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                          <div className="p-4 bg-red-50 border border-red-200 rounded-md space-y-3">
                             <p className="text-sm text-red-800 font-medium">
                               Enter your password to disable two-factor authentication:
                             </p>
@@ -728,7 +813,7 @@ export default function SettingsPage() {
                                 key={opt.value}
                                 type="button"
                                 onClick={() => setSelectedMethod(opt.value)}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                className={`p-3 rounded-md border-2 text-left transition-colors duration-150 ${
                                   selectedMethod === opt.value
                                     ? 'border-primary-500 bg-primary-50'
                                     : 'border-gray-200 hover:border-gray-300'
@@ -760,7 +845,7 @@ export default function SettingsPage() {
                               <img
                                 src={setupData.qr_code}
                                 alt="2FA QR Code"
-                                className="w-48 h-48 rounded-lg border"
+                                className="w-48 h-48 rounded-md border"
                               />
                             </div>
                             <div className="text-center">
@@ -773,7 +858,7 @@ export default function SettingsPage() {
                         )}
 
                         {setupData?.method !== 'TOTP' && (
-                          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
                             <p className="text-sm text-blue-800">
                               {setupData?.message || `A verification code has been sent to your ${setupData?.method === 'EMAIL' ? 'email' : 'phone'}.`}
                             </p>
@@ -816,7 +901,7 @@ export default function SettingsPage() {
                     ) : twoFactorStep === 'backup' ? (
                       /* Backup Codes Display */
                       <div className="space-y-4">
-                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
                           <p className="text-sm font-medium text-amber-900 mb-1">
                             Save your backup codes
                           </p>
@@ -826,7 +911,7 @@ export default function SettingsPage() {
                           </p>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4 border">
+                        <div className="bg-gray-50 rounded-md p-4 border">
                           <div className="grid grid-cols-2 gap-2">
                             {backupCodes.map((code, i) => (
                               <div
@@ -872,7 +957,7 @@ export default function SettingsPage() {
                       Active Sessions
                     </h4>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                         <div>
                           <p className="text-sm font-medium text-gray-900">Current Session</p>
                           <p className="text-xs text-gray-500">
@@ -944,7 +1029,7 @@ export default function SettingsPage() {
                           id="emp_id_auto_generate"
                           checked={empIdForm.auto_generate}
                           onChange={(e) => setEmpIdForm({ ...empIdForm, auto_generate: e.target.checked })}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                         />
                         <label htmlFor="emp_id_auto_generate" className="text-sm font-medium text-gray-700">
                           Auto-generate employee numbers
@@ -985,7 +1070,7 @@ export default function SettingsPage() {
                       </div>
 
                       {/* Live Preview */}
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
                         <p className="text-xs text-gray-500 mb-1">Preview of next employee ID:</p>
                         <p className="text-lg font-mono font-semibold text-primary-700">
                           {empIdPreview}
@@ -1048,7 +1133,7 @@ export default function SettingsPage() {
                         <select
                           value={policyForm.tfa_enforcement}
                           onChange={(e) => setPolicyForm({ ...policyForm, tfa_enforcement: e.target.value })}
-                          className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400"
                         >
                           <option value="optional">Optional</option>
                           <option value="required_admins">Required for admins only</option>
@@ -1076,7 +1161,7 @@ export default function SettingsPage() {
                                     : policyForm.tfa_allowed_methods.filter((m) => m !== method.value)
                                   setPolicyForm({ ...policyForm, tfa_allowed_methods: methods })
                                 }}
-                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                               />
                               <span className="text-sm text-gray-700">{method.label}</span>
                             </label>

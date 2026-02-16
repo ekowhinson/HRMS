@@ -613,7 +613,7 @@ export default function OrganizationPage() {
               <Input label="Short Name" value={formData.short_name || ''} onChange={(e) => setFormData({ ...formData, short_name: e.target.value })} />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea className="w-full px-3 py-2 border rounded-lg" rows={3} value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                <textarea className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" rows={3} value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
               </div>
             </>
           )}

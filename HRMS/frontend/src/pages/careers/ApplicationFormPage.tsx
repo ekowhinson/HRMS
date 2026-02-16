@@ -12,6 +12,16 @@ import {
   CheckCircleIcon,
   DocumentArrowUpIcon,
 } from '@heroicons/react/24/outline'
+import {
+  Button,
+  Input,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  SkeletonCard,
+} from '@/components/ui'
 
 interface ApplicationFormData {
   first_name: string
@@ -139,18 +149,20 @@ export default function ApplicationFormPage() {
             You can track your application status from the portal dashboard.
           </p>
           <div className="flex gap-3 justify-center pt-4">
-            <button
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => navigate('/portal/dashboard')}
-              className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
             >
               Go to Dashboard
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
               onClick={() => navigate('/careers')}
-              className="px-6 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200"
             >
               Back to Careers
-            </button>
+            </Button>
           </div>
         </div>
       </PortalLayout>
@@ -163,396 +175,382 @@ export default function ApplicationFormPage() {
     <PortalLayout>
       <div className="max-w-3xl mx-auto space-y-6">
         {isLoading ? (
-          <div className="text-center py-12 text-gray-500">Loading...</div>
-        ) : error || !vacancy ? (
-          <div className="text-center py-12 text-red-500">
-            {(error as any)?.response?.status === 410
-              ? 'This application link has expired.'
-              : 'Vacancy not found or no longer available.'}
+          <div className="space-y-6">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </div>
+        ) : error || !vacancy ? (
+          <EmptyState
+            type="error"
+            title={
+              (error as any)?.response?.status === 410
+                ? 'This application link has expired'
+                : 'Vacancy not found'
+            }
+            description={
+              (error as any)?.response?.status === 410
+                ? 'The link you used is no longer valid.'
+                : 'This vacancy is no longer available.'
+            }
+          />
         ) : (
           <>
             {/* Vacancy info */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{vacancy.job_title}</h1>
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
-                {vacancy.department_name && <span>{vacancy.department_name}</span>}
-                {vacancy.location_name && <span>{vacancy.location_name}</span>}
-                {vacancy.employment_type && <span>{vacancy.employment_type}</span>}
-              </div>
-              {vacancy.closing_date && (
-                <p className="text-sm text-orange-600">
-                  Application deadline: {new Date(vacancy.closing_date).toLocaleDateString()}
-                </p>
-              )}
-            </div>
+            <Card>
+              <CardContent>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">{vacancy.job_title}</h1>
+                <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
+                  {vacancy.department_name && <span>{vacancy.department_name}</span>}
+                  {vacancy.location_name && <span>{vacancy.location_name}</span>}
+                  {vacancy.employment_type && <span>{vacancy.employment_type}</span>}
+                </div>
+                {vacancy.closing_date && (
+                  <p className="text-sm text-orange-600">
+                    Application deadline: {new Date(vacancy.closing_date).toLocaleDateString()}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Application Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Personal Information */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                    <input
+              <Card>
+                <CardHeader>
+                  <CardTitle>Personal Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Input
+                      label="First Name *"
                       {...register('first_name', { required: 'Required' })}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      error={errors.first_name?.message}
                     />
-                    {errors.first_name && <p className="text-xs text-red-500 mt-1">{errors.first_name.message}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Middle Name</label>
-                    <input
+                    <Input
+                      label="Middle Name"
                       {...register('middle_name')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                    <input
+                    <Input
+                      label="Last Name *"
                       {...register('last_name', { required: 'Required' })}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      error={errors.last_name?.message}
                     />
-                    {errors.last_name && <p className="text-xs text-red-500 mt-1">{errors.last_name.message}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                    <input
+                    <Input
+                      label="Email *"
                       type="email"
                       {...register('email', { required: 'Required' })}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      error={errors.email?.message}
                     />
-                    {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                    <input
+                    <Input
+                      label="Phone *"
                       {...register('phone', { required: 'Required' })}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      error={errors.phone?.message}
                     />
-                    {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                    <input
+                    <Input
+                      label="Date of Birth"
                       type="date"
                       {...register('date_of_birth')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                    <select
-                      {...register('gender')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nationality</label>
-                    <input
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                      <select
+                        {...register('gender')}
+                        className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm hover:border-gray-300 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] focus:bg-white transition-colors duration-150"
+                      >
+                        <option value="">Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+                    <Input
+                      label="Nationality"
                       {...register('nationality')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
               {/* Address */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Address</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                    <textarea
-                      {...register('address')}
-                      rows={2}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                    <input
+              <Card>
+                <CardHeader>
+                  <CardTitle>Address</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                      <textarea
+                        {...register('address')}
+                        rows={2}
+                        className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm hover:border-gray-300 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] focus:bg-white transition-colors duration-150"
+                      />
+                    </div>
+                    <Input
+                      label="City"
                       {...register('city')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Region</label>
-                    <input
+                    <Input
+                      label="Region"
                       {...register('region')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
               {/* Education & Experience */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Education & Experience</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Highest Education</label>
-                    <select
-                      {...register('highest_education')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select</option>
-                      <option value="PhD">PhD</option>
-                      <option value="Masters">Master's Degree</option>
-                      <option value="Bachelors">Bachelor's Degree</option>
-                      <option value="HND">HND</option>
-                      <option value="Diploma">Diploma</option>
-                      <option value="Certificate">Certificate</option>
-                      <option value="SSCE">SSCE/WASSCE</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Institution</label>
-                    <input
+              <Card>
+                <CardHeader>
+                  <CardTitle>Education & Experience</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Highest Education</label>
+                      <select
+                        {...register('highest_education')}
+                        className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm hover:border-gray-300 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] focus:bg-white transition-colors duration-150"
+                      >
+                        <option value="">Select</option>
+                        <option value="PhD">PhD</option>
+                        <option value="Masters">Master's Degree</option>
+                        <option value="Bachelors">Bachelor's Degree</option>
+                        <option value="HND">HND</option>
+                        <option value="Diploma">Diploma</option>
+                        <option value="Certificate">Certificate</option>
+                        <option value="SSCE">SSCE/WASSCE</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <Input
+                      label="Institution"
                       {...register('institution')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Graduation Year</label>
-                    <input
+                    <Input
+                      label="Graduation Year"
                       type="number"
                       {...register('graduation_year')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Current Employer</label>
-                    <input
+                    <Input
+                      label="Current Employer"
                       {...register('current_employer')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Current Position</label>
-                    <input
+                    <Input
+                      label="Current Position"
                       {...register('current_position')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Years of Experience</label>
-                    <input
+                    <Input
+                      label="Years of Experience"
                       type="number"
                       {...register('years_of_experience')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Current Salary (GHS)</label>
-                    <input
+                    <Input
+                      label="Current Salary (GHS)"
                       type="number"
                       step="0.01"
                       {...register('current_salary')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Expected Salary (GHS)</label>
-                    <input
+                    <Input
+                      label="Expected Salary (GHS)"
                       type="number"
                       step="0.01"
                       {...register('expected_salary')}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Notice Period</label>
-                    <input
-                      {...register('notice_period')}
+                    <Input
+                      label="Notice Period"
                       placeholder="e.g. 1 month"
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      {...register('notice_period')}
                     />
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
               {/* Previous Employer Contacts */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Previous Employer Contact</h2>
-                <p className="text-sm text-gray-500 mb-4">These fields are mandatory per policy.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Previous Employer Email *</label>
-                    <input
+              <Card>
+                <CardHeader>
+                  <CardTitle>Previous Employer Contact</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-500 mb-4">These fields are mandatory per policy.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Previous Employer Email *"
                       type="email"
                       {...register('previous_employer_email', { required: 'Previous employer email is required' })}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      error={errors.previous_employer_email?.message}
                     />
-                    {errors.previous_employer_email && (
-                      <p className="text-xs text-red-500 mt-1">{errors.previous_employer_email.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Previous Employer Phone *</label>
-                    <input
+                    <Input
+                      label="Previous Employer Phone *"
                       {...register('previous_employer_phone', { required: 'Previous employer phone is required' })}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      error={errors.previous_employer_phone?.message}
                     />
-                    {errors.previous_employer_phone && (
-                      <p className="text-xs text-red-500 mt-1">{errors.previous_employer_phone.message}</p>
-                    )}
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
               {/* Cover Letter & Resume */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Cover Letter & Documents</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cover Letter</label>
-                    <textarea
-                      {...register('cover_letter')}
-                      rows={5}
-                      placeholder="Tell us why you're a great fit for this role..."
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  {/* Resume/CV */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Resume/CV</label>
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md cursor-pointer hover:bg-gray-200">
-                        <DocumentArrowUpIcon className="h-4 w-4" />
-                        {resumeFile ? resumeFile.name : 'Choose File'}
-                        <input
-                          type="file"
-                          accept=".pdf,.doc,.docx"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            const err = validateFile(file, DOC_FORMATS)
-                            if (err) { toast.error(err); e.target.value = ''; return }
-                            setResumeFile(file)
-                          }}
-                        />
-                      </label>
-                      {resumeFile && (
-                        <button
-                          type="button"
-                          onClick={() => setResumeFile(null)}
-                          className="text-sm text-red-500 hover:text-red-700"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Accepted: PDF, DOC, DOCX (max 10MB)</p>
-                  </div>
-
-                  {/* Cover Letter File */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cover Letter File (optional)</label>
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md cursor-pointer hover:bg-gray-200">
-                        <DocumentArrowUpIcon className="h-4 w-4" />
-                        {coverLetterFile ? coverLetterFile.name : 'Choose File'}
-                        <input
-                          type="file"
-                          accept=".pdf,.doc,.docx"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            const err = validateFile(file, DOC_FORMATS)
-                            if (err) { toast.error(err); e.target.value = ''; return }
-                            setCoverLetterFile(file)
-                          }}
-                        />
-                      </label>
-                      {coverLetterFile && (
-                        <button
-                          type="button"
-                          onClick={() => setCoverLetterFile(null)}
-                          className="text-sm text-red-500 hover:text-red-700"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Accepted: PDF, DOC, DOCX (max 10MB)</p>
-                  </div>
-
-                  {/* Certificates & Supporting Documents */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Certificates & Supporting Documents (optional)
-                    </label>
-                    <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md cursor-pointer hover:bg-gray-200 w-fit">
-                      <DocumentArrowUpIcon className="h-4 w-4" />
-                      Add Files
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        multiple
-                        className="hidden"
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || [])
-                          const valid: File[] = []
-                          for (const file of files) {
-                            const err = validateFile(file, CERT_FORMATS)
-                            if (err) { toast.error(err); continue }
-                            valid.push(file)
-                          }
-                          if (valid.length > 0) {
-                            setCertificateFiles(prev => {
-                              const combined = [...prev, ...valid]
-                              if (combined.length > 5) {
-                                toast.error('Maximum 5 certificate files allowed.')
-                              }
-                              return combined.slice(0, 5)
-                            })
-                          }
-                          e.target.value = ''
-                        }}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Cover Letter & Documents</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Cover Letter</label>
+                      <textarea
+                        {...register('cover_letter')}
+                        rows={5}
+                        placeholder="Tell us why you're a great fit for this role..."
+                        className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm hover:border-gray-300 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] focus:bg-white transition-colors duration-150"
                       />
-                    </label>
-                    {certificateFiles.length > 0 && (
-                      <ul className="mt-2 space-y-1">
-                        {certificateFiles.map((file, idx) => (
-                          <li key={idx} className="flex items-center gap-2 text-sm text-gray-700">
-                            <span className="truncate">{file.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => setCertificateFiles(prev => prev.filter((_, i) => i !== idx))}
-                              className="text-red-500 hover:text-red-700 text-xs flex-shrink-0"
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      Accepted: PDF, DOC, DOCX, JPG, PNG (max 10MB each, up to 5 files)
-                    </p>
+                    </div>
+
+                    {/* Resume/CV */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Resume/CV</label>
+                      <div className="flex items-center gap-3">
+                        <label className="inline-flex">
+                          <span className="inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 bg-gray-50 text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400 px-3.5 py-2 text-sm gap-1.5 cursor-pointer">
+                            <DocumentArrowUpIcon className="h-4 w-4" />
+                            {resumeFile ? resumeFile.name : 'Choose File'}
+                          </span>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              const err = validateFile(file, DOC_FORMATS)
+                              if (err) { toast.error(err); e.target.value = ''; return }
+                              setResumeFile(file)
+                            }}
+                          />
+                        </label>
+                        {resumeFile && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => setResumeFile(null)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Accepted: PDF, DOC, DOCX (max 10MB)</p>
+                    </div>
+
+                    {/* Cover Letter File */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Cover Letter File (optional)</label>
+                      <div className="flex items-center gap-3">
+                        <label className="inline-flex">
+                          <span className="inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 bg-gray-50 text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400 px-3.5 py-2 text-sm gap-1.5 cursor-pointer">
+                            <DocumentArrowUpIcon className="h-4 w-4" />
+                            {coverLetterFile ? coverLetterFile.name : 'Choose File'}
+                          </span>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              const err = validateFile(file, DOC_FORMATS)
+                              if (err) { toast.error(err); e.target.value = ''; return }
+                              setCoverLetterFile(file)
+                            }}
+                          />
+                        </label>
+                        {coverLetterFile && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => setCoverLetterFile(null)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Accepted: PDF, DOC, DOCX (max 10MB)</p>
+                    </div>
+
+                    {/* Certificates & Supporting Documents */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Certificates & Supporting Documents (optional)
+                      </label>
+                      <label className="inline-flex w-fit">
+                        <span className="inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 bg-gray-50 text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400 px-3.5 py-2 text-sm gap-1.5 cursor-pointer">
+                          <DocumentArrowUpIcon className="h-4 w-4" />
+                          Add Files
+                        </span>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || [])
+                            const valid: File[] = []
+                            for (const file of files) {
+                              const err = validateFile(file, CERT_FORMATS)
+                              if (err) { toast.error(err); continue }
+                              valid.push(file)
+                            }
+                            if (valid.length > 0) {
+                              setCertificateFiles(prev => {
+                                const combined = [...prev, ...valid]
+                                if (combined.length > 5) {
+                                  toast.error('Maximum 5 certificate files allowed.')
+                                }
+                                return combined.slice(0, 5)
+                              })
+                            }
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                      {certificateFiles.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {certificateFiles.map((file, idx) => (
+                            <li key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                              <span className="truncate">{file.name}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="xs"
+                                onClick={() => setCertificateFiles(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-red-500 hover:text-red-700 flex-shrink-0"
+                              >
+                                Remove
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Accepted: PDF, DOC, DOCX, JPG, PNG (max 10MB each, up to 5 files)
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
               {/* Submit */}
               <div className="flex justify-end">
-                <button
+                <Button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="px-8 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  variant="primary"
+                  size="lg"
+                  isLoading={isSubmitting}
                 >
                   {isSubmitting ? 'Submitting...' : 'Submit Application'}
-                </button>
+                </Button>
               </div>
             </form>
           </>

@@ -43,6 +43,10 @@ export default function SSFContributionStatementPage() {
     <ContributionStatementLayout
       title="SSF Contribution Statement"
       backLink="/reports"
+      breadcrumbs={[
+        { label: 'Reports', href: '/reports' },
+        { label: 'SSF Contribution Statement' },
+      ]}
       columns={columns}
       employees={employees}
       isLoading={isLoading}

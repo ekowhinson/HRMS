@@ -266,15 +266,15 @@ export default function MyLeaveDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                   <span className="text-sm text-gray-600">Team Size</span>
                   <span className="font-semibold">{teamOverview.team_size}</span>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-md">
                   <span className="text-sm text-gray-600">Pending Approvals</span>
                   <Badge variant="warning">{teamOverview.pending_approvals}</Badge>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md">
                   <span className="text-sm text-gray-600">On Leave Today</span>
                   <Badge variant="info">{teamOverview.on_leave_count}</Badge>
                 </div>
@@ -361,7 +361,7 @@ export default function MyLeaveDashboard() {
               Reason
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150 sm:text-sm"
               rows={3}
               value={formData.reason}
               onChange={(e) => setFormData({ ...formData, reason: e.target.value })}

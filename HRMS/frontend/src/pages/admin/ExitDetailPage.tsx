@@ -411,7 +411,7 @@ export default function ExitDetailPage() {
               {exitRequest.clearances?.map((clearance) => (
                 <div
                   key={clearance.id}
-                  className={`p-4 border rounded-lg ${clearance.is_cleared ? 'bg-green-50 border-green-200' : 'bg-white'}`}
+                  className={`p-4 border rounded-md ${clearance.is_cleared ? 'bg-green-50 border-green-200' : 'bg-white'}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -483,7 +483,7 @@ export default function ExitDetailPage() {
             {exitRequest.asset_returns && exitRequest.asset_returns.length > 0 ? (
               <div className="space-y-4">
                 {exitRequest.asset_returns.map((asset) => (
-                  <div key={asset.id} className="p-4 border rounded-lg">
+                  <div key={asset.id} className="p-4 border rounded-md">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{asset.asset_name}</p>

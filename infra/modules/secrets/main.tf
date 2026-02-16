@@ -12,6 +12,7 @@ locals {
     "email-host-password" = "SMTP email password"
     "ldap-bind-password" = "LDAP bind password"
     "azure-client-secret" = "Azure AD client secret"
+    "sendgrid-api-key"    = "SendGrid API key for transactional email"
   }
 
   # Both service accounts need read access (static keys for for_each)

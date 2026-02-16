@@ -167,7 +167,7 @@ export default function DocumentUploader({
             {label}
           </label>
         )}
-        <div className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="flex items-center gap-4 p-4 border border-gray-200 rounded-md bg-gray-50">
           {existingFile.is_image && existingFile.url ? (
             <img
               src={existingFile.url}
@@ -222,7 +222,7 @@ export default function DocumentUploader({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={clsx(
-          'relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg transition-colors cursor-pointer',
+          'relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md transition-colors cursor-pointer',
           isDragging
             ? 'border-primary-500 bg-primary-50'
             : 'border-gray-300 hover:border-gray-400 bg-white',

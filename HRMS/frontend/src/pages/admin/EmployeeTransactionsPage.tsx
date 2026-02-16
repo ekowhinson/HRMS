@@ -415,7 +415,7 @@ export default function EmployeeTransactionsPage() {
                 setSelectedTransactions(selectedTransactions.filter((id) => id !== item.id))
               }
             }}
-            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
           />
         ) : null,
       className: 'w-8',
@@ -738,7 +738,7 @@ export default function EmployeeTransactionsPage() {
         <form onSubmit={handleSubmitCreate} className="space-y-6">
           {/* Active Payroll Period */}
           {activePeriodName && (
-            <div className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+            <div className="p-3 bg-gray-50 rounded-md flex items-center justify-between">
               <span className="text-sm text-gray-600">Payroll Period</span>
               <Badge variant="info">{activePeriodName}</Badge>
             </div>
@@ -759,7 +759,7 @@ export default function EmployeeTransactionsPage() {
                     setIsBulkMode(false)
                     setSelectedEmployees([])
                   }}
-                  className={`px-3 py-2 text-sm rounded-lg border text-left ${
+                  className={`px-3 py-2 text-sm rounded-md border text-left ${
                     formData.target_type === opt.value
                       ? 'border-primary-500 bg-primary-50 text-primary-700'
                       : 'border-gray-300 hover:border-gray-400'
@@ -782,7 +782,7 @@ export default function EmployeeTransactionsPage() {
                     type="radio"
                     checked={!isBulkMode}
                     onChange={() => setIsBulkMode(false)}
-                    className="text-primary-600 focus:ring-primary-500"
+                    className="text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                   />
                   <span className="text-sm">Single Employee</span>
                 </label>
@@ -791,7 +791,7 @@ export default function EmployeeTransactionsPage() {
                     type="radio"
                     checked={isBulkMode}
                     onChange={() => setIsBulkMode(true)}
-                    className="text-primary-600 focus:ring-primary-500"
+                    className="text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                   />
                   <span className="text-sm">Multiple Employees</span>
                 </label>
@@ -803,7 +803,7 @@ export default function EmployeeTransactionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Employees ({selectedEmployees.length} selected)
                   </label>
-                  <div className="max-h-48 overflow-y-auto border rounded-lg">
+                  <div className="max-h-48 overflow-y-auto border rounded-md">
                     {employees.map((emp: Employee) => (
                       <label
                         key={emp.id}
@@ -819,7 +819,7 @@ export default function EmployeeTransactionsPage() {
                               setSelectedEmployees(selectedEmployees.filter((id) => id !== emp.id))
                             }
                           }}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                         />
                         <span className="text-sm">
                           {emp.full_name || `${emp.first_name} ${emp.last_name}`}
@@ -841,7 +841,7 @@ export default function EmployeeTransactionsPage() {
                     <div className="relative">
                       <ComboboxInput
                         autoComplete="off"
-                        className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm pr-8 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 hover:border-gray-400 sm:text-sm bg-white"
+                        className="block w-full px-3 py-2.5 border border-gray-300 rounded-md pr-8 transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] hover:border-gray-400 sm:text-sm bg-gray-50 focus:bg-white"
                         displayValue={(empId: string) => {
                           const emp = employees.find((e: Employee) => e.id === empId)
                           return emp ? `${emp.full_name || `${emp.first_name} ${emp.last_name}`} (${emp.employee_number})` : ''
@@ -859,7 +859,7 @@ export default function EmployeeTransactionsPage() {
                     </div>
                     <ComboboxOptions
                       anchor="bottom start"
-                      className="w-[var(--input-width)] z-50 max-h-60 overflow-auto rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none empty:invisible"
+                      className="w-[var(--input-width)] z-50 max-h-60 overflow-auto rounded-md bg-white py-1 text-sm shadow-dropdown ring-1 ring-black/5 focus:outline-none empty:invisible"
                     >
                       {employees.length === 0 ? (
                         <div className="px-4 py-2 text-gray-500">
@@ -904,7 +904,7 @@ export default function EmployeeTransactionsPage() {
                 required
               />
               {formData.job_grade && (
-                <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <div className="mt-2 p-3 bg-blue-50 rounded-md text-sm text-blue-700">
                   <strong>Note:</strong> This transaction will apply to all active employees with this job grade.
                 </div>
               )}
@@ -927,7 +927,7 @@ export default function EmployeeTransactionsPage() {
                 required
               />
               {formData.salary_band && (
-                <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <div className="mt-2 p-3 bg-blue-50 rounded-md text-sm text-blue-700">
                   <strong>Note:</strong> This transaction will apply to all active employees in this salary band (via grade or salary notch).
                 </div>
               )}
@@ -962,7 +962,7 @@ export default function EmployeeTransactionsPage() {
                   onClick={() =>
                     setFormData({ ...formData, override_type: opt.value as TransactionOverrideType })
                   }
-                  className={`px-3 py-2 text-sm rounded-lg border ${
+                  className={`px-3 py-2 text-sm rounded-md border ${
                     formData.override_type === opt.value
                       ? 'border-primary-500 bg-primary-50 text-primary-700'
                       : 'border-gray-300 hover:border-gray-400'
@@ -1003,7 +1003,7 @@ export default function EmployeeTransactionsPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Formula</label>
               <textarea
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm font-mono"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm font-mono bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
                 rows={2}
                 value={formData.override_formula}
                 onChange={(e) => setFormData({ ...formData, override_formula: e.target.value })}
@@ -1028,7 +1028,7 @@ export default function EmployeeTransactionsPage() {
 
           {/* Amount Preview */}
           {!isBulkMode && selectedComponent && selectedEmployee && (
-            <div className="p-3 bg-blue-50 rounded-lg">
+            <div className="p-3 bg-blue-50 rounded-md">
               <div className="flex items-center gap-2 text-sm text-blue-800">
                 <DocumentTextIcon className="h-4 w-4" />
                 <span>
@@ -1068,7 +1068,7 @@ export default function EmployeeTransactionsPage() {
               type="checkbox"
               checked={formData.is_recurring}
               onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             <span className="text-sm">Recurring Transaction</span>
           </label>
@@ -1079,7 +1079,7 @@ export default function EmployeeTransactionsPage() {
               Description / Justification
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               rows={2}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -1253,7 +1253,7 @@ export default function EmployeeTransactionsPage() {
               Notes (Optional)
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               rows={2}
               value={approvalNotes}
               onChange={(e) => setApprovalNotes(e.target.value)}
@@ -1303,7 +1303,7 @@ export default function EmployeeTransactionsPage() {
               Reason <span className="text-red-500">*</span>
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] sm:text-sm bg-gray-50 focus:bg-white hover:border-gray-400 transition-colors duration-150"
               rows={3}
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}

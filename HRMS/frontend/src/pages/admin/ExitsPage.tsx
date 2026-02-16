@@ -156,7 +156,7 @@ export default function ExitsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-md">
                 <ArrowRightStartOnRectangleIcon className="h-5 w-5 text-blue-600" />
               </div>
               <div>
@@ -169,7 +169,7 @@ export default function ExitsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
+              <div className="p-2 bg-yellow-100 rounded-md">
                 <ClockIcon className="h-5 w-5 text-yellow-600" />
               </div>
               <div>
@@ -182,7 +182,7 @@ export default function ExitsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
+              <div className="p-2 bg-orange-100 rounded-md">
                 <ExclamationTriangleIcon className="h-5 w-5 text-orange-600" />
               </div>
               <div>
@@ -195,7 +195,7 @@ export default function ExitsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
+              <div className="p-2 bg-green-100 rounded-md">
                 <CheckCircleIcon className="h-5 w-5 text-green-600" />
               </div>
               <div>

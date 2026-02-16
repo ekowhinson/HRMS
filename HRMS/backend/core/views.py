@@ -33,8 +33,10 @@ from .serializers import (
     AnnouncementTargetSerializer, AnnouncementReadSerializer,
     AnnouncementAttachmentSerializer, DashboardAnnouncementSerializer,
     AttachmentSerializer, AttachmentListSerializer,
-    AuditLogSerializer, NotificationSerializer
+    AuditLogSerializer, NotificationSerializer,
+    EmailLogSerializer, EmailPreferenceSerializer,
 )
+from .models import EmailLog, EmailPreference
 
 
 class EmployeeIDConfigView(APIView):
@@ -884,6 +886,52 @@ class NotificationViewSet(viewsets.ModelViewSet):
             user=request.user, is_read=False
         ).update(is_read=True, read_at=timezone.now())
         return Response({'message': f'{updated} notifications marked as read'})
+
+
+# ============================================
+# Email ViewSets
+# ============================================
+
+class EmailLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only ViewSet for querying email delivery logs.
+    Admin-only access with filtering by status, event_type, and email.
+    """
+    queryset = EmailLog.objects.select_related('recipient_user').order_by('-created_at')
+    serializer_class = EmailLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        'status': ['exact'],
+        'event_type': ['exact'],
+        'recipient_email': ['exact', 'icontains'],
+        'created_at': ['gte', 'lte'],
+    }
+    search_fields = ['recipient_email', 'subject', 'event_type']
+    ordering_fields = ['created_at', 'status', 'event_type']
+    ordering = ['-created_at']
+
+
+class EmailPreferenceView(APIView):
+    """
+    User's own email preferences singleton.
+    GET: Return current preferences (creates default if none exist).
+    PUT: Update preferences.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        pref, _ = EmailPreference.objects.get_or_create(user=request.user)
+        serializer = EmailPreferenceSerializer(pref)
+        return Response(serializer.data)
+
+    def put(self, request):
+        pref, _ = EmailPreference.objects.get_or_create(user=request.user)
+        serializer = EmailPreferenceSerializer(pref, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 # ─── Async task status endpoints ────────────────────────────────────────────

@@ -12,6 +12,7 @@ import {
   PresentationChartBarIcon,
   CreditCardIcon,
 } from '@heroicons/react/24/outline'
+import { PageHeader, SectionHeader } from '@/components/ui'
 import { reportsService } from '@/services/reports'
 import ExportReportCard from '@/components/reports/ExportReportCard'
 
@@ -101,22 +102,20 @@ const reportCards = [
 export default function HRReportsPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">HR Reports</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Interactive reports and analytics for HR data
-        </p>
-      </div>
+      <PageHeader
+        title="HR Reports"
+        subtitle="Interactive reports and analytics for HR data"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reportCards.map((card) => (
           <Link
             key={card.href}
             to={card.href}
-            className="group block bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md hover:border-gray-300 transition-all"
+            className="group block bg-white rounded-md border border-gray-200 p-6 hover:shadow-md hover:border-gray-300 transition-colors duration-150"
           >
             <div className="flex items-start gap-4">
-              <div className={`${card.bgLight} p-3 rounded-lg group-hover:scale-105 transition-transform`}>
+              <div className={`${card.bgLight} p-3 rounded-md group-hover:scale-105 transition-transform`}>
                 <card.icon className={`h-6 w-6 text-gray-700`} />
               </div>
               <div className="flex-1 min-w-0">
@@ -134,8 +133,11 @@ export default function HRReportsPage() {
 
       {/* Quick Export */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Quick Export</h2>
-        <p className="text-sm text-gray-500 mb-4">Download HR data in CSV, Excel, or PDF format</p>
+        <SectionHeader
+          title="Quick Export"
+          subtitle="Download HR data in CSV, Excel, or PDF format"
+          className="mb-4"
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <ExportReportCard
             name="Employee Master Report"

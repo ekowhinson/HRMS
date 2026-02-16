@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
 import type { ExportFormat } from '@/services/reports'
-import { Card, CardContent } from '@/components/ui/Card'
-import { StatsCard } from '@/components/ui/StatsCard'
+import {
+  StatsCard,
+  PageHeader,
+  SkeletonStatsCard,
+  SkeletonTable,
+} from '@/components/ui'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { PieChartCard } from '@/components/charts/PieChartCard'
 import { chartColors } from '@/lib/design-tokens'
@@ -79,29 +81,35 @@ export default function KPITrackingReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">KPI Tracking Report</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Key performance indicators across Performance, Training, and Recruitment
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} />
-      </div>
+      <PageHeader
+        title="KPI Tracking Report"
+        subtitle="Key performance indicators across Performance, Training, and Recruitment"
+        breadcrumbs={[
+          { label: 'HR Reports', href: '/hr-reports' },
+          { label: 'KPI Tracking Report' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} />}
+      />
 
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={5} columns={4} />
+        </div>
       ) : (
         <>
           {/* Performance Section */}

@@ -1,0 +1,38 @@
+{% extends "email/base.html" %}
+
+{% block title %}Verify Your Account{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Complete Your Registration
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Hello {{ employee_name }},
+</p>
+
+<p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Your HRMS account has been created. Please verify your email address to activate your account and complete the registration process.
+</p>
+{% endblock %}
+
+{% block cta_row %}
+<tr><td style="padding:0 32px 24px 32px;text-align:center;">
+  {% include "email/partials/button.html" with url=verification_url text="Verify Email Address" %}
+</td></tr>
+<tr><td style="padding:0 32px 24px 32px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-left:4px solid #f59e0b;background-color:#fffbeb;border-radius:0 8px 8px 0;">
+    <tr>
+      <td style="padding:12px 16px;">
+        <p style="margin:0;font-size:13px;line-height:1.5;color:#92400e;">
+          This verification link will expire in <strong>24 hours</strong>. If the link expires, you will need to request a new one from your HR administrator.
+        </p>
+      </td>
+    </tr>
+  </table>
+  <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#9ca3af;">
+    If the button above doesn't work, copy and paste this URL into your browser:<br>
+    <a href="{{ verification_url }}" style="color:#059669;word-break:break-all;">{{ verification_url }}</a>
+  </p>
+</td></tr>
+{% endblock %}

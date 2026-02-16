@@ -271,7 +271,7 @@ export default function ServiceRequestsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
+            <div className="p-2 bg-gray-100 rounded-md">
               <TicketIcon className="h-5 w-5 text-gray-600" />
             </div>
             <div>
@@ -282,7 +282,7 @@ export default function ServiceRequestsPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
+            <div className="p-2 bg-primary-100 rounded-md">
               <ClockIcon className="h-5 w-5 text-primary-600" />
             </div>
             <div>
@@ -297,7 +297,7 @@ export default function ServiceRequestsPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-success-100 rounded-lg">
+            <div className="p-2 bg-success-100 rounded-md">
               <CheckCircleIcon className="h-5 w-5 text-success-600" />
             </div>
             <div>
@@ -310,7 +310,7 @@ export default function ServiceRequestsPage() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-danger-100 rounded-lg">
+            <div className="p-2 bg-danger-100 rounded-md">
               <ExclamationTriangleIcon className="h-5 w-5 text-danger-600" />
             </div>
             <div>
@@ -347,7 +347,7 @@ export default function ServiceRequestsPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="p-2 bg-gray-100 rounded-lg">
+                      <div className="p-2 bg-gray-100 rounded-md">
                         {getStatusIcon(request.status)}
                       </div>
                       <div>
@@ -410,7 +410,7 @@ export default function ServiceRequestsPage() {
               Request Type *
             </label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
               value={formData.request_type}
               onChange={(e) => setFormData({ ...formData, request_type: e.target.value })}
             >
@@ -450,7 +450,7 @@ export default function ServiceRequestsPage() {
                 <button
                   key={priority}
                   onClick={() => setFormData({ ...formData, priority })}
-                  className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 border rounded-md text-sm font-medium transition-colors duration-150 ${
                     formData.priority === priority
                       ? 'border-primary-500 bg-primary-50 text-primary-700'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -468,7 +468,7 @@ export default function ServiceRequestsPage() {
               Description *
             </label>
             <textarea
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
               rows={4}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -511,7 +511,7 @@ export default function ServiceRequestsPage() {
         {selectedRequest && (
           <div className="space-y-6">
             {/* Status & SLA Info */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md">
               <div className="flex items-center gap-3">
                 {getStatusIcon(selectedRequest.status)}
                 <div>
@@ -522,7 +522,7 @@ export default function ServiceRequestsPage() {
                 </div>
               </div>
               {selectedRequest.sla_deadline && (
-                <div className={`px-3 py-2 rounded-lg ${SLA_COLORS[selectedRequest.sla_status]}`}>
+                <div className={`px-3 py-2 rounded-md ${SLA_COLORS[selectedRequest.sla_status]}`}>
                   <p className="text-sm font-medium">SLA: {selectedRequest.sla_status}</p>
                   {selectedRequest.days_until_sla !== null && (
                     <p className="text-xs">
@@ -559,7 +559,7 @@ export default function ServiceRequestsPage() {
 
             {/* Resolution (if completed) */}
             {selectedRequest.status === 'COMPLETED' && selectedRequest.resolution_notes && (
-              <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
+              <div className="p-4 bg-success-50 border border-success-200 rounded-md">
                 <p className="font-medium text-success-800 mb-1">Resolution</p>
                 <p className="text-success-700">{selectedRequest.resolution_notes}</p>
               </div>
@@ -567,7 +567,7 @@ export default function ServiceRequestsPage() {
 
             {/* Rejection (if rejected) */}
             {selectedRequest.status === 'REJECTED' && selectedRequest.rejection_reason && (
-              <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg">
+              <div className="p-4 bg-danger-50 border border-danger-200 rounded-md">
                 <p className="font-medium text-danger-800 mb-1">Rejection Reason</p>
                 <p className="text-danger-700">{selectedRequest.rejection_reason}</p>
               </div>
@@ -580,7 +580,7 @@ export default function ServiceRequestsPage() {
               </p>
               <div className="space-y-3 max-h-60 overflow-y-auto">
                 {selectedRequest.comments?.filter(c => c.is_visible_to_employee).map((comment) => (
-                  <div key={comment.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div key={comment.id} className="flex gap-3 p-3 bg-gray-50 rounded-md">
                     <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
                       <ChatBubbleLeftRightIcon className="h-4 w-4 text-primary-600" />
                     </div>
@@ -657,7 +657,7 @@ export default function ServiceRequestsPage() {
               {loadingDocuments ? (
                 <div className="text-center py-4 text-gray-500">Loading documents...</div>
               ) : documents.length === 0 ? (
-                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <div className="bg-gray-50 rounded-md p-4 text-center">
                   <PaperClipIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">No attachments</p>
                 </div>
@@ -666,10 +666,10 @@ export default function ServiceRequestsPage() {
                   {documents.map((doc: any) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg border border-gray-200">
+                        <div className="p-2 bg-white rounded-md border border-gray-200">
                           <DocumentTextIcon className="h-5 w-5 text-gray-500" />
                         </div>
                         <div>
@@ -680,7 +680,7 @@ export default function ServiceRequestsPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleDocumentDownload(doc.id, doc.file_name)}
-                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors duration-150"
                           title="Download"
                         >
                           <ArrowDownTrayIcon className="h-4 w-4" />
@@ -688,7 +688,7 @@ export default function ServiceRequestsPage() {
                         {!['COMPLETED', 'CANCELLED', 'REJECTED'].includes(selectedRequest.status) && (
                           <button
                             onClick={() => handleDocumentDelete(doc.id)}
-                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors duration-150"
                             title="Delete"
                           >
                             <TrashIcon className="h-4 w-4" />
@@ -703,7 +703,7 @@ export default function ServiceRequestsPage() {
 
             {/* Satisfaction Rating (if completed and not yet rated) */}
             {selectedRequest.status === 'COMPLETED' && !selectedRequest.satisfaction_rating && (
-              <div className="p-4 bg-primary-50 border border-primary-200 rounded-lg">
+              <div className="p-4 bg-primary-50 border border-primary-200 rounded-md">
                 <p className="font-medium text-primary-800 mb-2">How was your experience?</p>
                 <Button
                   variant="outline"
@@ -720,7 +720,7 @@ export default function ServiceRequestsPage() {
 
             {/* Display Rating */}
             {selectedRequest.satisfaction_rating && (
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-gray-50 rounded-md">
                 <p className="text-sm text-gray-500 mb-2">Your Rating</p>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -821,7 +821,7 @@ export default function ServiceRequestsPage() {
               Additional Comments (optional)
             </label>
             <textarea
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
               rows={3}
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}

@@ -68,16 +68,16 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           defaultValue={defaultValue}
           onChange={handleChange}
           className={cn(
-            'block w-full px-3 py-2.5 border rounded-lg shadow-sm',
-            'placeholder-gray-400 text-gray-900',
-            'transition-all duration-200',
-            'focus:outline-none focus:ring-2 focus:border-primary-500',
+            'block w-full px-3 py-2.5 border rounded-md',
+            'bg-gray-50 placeholder-gray-400 text-gray-900',
+            'transition-colors duration-150',
+            'focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white',
             'hover:border-gray-400',
             'sm:text-sm',
             resizeClasses[resize],
             error
-              ? 'border-danger-500 focus:ring-danger-500/20 focus:border-danger-500'
-              : 'border-gray-300 focus:ring-primary-500/20',
+              ? 'border-danger-500 focus:ring-danger-500 focus:border-danger-500'
+              : 'border-gray-300',
             className
           )}
           aria-invalid={error ? 'true' : 'false'}

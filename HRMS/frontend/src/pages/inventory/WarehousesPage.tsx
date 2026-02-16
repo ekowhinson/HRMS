@@ -274,7 +274,7 @@ export default function WarehousesPage() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-md bg-primary-100 flex items-center justify-center">
                       <BuildingStorefrontIcon className="h-5 w-5 text-primary-600" />
                     </div>
                     <div>
@@ -407,7 +407,7 @@ export default function WarehousesPage() {
               type="checkbox"
               checked={formData.is_active}
               onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
             />
             <span className="text-sm text-gray-700">Active</span>
           </label>
@@ -452,14 +452,14 @@ export default function WarehousesPage() {
               {loadingStock ? (
                 <div className="text-center py-6 text-gray-500">Loading stock data...</div>
               ) : warehouseStock.length === 0 ? (
-                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                <div className="bg-gray-50 rounded-md p-6 text-center">
                   <CubeIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">No stock in this warehouse</p>
                 </div>
               ) : (
                 <>
                   <Table data={warehouseStock} columns={stockColumns} />
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                  <div className="mt-3 p-3 bg-gray-50 rounded-md flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-600">
                       Total Items: {warehouseStock.length}
                     </span>

@@ -1,0 +1,27 @@
+{% extends "email/base.html" %}
+
+{% block title %}Your Verification Code{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Hello {{ user_name }},
+</p>
+
+<p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Use the code below to complete your sign-in:
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;">
+  <tr>
+    <td style="padding:24px;text-align:center;background-color:#f0fdf4;border:2px dashed #059669;border-radius:8px;">
+      <p style="margin:0;font-size:36px;font-weight:700;font-family:'Courier New',Courier,monospace;color:#059669;letter-spacing:0.3em;">
+        {{ code }}
+      </p>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">
+  This code expires in <strong style="color:#374151;">5 minutes</strong>. If you did not attempt to sign in, ignore this email.
+</p>
+{% endblock %}

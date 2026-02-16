@@ -164,7 +164,7 @@ function CreateBackupModal({
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Backup Name</label>
           <input
             type="text"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
             placeholder="e.g., Monthly Full Backup"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -175,7 +175,7 @@ function CreateBackupModal({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
           <textarea
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none resize-y"
+            className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400 resize-y"
             rows={2}
             placeholder="Optional description..."
             value={description}
@@ -190,7 +190,7 @@ function CreateBackupModal({
             {(['FULL', 'SELECTIVE'] as const).map((type) => (
               <label
                 key={type}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-md border cursor-pointer transition-colors ${
                   backupType === type
                     ? 'border-primary-500 bg-primary-50 text-primary-700'
                     : 'border-gray-200 hover:border-gray-300'
@@ -202,7 +202,7 @@ function CreateBackupModal({
                   value={type}
                   checked={backupType === type}
                   onChange={() => setBackupType(type)}
-                  className="text-primary-600 focus:ring-primary-500"
+                  className="text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <div>
                   <span className="text-sm font-medium">{type === 'FULL' ? 'Full Backup' : 'Selective Backup'}</span>
@@ -233,7 +233,7 @@ function CreateBackupModal({
                     type="checkbox"
                     checked={selectedModules.includes(mod.value)}
                     onChange={() => toggleModule(mod.value)}
-                    className="rounded text-primary-600 focus:ring-primary-500"
+                    className="rounded text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                   />
                   {mod.label}
                 </label>
@@ -247,7 +247,7 @@ function CreateBackupModal({
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Retention Period (days)</label>
           <input
             type="number"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
             value={retentionDays}
             onChange={(e) => setRetentionDays(Number(e.target.value))}
             min={1}
@@ -344,7 +344,7 @@ function RestoreModal({
     <Modal isOpen={isOpen} onClose={handleClose} title="Restore from Backup" size="lg">
       <div className="space-y-5">
         {/* Backup Info */}
-        <div className="rounded-lg bg-gray-50 border border-gray-200 p-4">
+        <div className="rounded-md bg-gray-50 border border-gray-200 p-4">
           <div className="flex items-center gap-3">
             <CircleStackIcon className="h-5 w-5 text-gray-500" />
             <div>
@@ -363,7 +363,7 @@ function RestoreModal({
             {(['FULL', 'SELECTIVE'] as const).map((type) => (
               <label
                 key={type}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-md border cursor-pointer transition-colors ${
                   restoreType === type
                     ? 'border-primary-500 bg-primary-50 text-primary-700'
                     : 'border-gray-200 hover:border-gray-300'
@@ -375,7 +375,7 @@ function RestoreModal({
                   value={type}
                   checked={restoreType === type}
                   onChange={() => setRestoreType(type)}
-                  className="text-primary-600 focus:ring-primary-500"
+                  className="text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm font-medium">{type === 'FULL' ? 'Full Restore' : 'Selective Restore'}</span>
               </label>
@@ -401,7 +401,7 @@ function RestoreModal({
                     type="checkbox"
                     checked={selectedModules.includes(mod)}
                     onChange={() => toggleModule(mod)}
-                    className="rounded text-primary-600 focus:ring-primary-500"
+                    className="rounded text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                   />
                   {BACKUP_MODULES.find((m) => m.value === mod)?.label || mod}
                 </label>
@@ -421,7 +421,7 @@ function RestoreModal({
             ]).map((mode) => (
               <label
                 key={mode.value}
-                className={`flex items-start gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
+                className={`flex items-start gap-3 px-4 py-3 rounded-md border cursor-pointer transition-colors ${
                   restoreMode === mode.value
                     ? mode.value === 'OVERWRITE'
                       ? 'border-danger-500 bg-danger-50'
@@ -435,7 +435,7 @@ function RestoreModal({
                   value={mode.value}
                   checked={restoreMode === mode.value}
                   onChange={() => setRestoreMode(mode.value)}
-                  className={`mt-0.5 ${mode.value === 'OVERWRITE' ? 'text-danger-600 focus:ring-danger-500' : 'text-primary-600 focus:ring-primary-500'}`}
+                  className={`mt-0.5 ${mode.value === 'OVERWRITE' ? 'text-danger-600 focus:ring-1 focus:ring-danger-500' : 'text-primary-600 focus:ring-1 focus:ring-[#0969da]'}`}
                 />
                 <div>
                   <span className={`text-sm font-medium ${mode.value === 'OVERWRITE' ? 'text-danger-700' : ''}`}>
@@ -531,7 +531,7 @@ function VerifyModal({
       <div className="space-y-4">
         {/* Backup Info */}
         {backup && (
-          <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+          <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
             <p className="text-sm font-medium text-gray-900">{backup.name}</p>
             <p className="text-xs text-gray-500">{backup.backup_number}</p>
           </div>
@@ -564,7 +564,7 @@ function VerifyModal({
         {/* Results */}
         {result && (
           <div className="space-y-3">
-            <div className={`flex items-center gap-2 p-3 rounded-lg ${result.is_valid ? 'bg-success-50 border border-success-200' : 'bg-danger-50 border border-danger-200'}`}>
+            <div className={`flex items-center gap-2 p-3 rounded-md ${result.is_valid ? 'bg-success-50 border border-success-200' : 'bg-danger-50 border border-danger-200'}`}>
               {result.is_valid ? (
                 <CheckCircleIcon className="h-5 w-5 text-success-600" />
               ) : (
@@ -685,7 +685,7 @@ function ScheduleModal({
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Schedule Name</label>
           <input
             type="text"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
             placeholder="e.g., Nightly Full Backup"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -699,7 +699,7 @@ function ScheduleModal({
             {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map((type) => (
               <label
                 key={type}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-md border cursor-pointer text-sm transition-colors ${
                   scheduleType === type
                     ? 'border-primary-500 bg-primary-50 text-primary-700'
                     : 'border-gray-200 hover:border-gray-300'
@@ -711,7 +711,7 @@ function ScheduleModal({
                   value={type}
                   checked={scheduleType === type}
                   onChange={() => setScheduleType(type)}
-                  className="text-primary-600 focus:ring-primary-500"
+                  className="text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 {SCHEDULE_TYPE_LABELS[type]}
               </label>
@@ -724,7 +724,7 @@ function ScheduleModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Hour</label>
             <select
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
               value={timeHour}
               onChange={(e) => setTimeHour(Number(e.target.value))}
             >
@@ -738,7 +738,7 @@ function ScheduleModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Minute</label>
             <select
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
               value={timeMinute}
               onChange={(e) => setTimeMinute(Number(e.target.value))}
             >
@@ -756,7 +756,7 @@ function ScheduleModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Day of Week</label>
             <select
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
               value={dayOfWeek}
               onChange={(e) => setDayOfWeek(Number(e.target.value))}
             >
@@ -774,7 +774,7 @@ function ScheduleModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Day of Month</label>
             <select
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
               value={dayOfMonth}
               onChange={(e) => setDayOfMonth(Number(e.target.value))}
             >
@@ -794,7 +794,7 @@ function ScheduleModal({
             {(['FULL', 'SELECTIVE'] as const).map((type) => (
               <label
                 key={type}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-md border cursor-pointer text-sm transition-colors ${
                   backupType === type
                     ? 'border-primary-500 bg-primary-50 text-primary-700'
                     : 'border-gray-200 hover:border-gray-300'
@@ -806,7 +806,7 @@ function ScheduleModal({
                   value={type}
                   checked={backupType === type}
                   onChange={() => setBackupType(type)}
-                  className="text-primary-600 focus:ring-primary-500"
+                  className="text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 {type === 'FULL' ? 'Full' : 'Selective'}
               </label>
@@ -832,7 +832,7 @@ function ScheduleModal({
                     type="checkbox"
                     checked={selectedModules.includes(mod.value)}
                     onChange={() => toggleModule(mod.value)}
-                    className="rounded text-primary-600 focus:ring-primary-500"
+                    className="rounded text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                   />
                   {mod.label}
                 </label>
@@ -847,7 +847,7 @@ function ScheduleModal({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Retention (days)</label>
             <input
               type="number"
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
               value={retentionDays}
               onChange={(e) => setRetentionDays(Number(e.target.value))}
               min={1}
@@ -858,7 +858,7 @@ function ScheduleModal({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Max Backups</label>
             <input
               type="number"
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:outline-none hover:border-gray-400"
               value={maxBackups}
               onChange={(e) => setMaxBackups(Number(e.target.value))}
               min={1}
@@ -868,7 +868,7 @@ function ScheduleModal({
         </div>
 
         {/* Active Toggle */}
-        <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 border border-gray-200">
+        <div className="flex items-center justify-between px-4 py-3 rounded-md bg-gray-50 border border-gray-200">
           <div>
             <p className="text-sm font-medium text-gray-700">Active</p>
             <p className="text-xs text-gray-500">Enable or disable this schedule</p>
@@ -877,7 +877,7 @@ function ScheduleModal({
             type="button"
             role="switch"
             aria-checked={isActive}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:ring-offset-2 ${
               isActive ? 'bg-primary-600' : 'bg-gray-200'
             }`}
             onClick={() => setIsActive(!isActive)}
@@ -1306,7 +1306,7 @@ function SchedulesTab() {
               <CardContent>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${schedule.is_active ? 'bg-primary-100' : 'bg-gray-100'}`}>
+                    <div className={`p-2 rounded-md ${schedule.is_active ? 'bg-primary-100' : 'bg-gray-100'}`}>
                       <CalendarDaysIcon className={`h-5 w-5 ${schedule.is_active ? 'text-primary-600' : 'text-gray-400'}`} />
                     </div>
                     <div>
@@ -1321,7 +1321,7 @@ function SchedulesTab() {
                       type="button"
                       role="switch"
                       aria-checked={schedule.is_active}
-                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:ring-offset-2 ${
                         schedule.is_active ? 'bg-primary-600' : 'bg-gray-200'
                       }`}
                       onClick={() => toggleMutation.mutate(schedule)}

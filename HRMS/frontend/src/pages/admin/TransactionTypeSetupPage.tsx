@@ -704,7 +704,7 @@ export default function TransactionTypeSetupPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
               rows={2}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -743,7 +743,7 @@ export default function TransactionTypeSetupPage() {
                   key={opt.value}
                   type="button"
                   onClick={() => setCalculationMode(opt.value)}
-                  className={`px-3 py-2 text-left rounded-lg border transition-colors ${
+                  className={`px-3 py-2 text-left rounded-md border transition-colors duration-150 ${
                     calculationMode === opt.value
                       ? 'border-primary-500 bg-primary-50 text-primary-700'
                       : 'border-gray-300 hover:border-gray-400'
@@ -758,7 +758,7 @@ export default function TransactionTypeSetupPage() {
 
           {/* Fixed Amount Input */}
           {calculationMode === 'FIXED' && (
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 bg-gray-50 rounded-md">
               <Input
                 label="Fixed Amount (GH¢)"
                 type="number"
@@ -773,7 +773,7 @@ export default function TransactionTypeSetupPage() {
 
           {/* Percentage Calculation */}
           {calculationMode === 'PERCENTAGE' && (
-            <div className="p-4 bg-gray-50 rounded-lg space-y-4">
+            <div className="p-4 bg-gray-50 rounded-md space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <Select
                   label="Calculate From"
@@ -820,7 +820,7 @@ export default function TransactionTypeSetupPage() {
 
           {/* Loan Configuration */}
           {calculationMode === 'LOAN' && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-4">
               <h4 className="text-sm font-medium text-blue-800">Loan Deduction Settings</h4>
 
               <div className="grid grid-cols-3 gap-4">
@@ -860,7 +860,7 @@ export default function TransactionTypeSetupPage() {
                   {loanMethodOptions.map((method) => (
                     <label
                       key={method.value}
-                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors duration-150 ${
                         loanMethod === method.value
                           ? 'border-blue-500 bg-blue-100'
                           : 'border-blue-200 hover:border-blue-300'
@@ -901,7 +901,7 @@ export default function TransactionTypeSetupPage() {
 
           {/* Overtime Configuration */}
           {calculationMode === 'OVERTIME' && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-4">
+            <div className="p-4 bg-green-50 border border-green-200 rounded-md space-y-4">
               <h4 className="text-sm font-medium text-green-800">Overtime Settings</h4>
 
               <div className="grid grid-cols-2 gap-4">
@@ -967,11 +967,11 @@ export default function TransactionTypeSetupPage() {
 
           {/* Custom Formula */}
           {calculationMode === 'CUSTOM' && (
-            <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+            <div className="p-4 bg-gray-50 rounded-md space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Custom Formula</label>
                 <textarea
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm font-mono"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm font-mono"
                   rows={3}
                   value={formData.formula}
                   onChange={(e) => setFormData({ ...formData, formula: e.target.value })}
@@ -1002,7 +1002,7 @@ export default function TransactionTypeSetupPage() {
 
           {/* Formula Preview & Test (for non-fixed calculations) */}
           {calculationMode !== 'FIXED' && formData.formula && (
-            <div className="p-3 bg-gray-100 rounded-lg space-y-3">
+            <div className="p-3 bg-gray-100 rounded-md space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Generated Formula</label>
                 <code className="block text-xs bg-white p-2 rounded border overflow-x-auto whitespace-pre-wrap">
@@ -1069,7 +1069,7 @@ export default function TransactionTypeSetupPage() {
                   type="checkbox"
                   checked={formData.is_taxable}
                   onChange={(e) => setFormData({ ...formData, is_taxable: e.target.checked })}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                   disabled={formData.is_overtime || formData.is_bonus}
                 />
                 <span className="text-sm">Is Taxable (via PAYE)</span>
@@ -1080,7 +1080,7 @@ export default function TransactionTypeSetupPage() {
                     type="checkbox"
                     checked={formData.reduces_taxable}
                     onChange={(e) => setFormData({ ...formData, reduces_taxable: e.target.checked })}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                   />
                   <span className="text-sm">Reduces Taxable Income (Pre-tax)</span>
                 </label>
@@ -1097,7 +1097,7 @@ export default function TransactionTypeSetupPage() {
                         is_bonus: false,
                         is_taxable: false
                       })}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                     />
                     <span className="text-sm">Is Overtime (5%/10% tax)</span>
                   </label>
@@ -1111,7 +1111,7 @@ export default function TransactionTypeSetupPage() {
                         is_overtime: false,
                         is_taxable: false
                       })}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                     />
                     <span className="text-sm">Is Bonus (5% flat tax)</span>
                   </label>
@@ -1122,7 +1122,7 @@ export default function TransactionTypeSetupPage() {
                   type="checkbox"
                   checked={formData.affects_ssnit}
                   onChange={(e) => setFormData({ ...formData, affects_ssnit: e.target.checked })}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm">Affects SSNIT</span>
               </label>
@@ -1135,7 +1135,7 @@ export default function TransactionTypeSetupPage() {
                   type="checkbox"
                   checked={formData.is_statutory}
                   onChange={(e) => setFormData({ ...formData, is_statutory: e.target.checked })}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm">Is Statutory</span>
               </label>
@@ -1144,7 +1144,7 @@ export default function TransactionTypeSetupPage() {
                   type="checkbox"
                   checked={formData.is_recurring}
                   onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm">Is Recurring</span>
               </label>
@@ -1153,7 +1153,7 @@ export default function TransactionTypeSetupPage() {
                   type="checkbox"
                   checked={formData.is_prorated}
                   onChange={(e) => setFormData({ ...formData, is_prorated: e.target.checked })}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm">Is Prorated</span>
               </label>
@@ -1169,7 +1169,7 @@ export default function TransactionTypeSetupPage() {
                   type="checkbox"
                   checked={formData.show_on_payslip}
                   onChange={(e) => setFormData({ ...formData, show_on_payslip: e.target.checked })}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm">Show on Payslip</span>
               </label>
@@ -1178,7 +1178,7 @@ export default function TransactionTypeSetupPage() {
                   type="checkbox"
                   checked={formData.is_active}
                   onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm">Is Active</span>
               </label>
@@ -1193,7 +1193,7 @@ export default function TransactionTypeSetupPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, requires_approval: e.target.checked })
                   }
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
                 />
                 <span className="text-sm">Requires Approval</span>
               </label>
@@ -1238,7 +1238,7 @@ export default function TransactionTypeSetupPage() {
             Are you sure you want to delete <strong>{showDeleteModal?.name}</strong>?
           </p>
           {(showDeleteModal?.transaction_count || 0) > 0 && (
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
               <p className="text-sm text-yellow-800">
                 This transaction type has {showDeleteModal?.transaction_count} active transactions.
                 Deleting it may affect payroll calculations.

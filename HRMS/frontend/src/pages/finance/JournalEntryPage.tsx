@@ -476,7 +476,7 @@ export default function JournalEntryPage() {
       >
         <form onSubmit={handleCreate} className="space-y-4">
           {createMutation.error && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(createMutation.error as any)?.response?.data?.detail ||
                 (createMutation.error as any)?.response?.data?.non_field_errors?.[0] ||
                 'An error occurred while creating the journal entry.'}
@@ -544,7 +544,7 @@ export default function JournalEntryPage() {
               <p className="text-sm text-danger-600 mb-2">{formErrors.balance}</p>
             )}
 
-            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <div className="overflow-x-auto border border-gray-300 rounded-md">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -691,7 +691,7 @@ export default function JournalEntryPage() {
             )}
 
             {viewEntry.lines && viewEntry.lines.length > 0 && (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="border border-gray-300 rounded-md overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -780,7 +780,7 @@ export default function JournalEntryPage() {
                 : `Are you sure you want to reverse entry ${confirmAction.entry.entry_number}? A reversing entry will be created.`}
             </p>
             {(postMutation.error || reverseMutation.error) && (
-              <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+              <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
                 {((postMutation.error || reverseMutation.error) as any)?.response?.data?.detail ||
                   'An error occurred.'}
               </div>

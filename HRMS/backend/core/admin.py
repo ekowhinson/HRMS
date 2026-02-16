@@ -5,7 +5,8 @@ Core app admin configuration.
 from django.contrib import admin
 from .models import (
     Region, District, AuditLog, Notification,
-    Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment
+    Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment,
+    EmailLog, EmailPreference,
 )
 
 
@@ -134,3 +135,25 @@ class AnnouncementReadAdmin(admin.ModelAdmin):
 class AnnouncementAttachmentAdmin(admin.ModelAdmin):
     list_display = ['announcement', 'file_name', 'mime_type', 'file_size', 'created_at']
     search_fields = ['file_name', 'announcement__title']
+
+
+# Email Admin
+
+@admin.register(EmailLog)
+class EmailLogAdmin(admin.ModelAdmin):
+    list_display = ['recipient_email', 'event_type', 'subject', 'status', 'created_at']
+    list_filter = ['status', 'event_type', 'created_at']
+    search_fields = ['recipient_email', 'subject', 'event_type']
+    ordering = ['-created_at']
+    readonly_fields = [
+        'recipient_email', 'recipient_user', 'from_email', 'subject',
+        'event_type', 'template_name', 'status', 'status_detail',
+        'sendgrid_message_id', 'sent_at', 'delivered_at', 'opened_at',
+        'context_snapshot', 'retry_count', 'created_at',
+    ]
+
+
+@admin.register(EmailPreference)
+class EmailPreferenceAdmin(admin.ModelAdmin):
+    list_display = ['user', 'all_emails_enabled']
+    search_fields = ['user__email', 'user__first_name', 'user__last_name']

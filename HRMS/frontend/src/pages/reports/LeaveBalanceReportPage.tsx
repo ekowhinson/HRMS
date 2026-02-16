@@ -1,18 +1,21 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import {
-  ArrowLeftIcon,
-  MagnifyingGlassIcon,
-} from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
 import type { ExportFormat } from '@/services/reports'
-import { Card, CardContent } from '@/components/ui/Card'
-import Select from '@/components/ui/Select'
-import Input from '@/components/ui/Input'
-import { TablePagination } from '@/components/ui/Table'
+import {
+  Card,
+  CardContent,
+  StatsCard,
+  Select,
+  Input,
+  TablePagination,
+  PageHeader,
+  EmptyState,
+  SkeletonStatsCard,
+  SkeletonTable,
+} from '@/components/ui'
 import { useClientPagination } from '@/hooks/useClientPagination'
-import { StatsCard } from '@/components/ui/StatsCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { chartColors } from '@/lib/design-tokens'
 import ExportMenu from '@/components/ui/ExportMenu'
@@ -101,38 +104,36 @@ export default function LeaveBalanceReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Leave Balance Report</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Employee leave balances and entitlements for the year
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-32">
-            <Select
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              options={yearOptions}
-            />
-          </div>
-          <ExportMenu onExport={handleExport} loading={exporting} />
-        </div>
-      </div>
+      <PageHeader
+        title="Leave Balance Report"
+        subtitle="Employee leave balances and entitlements for the year"
+        breadcrumbs={[
+          { label: 'HR Reports', href: '/hr-reports' },
+          { label: 'Leave Balance Report' },
+        ]}
+        actions={
+          <>
+            <div className="w-32">
+              <Select
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                options={yearOptions}
+              />
+            </div>
+            <ExportMenu onExport={handleExport} loading={exporting} />
+          </>
+        }
+      />
 
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={5} columns={7} />
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -297,9 +298,12 @@ export default function LeaveBalanceReportPage() {
                     />
                   )}
                   {totalItems === 0 && (
-                    <div className="px-4 py-8 text-center text-sm text-gray-500">
-                      No leave balance records found.
-                    </div>
+                    <EmptyState
+                      type="data"
+                      title="No leave balance records found"
+                      description="There are no leave balance records matching your criteria."
+                      compact
+                    />
                   )}
                 </>
               )}

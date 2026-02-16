@@ -351,7 +351,7 @@ export default function ItemsPage() {
 
       {/* Low Stock Alert */}
       {items.some((item: Item) => item.is_stockable && (item.current_stock ?? 0) <= item.reorder_level) && (
-        <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
           <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 flex-shrink-0" />
           <p className="text-sm text-yellow-800">
             Some items are below their reorder level. Review stock levels and create purchase orders as needed.
@@ -469,7 +469,7 @@ export default function ItemsPage() {
                 type="checkbox"
                 checked={formData.is_stockable}
                 onChange={(e) => setFormData({ ...formData, is_stockable: e.target.checked })}
-                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
               />
               <span className="text-sm text-gray-700">Stockable</span>
             </label>
@@ -478,7 +478,7 @@ export default function ItemsPage() {
                 type="checkbox"
                 checked={formData.is_asset}
                 onChange={(e) => setFormData({ ...formData, is_asset: e.target.checked })}
-                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
               />
               <span className="text-sm text-gray-700">Fixed Asset</span>
             </label>
@@ -487,7 +487,7 @@ export default function ItemsPage() {
                 type="checkbox"
                 checked={formData.is_active}
                 onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
               />
               <span className="text-sm text-gray-700">Active</span>
             </label>

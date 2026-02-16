@@ -81,7 +81,7 @@ export function PieChartCard({
       const percentage = ((data.value / total) * 100).toFixed(1);
 
       return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+        <div className="bg-white border border-gray-200 rounded-md shadow-dropdown p-3">
           <p className="text-sm font-medium text-gray-900">{data.name}</p>
           <p className="text-sm text-gray-600">
             {valueFormatter(data.value)} ({percentage}%)
@@ -124,7 +124,7 @@ export function PieChartCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-xl border border-gray-200/60 p-6',
+        'bg-white rounded-md border border-gray-200 p-6',
         className
       )}
     >

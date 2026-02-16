@@ -8,7 +8,7 @@ from django.utils import timezone
 from .models import (
     Region, District, Notification, AuditLog,
     Announcement, AnnouncementTarget, AnnouncementRead, AnnouncementAttachment,
-    Attachment
+    Attachment, EmailLog, EmailPreference,
 )
 
 
@@ -354,6 +354,43 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
             instance.set_banner(banner_file)
             instance.save()
         return instance
+
+
+# ============================================
+# Email Serializers
+# ============================================
+
+class EmailLogSerializer(serializers.ModelSerializer):
+    """Read-only serializer for email delivery logs."""
+    recipient_user_name = serializers.CharField(
+        source='recipient_user.get_full_name', read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = EmailLog
+        fields = [
+            'id', 'recipient_email', 'recipient_user', 'recipient_user_name',
+            'from_email', 'subject', 'event_type', 'template_name',
+            'status', 'status_detail', 'sendgrid_message_id',
+            'sent_at', 'delivered_at', 'opened_at',
+            'retry_count', 'created_at',
+        ]
+
+
+class EmailPreferenceSerializer(serializers.ModelSerializer):
+    """Serializer for user email preferences (GET/PUT own preferences)."""
+
+    class Meta:
+        model = EmailPreference
+        fields = [
+            'all_emails_enabled',
+            'leave_notifications', 'workflow_notifications',
+            'payroll_notifications', 'performance_notifications',
+            'recruitment_notifications', 'discipline_notifications',
+            'finance_notifications', 'procurement_notifications',
+            'training_notifications', 'benefits_notifications',
+            'employee_notifications', 'exits_notifications',
+        ]
 
 
 class DashboardAnnouncementSerializer(serializers.ModelSerializer):

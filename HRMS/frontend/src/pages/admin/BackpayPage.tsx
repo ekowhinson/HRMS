@@ -512,7 +512,7 @@ export default function BackpayPage() {
   return (
     <div className="space-y-6">
       {/* ── Section 1: Hero Banner ── */}
-      <div className="bg-primary-700 rounded-lg p-6 text-white">
+      <div className="bg-primary-700 rounded-md p-6 text-white">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white">Backpay Management</h1>
@@ -530,14 +530,14 @@ export default function BackpayPage() {
             <button
               onClick={() => setShowApproveAllConfirm(true)}
               disabled={approvableCount === 0}
-              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckIcon className="h-4 w-4 mr-2" />
               Approve All{approvableCount > 0 ? ` (${approvableCount})` : ''}
             </button>
             <button
               onClick={() => setShowBulkDeleteModal(true)}
-              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-md transition-colors"
             >
               <TrashIcon className="h-4 w-4 mr-2" />
               Delete by Period
@@ -545,21 +545,21 @@ export default function BackpayPage() {
             <button
               onClick={() => detectMutation.mutate()}
               disabled={detectMutation.isPending}
-              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <MagnifyingGlassIcon className="h-4 w-4 mr-2" />
               {detectMutation.isPending ? 'Scanning...' : 'Detect Retropay'}
             </button>
             <button
               onClick={() => setShowBulkModal(true)}
-              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-md transition-colors"
             >
               <UsersIcon className="h-4 w-4 mr-2" />
               Bulk / All Staff
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-lg transition-colors"
+              className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-white/20 hover:bg-white/30 border border-white/20 rounded-md transition-colors"
             >
               <PlusIcon className="h-4 w-4 mr-2" />
               New Request
@@ -571,8 +571,8 @@ export default function BackpayPage() {
       {/* ── Section 2: Summary Stats Row ── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {/* Total Requests */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-slate-500 p-5">
-          <div className="bg-slate-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md shadow-xs border-l-4 border-l-slate-500 p-5">
+          <div className="bg-slate-100 rounded-md p-2 w-fit mb-3">
             <DocumentTextIcon className="w-5 h-5 text-slate-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{totalItems}</p>
@@ -580,8 +580,8 @@ export default function BackpayPage() {
         </div>
 
         {/* Draft */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-amber-500 p-5">
-          <div className="bg-amber-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md shadow-xs border-l-4 border-l-amber-500 p-5">
+          <div className="bg-amber-100 rounded-md p-2 w-fit mb-3">
             <ClockIcon className="w-5 h-5 text-amber-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{stats.draftCount}</p>
@@ -589,8 +589,8 @@ export default function BackpayPage() {
         </div>
 
         {/* Previewed */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-blue-500 p-5">
-          <div className="bg-blue-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md shadow-xs border-l-4 border-l-blue-500 p-5">
+          <div className="bg-blue-100 rounded-md p-2 w-fit mb-3">
             <EyeIcon className="w-5 h-5 text-blue-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{stats.previewedCount}</p>
@@ -598,8 +598,8 @@ export default function BackpayPage() {
         </div>
 
         {/* Approved */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-green-500 p-5">
-          <div className="bg-green-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md shadow-xs border-l-4 border-l-green-500 p-5">
+          <div className="bg-green-100 rounded-md p-2 w-fit mb-3">
             <CheckCircleIcon className="w-5 h-5 text-green-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{stats.approvedCount}</p>
@@ -607,8 +607,8 @@ export default function BackpayPage() {
         </div>
 
         {/* Net Arrears Total */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs border-l-4 border-l-primary-500 p-5 col-span-2 md:col-span-1">
-          <div className="bg-primary-100 rounded-lg p-2 w-fit mb-3">
+        <div className="bg-white border border-gray-200 rounded-md shadow-xs border-l-4 border-l-primary-500 p-5 col-span-2 md:col-span-1">
+          <div className="bg-primary-100 rounded-md p-2 w-fit mb-3">
             <BanknotesIcon className="w-5 h-5 text-primary-600" />
           </div>
           <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.totalNetArrears)}</p>
@@ -618,7 +618,7 @@ export default function BackpayPage() {
 
       {/* ── Section 4: Bulk Process Progress Bar ── */}
       {processingBatchId && bulkProgress && (
-        <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-xs">
+        <div className="bg-white border border-gray-200 rounded-md p-5 shadow-xs">
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-gray-700">
@@ -724,7 +724,7 @@ export default function BackpayPage() {
           ) : requests.length === 0 ? (
             /* ── Section 6: Illustrated Empty State ── */
             <div className="text-center py-16 space-y-4">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-lg">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-md">
                 <BanknotesIcon className="h-10 w-10 text-gray-300" />
               </div>
               <div>
@@ -984,7 +984,7 @@ export default function BackpayPage() {
             {selectedRequest.details && selectedRequest.details.length > 0 && (
               <div>
                 <h3 className="font-medium mb-3">Period-by-Period Breakdown</h3>
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <div className="overflow-x-auto rounded-md border border-gray-200">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-200">
@@ -1351,7 +1351,7 @@ export default function BackpayPage() {
       {bulkProcessResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-gray-900/50" onClick={() => setBulkProcessResult(null)} />
-          <div className="relative w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="relative w-full max-w-lg mx-4 bg-white rounded-md overflow-hidden">
             <div className="p-8">
               {/* Success Icon */}
               <div className="text-center mb-6">
@@ -1364,11 +1364,11 @@ export default function BackpayPage() {
 
               {/* Summary Stats */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                <div className="bg-blue-50 rounded-md p-4 text-center">
                   <p className="text-3xl font-bold text-blue-700">{bulkProcessResult.total}</p>
                   <p className="text-blue-600 text-sm mt-1">Requests Processed</p>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                <div className="bg-purple-50 rounded-md p-4 text-center">
                   <p className="text-3xl font-bold text-purple-700">
                     {bulkProcessResult.durationSeconds < 60
                       ? `${bulkProcessResult.durationSeconds}s`
@@ -1379,7 +1379,7 @@ export default function BackpayPage() {
               </div>
 
               {/* Breakdown */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3 mb-6">
+              <div className="bg-gray-50 rounded-md p-4 space-y-3 mb-6">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 text-sm">Calculated</span>
                   <span className="font-semibold text-gray-900">{bulkProcessResult.calculated}</span>
@@ -1396,7 +1396,7 @@ export default function BackpayPage() {
 
               {/* Errors Warning */}
               {bulkProcessResult.errorCount > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center gap-2">
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-6 flex items-center gap-2">
                   <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />
                   <p className="text-amber-700 text-sm">
                     {bulkProcessResult.errorCount} request(s) had errors during processing
@@ -1426,7 +1426,7 @@ export default function BackpayPage() {
               The following employees have backdated changes affecting paid/closed periods.
               Click "Create All" to generate DRAFT backpay requests for all detected employees.
             </p>
-            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto rounded-lg border border-gray-200">
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto rounded-md border border-gray-200">
               <table className="w-full text-sm">
                 <thead className="sticky top-0">
                   <tr className="bg-gray-50 border-b border-gray-200">

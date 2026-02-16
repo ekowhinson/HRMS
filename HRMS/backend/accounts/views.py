@@ -11,9 +11,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from django.utils import timezone
 from django.utils.decorators import method_decorator
-from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
+from core.email import send_email, EmailEvent
 
 from django.db import models
 
@@ -134,16 +134,13 @@ class LoginView(APIView):
         cache.set(f'2fa_login_{user.id}', code_hash, 300)
 
         if user.two_factor_method == 'EMAIL':
-            try:
-                send_mail(
-                    subject='HRMS - Your Login Verification Code',
-                    message=f'Your verification code is: {code}\n\nThis code expires in 5 minutes.',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
-            except Exception:
-                pass
+            send_email(
+                event=EmailEvent.TWO_FACTOR_CODE,
+                recipient_email=user.email,
+                context={'user_name': user.first_name or user.email, 'code': code},
+                recipient_user=user,
+                sync=True,
+            )
 
     def _verify_2fa_code(self, user, code):
         """Verify 2FA code (TOTP, EMAIL/SMS OTP, or backup code)."""
@@ -251,6 +248,15 @@ class ChangePasswordView(APIView):
             user_agent=request.META.get('HTTP_USER_AGENT', '')
         )
 
+        # Notify user of password change
+        send_email(
+            event=EmailEvent.PASSWORD_CHANGED,
+            recipient_email=user.email,
+            context={'user_name': user.first_name or user.email},
+            recipient_user=user,
+            sync=True,
+        )
+
         return Response({'message': 'Password changed successfully'})
 
     def get_client_ip(self, request):
@@ -298,29 +304,15 @@ class PasswordResetRequestView(APIView):
 
         # Send reset email
         try:
-            subject = 'HRMS - Password Reset Request'
-            message = f"""
-Hello {user.first_name or user.email},
-
-We received a request to reset your password for your HRMS account.
-
-Please click the link below to reset your password:
-{reset_url}
-
-This link will expire in 1 hour.
-
-If you did not request a password reset, please ignore this email. Your password will remain unchanged.
-
-Best regards,
-HRMS Team
-            """
-
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
+            send_email(
+                event=EmailEvent.PASSWORD_RESET,
+                recipient_email=email,
+                context={
+                    'user_name': user.first_name or user.email,
+                    'reset_url': reset_url,
+                },
+                recipient_user=user,
+                sync=True,
             )
         except Exception as e:
             logger.error(f'Failed to send password reset email to {email}: {e}')
@@ -511,6 +503,20 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
             return UserUpdateSerializer
         return UserSerializer
 
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        was_active = instance.is_active
+        user = serializer.save()
+        # Send deactivation email if account was just deactivated
+        if was_active and not user.is_active:
+            send_email(
+                event=EmailEvent.ACCOUNT_DEACTIVATED,
+                recipient_email=user.email,
+                context={'user_name': user.first_name or user.email},
+                recipient_user=user,
+                sync=True,
+            )
+
 
 class UserRoleListView(APIView):
     """Manage user roles."""
@@ -558,6 +564,17 @@ class UserRoleListView(APIView):
             is_primary=serializer.validated_data.get('is_primary', False),
             effective_from=serializer.validated_data.get('effective_from', timezone.now().date()),
             effective_to=serializer.validated_data.get('effective_to'),
+        )
+
+        # Notify user about role change
+        send_email(
+            event=EmailEvent.ROLE_CHANGED,
+            recipient_email=user.email,
+            context={
+                'user_name': user.first_name or user.email,
+                'new_role': role.name,
+            },
+            recipient_user=user,
         )
 
         return Response(UserRoleDetailSerializer(user_role).data, status=status.HTTP_201_CREATED)
@@ -610,28 +627,16 @@ class UserResetPasswordView(APIView):
         # Send email with temporary password
         try:
             frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
-            subject = 'HRMS - Your Password Has Been Reset'
-            message = f"""
-Hello {user.first_name or user.email},
-
-Your HRMS account password has been reset by an administrator.
-
-Your temporary password is: {new_password}
-
-Please log in at {frontend_url}/login and change your password immediately.
-
-If you did not expect this, please contact your HR administrator.
-
-Best regards,
-HRMS Team
-            """
-
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
+            send_email(
+                event=EmailEvent.ADMIN_PASSWORD_RESET,
+                recipient_email=user.email,
+                context={
+                    'user_name': user.first_name or user.email,
+                    'temp_password': new_password,
+                    'login_url': f'{frontend_url}/login',
+                },
+                recipient_user=user,
+                sync=True,
             )
         except Exception as e:
             import logging
@@ -995,29 +1000,14 @@ class EmployeeSignupView(APIView):
 
         # Send verification email
         try:
-            subject = 'HRMS - Complete Your Account Registration'
-            message = f"""
-Hello {employee.full_name},
-
-You have initiated the account registration process for HRMS.
-
-Please click the link below to complete your registration:
-{verification_url}
-
-This link will expire in 24 hours.
-
-If you did not request this, please ignore this email or contact HR.
-
-Best regards,
-HRMS Team
-            """
-
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
+            send_email(
+                event=EmailEvent.SIGNUP_VERIFICATION,
+                recipient_email=email,
+                context={
+                    'employee_name': employee.full_name,
+                    'verification_url': verification_url,
+                },
+                sync=True,
             )
         except Exception as e:
             # Log error but don't fail the request
@@ -1516,16 +1506,13 @@ class TwoFactorSetupView(APIView):
             cache.set(f'2fa_setup_{user.id}', {'code_hash': code_hash, 'method': method}, 300)
 
             if method == 'EMAIL':
-                try:
-                    send_mail(
-                        subject='HRMS - Two-Factor Authentication Setup Code',
-                        message=f'Your verification code is: {code}\n\nThis code expires in 5 minutes.',
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[user.email],
-                        fail_silently=False,
-                    )
-                except Exception:
-                    pass
+                send_email(
+                    event=EmailEvent.TWO_FACTOR_CODE,
+                    recipient_email=user.email,
+                    context={'user_name': user.first_name or user.email, 'code': code},
+                    recipient_user=user,
+                    sync=True,
+                )
 
             return Response({
                 'method': method,
@@ -1695,16 +1682,13 @@ class TwoFactorSendCodeView(APIView):
         cache.set(f'2fa_login_{user.id}', code_hash, 300)
 
         if user.two_factor_method == 'EMAIL':
-            try:
-                send_mail(
-                    subject='HRMS - Your Login Verification Code',
-                    message=f'Your verification code is: {code}\n\nThis code expires in 5 minutes.',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
-            except Exception:
-                pass
+            send_email(
+                event=EmailEvent.TWO_FACTOR_CODE,
+                recipient_email=user.email,
+                context={'user_name': user.first_name or user.email, 'code': code},
+                recipient_user=user,
+                sync=True,
+            )
         # SMS sending would go here when SMS provider is configured
 
         return Response({'message': 'Verification code sent.'})

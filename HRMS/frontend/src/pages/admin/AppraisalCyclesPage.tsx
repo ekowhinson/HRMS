@@ -530,7 +530,7 @@ export default function AppraisalCyclesPage() {
               <div className="p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Cycle</label>
                 <select
-                  className="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  className="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
                   value={selectedCycleId}
                   onChange={(e) => setSelectedCycleId(e.target.value)}
                 >
@@ -640,7 +640,7 @@ export default function AppraisalCyclesPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
                 rows={3}
                 value={formData.description || ''}
                 onChange={(e) => handleChange('description', e.target.value)}
@@ -650,7 +650,7 @@ export default function AppraisalCyclesPage() {
           </TabsContent>
 
           <TabsContent value="phases" className="space-y-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="bg-blue-50 p-4 rounded-md">
               <h4 className="font-medium text-blue-900 mb-2">Goal Setting Phase</h4>
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -668,7 +668,7 @@ export default function AppraisalCyclesPage() {
               </div>
             </div>
 
-            <div className="bg-yellow-50 p-4 rounded-lg">
+            <div className="bg-yellow-50 p-4 rounded-md">
               <h4 className="font-medium text-yellow-900 mb-2">Mid-Year Review Phase</h4>
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -686,7 +686,7 @@ export default function AppraisalCyclesPage() {
               </div>
             </div>
 
-            <div className="bg-green-50 p-4 rounded-lg">
+            <div className="bg-green-50 p-4 rounded-md">
               <h4 className="font-medium text-green-900 mb-2">Year-End Review Phase</h4>
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -706,7 +706,7 @@ export default function AppraisalCyclesPage() {
           </TabsContent>
 
           <TabsContent value="weights" className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <div className="bg-gray-50 p-4 rounded-md mb-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-700">Total Weight:</span>
                 <span className={`text-lg font-bold ${totalWeight === 100 ? 'text-green-600' : 'text-red-600'}`}>
@@ -847,7 +847,7 @@ export default function AppraisalCyclesPage() {
                   id="allow_self_assessment"
                   checked={formData.allow_self_assessment}
                   onChange={(e) => handleChange('allow_self_assessment', e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                 />
                 <label htmlFor="allow_self_assessment" className="text-sm font-medium text-gray-700">
                   Allow Self Assessment
@@ -860,7 +860,7 @@ export default function AppraisalCyclesPage() {
                   id="allow_peer_feedback"
                   checked={formData.allow_peer_feedback}
                   onChange={(e) => handleChange('allow_peer_feedback', e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                 />
                 <label htmlFor="allow_peer_feedback" className="text-sm font-medium text-gray-700">
                   Allow Peer Feedback (360°)
@@ -873,7 +873,7 @@ export default function AppraisalCyclesPage() {
                   id="require_manager_approval"
                   checked={formData.require_manager_approval}
                   onChange={(e) => handleChange('require_manager_approval', e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                 />
                 <label htmlFor="require_manager_approval" className="text-sm font-medium text-gray-700">
                   Require Manager Approval for Goals
@@ -934,7 +934,7 @@ export default function AppraisalCyclesPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phase</label>
             <select
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
               value={scheduleForm.phase}
               onChange={(e) => setScheduleForm(prev => ({ ...prev, phase: e.target.value as SchedulePhase }))}
             >
@@ -961,7 +961,7 @@ export default function AppraisalCyclesPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Departments</label>
-            <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
+            <div className="max-h-48 overflow-y-auto border rounded-md p-2 space-y-1">
               {(departments || []).map((dept: any) => (
                 <label key={dept.id} className="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
                   <input
@@ -975,7 +975,7 @@ export default function AppraisalCyclesPage() {
                           : prev.department_ids.filter(id => id !== dept.id)
                       }))
                     }}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                   />
                   <span className="text-sm">{dept.name}</span>
                 </label>
@@ -1002,7 +1002,7 @@ export default function AppraisalCyclesPage() {
         <div className="space-y-4">
           <p className="text-sm text-gray-600">Provide a reason for unlocking this schedule:</p>
           <textarea
-            className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+            className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
             rows={3}
             value={unlockReason}
             onChange={(e) => setUnlockReason(e.target.value)}
@@ -1032,7 +1032,7 @@ export default function AppraisalCyclesPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white hover:border-gray-400 transition-colors duration-150 sm:text-sm"
               rows={3}
               value={extensionForm.reason}
               onChange={(e) => setExtensionForm(prev => ({ ...prev, reason: e.target.value }))}

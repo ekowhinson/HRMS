@@ -1,0 +1,46 @@
+{% extends "email/base.html" %}
+
+{% block title %}Goods Received — {{ org_name|default:"NHIA" }} HRMS{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Goods Received
+</h2>
+
+<p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">
+  A goods receipt has been recorded for the following purchase order. Please review the details below.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+  <tr>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;width:140px;">GRN Number</td>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ grn_number }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;">PO Number</td>
+    <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ po_number }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;">Vendor</td>
+    <td style="padding:12px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ vendor_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#6b7280;">Received By</td>
+    <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">{{ received_by }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b7280;">Receipt Date</td>
+    <td style="padding:12px 16px;font-size:14px;color:#111827;">{{ receipt_date }}</td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">
+  Please verify the received goods against the purchase order. Any discrepancies should be reported immediately through the HRMS portal.
+</p>
+{% endblock %}
+
+{% block cta_row %}
+<tr><td style="padding:0 32px 24px 32px;text-align:center;">
+  {% include "email/partials/button.html" with url=frontend_url text="View Receipt" %}
+</td></tr>
+{% endblock %}

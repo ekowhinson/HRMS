@@ -8,10 +8,18 @@ import {
 import { reportsService, ExportFormat } from '@/services/reports'
 import { payrollService } from '@/services/payroll'
 import { payrollSetupService } from '@/services/payrollSetup'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import Button from '@/components/ui/Button'
-import Select from '@/components/ui/Select'
-import Input from '@/components/ui/Input'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Select,
+  Input,
+  PageHeader,
+  EmptyState,
+  SkeletonTable,
+} from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 import { useGroupBy } from '@/hooks/useGroupBy'
 import type { PayrollRun } from '@/types'
@@ -187,15 +195,14 @@ export default function StaffPayrollDataReportPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Payroll Data</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Employee payroll details including allowances and hire information
-          </p>
-        </div>
-        <div className="relative">
+      <PageHeader
+        title="Staff Payroll Data"
+        subtitle="Employee payroll details including allowances and hire information"
+        breadcrumbs={[
+          { label: 'Reports', href: '/reports' },
+          { label: 'Staff Payroll Data' },
+        ]}
+        actions={
           <div className="flex items-center gap-2">
             <Select
               value={exportFormat}
@@ -212,8 +219,8 @@ export default function StaffPayrollDataReportPage() {
               Export
             </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filters */}
       <Card>
@@ -298,41 +305,41 @@ export default function StaffPayrollDataReportPage() {
       {/* Summary Cards */}
       {data && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+          <div className="p-4 bg-blue-50 rounded-md border border-blue-100">
             <p className="text-xs text-blue-600 font-medium">Total Employees</p>
             <p className="text-2xl font-bold text-blue-700">{data.summary.total_employees}</p>
           </div>
-          <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+          <div className="p-4 bg-green-50 rounded-md border border-green-100">
             <p className="text-xs text-green-600 font-medium">Total Basic</p>
             <p className="text-lg font-bold text-green-700">
               {formatCurrency(data.summary.total_basic)}
             </p>
           </div>
-          <div className="p-4 bg-teal-50 rounded-lg border border-teal-100">
+          <div className="p-4 bg-teal-50 rounded-md border border-teal-100">
             <p className="text-xs text-teal-600 font-medium">Total Transport</p>
             <p className="text-lg font-bold text-teal-700">
               {formatCurrency(data.summary.total_transport)}
             </p>
           </div>
-          <div className="p-4 bg-amber-50 rounded-lg border border-amber-100">
+          <div className="p-4 bg-amber-50 rounded-md border border-amber-100">
             <p className="text-xs text-amber-600 font-medium">Total Utility</p>
             <p className="text-lg font-bold text-amber-700">
               {formatCurrency(data.summary.total_utility)}
             </p>
           </div>
-          <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
+          <div className="p-4 bg-orange-50 rounded-md border border-orange-100">
             <p className="text-xs text-orange-600 font-medium">Total Fuel</p>
             <p className="text-lg font-bold text-orange-700">
               {formatCurrency(data.summary.total_fuel)}
             </p>
           </div>
-          <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+          <div className="p-4 bg-purple-50 rounded-md border border-purple-100">
             <p className="text-xs text-purple-600 font-medium">Total Vehicle</p>
             <p className="text-lg font-bold text-purple-700">
               {formatCurrency(data.summary.total_vehicle)}
             </p>
           </div>
-          <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+          <div className="p-4 bg-indigo-50 rounded-md border border-indigo-100">
             <p className="text-xs text-indigo-600 font-medium">Total Acting</p>
             <p className="text-lg font-bold text-indigo-700">
               {formatCurrency(data.summary.total_acting)}
@@ -343,13 +350,7 @@ export default function StaffPayrollDataReportPage() {
 
       {/* Data Table */}
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <SkeletonTable rows={8} columns={8} />
       ) : filteredEmployees.length > 0 ? (
         <Card>
           <CardHeader>
@@ -433,8 +434,13 @@ export default function StaffPayrollDataReportPage() {
         </Card>
       ) : data ? (
         <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-gray-500">No employees found matching your criteria.</p>
+          <CardContent>
+            <EmptyState
+              type="search"
+              title="No employees found"
+              description="No employees found matching your criteria."
+              compact
+            />
           </CardContent>
         </Card>
       ) : null}

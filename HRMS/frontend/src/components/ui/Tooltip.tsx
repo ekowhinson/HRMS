@@ -74,7 +74,7 @@ export function Tooltip({
       {isVisible && content && (
         <div
           className={cn(
-            'absolute z-50 px-2.5 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap',
+            'absolute z-50 px-2.5 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-md shadow-lg whitespace-nowrap',
             'animate-fade-in',
             positionClasses[position],
             contentClassName
@@ -109,7 +109,7 @@ export function InfoTooltip({
     <Tooltip content={content} position={position} className={className}>
       <button
         type="button"
-        className="inline-flex items-center justify-center w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500"
+        className="inline-flex items-center justify-center w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors rounded-full focus:outline-none focus:ring-2 focus:ring-[#0969da]"
       >
         <svg
           className="w-4 h-4"

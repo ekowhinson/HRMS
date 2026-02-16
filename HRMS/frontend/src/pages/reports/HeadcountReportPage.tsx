@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
 import type { ExportFormat } from '@/services/reports'
-import { Card, CardContent } from '@/components/ui/Card'
-import Input from '@/components/ui/Input'
-import { StatsCard } from '@/components/ui/StatsCard'
+import {
+  Card,
+  CardContent,
+  StatsCard,
+  Input,
+  PageHeader,
+  EmptyState,
+  SkeletonStatsCard,
+  SkeletonTable,
+} from '@/components/ui'
 import { PieChartCard } from '@/components/charts/PieChartCard'
 import { UsersIcon } from '@heroicons/react/24/outline'
 import { chartColors } from '@/lib/design-tokens'
@@ -73,29 +79,25 @@ export default function HeadcountReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Headcount Report</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Workforce headcount breakdown by organizational structure, grade, type, and location
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} />
-      </div>
+      <PageHeader
+        title="Headcount Report"
+        subtitle="Workforce headcount breakdown by organizational structure, grade, type, and location"
+        breadcrumbs={[
+          { label: 'HR Reports', href: '/hr-reports' },
+          { label: 'Headcount Report' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} />}
+      />
 
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={5} columns={5} />
+        </div>
       ) : (
         <>
           {/* Summary stats */}
@@ -180,7 +182,12 @@ export default function HeadcountReportPage() {
                   )
                 })}
                 {byType.length === 0 && (
-                  <p className="text-sm text-gray-500">No employment type data available.</p>
+                  <EmptyState
+                    type="data"
+                    title="No employment type data"
+                    description="No employment type data available."
+                    compact
+                  />
                 )}
               </div>
             </CardContent>
@@ -242,9 +249,12 @@ export default function HeadcountReportPage() {
                 </table>
               </div>
               {filteredDepts.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-gray-500">
-                  No departments match your search.
-                </div>
+                <EmptyState
+                  type="search"
+                  title="No departments match your search"
+                  description="Try adjusting your search criteria."
+                  compact
+                />
               )}
             </CardContent>
           </Card>

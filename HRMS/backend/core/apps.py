@@ -24,3 +24,11 @@ class CoreConfig(AppConfig):
             import logging
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to setup audit signals: {e}")
+
+        # Connect email notification signals
+        try:
+            import core.email.signals  # noqa: F401
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to setup email signals: {e}")

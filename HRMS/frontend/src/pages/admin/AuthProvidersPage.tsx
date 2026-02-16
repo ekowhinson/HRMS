@@ -125,7 +125,7 @@ export default function AuthProvidersPage() {
       case 'LOCAL':
         return (
           <div className="space-y-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="p-4 bg-blue-50 rounded-md">
               <p className="text-sm text-blue-700">
                 Local authentication uses email and password stored in the database.
                 No additional configuration is required.
@@ -167,7 +167,7 @@ export default function AuthProvidersPage() {
       case 'LDAP':
         return (
           <div className="space-y-4">
-            <div className="p-4 bg-green-50 rounded-lg">
+            <div className="p-4 bg-green-50 rounded-md">
               <p className="text-sm text-green-700">
                 Configure LDAP/Active Directory connection settings.
                 Use LDAPS (ldaps://) for secure connections.
@@ -240,7 +240,7 @@ export default function AuthProvidersPage() {
       case 'AZURE_AD':
         return (
           <div className="space-y-4">
-            <div className="p-4 bg-purple-50 rounded-lg">
+            <div className="p-4 bg-purple-50 rounded-md">
               <p className="text-sm text-purple-700">
                 Configure Azure AD App Registration settings.
                 Get these values from the Azure Portal.
@@ -309,7 +309,7 @@ export default function AuthProvidersPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${colorClass}`}>
+                    <div className={`p-2 rounded-md ${colorClass}`}>
                       <Icon className="h-6 w-6" />
                     </div>
                     <div>
@@ -330,7 +330,7 @@ export default function AuthProvidersPage() {
               <CardContent>
                 {/* Connection Status */}
                 {provider.provider_type !== 'LOCAL' && provider.last_connection_test && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="mb-4 p-3 bg-gray-50 rounded-md">
                     <div className="flex items-center gap-2">
                       {provider.last_connection_status ? (
                         <CheckCircleIcon className="h-5 w-5 text-green-500" />

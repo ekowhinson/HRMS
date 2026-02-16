@@ -115,6 +115,16 @@ resource "google_cloud_run_v2_service" "api" {
         value = var.ollama_base_url
       }
 
+      env {
+        name  = "EMAIL_BACKEND"
+        value = "core.email.backend.SendGridBackend"
+      }
+
+      env {
+        name  = "DEFAULT_FROM_EMAIL"
+        value = "noreply@nhia.gov.gh"
+      }
+
       # ── Secrets from Secret Manager ──────────────────────────────────────
       env {
         name = "SECRET_KEY"
@@ -161,6 +171,16 @@ resource "google_cloud_run_v2_service" "api" {
         value_source {
           secret_key_ref {
             secret  = var.secret_ids["anthropic-api-key"]
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "SENDGRID_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.secret_ids["sendgrid-api-key"]
             version = "latest"
           }
         }

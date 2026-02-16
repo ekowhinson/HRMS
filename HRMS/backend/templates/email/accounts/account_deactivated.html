@@ -1,0 +1,48 @@
+{% extends "email/base.html" %}
+
+{% block title %}Account Deactivated{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Account Deactivated
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Hello {{ user_name }},
+</p>
+
+<p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Your HRMS account has been deactivated. You will no longer be able to log in or access any system resources.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px 0;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+  <tr>
+    <td style="padding:20px;">
+      <p style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#111827;">
+        What this means:
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
+        <tr>
+          <td style="padding:4px 0;font-size:14px;line-height:1.5;color:#374151;">
+            &#8226; You cannot log in to the HRMS portal
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;font-size:14px;line-height:1.5;color:#374151;">
+            &#8226; Pending requests and approvals have been reassigned
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;font-size:14px;line-height:1.5;color:#374151;">
+            &#8226; Your data is retained per the organization's data policy
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:15px;line-height:1.6;color:#374151;">
+  If you believe this was done in error, or if you have questions about this action, please contact your HR department immediately.
+</p>
+{% endblock %}

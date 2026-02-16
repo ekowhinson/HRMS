@@ -151,7 +151,7 @@ export default function PayrollImplementationPage() {
       </div>
 
       {/* Step Indicator */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-300">
         <nav className="flex">
           {STEPS.map((step, index) => {
             const isCurrent = step.id === currentStep
@@ -235,7 +235,7 @@ function UploadStep({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Allowances File */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition-colors">
+            <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center hover:border-primary-400 transition-colors duration-150">
               <CloudArrowUpIcon className="h-10 w-10 mx-auto text-gray-400 mb-3" />
               <p className="text-sm font-medium text-gray-700 mb-1">Allowances Structure File</p>
               <p className="text-xs text-gray-500 mb-3">Staff Allowances at all Bands.xlsx</p>
@@ -246,7 +246,7 @@ function UploadStep({
                   className="hidden"
                   onChange={(e) => onFileChange(e, 'allowances')}
                 />
-                <span className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <span className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-white">
                   Choose File
                 </span>
               </label>
@@ -259,7 +259,7 @@ function UploadStep({
             </div>
 
             {/* Staff Data File */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition-colors">
+            <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center hover:border-primary-400 transition-colors duration-150">
               <CloudArrowUpIcon className="h-10 w-10 mx-auto text-gray-400 mb-3" />
               <p className="text-sm font-medium text-gray-700 mb-1">Staff Data File</p>
               <p className="text-xs text-gray-500 mb-3">Staff Data for Payroll Implementation.xlsx</p>
@@ -270,7 +270,7 @@ function UploadStep({
                   className="hidden"
                   onChange={(e) => onFileChange(e, 'staff')}
                 />
-                <span className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <span className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-white">
                   Choose File
                 </span>
               </label>
@@ -471,7 +471,7 @@ function ProcessingStep({ progress }: { progress: PayrollProgress | null }) {
               const isComplete = (progress?.phase || 0) > phaseNum
 
               return (
-                <div key={idx} className={`flex items-start gap-4 p-3 rounded-lg ${
+                <div key={idx} className={`flex items-start gap-4 p-3 rounded-md ${
                   isCurrent ? 'bg-primary-50 border border-primary-200' :
                   isComplete ? 'bg-green-50' : 'bg-gray-50'
                 }`}>
@@ -519,7 +519,7 @@ function ProcessingStep({ progress }: { progress: PayrollProgress | null }) {
           {progress?.log && progress.log.length > 0 && (
             <div className="mt-6">
               <h4 className="text-sm font-medium text-gray-700 mb-2">Activity Log</h4>
-              <div className="bg-gray-900 rounded-lg p-4 max-h-48 overflow-y-auto">
+              <div className="bg-gray-900 rounded-md p-4 max-h-48 overflow-y-auto">
                 {progress.log.map((entry, i) => (
                   <p key={i} className="text-xs text-green-400 font-mono">{entry}</p>
                 ))}
@@ -548,7 +548,7 @@ function CompleteStep({
   return (
     <div className="space-y-4">
       {/* Success Banner */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+      <div className="bg-green-50 border border-green-200 rounded-md p-6 text-center">
         <CheckCircleIcon className="h-12 w-12 mx-auto text-green-500 mb-3" />
         <h3 className="text-lg font-medium text-green-800">Payroll Setup Complete</h3>
         <p className="text-sm text-green-600 mt-1">
@@ -600,7 +600,7 @@ function CompleteStep({
           <div className="space-y-3">
             <button
               onClick={() => onNavigate('/admin/employee-transactions')}
-              className="w-full flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between p-3 rounded-md border hover:bg-gray-50 transition-colors duration-150"
             >
               <div className="flex items-center gap-3">
                 <ClipboardDocumentListIcon className="h-5 w-5 text-gray-400" />
@@ -614,7 +614,7 @@ function CompleteStep({
 
             <button
               onClick={() => onNavigate('/admin/payroll')}
-              className="w-full flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between p-3 rounded-md border hover:bg-gray-50 transition-colors duration-150"
             >
               <div className="flex items-center gap-3">
                 <BanknotesIcon className="h-5 w-5 text-gray-400" />
@@ -628,7 +628,7 @@ function CompleteStep({
 
             <button
               onClick={() => onNavigate('/admin/tax-configuration')}
-              className="w-full flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between p-3 rounded-md border hover:bg-gray-50 transition-colors duration-150"
             >
               <div className="flex items-center gap-3">
                 <CalculatorIcon className="h-5 w-5 text-gray-400" />
@@ -662,7 +662,7 @@ function CompleteStep({
 
 function SummaryCard({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
   return (
-    <div className="bg-white border rounded-lg p-4">
+    <div className="bg-white border border-gray-300 rounded-md p-4">
       <div className="flex items-center gap-2 mb-2">{icon}</div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-xs text-gray-500">{label}</p>
@@ -672,7 +672,7 @@ function SummaryCard({ label, value, icon }: { label: string; value: string | nu
 
 function ResultCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-white border rounded-lg p-4 text-center">
+    <div className="bg-white border border-gray-300 rounded-md p-4 text-center">
       <p className="text-2xl font-bold text-gray-900">{typeof value === 'number' ? value.toLocaleString() : value}</p>
       <p className="text-xs text-gray-500 mt-1">{label}</p>
     </div>

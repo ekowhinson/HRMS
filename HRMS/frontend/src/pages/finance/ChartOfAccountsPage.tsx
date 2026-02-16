@@ -507,7 +507,7 @@ export default function ChartOfAccountsPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {saveError && (
-            <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
               {(saveError as any)?.response?.data?.detail ||
                 (saveError as any)?.response?.data?.non_field_errors?.[0] ||
                 'An error occurred while saving the account.'}
@@ -573,7 +573,7 @@ export default function ChartOfAccountsPage() {
                 type="checkbox"
                 checked={formData.is_header}
                 onChange={(e) => setFormData((prev) => ({ ...prev, is_header: e.target.checked }))}
-                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
               />
               <span className="text-sm text-gray-700">Header Account (grouping only)</span>
             </label>
@@ -582,7 +582,7 @@ export default function ChartOfAccountsPage() {
                 type="checkbox"
                 checked={formData.is_active}
                 onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
-                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-1 focus:ring-[#0969da]"
               />
               <span className="text-sm text-gray-700">Active</span>
             </label>
@@ -612,7 +612,7 @@ export default function ChartOfAccountsPage() {
           This action cannot be undone.
         </p>
         {deleteMutation.error && (
-          <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
+          <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-md text-sm text-danger-700">
             {(deleteMutation.error as any)?.response?.data?.detail ||
               'Cannot delete this account. It may have associated transactions.'}
           </div>

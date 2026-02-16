@@ -1,14 +1,20 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
-  ArrowLeftIcon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline'
-import { Card, CardContent } from '@/components/ui/Card'
-import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
+import {
+  Card,
+  CardContent,
+  Input,
+  Select,
+  Button,
+  PageHeader,
+  EmptyState,
+  SkeletonCard,
+} from '@/components/ui'
+import type { BreadcrumbItem } from '@/components/ui'
 import PeriodRangeSelector from '@/components/reports/PeriodRangeSelector'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
@@ -44,6 +50,7 @@ export interface EmployeeStatement {
 interface ContributionStatementLayoutProps {
   title: string
   backLink: string
+  breadcrumbs?: BreadcrumbItem[]
   columns: StatementColumn[]
   employees: EmployeeStatement[]
   isLoading: boolean
@@ -67,6 +74,7 @@ interface ContributionStatementLayoutProps {
 export default function ContributionStatementLayout({
   title,
   backLink,
+  breadcrumbs,
   columns,
   employees,
   isLoading,
@@ -122,23 +130,19 @@ export default function ContributionStatementLayout({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to={backLink} className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {fromPeriod && toPeriod
-                ? 'Showing data for selected period range'
-                : 'Select a period range to generate the report'}
-            </p>
-          </div>
-        </div>
-        {headerRight}
-      </div>
+      <PageHeader
+        title={title}
+        subtitle={
+          fromPeriod && toPeriod
+            ? 'Showing data for selected period range'
+            : 'Select a period range to generate the report'
+        }
+        breadcrumbs={breadcrumbs || [
+          { label: 'Reports', href: backLink },
+          { label: title },
+        ]}
+        actions={headerRight}
+      />
 
       {/* Filters */}
       <Card>
@@ -184,37 +188,36 @@ export default function ContributionStatementLayout({
             Showing {filtered.length} employee{filtered.length !== 1 ? 's' : ''}
           </p>
           <div className="flex gap-2">
-            <button
-              onClick={expandAll}
-              className="px-3 py-1 text-xs border rounded hover:bg-gray-50"
-            >
+            <Button size="sm" variant="outline" onClick={expandAll}>
               Expand All
-            </button>
-            <button
-              onClick={collapseAll}
-              className="px-3 py-1 text-xs border rounded hover:bg-gray-50"
-            >
+            </Button>
+            <Button size="sm" variant="outline" onClick={collapseAll}>
               Collapse All
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Loading */}
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
       ) : filtered.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-sm text-gray-500">
-            {!fromPeriod || !toPeriod
-              ? 'Please select a period range to view the report.'
-              : 'No records found matching your criteria.'}
+          <CardContent>
+            <EmptyState
+              type={!fromPeriod || !toPeriod ? 'data' : 'search'}
+              title={!fromPeriod || !toPeriod ? 'Select a period range' : 'No records found'}
+              description={
+                !fromPeriod || !toPeriod
+                  ? 'Please select a period range to view the report.'
+                  : 'No records found matching your criteria.'
+              }
+              compact
+            />
           </CardContent>
         </Card>
       ) : (

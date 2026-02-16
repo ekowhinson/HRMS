@@ -123,14 +123,14 @@ const LinkedSelect = forwardRef<HTMLSelectElement, LinkedSelectProps>(
               id={selectId}
               autoComplete="off"
               className={cn(
-                'block w-full px-3 py-2.5 border rounded-lg shadow-sm pr-8',
-                'transition-all duration-200',
-                'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
+                'block w-full px-3 py-2.5 border rounded-md pr-8',
+                'bg-gray-50 transition-colors duration-150',
+                'focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] focus:bg-white',
                 'hover:border-gray-400',
-                'sm:text-sm bg-white',
-                'disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed',
+                'sm:text-sm',
+                'disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed',
                 error
-                  ? 'border-danger-500 text-danger-900 focus:ring-danger-500/20 focus:border-danger-500'
+                  ? 'border-danger-500 text-danger-900 focus:ring-danger-500 focus:border-danger-500'
                   : 'border-gray-300',
                 isLoading && 'animate-pulse bg-gray-100',
                 className
@@ -154,8 +154,8 @@ const LinkedSelect = forwardRef<HTMLSelectElement, LinkedSelectProps>(
             anchor="bottom start"
             transition
             className={cn(
-              'w-[var(--input-width)] z-50 max-h-60 overflow-auto rounded-lg',
-              'bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none',
+              'w-[var(--input-width)] z-50 max-h-60 overflow-auto rounded-md',
+              'bg-white py-1 text-sm shadow-dropdown border border-gray-200 focus:outline-none',
               'transition duration-100 ease-out data-[leave]:data-[closed]:opacity-0',
               'empty:invisible',
             )}
@@ -169,7 +169,7 @@ const LinkedSelect = forwardRef<HTMLSelectElement, LinkedSelectProps>(
                 <ComboboxOption
                   key={option.value}
                   value={option}
-                  className="group relative cursor-pointer select-none py-2 pl-10 pr-4 text-gray-900 data-[focus]:bg-primary-50 data-[focus]:text-primary-900"
+                  className="group relative cursor-pointer select-none py-2 pl-10 pr-4 text-gray-900 data-[focus]:bg-gray-50 data-[focus]:text-gray-900"
                 >
                   <span className="block truncate group-data-[selected]:font-semibold">
                     {option.label}

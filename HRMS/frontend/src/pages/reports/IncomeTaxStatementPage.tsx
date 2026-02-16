@@ -42,6 +42,10 @@ export default function IncomeTaxStatementPage() {
     <ContributionStatementLayout
       title="Income Tax Statement"
       backLink="/reports"
+      breadcrumbs={[
+        { label: 'Reports', href: '/reports' },
+        { label: 'Income Tax Statement' },
+      ]}
       columns={columns}
       employees={employees}
       isLoading={isLoading}

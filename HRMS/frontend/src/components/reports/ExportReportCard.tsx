@@ -35,9 +35,9 @@ export default function ExportReportCard({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white rounded-md border border-gray-200 p-6">
       <div className="flex items-start gap-4">
-        <div className="bg-gray-50 p-3 rounded-lg">
+        <div className="bg-gray-50 p-3 rounded-md">
           <Icon className="h-6 w-6 text-gray-700" />
         </div>
         <div className="flex-1 min-w-0">

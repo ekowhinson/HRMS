@@ -154,10 +154,10 @@ export default function SavedReportsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search reports..."
-            className="block w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 bg-white text-sm shadow-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="block w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 bg-gray-50 text-sm placeholder-gray-400 focus:bg-white focus:border-[#0969da] focus:outline-none focus:ring-1 focus:ring-[#0969da] hover:border-gray-400"
           />
         </div>
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-md">
           {([
             { value: 'all', label: 'All' },
             { value: 'mine', label: 'Private' },
@@ -170,7 +170,7 @@ export default function SavedReportsPage() {
               className={cn(
                 'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
                 viewFilter === opt.value
-                  ? 'bg-white text-primary-600 shadow-sm'
+                  ? 'bg-white text-primary-600'
                   : 'text-gray-600 hover:text-gray-900'
               )}
             >

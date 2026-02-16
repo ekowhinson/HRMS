@@ -344,7 +344,7 @@ export default function LeavePlanningPage() {
                   </CardHeader>
                   <CardContent>
                     {/* Summary */}
-                    <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-md">
                       <div className="text-center">
                         <p className="text-sm text-gray-500">Entitlement</p>
                         <p className="text-lg font-bold">{plan.leave_entitlement} days</p>
@@ -425,14 +425,14 @@ export default function LeavePlanningPage() {
 
                     {/* Notes */}
                     {plan.employee_notes && (
-                      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <div className="mt-4 p-3 bg-blue-50 rounded-md">
                         <p className="text-sm text-blue-800">
                           <strong>Your Notes:</strong> {plan.employee_notes}
                         </p>
                       </div>
                     )}
                     {plan.manager_comments && (
-                      <div className="mt-2 p-3 bg-yellow-50 rounded-lg">
+                      <div className="mt-2 p-3 bg-yellow-50 rounded-md">
                         <p className="text-sm text-yellow-800">
                           <strong>Manager Comments:</strong> {plan.manager_comments}
                         </p>
@@ -524,7 +524,7 @@ export default function LeavePlanningPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150 sm:text-sm"
               rows={3}
               value={planForm.employee_notes}
               onChange={(e) => setPlanForm({ ...planForm, employee_notes: e.target.value })}
@@ -648,7 +648,7 @@ export default function LeavePlanningPage() {
               Reason for Carry Forward *
             </label>
             <textarea
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150 sm:text-sm"
               rows={3}
               value={cfForm.reason}
               onChange={(e) => setCfForm({ ...cfForm, reason: e.target.value })}

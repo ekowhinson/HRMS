@@ -558,7 +558,7 @@ export default function VacancyDetailPage() {
         {/* ========== Shortlisting Tab ========== */}
         <TabsContent value="shortlisting" className="mt-4 space-y-6">
           {/* Info banner */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
             <p className="text-sm text-blue-800">
               Define shortlisting criteria below. When auto-shortlist is enabled on this vacancy,
               new applicants are automatically scored against these criteria and shortlisted if they
@@ -676,7 +676,7 @@ export default function VacancyDetailPage() {
                         type="checkbox"
                         checked={criteriaForm.is_mandatory}
                         onChange={(e) => setCriteriaForm((prev) => ({ ...prev, is_mandatory: e.target.checked }))}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-primary-600 focus:ring-1 focus:ring-[#0969da] border-gray-300 rounded"
                       />
                       <span className="text-sm font-medium text-gray-700">
                         Mandatory (failing disqualifies)
@@ -861,7 +861,7 @@ export default function VacancyDetailPage() {
                   {vacancyURLs.map((url) => (
                     <div
                       key={url.id}
-                      className={`border rounded-lg p-4 ${url.is_active ? 'border-gray-200' : 'border-gray-100 bg-gray-50 opacity-60'}`}
+                      className={`border rounded-md p-4 ${url.is_active ? 'border-gray-200' : 'border-gray-100 bg-gray-50 opacity-60'}`}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">

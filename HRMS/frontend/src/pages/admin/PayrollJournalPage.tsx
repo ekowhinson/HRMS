@@ -182,28 +182,28 @@ export default function PayrollJournalPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Division</label>
-                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.division} onChange={e => handleFilterChange('division', e.target.value)}>
+                <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" value={filters.division} onChange={e => handleFilterChange('division', e.target.value)}>
                   <option value="">All Divisions</option>
                   {(divisions || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Directorate</label>
-                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.directorate} onChange={e => handleFilterChange('directorate', e.target.value)}>
+                <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" value={filters.directorate} onChange={e => handleFilterChange('directorate', e.target.value)}>
                   <option value="">All Directorates</option>
                   {(directorates || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
-                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.department} onChange={e => handleFilterChange('department', e.target.value)}>
+                <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" value={filters.department} onChange={e => handleFilterChange('department', e.target.value)}>
                   <option value="">All Departments</option>
                   {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Job Grade</label>
-                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.grade} onChange={e => handleFilterChange('grade', e.target.value)}>
+                <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" value={filters.grade} onChange={e => handleFilterChange('grade', e.target.value)}>
                   <option value="">All Grades</option>
                   {(grades || []).map((g: any) => <option key={g.id} value={g.id}>{g.name} ({g.code})</option>)}
                 </select>
@@ -292,28 +292,28 @@ export default function PayrollJournalPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Division</label>
-              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.division} onChange={e => handleFilterChange('division', e.target.value)}>
+              <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" value={filters.division} onChange={e => handleFilterChange('division', e.target.value)}>
                 <option value="">All Divisions</option>
                 {(divisions || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Directorate</label>
-              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.directorate} onChange={e => handleFilterChange('directorate', e.target.value)}>
+              <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" value={filters.directorate} onChange={e => handleFilterChange('directorate', e.target.value)}>
                 <option value="">All Directorates</option>
                 {(directorates || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
-              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.department} onChange={e => handleFilterChange('department', e.target.value)}>
+              <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" value={filters.department} onChange={e => handleFilterChange('department', e.target.value)}>
                 <option value="">All Departments</option>
                 {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Job Grade</label>
-              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={filters.grade} onChange={e => handleFilterChange('grade', e.target.value)}>
+              <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 focus:bg-white hover:border-gray-400 focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150" value={filters.grade} onChange={e => handleFilterChange('grade', e.target.value)}>
                 <option value="">All Grades</option>
                 {(grades || []).map((g: any) => <option key={g.id} value={g.id}>{g.name} ({g.code})</option>)}
               </select>

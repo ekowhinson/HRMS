@@ -512,7 +512,7 @@ export default function RequisitionsPage() {
               {lineItems.map((item, index) => (
                 <div
                   key={index}
-                  className="border border-gray-200 rounded-lg p-4 bg-gray-50/50"
+                  className="border border-gray-300 rounded-md p-4 bg-gray-50/50"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div className="md:col-span-4">
@@ -663,7 +663,7 @@ export default function RequisitionsPage() {
             {selectedRequisition.justification && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Justification</p>
-                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">
                   {selectedRequisition.justification}
                 </p>
               </div>
@@ -673,7 +673,7 @@ export default function RequisitionsPage() {
             {selectedRequisition.items && selectedRequisition.items.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3">Line Items</h4>
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <div className="overflow-x-auto border border-gray-300 rounded-md">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>

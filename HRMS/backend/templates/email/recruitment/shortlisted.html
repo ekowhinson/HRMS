@@ -1,0 +1,31 @@
+{% extends "email/base.html" %}
+
+{% block title %}You Have Been Shortlisted — {{ org_name|default:"NHIA" }} HRMS{% endblock %}
+
+{% block content %}
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">
+  Congratulations, You Have Been Shortlisted!
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Dear {{ applicant_name }},
+</p>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  We are pleased to inform you that your application for the position of <strong style="color:#059669;">{{ position }}</strong> at {{ org_name|default:"NHIA" }} has been shortlisted for the next stage of our recruitment process.
+</p>
+
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Our team will be in touch shortly with details about the next steps. Please ensure your contact information is up to date in the applicant portal.
+</p>
+
+<p style="margin:0 0 8px 0;font-size:15px;line-height:1.6;color:#374151;">
+  Thank you for your continued interest in joining our organization.
+</p>
+{% endblock %}
+
+{% block cta_row %}
+<tr><td style="padding:0 32px 24px 32px;text-align:center;">
+  {% include "email/partials/button.html" with url=frontend_url text="Go to Applicant Portal" %}
+</td></tr>
+{% endblock %}

@@ -637,7 +637,7 @@ export default function ResourceAllocationPage() {
                 .map((emp) => (
                   <div
                     key={emp.id}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-danger-200"
+                    className="flex items-center justify-between p-3 bg-white rounded-md border border-danger-200"
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-900">{emp.name}</p>
@@ -735,7 +735,7 @@ export default function ResourceAllocationPage() {
 
               if (newTotal > 100) {
                 return (
-                  <div className="flex items-start gap-2 p-3 bg-danger-50 rounded-lg border border-danger-200">
+                  <div className="flex items-start gap-2 p-3 bg-danger-50 rounded-md border border-danger-200">
                     <ExclamationTriangleIcon className="w-5 h-5 text-danger-500 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="text-sm font-medium text-danger-700">Over-Allocation Warning</p>

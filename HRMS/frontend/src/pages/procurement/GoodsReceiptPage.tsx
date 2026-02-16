@@ -464,7 +464,7 @@ export default function GoodsReceiptPage() {
 
           {/* Selected PO Info */}
           {selectedPO && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
               <div className="flex items-center gap-2 mb-2">
                 <TruckIcon className="h-5 w-5 text-blue-600" />
                 <h4 className="text-sm font-semibold text-blue-900">
@@ -494,7 +494,7 @@ export default function GoodsReceiptPage() {
           {lineItems.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-gray-900 mb-3">Receive Items</h4>
-              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <div className="overflow-x-auto border border-gray-300 rounded-md">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -530,7 +530,7 @@ export default function GoodsReceiptPage() {
                               max={remaining}
                               value={item.received_qty}
                               onChange={(e) => updateLineItem(index, 'received_qty', Number(e.target.value))}
-                              className="w-20 mx-auto block text-center border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary-500 focus:border-primary-500"
+                              className="w-20 mx-auto block text-center border border-gray-300 hover:border-gray-400 rounded-md px-2 py-1 text-sm bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
                             />
                           </td>
                           <td className="px-3 py-2">
@@ -540,7 +540,7 @@ export default function GoodsReceiptPage() {
                               max={item.received_qty}
                               value={item.accepted_qty}
                               onChange={(e) => updateLineItem(index, 'accepted_qty', Number(e.target.value))}
-                              className="w-20 mx-auto block text-center border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary-500 focus:border-primary-500"
+                              className="w-20 mx-auto block text-center border border-gray-300 hover:border-gray-400 rounded-md px-2 py-1 text-sm bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
                             />
                           </td>
                           <td className="px-3 py-2">
@@ -550,7 +550,7 @@ export default function GoodsReceiptPage() {
                               max={item.received_qty}
                               value={item.rejected_qty}
                               onChange={(e) => updateLineItem(index, 'rejected_qty', Number(e.target.value))}
-                              className="w-20 mx-auto block text-center border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary-500 focus:border-primary-500"
+                              className="w-20 mx-auto block text-center border border-gray-300 hover:border-gray-400 rounded-md px-2 py-1 text-sm bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
                             />
                           </td>
                           <td className="px-3 py-2">
@@ -560,7 +560,7 @@ export default function GoodsReceiptPage() {
                                 value={item.rejection_reason}
                                 onChange={(e) => updateLineItem(index, 'rejection_reason', e.target.value)}
                                 placeholder="Reason..."
-                                className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary-500 focus:border-primary-500"
+                                className="w-full border border-gray-300 hover:border-gray-400 rounded-md px-2 py-1 text-sm bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#0969da] focus:border-[#0969da] transition-colors duration-150"
                               />
                             )}
                           </td>
@@ -575,7 +575,7 @@ export default function GoodsReceiptPage() {
               {lineItems.some(
                 (item) => item.received_qty > 0 && item.accepted_qty + item.rejected_qty !== item.received_qty
               ) && (
-                <div className="mt-3 flex items-center gap-2 text-sm text-warning-600 bg-warning-50 p-3 rounded-lg">
+                <div className="mt-3 flex items-center gap-2 text-sm text-warning-600 bg-warning-50 p-3 rounded-md">
                   <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
                   <span>
                     Accepted + Rejected quantities must equal Received quantity for each item.
@@ -655,7 +655,7 @@ export default function GoodsReceiptPage() {
             {selectedGRN.notes && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Notes</p>
-                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedGRN.notes}</p>
+                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">{selectedGRN.notes}</p>
               </div>
             )}
 
@@ -665,15 +665,15 @@ export default function GoodsReceiptPage() {
               if (!summary) return null
               return (
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-center">
                     <p className="text-2xl font-bold text-blue-700">{summary.totalReceived}</p>
                     <p className="text-xs text-blue-600">Total Received</p>
                   </div>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
                     <p className="text-2xl font-bold text-green-700">{summary.totalAccepted}</p>
                     <p className="text-xs text-green-600">Accepted</p>
                   </div>
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3 text-center">
                     <p className="text-2xl font-bold text-red-700">{summary.totalRejected}</p>
                     <p className="text-xs text-red-600">Rejected</p>
                   </div>
@@ -685,7 +685,7 @@ export default function GoodsReceiptPage() {
             {selectedGRN.items && selectedGRN.items.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3">Received Items</h4>
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <div className="overflow-x-auto border border-gray-300 rounded-md">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>

@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ArrowLeftIcon, ExclamationTriangleIcon, ClockIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { ExclamationTriangleIcon, ClockIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { reportsService } from '@/services/reports'
 import type { ExportFormat } from '@/services/reports'
-import { Card, CardContent } from '@/components/ui/Card'
-import { StatsCard } from '@/components/ui/StatsCard'
+import {
+  Card,
+  CardContent,
+  StatsCard,
+  Button,
+  PageHeader,
+  SkeletonStatsCard,
+  SkeletonTable,
+} from '@/components/ui'
 import { PieChartCard } from '@/components/charts/PieChartCard'
 import { AreaChartCard } from '@/components/charts/AreaChartCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
@@ -84,29 +90,25 @@ export default function DemographicsReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/hr-reports" className="p-2 rounded-md hover:bg-gray-100 transition-colors">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Demographics Report</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Workforce demographics by gender, marital status, and age distribution
-            </p>
-          </div>
-        </div>
-        <ExportMenu onExport={handleExport} loading={exporting} />
-      </div>
+      <PageHeader
+        title="Demographics Report"
+        subtitle="Workforce demographics by gender, marital status, and age distribution"
+        breadcrumbs={[
+          { label: 'HR Reports', href: '/hr-reports' },
+          { label: 'Demographics Report' },
+        ]}
+        actions={<ExportMenu onExport={handleExport} loading={exporting} />}
+      />
 
       {isLoading ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonStatsCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={5} columns={4} />
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -203,9 +205,9 @@ export default function DemographicsReportPage() {
                       {retirementOver60.filter((e) => e.age === selectedOver60Age).length} employees past retirement age
                     </p>
                   </div>
-                  <button onClick={() => setSelectedOver60Age(null)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
+                  <Button variant="ghost" size="xs" onClick={() => setSelectedOver60Age(null)}>
                     <XMarkIcon className="h-5 w-5 text-gray-400" />
-                  </button>
+                  </Button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
@@ -250,9 +252,9 @@ export default function DemographicsReportPage() {
                       {retirementApproaching.filter((e) => e.age === selectedApproachingAge).length} employees approaching retirement
                     </p>
                   </div>
-                  <button onClick={() => setSelectedApproachingAge(null)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
+                  <Button variant="ghost" size="xs" onClick={() => setSelectedApproachingAge(null)}>
                     <XMarkIcon className="h-5 w-5 text-gray-400" />
-                  </button>
+                  </Button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
